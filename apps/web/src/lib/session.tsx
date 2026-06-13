@@ -50,6 +50,14 @@ export function SessionProvider({ children }: { children: ReactNode }) {
 
   const signOut = useCallback(async () => {
     await api.signout();
+    // Purge offline caches so directory data isn't readable after signout.
+    navigator.serviceWorker?.controller?.postMessage({ type: "purge" });
+    if (typeof caches !== "undefined") {
+      void caches
+        .keys()
+        .then((ks) => ks.filter((k) => k.startsWith("sd-")).forEach((k) => caches.delete(k)))
+        .catch(() => {});
+    }
     setMe(null);
   }, []);
 

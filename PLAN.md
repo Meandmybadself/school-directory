@@ -87,8 +87,10 @@ Privacy is resolved **server-side only**; geocoordinates are never serialized to
       (Bulk-import deferred ≤1rps queue is M4.)
 - [x] `GET /home/neighbors` (haversine ≤2mi, name + approx distance only)
 - [x] Language sheet + per-user locale; CJK line-height
-- [ ] Service worker (stale-while-revalidate) + IndexedDB mirror; read-only offline mode
-      (offline read-only banner + write-disable is wired; SW/IndexedDB cache pending)
+- [x] **Service worker** (`apps/web/public/sw.js`): SWR for app shell/assets,
+      network-first-with-cache-fallback for API GETs (read-only offline access to
+      previously loaded data), purge-on-signout. Registered in production only.
+      Offline write-guard in the API client (mutations throw when offline).
 
 ### M4 — Bulk import, invitations, masquerade, admin console
 - [x] **CSV bulk import** (`POST /admin/bulk-import`, sysadmin): client-side CSV
@@ -108,7 +110,11 @@ Privacy is resolved **server-side only**; geocoordinates are never serialized to
       and **audit-log viewer** (`GET /admin/audit` with action filter + cursor
       paging, resolves actor + masquerade-target emails). Verified: admin-gated,
       enumeration-safe enforcement when closed, audit entries + filtering.
-- [ ] Admin console (rest): co-manager/CSV invite UI, bulk import + dry-run
+- [x] **Co-manager invite UI**: "Invite someone to help manage {name}" opens an
+      InviteSheet (email → send) wired to the existing controllers endpoint;
+      in-sheet success/error. Verified: invite creates a pending control_invite,
+      audited; controller-gated (403 otherwise).
+- [ ] Admin console (rest): send queued bulk invites via Resend (batched)
 
 ---
 

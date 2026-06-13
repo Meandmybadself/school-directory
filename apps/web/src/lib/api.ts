@@ -24,6 +24,12 @@ export class ApiError extends Error {
 }
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
+  const method = (init?.method ?? "GET").toUpperCase();
+  const isMutation = method !== "GET" && method !== "HEAD";
+  // Fail writes fast while offline; reads still go through (the SW serves cache).
+  if (isMutation && navigator.onLine === false) {
+    throw new ApiError(0, { error: "offline" });
+  }
   const res = await fetch(`${API_BASE}${path}`, {
     ...init,
     credentials: "include",
