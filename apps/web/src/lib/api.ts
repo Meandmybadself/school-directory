@@ -1,5 +1,6 @@
 // Thin fetch client. Always sends credentials so the session cookie rides along.
 import type {
+  AdminUserDTO,
   ContactItemInput,
   CreateShareBody,
   GroupDetailDTO,
@@ -93,4 +94,9 @@ export const api = {
   deleteShare: (id: string) => request<{ ok: true }>(`/shares/${id}`, { method: "DELETE" }),
   shareTargets: (q: string) =>
     request<{ targets: ShareTargetDTO[] }>(`/shares/targets?q=${encodeURIComponent(q)}`),
+
+  adminUsers: () => request<{ users: AdminUserDTO[] }>("/admin/users"),
+  startMasquerade: (userId: string) =>
+    request<{ ok: true }>("/admin/masquerade", { method: "POST", body: JSON.stringify({ userId }) }),
+  stopMasquerade: () => request<{ ok: true }>("/admin/masquerade/stop", { method: "POST" }),
 };

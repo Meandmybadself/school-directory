@@ -11,8 +11,10 @@ export const auditMiddleware = createMiddleware<HonoEnv>(async (c, next) => {
   if (!drafts.length) return;
   const auth = c.var.auth;
   const meta = {
-    actorUserId: auth?.userId ?? null,
-    masqueradingAs: auth?.masqueradingAs ?? null,
+    // The real human is the actor; during masquerade that's the admin, and the
+    // target being viewed is recorded in masquerading_as.
+    actorUserId: auth?.realUserId ?? null,
+    masqueradingAs: auth?.isMasquerading ? auth.userId : null,
     ip: c.var.ip,
     userAgent: c.var.userAgent,
   };

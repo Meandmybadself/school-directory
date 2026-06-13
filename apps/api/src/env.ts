@@ -17,14 +17,19 @@ export interface Env {
 
 /** Authenticated context attached to a request after session middleware. */
 export interface AuthContext {
+  /** Effective user — the one whose data is in scope (the target during masquerade). */
   userId: string;
+  /** The real human behind the request — the admin during masquerade, else == userId. */
+  realUserId: string;
+  /** Effective user's email. */
   email: string;
+  /** Effective user's system-admin flag (a masqueraded target is NOT admin). */
   isSystemAdmin: boolean;
   sessionId: string;
   /** Active Person the user is acting as (from cookie/preference), if any. */
   activePersonId: string | null;
-  /** When masquerading, the admin's real user id; else null. */
-  masqueradingAs: string | null;
+  /** True when an admin is masquerading as `userId`. */
+  isMasquerading: boolean;
 }
 
 /** Hono generic env: bindings + per-request variables. */

@@ -11,6 +11,8 @@ interface SessionRow {
   user_id: string;
   expires_at: string;
   revoked_at: string | null;
+  acting_admin_id: string | null;
+  parent_session_id: string | null;
 }
 interface UserRow {
   id: string;
@@ -23,7 +25,7 @@ export const sessionMiddleware = createMiddleware<HonoEnv>(async (c, next) => {
   const sid = readSessionId(c);
   if (sid) {
     const session = await c.env.DB.prepare(
-      "SELECT id, user_id, expires_at, revoked_at FROM session WHERE id = ?",
+      "SELECT id, user_id, expires_at, revoked_at, acting_admin_id, parent_session_id FROM session WHERE id = ?",
     )
       .bind(sid)
       .first<SessionRow>();
@@ -46,11 +48,12 @@ export const sessionMiddleware = createMiddleware<HonoEnv>(async (c, next) => {
         const activePersonId = await resolveActivePerson(c, user.id);
         const auth: AuthContext = {
           userId: user.id,
+          realUserId: session.acting_admin_id ?? user.id,
           email: user.email,
           isSystemAdmin: user.is_system_admin === 1,
           sessionId: session.id,
           activePersonId,
-          masqueradingAs: null,
+          isMasquerading: !!session.acting_admin_id,
         };
         c.set("auth", auth);
       }

@@ -15,6 +15,7 @@ import { controllers } from "./routes/controllers.js";
 import { home } from "./routes/home.js";
 import { groups } from "./routes/groups.js";
 import { shares } from "./routes/shares.js";
+import { admin } from "./routes/admin.js";
 
 const app = new Hono<HonoEnv>();
 
@@ -45,6 +46,7 @@ app.route("/persons", persons);
 app.route("/home", home);
 app.route("/groups", groups);
 app.route("/shares", shares);
+app.route("/admin", admin);
 // share-targets is exposed under /shares/targets via the shares router.
 app.route("/", contacts); // /persons/:id/contacts + /contacts/:id
 app.route("/", controllers); // /persons/:id/controllers + /control-invites

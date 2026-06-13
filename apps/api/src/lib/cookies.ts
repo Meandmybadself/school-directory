@@ -28,6 +28,10 @@ export function readActivePerson(c: Context<HonoEnv>): string | undefined {
   return getCookie(c, ACTIVE_PERSON_COOKIE);
 }
 
+export function clearActivePersonCookie(c: Context<HonoEnv>): void {
+  deleteCookie(c, ACTIVE_PERSON_COOKIE, { secure: true, sameSite: "Lax", path: "/" });
+}
+
 export function setActivePersonCookie(c: Context<HonoEnv>, personId: string): void {
   // Readable client-side is unnecessary; keep httpOnly off so SPA can read if needed.
   setCookie(c, ACTIVE_PERSON_COOKIE, personId, {

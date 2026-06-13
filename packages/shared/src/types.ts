@@ -123,6 +123,13 @@ export interface CreateShareBody {
   targetId: string;
 }
 
+export interface AdminUserDTO {
+  id: string;
+  email: string;
+  isSystemAdmin: boolean;
+  personCount: number;
+}
+
 export interface MeDTO {
   user: {
     id: string;

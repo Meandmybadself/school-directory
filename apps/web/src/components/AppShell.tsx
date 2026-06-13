@@ -2,9 +2,19 @@
 import type { ReactNode } from "react";
 import { useNavigate } from "react-router-dom";
 import { Icon, type IconName } from "./Icon.js";
-import { OfflineBanner } from "./parts.js";
+import { OfflineBanner, MasqBanner } from "./parts.js";
 import { useOnline } from "../lib/useOnline.js";
 import { useI18n } from "../i18n/index.js";
+import { useSession } from "../lib/session.js";
+
+/** Persistent masquerade banner, shown app-wide whenever an admin is acting as another user. */
+export function MasqueradeBanner() {
+  const { t } = useI18n();
+  const { isMasquerading, activePerson, me, stopMasquerade } = useSession();
+  if (!isMasquerading) return null;
+  const who = activePerson?.displayName ?? me?.user.email ?? "user";
+  return <MasqBanner user={who} text={t("masqViewingAs")} back={t("masqReturn")} onBack={() => void stopMasquerade()} />;
+}
 
 export function AppShell({
   children,
@@ -20,6 +30,7 @@ export function AppShell({
   return (
     <div className={`sd ${locale === "zh" ? "sd-zh" : ""}`}>
       <div className="sd-app">
+        <MasqueradeBanner />
         {!online && <OfflineBanner text={t("offlineBanner")} readOnly={t("offlineReadOnly")} />}
         {banner}
         {children}

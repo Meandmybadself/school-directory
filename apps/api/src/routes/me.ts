@@ -52,7 +52,8 @@ me.get("/", async (c) => {
     },
     persons,
     activePersonId: auth.activePersonId,
-    masqueradingAs: auth.masqueradingAs,
+    // Surface the acting admin's id while masquerading so the client shows the banner.
+    masqueradingAs: auth.isMasquerading ? auth.realUserId : null,
   };
   return c.json(dto);
 });

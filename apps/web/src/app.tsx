@@ -7,6 +7,7 @@ import { SignIn, CheckEmail } from "./screens/Onboarding.js";
 import { Home } from "./screens/Home.js";
 import { ProfileView, ProfileEdit } from "./screens/Profile.js";
 import { GroupDetail, GroupsIndex } from "./screens/Group.js";
+import { Admin } from "./screens/Admin.js";
 import { DesktopShell } from "./components/DesktopShell.js";
 import { useIsDesktop } from "./lib/useIsDesktop.js";
 
@@ -63,6 +64,7 @@ export function App() {
       <Route path="/groups" element={<RequireAuth><GroupsIndex /></RequireAuth>} />
       <Route path="/groups/:id" element={<RequireAuth><GroupDetail /></RequireAuth>} />
       <Route path="/you" element={<RequireAuth><Stub title="You" nav="profile" /></RequireAuth>} />
+      <Route path="/admin" element={<RequireAuth><Admin /></RequireAuth>} />
 
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>

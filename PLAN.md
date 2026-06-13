@@ -93,8 +93,13 @@ Privacy is resolved **server-side only**; geocoordinates are never serialized to
 ### M4 — Bulk import, invitations, masquerade, admin console
 - [ ] CSV import with column map + dry-run, idempotent on email
 - [ ] Deferred geocode queue for bulk addresses
-- [ ] Masquerade (admin) + persistent banner, double-logged
-- [ ] Admin console: registration toggle, audit log table, invite
+- [x] **Masquerade** (admin): `POST /admin/masquerade` + `/stop`, short-lived
+      masquerade session (effective=target, tagged with acting admin + parent
+      session), persistent orange banner with "Return to admin", dual-logged
+      (actor=admin, masquerading_as=target). `GET /admin/users` + minimal /admin
+      screen to start it. Verified: 403 for non-admins, identity swap, audit,
+      stop/restore + session revoke.
+- [ ] Admin console: registration toggle, audit log table, invite (CSV)
 
 ---
 

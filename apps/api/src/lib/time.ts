@@ -8,6 +8,7 @@ export const MINUTES = 60 * 1000;
 export const DAYS = 24 * 60 * MINUTES;
 export const YEAR = 365 * DAYS;
 export const MAGIC_LINK_TTL = 15 * MINUTES;
+export const MASQUERADE_TTL = 60 * MINUTES;
 export const INVITE_TTL = 14 * DAYS;
 export const SESSION_TTL = YEAR;
 

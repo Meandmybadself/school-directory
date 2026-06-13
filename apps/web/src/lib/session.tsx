@@ -7,8 +7,10 @@ interface SessionValue {
   loading: boolean;
   me: MeDTO | null;
   activePerson: ControllablePersonDTO | null;
+  isMasquerading: boolean;
   refresh: () => Promise<void>;
   switchPerson: (personId: string) => Promise<void>;
+  stopMasquerade: () => Promise<void>;
   signOut: () => Promise<void>;
 }
 
@@ -41,6 +43,11 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     [refresh],
   );
 
+  const stopMasquerade = useCallback(async () => {
+    await api.stopMasquerade();
+    await refresh();
+  }, [refresh]);
+
   const signOut = useCallback(async () => {
     await api.signout();
     setMe(null);
@@ -48,9 +55,10 @@ export function SessionProvider({ children }: { children: ReactNode }) {
 
   const activePerson =
     me?.persons.find((p) => p.id === me.activePersonId) ?? me?.persons[0] ?? null;
+  const isMasquerading = !!me?.masqueradingAs;
 
   return (
-    <SessionContext.Provider value={{ loading, me, activePerson, refresh, switchPerson, signOut }}>
+    <SessionContext.Provider value={{ loading, me, activePerson, isMasquerading, refresh, switchPerson, stopMasquerade, signOut }}>
       {children}
     </SessionContext.Provider>
   );

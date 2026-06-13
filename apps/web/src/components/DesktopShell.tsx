@@ -6,10 +6,11 @@ import { Icon, type IconName } from "./Icon.js";
 import { Avatar } from "./atoms.js";
 import { IconBtn } from "./parts.js";
 import { PersonSwitcherSheet, LanguageSheet } from "./Sheets.js";
+import { MasqueradeBanner } from "./AppShell.js";
 import { useI18n } from "../i18n/index.js";
 import { useSession } from "../lib/session.js";
 
-type NavKey = "home" | "dir" | "groups" | "profile";
+type NavKey = "home" | "dir" | "groups" | "profile" | "admin";
 
 function capLabel(c: string): string {
   return c.charAt(0).toUpperCase() + c.slice(1).replace("_", " ");
@@ -18,13 +19,14 @@ function capLabel(c: string): string {
 function Sidebar({ active }: { active: NavKey }) {
   const { t } = useI18n();
   const navigate = useNavigate();
-  const { activePerson } = useSession();
+  const { activePerson, me } = useSession();
   const items: [IconName, NavKey, string, string][] = [
     ["home", "home", t("navHome"), "/"],
     ["search", "dir", t("navDir"), "/directory"],
     ["users3", "groups", t("navGroups"), "/groups"],
     ["eye", "profile", t("yourProfile"), activePerson ? `/persons/${activePerson.id}` : "/"],
   ];
+  if (me?.user.isSystemAdmin) items.push(["shield", "admin", "Admin", "/admin"]);
   return (
     <aside className="sd-desknav">
       <div style={{ padding: "0 8px 18px" }}>
@@ -77,6 +79,7 @@ export function DesktopShell({
     <div className={`sd sd-desktop ${locale === "zh" ? "sd-zh" : ""}`}>
       <Sidebar active={active} />
       <div className="sd-deskmain">
+        <MasqueradeBanner />
         <header className="sd-deskhead">
           <h1 className="sd-h2" style={{ fontSize: 20, flex: "0 0 auto" }}>{title}</h1>
           <div style={{ flex: 1, maxWidth: 360, position: "relative" }}>
