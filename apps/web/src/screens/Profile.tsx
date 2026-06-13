@@ -126,7 +126,6 @@ export function ProfileView() {
         <strong style={{ fontWeight: 700 }}>{t("previewingAsMember")}</strong>
         <div style={{ opacity: 0.7, fontSize: 11.5 }}>{t("whatOthersSee")}</div>
       </div>
-      <button onClick={() => navigate("/")} style={{ fontWeight: 700, textDecoration: "underline", background: "none", border: 0, color: "#fff", cursor: "pointer", font: "inherit" }}>{t("exitPreview")}</button>
     </div>
   ) : null;
 
