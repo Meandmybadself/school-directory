@@ -2,6 +2,10 @@
 -- Apply with: pnpm db:seed:local  (after db:migrate:local)
 -- Sign in as dana@eisenhower.edu — the magic link prints to the API console.
 
+-- Clear in dependency order so the seed is safely re-runnable (sessions/tokens
+-- created by sign-in testing reference user rows).
+DELETE FROM audit_log; DELETE FROM session; DELETE FROM auth_token;
+DELETE FROM control_invite; DELETE FROM share;
 DELETE FROM membership; DELETE FROM contact_item; DELETE FROM capability_grant;
 DELETE FROM control; DELETE FROM grp; DELETE FROM person; DELETE FROM user;
 
@@ -57,6 +61,11 @@ INSERT INTO contact_item (id, owner_kind, owner_id, type, label, value, visibili
   ('ci_dana_addr',  'person', 'per_dana', 'address','Home',  '128 Linden Ave',            'private', 1, 'done', 3, '2025-01-01T00:00:00.000Z', '2025-01-01T00:00:00.000Z');
 
 UPDATE contact_item SET geo_lat = 37.7849, geo_lng = -122.4094 WHERE id = 'ci_dana_addr';
+
+-- Household-owned (cascading) contact info shown on the Household screen.
+INSERT INTO contact_item (id, owner_kind, owner_id, type, label, value, visibility, geocode_status, sort_order, created_at, updated_at) VALUES
+  ('ci_hh_addr',  'group', 'grp_household', 'address', 'Shared address', '128 Linden Ave', 'service', 'done', 0, '2025-01-01T00:00:00.000Z', '2025-01-01T00:00:00.000Z'),
+  ('ci_hh_phone', 'group', 'grp_household', 'phone',   'Home phone',      '(415) 555-0148', 'private', 'none', 1, '2025-01-01T00:00:00.000Z', '2025-01-01T00:00:00.000Z');
 
 -- A few discoverable neighbors near Dana so Home shows the Neighbors module.
 INSERT INTO person (id, first_name, last_name, last_name_visibility, created_at) VALUES

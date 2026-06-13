@@ -13,6 +13,7 @@ import { persons } from "./routes/persons.js";
 import { contacts } from "./routes/contacts.js";
 import { controllers } from "./routes/controllers.js";
 import { home } from "./routes/home.js";
+import { groups } from "./routes/groups.js";
 
 const app = new Hono<HonoEnv>();
 
@@ -41,6 +42,7 @@ app.route("/auth", auth);
 app.route("/me", me);
 app.route("/persons", persons);
 app.route("/home", home);
+app.route("/groups", groups);
 app.route("/", contacts); // /persons/:id/contacts + /contacts/:id
 app.route("/", controllers); // /persons/:id/controllers + /control-invites
 app.post("/control-invites/:id/accept", (c) =>

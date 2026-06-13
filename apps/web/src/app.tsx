@@ -6,6 +6,9 @@ import { Icon } from "./components/Icon.js";
 import { SignIn, CheckEmail } from "./screens/Onboarding.js";
 import { Home } from "./screens/Home.js";
 import { ProfileView, ProfileEdit } from "./screens/Profile.js";
+import { GroupDetail, GroupsIndex } from "./screens/Group.js";
+import { DesktopShell } from "./components/DesktopShell.js";
+import { useIsDesktop } from "./lib/useIsDesktop.js";
 
 function Loading() {
   return (
@@ -21,20 +24,21 @@ function Loading() {
   );
 }
 
-function Stub({ title }: { title: string }) {
+function Stub({ title, nav = "home" }: { title: string; nav?: "home" | "dir" | "groups" | "profile" }) {
   const navigate = useNavigate();
-  return (
-    <AppShell>
-      <div className="sd-scroll" style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 14, padding: 24, textAlign: "center" }}>
-        <Icon name="bolt" size={30} style={{ color: "var(--ink-3)" }} />
-        <div>
-          <div className="sd-h2">{title}</div>
-          <p className="sd-lead" style={{ fontSize: 13.5, marginTop: 6 }}>This area arrives in a later milestone (see PLAN.md).</p>
-        </div>
-        <Btn kind="secondary" icon="arrowleft" onClick={() => navigate("/")}>Home</Btn>
+  const isDesktop = useIsDesktop();
+  const body = (
+    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 14, padding: 40, textAlign: "center", minHeight: 280 }}>
+      <Icon name="bolt" size={30} style={{ color: "var(--ink-3)" }} />
+      <div>
+        <div className="sd-h2">{title}</div>
+        <p className="sd-lead" style={{ fontSize: 13.5, marginTop: 6 }}>This area arrives in a later milestone (see PLAN.md).</p>
       </div>
-    </AppShell>
+      <Btn kind="secondary" icon="arrowleft" onClick={() => navigate("/")}>Home</Btn>
+    </div>
   );
+  if (isDesktop) return <DesktopShell active={nav} title={title}>{body}</DesktopShell>;
+  return <AppShell><div className="sd-scroll">{body}</div></AppShell>;
 }
 
 function RequireAuth({ children }: { children: React.ReactNode }) {
@@ -55,10 +59,10 @@ export function App() {
       <Route path="/persons/:id/edit" element={<RequireAuth><ProfileEdit /></RequireAuth>} />
       <Route path="/persons/:id/invite" element={<RequireAuth><Stub title="Invite a co-manager" /></RequireAuth>} />
 
-      <Route path="/directory" element={<RequireAuth><Stub title="Directory" /></RequireAuth>} />
-      <Route path="/groups" element={<RequireAuth><Stub title="Groups" /></RequireAuth>} />
-      <Route path="/groups/:id" element={<RequireAuth><Stub title="Group" /></RequireAuth>} />
-      <Route path="/you" element={<RequireAuth><Stub title="You" /></RequireAuth>} />
+      <Route path="/directory" element={<RequireAuth><Stub title="Directory" nav="dir" /></RequireAuth>} />
+      <Route path="/groups" element={<RequireAuth><GroupsIndex /></RequireAuth>} />
+      <Route path="/groups/:id" element={<RequireAuth><GroupDetail /></RequireAuth>} />
+      <Route path="/you" element={<RequireAuth><Stub title="You" nav="profile" /></RequireAuth>} />
 
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>

@@ -107,6 +107,20 @@ export interface Strings {
   roster: string;
   members: string;
   manage: string;
+  youreAdmin: string;
+  viewOnly: string;
+  classMember: string;
+  teachThisClass: string;
+  addMember: string;
+  setTitle: string;
+  setTitles: string;
+  editGroupInfo: string;
+  householdContact: string;
+  cascadeNote: string;
+  manageMembers: string;
+  messageAll: string;
+  adminManages: string; // uses {name}
+  teacherRuns: string; // uses {name}
 
   // language
   language: string;
@@ -225,6 +239,20 @@ const en: Strings = {
   roster: "Roster",
   members: "Members",
   manage: "Manage",
+  youreAdmin: "You're an admin",
+  viewOnly: "Member · view only",
+  classMember: "Class member",
+  teachThisClass: "You teach this class",
+  addMember: "Add member",
+  setTitle: "Set title",
+  setTitles: "Set titles",
+  editGroupInfo: "Edit info",
+  householdContact: "Household contact",
+  cascadeNote: "Cascades to everyone in the household.",
+  manageMembers: "Manage members",
+  messageAll: "Message all",
+  adminManages: "{name} manages this household. Ask an admin to make changes.",
+  teacherRuns: "{name} runs this classroom. You can see classmates who share with members.",
 
   language: "Language",
   languageNote: "Changes the directory for you only.",

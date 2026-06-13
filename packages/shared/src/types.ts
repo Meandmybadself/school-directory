@@ -65,6 +65,32 @@ export interface GroupSummaryDTO {
   isAdmin?: boolean;
 }
 
+export interface GroupMemberDTO {
+  personId: string;
+  /** Last-name-rule-applied display name. */
+  displayName: string;
+  title: string | null;
+  isAdmin: boolean;
+  /** True when this member is one of the viewing User's controlled Persons. */
+  isYou: boolean;
+  capabilities: Capability[];
+  photoUrl: string | null;
+}
+
+export interface GroupDetailDTO {
+  id: string;
+  kind: GroupKind;
+  name: string;
+  memberCount: number;
+  /** True when the viewer's active Person is an admin of this group. */
+  viewerIsAdmin: boolean;
+  /** True when the viewer's active Person is a member at all. */
+  viewerIsMember: boolean;
+  members: GroupMemberDTO[];
+  /** Group-owned contact items (e.g. household cascading address), filtered. */
+  contacts: ContactItemDTO[];
+}
+
 export interface ControllablePersonDTO {
   id: string;
   firstName: string;

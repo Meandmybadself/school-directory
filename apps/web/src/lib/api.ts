@@ -1,6 +1,7 @@
 // Thin fetch client. Always sends credentials so the session cookie rides along.
 import type {
   ContactItemInput,
+  GroupDetailDTO,
   MeDTO,
   NeighborsResponse,
   PersonPatchBody,
@@ -61,4 +62,6 @@ export const api = {
     }),
 
   neighbors: () => request<NeighborsResponse>("/home/neighbors"),
+
+  group: (id: string) => request<GroupDetailDTO>(`/groups/${id}`),
 };

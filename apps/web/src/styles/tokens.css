@@ -548,6 +548,83 @@ body {
   line-height: 1.5;
 }
 
+/* ── Desktop shell (≥900px): 244px sidebar + main column ───────────────────── */
+.sd-desktop {
+  display: flex;
+  height: 100%;
+  min-height: 100vh;
+  background: var(--bg);
+}
+.sd-desknav {
+  width: 244px;
+  flex: 0 0 auto;
+  background: var(--paper);
+  border-right: 1px solid var(--line);
+  display: flex;
+  flex-direction: column;
+  padding: 20px 14px;
+  position: sticky;
+  top: 0;
+  height: 100vh;
+}
+.sd-deskmain {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+.sd-deskhead {
+  flex: 0 0 auto;
+  background: var(--paper);
+  border-bottom: 1px solid var(--line);
+  padding: 13px 26px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+.sd-deskbody {
+  flex: 1 1 auto;
+  padding: 24px 26px;
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+}
+.sd-desknav-item {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  padding: 10px 11px;
+  border-radius: 10px;
+  cursor: pointer;
+  color: var(--ink-2);
+  font-weight: 600;
+  font-size: 14.5px;
+  background: transparent;
+  border: 0;
+  width: 100%;
+  text-align: left;
+  font-family: inherit;
+}
+.sd-desknav-item.on {
+  background: var(--blue-tint);
+  color: var(--blue-800);
+  font-weight: 700;
+}
+.sd-deskswitch {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 5px 12px 5px 6px;
+  border-radius: 999px;
+  border: 1px solid var(--line-2);
+  cursor: pointer;
+  background: var(--paper);
+  font-family: inherit;
+}
+
 /* spinner */
 @keyframes sd-spin {
   to {

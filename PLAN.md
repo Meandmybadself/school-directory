@@ -53,11 +53,19 @@ Privacy is resolved **server-side only**; geocoordinates are never serialized to
 - [x] Web: onboarding flow (sign in → check email → signing in → home), Home (layout A), Profile view/edit wired to API
 - [x] Control invites: invite co-controller, accept, last-controller guard
 
-### M2 — Groups (next iteration)
-- [ ] Households + Classrooms, memberships + titles, `is_admin`
-- [ ] Household contact cascade (Person inherits household address)
-- [ ] Shares: grant a private field/contact item to Person/Group; VisibilitySheet wired
-- [ ] Capability-gated UI (Teacher tools, Household admin tools)
+### Responsive desktop layouts ◀ shipped
+- [x] Desktop shell (244px sidebar nav + sticky header with search/globe/switcher)
+- [x] Desktop **Home** (4-up Neighbors row + groups/profile-snapshot rail)
+- [x] Desktop **Household/Group detail** (wide member card + 320px contact rail)
+- [x] `useIsDesktop` breakpoint; mobile + desktop share data + sub-components
+
+### M2 — Groups (partially started)
+- [x] Group detail read API (`GET /groups/:id`): members + titles + `is_admin`,
+      membership-gated, privacy-filtered group contacts (household cascade read)
+- [x] Households + Classrooms detail screens (mobile + desktop), Groups index
+- [ ] Editing: household contact info, classroom roster/title management (writes)
+- [ ] Shares: grant a private field/contact item to Person/Group; VisibilitySheet grantee mgmt
+- [ ] Capability-gated write tools (Teacher tools, Household admin tools)
 
 ### M3 — Neighbors + i18n + offline
 - [ ] Nominatim geocoding on address mutation (single-flight ≤1 rps, UA/attribution)
