@@ -90,6 +90,10 @@ export interface Strings {
   whoManages: string;
   inviteCoManager: string; // uses {name}
   owner: string;
+  inviteTitle: string; // uses {name}
+  inviteWhy: string; // uses {name}
+  inviteSend: string;
+  inviteSent: string; // uses {email}
 
   // visibility
   visMembers: string;
@@ -231,6 +235,11 @@ const en: Strings = {
   whoManages: "Who manages this profile",
   inviteCoManager: "Invite someone to help manage {name}",
   owner: "Owner",
+  inviteTitle: "Invite someone to help manage {name}",
+  inviteWhy:
+    "They'll become a co-manager and can edit {name}'s profile. You keep access too.",
+  inviteSend: "Send invitation",
+  inviteSent: "Invitation sent to {email}.",
 
   visMembers: "Members",
   visPrivate: "Private",

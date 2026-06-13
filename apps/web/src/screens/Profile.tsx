@@ -15,6 +15,7 @@ import { AppShell, BottomNav } from "../components/AppShell.js";
 import { DesktopShell } from "../components/DesktopShell.js";
 import { ScreenHeader, SectLabel, ContactRow, Field } from "../components/parts.js";
 import { VisibilitySheet } from "../components/VisibilitySheet.js";
+import { InviteSheet } from "../components/InviteSheet.js";
 import { useI18n } from "../i18n/index.js";
 import { useSession } from "../lib/session.js";
 import { useIsDesktop } from "../lib/useIsDesktop.js";
@@ -173,6 +174,7 @@ export function ProfileEdit() {
   const [removed, setRemoved] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
   const [visSheetFor, setVisSheetFor] = useState<string | null>(null);
+  const [inviteOpen, setInviteOpen] = useState(false);
 
   useEffect(() => {
     if (!id) return;
@@ -292,7 +294,7 @@ export function ProfileEdit() {
             <div style={{ flex: 1 }}><div style={{ fontSize: 14, fontWeight: 700 }}>You</div></div>
             <Tag tone="line">{t("owner")}</Tag>
           </div>
-          <button className="sd-btn sd-btn-ghost block" style={{ justifyContent: "flex-start", padding: 0, height: 38, marginTop: 6 }} onClick={() => navigate(`/persons/${p.id}/invite`)}>
+          <button className="sd-btn sd-btn-ghost block" style={{ justifyContent: "flex-start", padding: 0, height: 38, marginTop: 6 }} onClick={() => setInviteOpen(true)}>
             <Icon name="plus" size={17} />{t("inviteCoManager", { name: firstName })}
           </button>
         </div>
@@ -300,15 +302,26 @@ export function ProfileEdit() {
     </>
   );
 
-  const sheet = sheetContact ? (
-    <VisibilitySheet
-      contactId={sheetContact.id}
-      fieldLabel={sheetContact.label || sheetContact.type}
-      visibility={sheetContact.visibility}
-      onClose={() => setVisSheetFor(null)}
-      onChange={(visibility, shareCount) => updateContact(sheetContact.id, { visibility, shareCount })}
-    />
-  ) : null;
+  const sheet = (
+    <>
+      {sheetContact && (
+        <VisibilitySheet
+          contactId={sheetContact.id}
+          fieldLabel={sheetContact.label || sheetContact.type}
+          visibility={sheetContact.visibility}
+          onClose={() => setVisSheetFor(null)}
+          onChange={(visibility, shareCount) => updateContact(sheetContact.id, { visibility, shareCount })}
+        />
+      )}
+      {inviteOpen && (
+        <InviteSheet
+          personId={p.id}
+          personName={firstName}
+          onClose={() => setInviteOpen(false)}
+        />
+      )}
+    </>
+  );
 
   if (isDesktop) {
     return (
