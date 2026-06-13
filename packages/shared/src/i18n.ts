@@ -35,6 +35,10 @@ export interface Strings {
   navGroups: string;
   navMe: string;
   searchMembers: string;
+  searchGroups: string;
+  myGroups: string;
+  groupsResults: string;
+  groupsEmpty: string;
   directoryEmpty: string;
   loadMore: string;
   showingOf: string; // uses {shown} {total}
@@ -181,6 +185,10 @@ const en: Strings = {
   navGroups: "Groups",
   navMe: "You",
   searchMembers: "Search members",
+  searchGroups: "Search groups",
+  myGroups: "Your groups",
+  groupsResults: "Results",
+  groupsEmpty: "No groups match your search.",
   directoryEmpty: "No members match your search.",
   loadMore: "Load more",
   showingOf: "Showing {shown} of {total}",
@@ -326,6 +334,10 @@ const es: Strings = {
   navGroups: "Grupos",
   navMe: "Tú",
   searchMembers: "Buscar miembros",
+  searchGroups: "Buscar grupos",
+  myGroups: "Tus grupos",
+  groupsResults: "Resultados",
+  groupsEmpty: "Ningún grupo coincide con tu búsqueda.",
   directoryEmpty: "Ningún miembro coincide con tu búsqueda.",
   loadMore: "Cargar más",
   showingOf: "Mostrando {shown} de {total}",
@@ -407,6 +419,10 @@ const zh: Strings = {
   navGroups: "群组",
   navMe: "我",
   searchMembers: "搜索成员",
+  searchGroups: "搜索群组",
+  myGroups: "你的群组",
+  groupsResults: "结果",
+  groupsEmpty: "没有匹配的群组。",
   directoryEmpty: "没有匹配的成员。",
   loadMore: "加载更多",
   showingOf: "显示 {shown} / {total}",

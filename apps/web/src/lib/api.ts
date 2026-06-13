@@ -8,6 +8,7 @@ import type {
   PersonSummaryDTO,
   CreateShareBody,
   GroupDetailDTO,
+  GroupSummaryDTO,
   MeDTO,
   NeighborsResponse,
   PersonPatchBody,
@@ -102,6 +103,8 @@ export const api = {
     ),
 
   group: (id: string) => request<GroupDetailDTO>(`/groups/${id}`),
+  searchGroups: (q: string) =>
+    request<{ groups: GroupSummaryDTO[] }>(`/groups?q=${encodeURIComponent(q)}`),
   createGroup: (body: { kind: "household" | "classroom"; name: string }) =>
     request<{ id: string }>("/groups", { method: "POST", body: JSON.stringify(body) }),
   groupCandidates: (groupId: string, q: string) =>

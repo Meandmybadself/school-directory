@@ -5,7 +5,7 @@
 
 import { Hono } from "hono";
 import type { Context } from "hono";
-import type { ContactItemDTO, ContactItemInput, ContactType, GroupDetailDTO, GroupMemberDTO, ShareTargetDTO, Visibility } from "@sd/shared";
+import type { ContactItemDTO, ContactItemInput, ContactType, GroupDetailDTO, GroupMemberDTO, GroupSummaryDTO, ShareTargetDTO, Visibility } from "@sd/shared";
 import type { HonoEnv } from "../env.js";
 import { requireAuth } from "../middleware/session.js";
 import { canSeeItem, displayName, sharesFor, viewerGroupIds, type ContactItemRow } from "../lib/privacy.js";
@@ -40,6 +40,29 @@ async function requireGroupAdmin(c: Context<HonoEnv>, groupId: string): Promise<
   }
   return auth.userId;
 }
+
+/** GET /groups?q= — search groups by name (auth). Names only; detail is gated. */
+groups.get("/", async (c) => {
+  requireAuth(c);
+  const q = (c.req.query("q") ?? "").trim().toLowerCase();
+  const like = `%${q}%`;
+  const rows = await c.env.DB.prepare(
+    `SELECT g.id, g.kind, g.name,
+            (SELECT COUNT(*) FROM membership m WHERE m.group_id = g.id) AS member_count
+     FROM grp g
+     WHERE (? = '' OR lower(g.name) LIKE ?)
+     ORDER BY g.name COLLATE NOCASE LIMIT 50`,
+  )
+    .bind(q, like)
+    .all<{ id: string; kind: GroupSummaryDTO["kind"]; name: string; member_count: number }>();
+  const result: GroupSummaryDTO[] = rows.results.map((g) => ({
+    id: g.id,
+    kind: g.kind,
+    name: g.name,
+    memberCount: g.member_count,
+  }));
+  return c.json({ groups: result });
+});
 
 groups.get("/:id", async (c) => {
   const auth = requireAuth(c);

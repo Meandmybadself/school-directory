@@ -96,11 +96,22 @@ export function GroupsIndex() {
   const { activePerson } = useSession();
   const [groups, setGroups] = useState<GroupSummaryDTO[]>([]);
   const [creating, setCreating] = useState(false);
+  const [q, setQ] = useState("");
+  const [results, setResults] = useState<GroupSummaryDTO[]>([]);
 
   useEffect(() => {
     if (!activePerson) return;
     void api.person(activePerson.id).then((p) => setGroups(p.groups)).catch(() => setGroups([]));
   }, [activePerson]);
+
+  // Debounced search across all groups.
+  useEffect(() => {
+    if (!q.trim()) { setResults([]); return; }
+    const handle = setTimeout(() => {
+      void api.searchGroups(q).then((r) => setResults(r.groups)).catch(() => setResults([]));
+    }, 200);
+    return () => clearTimeout(handle);
+  }, [q]);
 
   const canCreateClassroom = !!activePerson?.capabilities.includes("teacher");
   const newBtn = (
@@ -116,9 +127,9 @@ export function GroupsIndex() {
     />
   ) : null;
 
-  const tiles = (
+  const tilesOf = (list: GroupSummaryDTO[], emptyMsg: string) => (
     <div style={{ display: isDesktop ? "grid" : "flex", gridTemplateColumns: "1fr 1fr", flexDirection: "column", gap: isDesktop ? 12 : 9 }}>
-      {groups.map((g) => (
+      {list.map((g) => (
         <GroupTile
           key={g.id}
           icon={g.kind === "classroom" ? "school" : "home"}
@@ -129,17 +140,47 @@ export function GroupsIndex() {
           onClick={() => navigate(`/groups/${g.id}`)}
         />
       ))}
-      {groups.length === 0 && (
-        <div className="sd-card sd-card-pad sd-meta">{t("noGroupsBody")}</div>
-      )}
+      {list.length === 0 && <div className="sd-card sd-card-pad sd-meta">{emptyMsg}</div>}
     </div>
+  );
+
+  const searchBar = (
+    <div style={{ position: "relative" }}>
+      <Icon name="search" size={17} style={{ position: "absolute", left: 13, top: "50%", transform: "translateY(-50%)", color: "var(--ink-3)" }} />
+      <input
+        className="sd-input"
+        placeholder={t("searchGroups")}
+        value={q}
+        onChange={(e) => setQ(e.target.value)}
+        style={{ paddingLeft: 38 }}
+      />
+    </div>
+  );
+
+  const searching = q.trim().length > 0;
+  const content = (
+    <>
+      {searchBar}
+      {searching && (
+        <div>
+          <SectLabel>{t("groupsResults")}</SectLabel>
+          <div style={{ marginTop: isDesktop ? 11 : 9 }}>{tilesOf(results, t("groupsEmpty"))}</div>
+        </div>
+      )}
+      <div>
+        <SectLabel>{t("myGroups")}</SectLabel>
+        <div style={{ marginTop: isDesktop ? 11 : 9 }}>{tilesOf(groups, t("noGroupsBody"))}</div>
+      </div>
+    </>
   );
 
   if (isDesktop) {
     return (
       <DesktopShell active="groups" title={t("navGroups")}>
-        <div className="sd-row" style={{ justifyContent: "flex-end", marginBottom: 14 }}>{newBtn}</div>
-        {tiles}
+        <div style={{ maxWidth: 720 }}>
+          <div className="sd-row" style={{ justifyContent: "flex-end", marginBottom: 14 }}>{newBtn}</div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>{content}</div>
+        </div>
         {createSheet}
       </DesktopShell>
     );
@@ -147,7 +188,7 @@ export function GroupsIndex() {
   return (
     <AppShell bottomNav={<BottomNav active="groups" />}>
       <ScreenHeader title={t("navGroups")} onLeft={() => navigate("/")} right={newBtn} />
-      <div className="sd-scroll"><div className="sd-body">{tiles}</div></div>
+      <div className="sd-scroll"><div className="sd-body" style={{ gap: 16 }}>{content}</div></div>
       {createSheet}
     </AppShell>
   );
