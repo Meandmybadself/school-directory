@@ -57,7 +57,7 @@ export function SignIn() {
     <AppShell>
       <div className="sd-scroll" style={{ display: "flex", flexDirection: "column" }}>
         <div style={{ padding: "20px 24px 0" }}><Brand /></div>
-        <form onSubmit={submit} style={{ flex: 1, display: "flex", flexDirection: "column", justifyContent: "center", padding: "0 24px", gap: 18, marginTop: -20 }}>
+        <form onSubmit={submit} style={{ flex: 1, display: "flex", flexDirection: "column", justifyContent: "center", padding: "24px 24px 0", gap: 18 }}>
           <div>
             <h1 className="sd-h1">{t("signInTitle")}</h1>
             <p className="sd-lead" style={{ marginTop: 10 }}>{t("signInLead")}</p>
@@ -108,7 +108,7 @@ export function CheckEmail() {
     <AppShell>
       <div className="sd-scroll" style={{ display: "flex", flexDirection: "column" }}>
         <div style={{ padding: "20px 24px 0" }}><Brand /></div>
-        <div style={{ flex: 1, display: "flex", flexDirection: "column", justifyContent: "center", padding: "0 28px", gap: 16, textAlign: "center", alignItems: "center", marginTop: -16 }}>
+        <div style={{ flex: 1, display: "flex", flexDirection: "column", justifyContent: "center", padding: "24px 28px 0", gap: 16, textAlign: "center", alignItems: "center" }}>
           <div style={{ width: 64, height: 64, borderRadius: 18, background: "var(--blue-tint)", color: "var(--blue)", display: "flex", alignItems: "center", justifyContent: "center" }}>
             <Icon name="mail" size={30} stroke={1.8} />
           </div>
