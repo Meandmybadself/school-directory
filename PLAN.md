@@ -72,7 +72,11 @@ Privacy is resolved **server-side only**; geocoordinates are never serialized to
       admin flag (last-admin guard), add/edit/delete household contacts.
       `isGroupAdmin` authz (group admin or system admin); candidate search.
       Verified: writes, 403 for non-admins, 409 last-admin guard, audited.
-- [ ] Capability-gated *creation* (a Teacher creating a new Classroom; new Household)
+- [x] Capability-gated **creation**: `POST /groups` — any member creates a
+      Household (granted household_admin), Teacher capability required for a
+      Classroom; creator becomes group admin. "New" flow wired into Groups index.
+      Verified: household by non-teacher (201), classroom by non-teacher (403),
+      classroom by teacher (201), invalid kind (400).
 - [ ] Group-contact per-grantee shares (currently Members/Private only on group items)
 - [ ] Field-level shares (e.g. last name) — model supports it; UI not surfaced
 

@@ -121,6 +121,12 @@ export interface Strings {
   messageAll: string;
   adminManages: string; // uses {name}
   teacherRuns: string; // uses {name}
+  newGroup: string;
+  newHousehold: string;
+  newClassroom: string;
+  groupName: string;
+  create: string;
+  createGroupChoose: string;
 
   // language
   language: string;
@@ -253,6 +259,12 @@ const en: Strings = {
   messageAll: "Message all",
   adminManages: "{name} manages this household. Ask an admin to make changes.",
   teacherRuns: "{name} runs this classroom. You can see classmates who share with members.",
+  newGroup: "New",
+  newHousehold: "New household",
+  newClassroom: "New classroom",
+  groupName: "Name",
+  create: "Create",
+  createGroupChoose: "What would you like to create?",
 
   language: "Language",
   languageNote: "Changes the directory for you only.",

@@ -147,6 +147,52 @@ groups.get("/:id", async (c) => {
   return c.json(dto);
 });
 
+// ── Group creation ──────────────────────────────────────────────────────────
+
+/**
+ * POST /groups { kind, name } — create a Household (any member) or Classroom
+ * (Teacher capability required). The creator's active Person becomes the admin.
+ */
+groups.post("/", async (c) => {
+  const auth = requireAuth(c);
+  if (!auth.activePersonId) return c.json({ error: "no_active_person" }, 400);
+  const body = await c.req.json<{ kind: string; name: string }>().catch(() => null);
+  const kind = body?.kind;
+  const name = body?.name?.trim();
+  if (!name || (kind !== "household" && kind !== "classroom")) {
+    return c.json({ error: "invalid_body" }, 400);
+  }
+
+  if (kind === "classroom") {
+    const teacher = await c.env.DB.prepare(
+      "SELECT 1 AS ok FROM capability_grant WHERE person_id = ? AND capability = 'teacher' LIMIT 1",
+    )
+      .bind(auth.activePersonId)
+      .first<{ ok: number }>();
+    if (!teacher && !auth.isSystemAdmin) return c.json({ error: "forbidden" }, 403);
+  }
+
+  const id = ulid();
+  const title = kind === "classroom" ? "Teacher" : "Parent";
+  const stmts = [
+    c.env.DB.prepare("INSERT INTO grp (id, kind, name, created_at) VALUES (?,?,?,?)").bind(id, kind, name, nowIso()),
+    c.env.DB.prepare(
+      "INSERT INTO membership (group_id, person_id, title, is_admin, joined_at) VALUES (?,?,?,1,?)",
+    ).bind(id, auth.activePersonId, title, nowIso()),
+  ];
+  if (kind === "household") {
+    stmts.push(
+      c.env.DB.prepare(
+        "INSERT INTO capability_grant (person_id, capability) VALUES (?, 'household_admin') ON CONFLICT DO NOTHING",
+      ).bind(auth.activePersonId),
+    );
+  }
+  await c.env.DB.batch(stmts);
+
+  c.var.audit.push({ action: "admin.action", entityKind: "group", entityId: id, detail: { op: "group.create", kind } });
+  return c.json({ id }, 201);
+});
+
 // ── Member management (group admins) ────────────────────────────────────────
 
 /** GET /groups/:id/candidates?q= — Persons not already in the group (admin). */

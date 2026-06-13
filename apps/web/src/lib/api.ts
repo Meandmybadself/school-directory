@@ -67,6 +67,8 @@ export const api = {
   neighbors: () => request<NeighborsResponse>("/home/neighbors"),
 
   group: (id: string) => request<GroupDetailDTO>(`/groups/${id}`),
+  createGroup: (body: { kind: "household" | "classroom"; name: string }) =>
+    request<{ id: string }>("/groups", { method: "POST", body: JSON.stringify(body) }),
   groupCandidates: (groupId: string, q: string) =>
     request<{ targets: ShareTargetDTO[] }>(`/groups/${groupId}/candidates?q=${encodeURIComponent(q)}`),
   addGroupMember: (groupId: string, body: { personId: string; title?: string }) =>

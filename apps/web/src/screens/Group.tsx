@@ -13,7 +13,7 @@ import { useI18n } from "../i18n/index.js";
 import { useIsDesktop } from "../lib/useIsDesktop.js";
 import { useSession } from "../lib/session.js";
 import { api, ApiError } from "../lib/api.js";
-import { AddMemberSheet, MemberSheet, EditContactsSheet } from "../components/GroupSheets.js";
+import { AddMemberSheet, MemberSheet, EditContactsSheet, CreateGroupSheet } from "../components/GroupSheets.js";
 import type { GroupMemberDTO, GroupSummaryDTO } from "@sd/shared";
 
 const TYPE_ICON: Record<string, IconName> = { address: "pin", phone: "phone", email: "mail", url: "link" };
@@ -95,11 +95,26 @@ export function GroupsIndex() {
   const isDesktop = useIsDesktop();
   const { activePerson } = useSession();
   const [groups, setGroups] = useState<GroupSummaryDTO[]>([]);
+  const [creating, setCreating] = useState(false);
 
   useEffect(() => {
     if (!activePerson) return;
     void api.person(activePerson.id).then((p) => setGroups(p.groups)).catch(() => setGroups([]));
   }, [activePerson]);
+
+  const canCreateClassroom = !!activePerson?.capabilities.includes("teacher");
+  const newBtn = (
+    <button className="sd-btn sd-btn-secondary sd-btn-sm" onClick={() => setCreating(true)}>
+      <Icon name="plus" size={15} />{t("newGroup")}
+    </button>
+  );
+  const createSheet = creating ? (
+    <CreateGroupSheet
+      canCreateClassroom={canCreateClassroom}
+      onClose={() => setCreating(false)}
+      onCreated={(id) => { setCreating(false); navigate(`/groups/${id}`); }}
+    />
+  ) : null;
 
   const tiles = (
     <div style={{ display: isDesktop ? "grid" : "flex", gridTemplateColumns: "1fr 1fr", flexDirection: "column", gap: isDesktop ? 12 : 9 }}>
@@ -123,14 +138,17 @@ export function GroupsIndex() {
   if (isDesktop) {
     return (
       <DesktopShell active="groups" title={t("navGroups")}>
+        <div className="sd-row" style={{ justifyContent: "flex-end", marginBottom: 14 }}>{newBtn}</div>
         {tiles}
+        {createSheet}
       </DesktopShell>
     );
   }
   return (
     <AppShell bottomNav={<BottomNav active="groups" />}>
-      <ScreenHeader title={t("navGroups")} onLeft={() => navigate("/")} />
+      <ScreenHeader title={t("navGroups")} onLeft={() => navigate("/")} right={newBtn} />
       <div className="sd-scroll"><div className="sd-body">{tiles}</div></div>
+      {createSheet}
     </AppShell>
   );
 }

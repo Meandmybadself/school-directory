@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import type { ContactType, GroupMemberDTO, ShareTargetDTO, Visibility } from "@sd/shared";
 import { Icon, type IconName } from "./Icon.js";
 import { Avatar, Btn, Vis } from "./atoms.js";
-import { SheetOver } from "./parts.js";
+import { SheetOver, OptionRow } from "./parts.js";
 import { useI18n } from "../i18n/index.js";
 import { api, ApiError } from "../lib/api.js";
 
@@ -128,6 +128,60 @@ export function MemberSheet({
         Remove from group
       </button>
       {error && <div className="sd-meta" style={{ color: "var(--warn)", textAlign: "center", marginTop: 6 }}>{error}</div>}
+    </SheetOver>
+  );
+}
+
+// ── Create a group (household / classroom) ───────────────────────────────────
+
+export function CreateGroupSheet({
+  canCreateClassroom,
+  onClose,
+  onCreated,
+}: {
+  canCreateClassroom: boolean;
+  onClose: () => void;
+  onCreated: (id: string) => void;
+}) {
+  const { t } = useI18n();
+  const [kind, setKind] = useState<"household" | "classroom">("household");
+  const [name, setName] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  const create = async () => {
+    if (!name.trim()) return;
+    setBusy(true);
+    try {
+      const { id } = await api.createGroup({ kind, name: name.trim() });
+      onCreated(id);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <SheetOver onClose={onClose}>
+      <h2 className="sd-h2" style={{ marginBottom: canCreateClassroom ? 14 : 10 }}>
+        {canCreateClassroom ? t("createGroupChoose") : t("newHousehold")}
+      </h2>
+      {canCreateClassroom && (
+        <div style={{ display: "flex", flexDirection: "column", gap: 9, marginBottom: 16 }}>
+          <OptionRow icon="home" tone="members" title={t("household")} selected={kind === "household"} onClick={() => setKind("household")} />
+          <OptionRow icon="school" tone="shared" title={t("classroom")} selected={kind === "classroom"} onClick={() => setKind("classroom")} />
+        </div>
+      )}
+      <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+        <label className="sd-label" htmlFor="gname">{t("groupName")}</label>
+        <input
+          id="gname"
+          className="sd-input"
+          value={name}
+          autoFocus
+          placeholder={kind === "classroom" ? "Ms. Ruiz · Grade 4" : "Ruiz–Lee household"}
+          onChange={(e) => setName(e.target.value)}
+        />
+      </div>
+      <Btn block icon="plus" style={{ marginTop: 16 }} onClick={() => void create()} disabled={busy || !name.trim()}>{t("create")}</Btn>
     </SheetOver>
   );
 }
