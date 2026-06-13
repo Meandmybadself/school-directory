@@ -84,9 +84,6 @@ export function SignIn() {
             <Btn block icon="mail" type="submit" disabled={busy || !email.includes("@")}>{t("emailLink")}</Btn>
           </div>
         </form>
-        <div style={{ padding: "0 24px 26px" }}>
-          <Reassure>{t("privateNote")}</Reassure>
-        </div>
       </div>
     </AppShell>
   );
