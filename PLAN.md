@@ -60,6 +60,11 @@ Privacy is resolved **server-side only**; geocoordinates are never serialized to
 - [x] Desktop **Profile** view + edit (within the sidebar shell)
 - [x] `useIsDesktop` breakpoint; mobile + desktop share data + sub-components
 
+### Members directory ◀ shipped
+- [x] `GET /directory?q=&offset=` (auth): name search, last-name rule applied per
+      viewer, batched capabilities, paging. Directory screen (mobile + desktop)
+      replaces the stub; rows link to the privacy-filtered profile.
+
 ### M2 — Groups & Shares (in progress)
 - [x] Group detail read API (`GET /groups/:id`): members + titles + `is_admin`,
       membership-gated, privacy-filtered group contacts (household cascade read)

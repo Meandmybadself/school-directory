@@ -34,6 +34,10 @@ export interface Strings {
   navDir: string;
   navGroups: string;
   navMe: string;
+  searchMembers: string;
+  directoryEmpty: string;
+  loadMore: string;
+  showingOf: string; // uses {shown} {total}
 
   // home
   neighbors: string;
@@ -177,6 +181,10 @@ const en: Strings = {
   navDir: "Directory",
   navGroups: "Groups",
   navMe: "You",
+  searchMembers: "Search members",
+  directoryEmpty: "No members match your search.",
+  loadMore: "Load more",
+  showingOf: "Showing {shown} of {total}",
 
   neighbors: "Neighbors",
   seeAll: "See all",
@@ -319,6 +327,10 @@ const es: Strings = {
   navDir: "Directorio",
   navGroups: "Grupos",
   navMe: "Tú",
+  searchMembers: "Buscar miembros",
+  directoryEmpty: "Ningún miembro coincide con tu búsqueda.",
+  loadMore: "Cargar más",
+  showingOf: "Mostrando {shown} de {total}",
 
   neighbors: "Vecinos",
   seeAll: "Ver todos",
@@ -396,6 +408,10 @@ const zh: Strings = {
   navDir: "目录",
   navGroups: "群组",
   navMe: "我",
+  searchMembers: "搜索成员",
+  directoryEmpty: "没有匹配的成员。",
+  loadMore: "加载更多",
+  showingOf: "显示 {shown} / {total}",
 
   neighbors: "邻居",
   seeAll: "查看全部",

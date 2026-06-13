@@ -9,6 +9,7 @@ import { ProfileView, ProfileEdit } from "./screens/Profile.js";
 import { GroupDetail, GroupsIndex } from "./screens/Group.js";
 import { Admin } from "./screens/Admin.js";
 import { Import } from "./screens/Import.js";
+import { Directory } from "./screens/Directory.js";
 import { DesktopShell } from "./components/DesktopShell.js";
 import { useIsDesktop } from "./lib/useIsDesktop.js";
 
@@ -61,7 +62,7 @@ export function App() {
       <Route path="/persons/:id/edit" element={<RequireAuth><ProfileEdit /></RequireAuth>} />
       <Route path="/persons/:id/invite" element={<RequireAuth><Stub title="Invite a co-manager" /></RequireAuth>} />
 
-      <Route path="/directory" element={<RequireAuth><Stub title="Directory" nav="dir" /></RequireAuth>} />
+      <Route path="/directory" element={<RequireAuth><Directory /></RequireAuth>} />
       <Route path="/groups" element={<RequireAuth><GroupsIndex /></RequireAuth>} />
       <Route path="/groups/:id" element={<RequireAuth><GroupDetail /></RequireAuth>} />
       <Route path="/you" element={<RequireAuth><Stub title="You" nav="profile" /></RequireAuth>} />

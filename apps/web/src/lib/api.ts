@@ -5,6 +5,7 @@ import type {
   BulkImportResult,
   BulkImportRow,
   ContactItemInput,
+  PersonSummaryDTO,
   CreateShareBody,
   GroupDetailDTO,
   MeDTO,
@@ -75,6 +76,11 @@ export const api = {
     }),
 
   neighbors: () => request<NeighborsResponse>("/home/neighbors"),
+
+  directory: (q: string, offset = 0) =>
+    request<{ people: PersonSummaryDTO[]; total: number; offset: number; pageSize: number }>(
+      `/directory?q=${encodeURIComponent(q)}&offset=${offset}`,
+    ),
 
   group: (id: string) => request<GroupDetailDTO>(`/groups/${id}`),
   createGroup: (body: { kind: "household" | "classroom"; name: string }) =>
