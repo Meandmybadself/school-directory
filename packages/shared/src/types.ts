@@ -99,6 +99,30 @@ export interface ControllablePersonDTO {
   photoUrl: string | null;
 }
 
+/** A current grantee of a share, for the visibility sheet's "Shared with" list. */
+export interface ShareGranteeDTO {
+  id: string; // share row id
+  targetKind: "person" | "group";
+  targetId: string;
+  name: string;
+}
+
+/** A pickable target when adding a grantee. */
+export interface ShareTargetDTO {
+  kind: "person" | "group";
+  id: string;
+  name: string;
+  /** For groups, the kind (household/classroom/generic) for the icon. */
+  groupKind?: GroupKind;
+}
+
+export interface CreateShareBody {
+  subjectKind: "contact_item" | "field";
+  subjectRef: string;
+  targetKind: "person" | "group";
+  targetId: string;
+}
+
 export interface MeDTO {
   user: {
     id: string;

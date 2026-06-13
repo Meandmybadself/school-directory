@@ -57,15 +57,20 @@ Privacy is resolved **server-side only**; geocoordinates are never serialized to
 - [x] Desktop shell (244px sidebar nav + sticky header with search/globe/switcher)
 - [x] Desktop **Home** (4-up Neighbors row + groups/profile-snapshot rail)
 - [x] Desktop **Household/Group detail** (wide member card + 320px contact rail)
+- [x] Desktop **Profile** view + edit (within the sidebar shell)
 - [x] `useIsDesktop` breakpoint; mobile + desktop share data + sub-components
 
-### M2 — Groups (partially started)
+### M2 — Groups & Shares (in progress)
 - [x] Group detail read API (`GET /groups/:id`): members + titles + `is_admin`,
       membership-gated, privacy-filtered group contacts (household cascade read)
 - [x] Households + Classrooms detail screens (mobile + desktop), Groups index
+- [x] **Shares**: `POST/GET/DELETE /shares` + `GET /shares/targets`; VisibilitySheet
+      grantee management (add/remove people & groups) wired live; "Shared · N" chip.
+      Verified: a grantee gains visibility, revoke removes it, non-controller 403,
+      audit logs share.created/revoked.
 - [ ] Editing: household contact info, classroom roster/title management (writes)
-- [ ] Shares: grant a private field/contact item to Person/Group; VisibilitySheet grantee mgmt
 - [ ] Capability-gated write tools (Teacher tools, Household admin tools)
+- [ ] Field-level shares (e.g. last name) — model supports it; UI not surfaced
 
 ### M3 — Neighbors + i18n + offline
 - [ ] Nominatim geocoding on address mutation (single-flight ≤1 rps, UA/attribution)

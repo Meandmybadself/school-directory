@@ -1,11 +1,14 @@
 // Thin fetch client. Always sends credentials so the session cookie rides along.
 import type {
   ContactItemInput,
+  CreateShareBody,
   GroupDetailDTO,
   MeDTO,
   NeighborsResponse,
   PersonPatchBody,
   PersonProfileDTO,
+  ShareGranteeDTO,
+  ShareTargetDTO,
 } from "@sd/shared";
 
 const API_BASE = import.meta.env.VITE_API_URL ?? "http://localhost:8787";
@@ -64,4 +67,14 @@ export const api = {
   neighbors: () => request<NeighborsResponse>("/home/neighbors"),
 
   group: (id: string) => request<GroupDetailDTO>(`/groups/${id}`),
+
+  listShares: (subjectKind: string, subjectRef: string) =>
+    request<{ grantees: ShareGranteeDTO[] }>(
+      `/shares?subjectKind=${encodeURIComponent(subjectKind)}&subjectRef=${encodeURIComponent(subjectRef)}`,
+    ),
+  createShare: (body: CreateShareBody) =>
+    request<{ ok: true }>("/shares", { method: "POST", body: JSON.stringify(body) }),
+  deleteShare: (id: string) => request<{ ok: true }>(`/shares/${id}`, { method: "DELETE" }),
+  shareTargets: (q: string) =>
+    request<{ targets: ShareTargetDTO[] }>(`/shares/targets?q=${encodeURIComponent(q)}`),
 };
