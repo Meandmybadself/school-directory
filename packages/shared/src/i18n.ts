@@ -84,7 +84,6 @@ export interface Strings {
   firstFixedWhy: string;
   lnFull: string;
   lnInitial: string;
-  lnHide: string;
   shownAs: string;
   photo: string;
   addPhoto: string;
@@ -232,7 +231,6 @@ const en: Strings = {
     "People need a name to recognize you. You choose everything else.",
   lnFull: "Full",
   lnInitial: "Initial",
-  lnHide: "Hide",
   shownAs: "Shown as",
   photo: "Profile photo",
   addPhoto: "Add photo",

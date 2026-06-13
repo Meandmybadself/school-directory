@@ -65,7 +65,7 @@ groups.get("/:id", async (c) => {
       is_admin: number;
       first_name: string;
       last_name: string | null;
-      last_name_visibility: "full" | "initial" | "hidden";
+      last_name_visibility: "full" | "initial";
       photo_object_key: string | null;
     }>();
 

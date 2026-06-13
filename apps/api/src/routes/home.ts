@@ -47,7 +47,7 @@ home.get("/neighbors", async (c) => {
       geo_lng: number;
       first_name: string;
       last_name: string | null;
-      last_name_visibility: "full" | "initial" | "hidden";
+      last_name_visibility: "full" | "initial";
     }>();
 
   const neighbors: (NeighborDTO & { _d: number })[] = [];

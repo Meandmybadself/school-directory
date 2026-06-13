@@ -24,16 +24,15 @@ describe("geo", () => {
 });
 
 describe("last-name rule", () => {
-  it("controllers always see the full name", () => {
-    expect(renderLastName("Ruiz", "hidden", true)).toBe("Ruiz");
-    expect(displayName("Dana", "Ruiz", "hidden", true)).toBe("Dana Ruiz");
+  it("controllers always see the full name (even when set to initial)", () => {
+    expect(renderLastName("Ruiz", "initial", true)).toBe("Ruiz");
+    expect(displayName("Dana", "Ruiz", "initial", true)).toBe("Dana Ruiz");
   });
-  it("non-controllers get full / initial / nothing per policy", () => {
+  it("non-controllers get full or initial per policy (never fully hidden)", () => {
     expect(renderLastName("Ruiz", "full", false)).toBe("Ruiz");
     expect(renderLastName("Ruiz", "initial", false)).toBe("R.");
-    expect(renderLastName("Ruiz", "hidden", false)).toBeNull();
+    expect(displayName("Dana", "Ruiz", "full", false)).toBe("Dana Ruiz");
     expect(displayName("Dana", "Ruiz", "initial", false)).toBe("Dana R.");
-    expect(displayName("Dana", "Ruiz", "hidden", false)).toBe("Dana");
   });
 });
 

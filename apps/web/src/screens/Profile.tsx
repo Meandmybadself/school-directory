@@ -295,9 +295,9 @@ export function ProfileEdit() {
         </div>
         <div className="fr" style={{ background: "var(--bg)" }}>
           <div className="sd-seg">
-            {(["full", "initial", "hidden"] as LastNameDisplay[]).map((k) => (
+            {(["full", "initial"] as LastNameDisplay[]).map((k) => (
               <button key={k} className={k === lnDisplay ? "on" : ""} onClick={() => setLnDisplay(k)}>
-                {k === "full" ? t("lnFull") : k === "initial" ? t("lnInitial") : t("lnHide")}
+                {k === "full" ? t("lnFull") : t("lnInitial")}
               </button>
             ))}
           </div>
@@ -448,9 +448,7 @@ function CenteredNote({ text, onBack }: { text: string; onBack: () => void }) {
 
 function previewName(first: string, last: string, d: LastNameDisplay): string {
   if (!last) return first || "—";
-  if (d === "full") return `${first} ${last}`;
-  if (d === "initial") return `${first} ${last.charAt(0)}.`;
-  return first;
+  return d === "full" ? `${first} ${last}` : `${first} ${last.charAt(0)}.`;
 }
 
 function typeLabel(tp: ContactType, t: ReturnType<typeof useI18n>["t"]): string {

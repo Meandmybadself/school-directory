@@ -48,7 +48,7 @@ persons.patch("/:id", async (c) => {
     sets.push("last_name = ?");
     binds.push(body.lastName ? body.lastName.trim() : null);
   }
-  if (body.lastNameDisplay && ["full", "initial", "hidden"].includes(body.lastNameDisplay)) {
+  if (body.lastNameDisplay && ["full", "initial"].includes(body.lastNameDisplay)) {
     sets.push("last_name_visibility = ?");
     binds.push(body.lastNameDisplay);
   }

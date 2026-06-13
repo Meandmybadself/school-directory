@@ -106,8 +106,6 @@ export function renderLastName(
       return lastName;
     case "initial":
       return lastName.charAt(0) + ".";
-    case "hidden":
-      return null;
   }
 }
 

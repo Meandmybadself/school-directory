@@ -15,8 +15,10 @@ export type Capability =
 /** Visibility level on a field or contact item. There is no "public" level. */
 export type Visibility = "service" | "private";
 
-/** How a Person's last name renders to viewers who can see it. */
-export type LastNameDisplay = "full" | "initial" | "hidden";
+/** How a Person's last name renders to viewers who can see it.
+ *  Note: there is intentionally no "hidden" — a name is needed to disambiguate
+ *  the many members who share a first name. */
+export type LastNameDisplay = "full" | "initial";
 
 export type ContactType = "address" | "phone" | "email" | "url";
 
