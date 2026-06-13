@@ -87,6 +87,12 @@ function isHousehold(g: GroupDetailDTO) {
   return g.kind === "household";
 }
 
+function groupKindLabel(kind: GroupSummaryDTO["kind"], t: ReturnType<typeof useI18n>["t"]): string {
+  if (kind === "household") return t("household");
+  if (kind === "classroom") return t("classroom");
+  return t("navGroups");
+}
+
 // ── Groups index (the active Person's groups) ────────────────────────────────
 
 export function GroupsIndex() {
@@ -97,19 +103,18 @@ export function GroupsIndex() {
   const [groups, setGroups] = useState<GroupSummaryDTO[]>([]);
   const [creating, setCreating] = useState(false);
   const [q, setQ] = useState("");
-  const [results, setResults] = useState<GroupSummaryDTO[]>([]);
+  const [allGroups, setAllGroups] = useState<GroupSummaryDTO[]>([]);
 
   useEffect(() => {
     if (!activePerson) return;
     void api.person(activePerson.id).then((p) => setGroups(p.groups)).catch(() => setGroups([]));
   }, [activePerson]);
 
-  // Debounced search across all groups.
+  // The "All groups" table is driven by the search box (empty query = all).
   useEffect(() => {
-    if (!q.trim()) { setResults([]); return; }
     const handle = setTimeout(() => {
-      void api.searchGroups(q).then((r) => setResults(r.groups)).catch(() => setResults([]));
-    }, 200);
+      void api.searchGroups(q).then((r) => setAllGroups(r.groups)).catch(() => setAllGroups([]));
+    }, q ? 200 : 0);
     return () => clearTimeout(handle);
   }, [q]);
 
@@ -157,19 +162,49 @@ export function GroupsIndex() {
     </div>
   );
 
-  const searching = q.trim().length > 0;
+  const allGroupsTable = (
+    <div className="sd-card" style={{ overflow: "hidden" }}>
+      <table className="sd-table">
+        <thead>
+          <tr>
+            <th>{t("colName")}</th>
+            <th>{t("colType")}</th>
+            <th style={{ textAlign: "right" }}>{t("members")}</th>
+          </tr>
+        </thead>
+        <tbody>
+          {allGroups.map((g) => (
+            <tr key={g.id} onClick={() => navigate(`/groups/${g.id}`)}>
+              <td>
+                <div className="sd-row" style={{ gap: 10, minWidth: 0 }}>
+                  <div style={{ width: 30, height: 30, borderRadius: 8, flex: "0 0 auto", background: g.kind === "classroom" ? "var(--orange-tint)" : "var(--blue-tint)", color: g.kind === "classroom" ? "var(--orange-700)" : "var(--blue)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                    <Icon name={g.kind === "classroom" ? "school" : "home"} size={16} />
+                  </div>
+                  <span style={{ fontWeight: 700, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{g.name}</span>
+                </div>
+              </td>
+              <td style={{ color: "var(--ink-2)", textTransform: "capitalize", whiteSpace: "nowrap" }}>{groupKindLabel(g.kind, t)}</td>
+              <td style={{ textAlign: "right", color: "var(--ink-2)", whiteSpace: "nowrap" }}>{g.memberCount}</td>
+            </tr>
+          ))}
+          {allGroups.length === 0 && (
+            <tr><td colSpan={3} className="sd-meta" style={{ cursor: "default" }}>{t("groupsEmpty")}</td></tr>
+          )}
+        </tbody>
+      </table>
+    </div>
+  );
+
   const content = (
     <>
       {searchBar}
-      {searching && (
-        <div>
-          <SectLabel>{t("groupsResults")}</SectLabel>
-          <div style={{ marginTop: isDesktop ? 11 : 9 }}>{tilesOf(results, t("groupsEmpty"))}</div>
-        </div>
-      )}
       <div>
         <SectLabel>{t("myGroups")}</SectLabel>
         <div style={{ marginTop: isDesktop ? 11 : 9 }}>{tilesOf(groups, t("noGroupsBody"))}</div>
+      </div>
+      <div>
+        <SectLabel>{t("allGroups")}</SectLabel>
+        <div style={{ marginTop: isDesktop ? 11 : 9 }}>{allGroupsTable}</div>
       </div>
     </>
   );

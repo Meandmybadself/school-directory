@@ -37,6 +37,9 @@ export interface Strings {
   searchMembers: string;
   searchGroups: string;
   myGroups: string;
+  allGroups: string;
+  colName: string;
+  colType: string;
   groupsResults: string;
   groupsEmpty: string;
   directoryEmpty: string;
@@ -187,6 +190,9 @@ const en: Strings = {
   searchMembers: "Search members",
   searchGroups: "Search groups",
   myGroups: "Your groups",
+  allGroups: "All groups",
+  colName: "Name",
+  colType: "Type",
   groupsResults: "Results",
   groupsEmpty: "No groups match your search.",
   directoryEmpty: "No members match your search.",
@@ -336,6 +342,9 @@ const es: Strings = {
   searchMembers: "Buscar miembros",
   searchGroups: "Buscar grupos",
   myGroups: "Tus grupos",
+  allGroups: "Todos los grupos",
+  colName: "Nombre",
+  colType: "Tipo",
   groupsResults: "Resultados",
   groupsEmpty: "Ningún grupo coincide con tu búsqueda.",
   directoryEmpty: "Ningún miembro coincide con tu búsqueda.",
@@ -421,6 +430,9 @@ const zh: Strings = {
   searchMembers: "搜索成员",
   searchGroups: "搜索群组",
   myGroups: "你的群组",
+  allGroups: "所有群组",
+  colName: "名称",
+  colType: "类型",
   groupsResults: "结果",
   groupsEmpty: "没有匹配的群组。",
   directoryEmpty: "没有匹配的成员。",
