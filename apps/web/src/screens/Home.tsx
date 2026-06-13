@@ -1,5 +1,5 @@
 // Home — Layout A. Mobile: app-bar + bottom nav. Desktop: sidebar shell with a
-// 4-up Neighbors row and a groups + profile-snapshot rail.
+// 4-up Neighbors row and the groups list.
 import { useEffect, useState, type ReactNode } from "react";
 import { useNavigate } from "react-router-dom";
 import type { GroupSummaryDTO, NeighborsResponse, PersonProfileDTO } from "@sd/shared";
@@ -8,7 +8,6 @@ import { Btn } from "../components/atoms.js";
 import { AppBar, IconBtn, SectLabel, GroupTile, NeighborCard, CTACard } from "../components/parts.js";
 import { AppShell, BottomNav } from "../components/AppShell.js";
 import { DesktopShell } from "../components/DesktopShell.js";
-import { ProfileSnapshot } from "../components/ProfileSnapshot.js";
 import { PersonSwitcherSheet, LanguageSheet } from "../components/Sheets.js";
 import { useSession } from "../lib/session.js";
 import { useIsDesktop } from "../lib/useIsDesktop.js";
@@ -38,13 +37,12 @@ export function Home() {
   const list = neighbors && "neighbors" in neighbors ? neighbors.neighbors : null;
   const hasNeighbors = !!list && list.length > 0;
 
-  const shared = { activePerson, profile, groups, list, hasNeighbors };
+  const shared = { activePerson, groups, list, hasNeighbors };
   return isDesktop ? <DesktopHome {...shared} /> : <MobileHome {...shared} />;
 }
 
 interface ViewProps {
   activePerson: NonNullable<ReturnType<typeof useSession>["activePerson"]>;
-  profile: PersonProfileDTO | null;
   groups: GroupSummaryDTO[];
   list: { id: string; name: string; approxDistance: string }[] | null;
   hasNeighbors: boolean;
@@ -101,7 +99,7 @@ function GroupsContent({ groups, columns }: { groups: GroupSummaryDTO[]; columns
 
 // ── Desktop ──────────────────────────────────────────────────────────────────
 
-function DesktopHome({ activePerson, profile, groups, hasNeighbors, list }: ViewProps) {
+function DesktopHome({ activePerson, groups, hasNeighbors, list }: ViewProps) {
   const { t } = useI18n();
   const navigate = useNavigate();
   const cards = useNeighborCards(list);
@@ -122,14 +120,11 @@ function DesktopHome({ activePerson, profile, groups, hasNeighbors, list }: View
           </div>
         )}
       </div>
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 320px", gap: 22, alignItems: "start" }}>
-        <div>
-          <SectLabel>{t("groups")}</SectLabel>
-          <div style={{ marginTop: 11 }}>
-            <GroupsContent groups={groups} columns={2} />
-          </div>
+      <div>
+        <SectLabel>{t("groups")}</SectLabel>
+        <div style={{ marginTop: 11 }}>
+          <GroupsContent groups={groups} columns={2} />
         </div>
-        <ProfileSnapshot person={activePerson} profile={profile} />
       </div>
     </DesktopShell>
   );
@@ -137,7 +132,7 @@ function DesktopHome({ activePerson, profile, groups, hasNeighbors, list }: View
 
 // ── Mobile ─────────────────────────────────────────────────────────────────
 
-function MobileHome({ activePerson, profile, groups, hasNeighbors, list }: ViewProps) {
+function MobileHome({ activePerson, groups, hasNeighbors, list }: ViewProps) {
   const { t } = useI18n();
   const navigate = useNavigate();
   const cards = useNeighborCards(list);
@@ -187,7 +182,6 @@ function MobileHome({ activePerson, profile, groups, hasNeighbors, list }: ViewP
               <GroupsContent groups={groups} columns={1} />
             </div>
           </div>
-          <ProfileSnapshot person={activePerson} profile={profile} />
         </div>
       </div>
       {sheet === "switcher" && <PersonSwitcherSheet onClose={() => setSheet(null)} />}
