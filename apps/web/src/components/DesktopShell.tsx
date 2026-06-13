@@ -9,6 +9,7 @@ import { PersonSwitcherSheet, LanguageSheet } from "./Sheets.js";
 import { MasqueradeBanner } from "./AppShell.js";
 import { useI18n } from "../i18n/index.js";
 import { useSession } from "../lib/session.js";
+import { mediaUrl } from "../lib/api.js";
 
 type NavKey = "home" | "dir" | "groups" | "profile" | "admin";
 
@@ -88,7 +89,7 @@ export function DesktopShell({
           <IconBtn name="globe" label="Language" onClick={() => setSheet("language")} />
           {activePerson && (
             <button className="sd-deskswitch" onClick={() => setSheet("switcher")}>
-              <Avatar name={activePerson.displayName} size={32} img={activePerson.photoUrl} color="var(--blue)" />
+              <Avatar name={activePerson.displayName} size={32} img={mediaUrl(activePerson.photoUrl)} color="var(--blue)" />
               <div style={{ lineHeight: 1.1, textAlign: "left" }}>
                 <div style={{ fontSize: 13.5, fontWeight: 700 }}>{activePerson.displayName}</div>
                 <div style={{ fontSize: 11, color: "var(--ink-3)", fontWeight: 600 }}>{activePerson.capabilities.map(capLabel).join(" · ")}</div>

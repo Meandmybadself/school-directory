@@ -5,7 +5,7 @@ import { Avatar } from "./atoms.js";
 import { SheetOver } from "./parts.js";
 import { useI18n } from "../i18n/index.js";
 import { useSession } from "../lib/session.js";
-import { api } from "../lib/api.js";
+import { api, mediaUrl } from "../lib/api.js";
 
 export function PersonSwitcherSheet({ onClose }: { onClose: () => void }) {
   const { me, switchPerson } = useSession();
@@ -27,7 +27,7 @@ export function PersonSwitcherSheet({ onClose }: { onClose: () => void }) {
               }}
               style={{ gap: 12, padding: "12px 14px", borderRadius: 12, width: "100%", textAlign: "left", font: "inherit", cursor: "pointer", border: "1px solid " + (sel ? "var(--blue)" : "var(--line)"), background: sel ? "var(--blue-tint)" : "var(--paper)" }}
             >
-              <Avatar name={p.displayName} size={40} img={p.photoUrl} />
+              <Avatar name={p.displayName} size={40} img={mediaUrl(p.photoUrl)} />
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ fontSize: 15, fontWeight: 700 }}>{p.displayName}</div>
                 <div className="sd-meta">{p.capabilities.join(" · ") || "Member"}</div>

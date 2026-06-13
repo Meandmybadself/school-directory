@@ -6,7 +6,7 @@ import { Icon, type IconName } from "./Icon.js";
 import { Avatar, Btn, Vis } from "./atoms.js";
 import { SheetOver, OptionRow } from "./parts.js";
 import { useI18n } from "../i18n/index.js";
-import { api, ApiError } from "../lib/api.js";
+import { api, ApiError, mediaUrl } from "../lib/api.js";
 
 const TYPE_ICON: Record<ContactType, IconName> = { address: "pin", phone: "phone", email: "mail", url: "link" };
 
@@ -106,7 +106,7 @@ export function MemberSheet({
   return (
     <SheetOver onClose={onClose}>
       <div className="sd-row" style={{ gap: 12, marginBottom: 16 }}>
-        <Avatar name={member.displayName} size={44} img={member.photoUrl} />
+        <Avatar name={member.displayName} size={44} img={mediaUrl(member.photoUrl)} />
         <div><div className="sd-h2" style={{ fontSize: 18 }}>{member.displayName}</div></div>
       </div>
       <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>

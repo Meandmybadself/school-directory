@@ -16,7 +16,14 @@ import type {
   ShareTargetDTO,
 } from "@sd/shared";
 
-const API_BASE = import.meta.env.VITE_API_URL ?? "http://localhost:8787";
+export const API_BASE = import.meta.env.VITE_API_URL ?? "http://localhost:8787";
+
+/** Resolve an API-relative media path (e.g. "/photos/abc.jpg") to an absolute URL. */
+export function mediaUrl(path: string | null | undefined): string | null {
+  if (!path) return null;
+  if (/^https?:\/\//.test(path)) return path;
+  return `${API_BASE}${path}`;
+}
 
 export class ApiError extends Error {
   constructor(public status: number, public body: unknown) {
@@ -62,6 +69,18 @@ export const api = {
   person: (id: string) => request<PersonProfileDTO>(`/persons/${id}`),
   patchPerson: (id: string, body: PersonPatchBody) =>
     request<PersonProfileDTO>(`/persons/${id}`, { method: "PATCH", body: JSON.stringify(body) }),
+  uploadPhoto: async (personId: string, file: File): Promise<{ photoUrl: string }> => {
+    if (navigator.onLine === false) throw new ApiError(0, { error: "offline" });
+    const res = await fetch(`${API_BASE}/persons/${personId}/photo`, {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": file.type },
+      body: file,
+    });
+    const body = res.headers.get("content-type")?.includes("application/json") ? await res.json() : await res.text();
+    if (!res.ok) throw new ApiError(res.status, body);
+    return body as { photoUrl: string };
+  },
 
   addContact: (personId: string, body: ContactItemInput) =>
     request<{ id: string }>(`/persons/${personId}/contacts`, { method: "POST", body: JSON.stringify(body) }),

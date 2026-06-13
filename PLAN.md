@@ -84,6 +84,10 @@ Privacy is resolved **server-side only**; geocoordinates are never serialized to
       classroom by teacher (201), invalid kind (400).
 - [ ] Group-contact per-grantee shares (currently Members/Private only on group items)
 - [ ] Field-level shares (e.g. last name) — model supports it; UI not surfaced
+- [x] **Profile photo upload** (R2): `POST /persons/:id/photo` (controller-gated,
+      type/size validated, replaces+deletes prior object), served via `/photos/:key`.
+      Edit screen avatar/button upload with progress + error; `mediaUrl()` resolves
+      photo paths to the API origin everywhere avatars render.
 
 ### M3 — Neighbors + i18n + offline
 - [x] Nominatim geocoding on address mutation: background (waitUntil) geocode of

@@ -19,7 +19,8 @@ import { InviteSheet } from "../components/InviteSheet.js";
 import { useI18n } from "../i18n/index.js";
 import { useSession } from "../lib/session.js";
 import { useIsDesktop } from "../lib/useIsDesktop.js";
-import { api } from "../lib/api.js";
+import { api, mediaUrl } from "../lib/api.js";
+import { useRef } from "react";
 
 const ICON_BY_TYPE: Record<ContactType, IconName> = {
   address: "pin",
@@ -66,7 +67,7 @@ export function ProfileView() {
 
   const hero = (
     <div style={{ background: "var(--paper)", borderBottom: "1px solid var(--line)", padding: "20px 18px 18px", display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center", gap: 11, borderRadius: isDesktop ? "16px 16px 0 0" : undefined }}>
-      <Avatar name={p.displayName} size={84} img={p.photoUrl} color="var(--blue)" />
+      <Avatar name={p.displayName} size={84} img={mediaUrl(p.photoUrl)} color="var(--blue)" />
       <div>
         <div className="sd-h1" style={{ fontSize: 23 }}>{p.displayName}</div>
         <div className="sd-row" style={{ gap: 6, marginTop: 8, justifyContent: "center" }}>
@@ -175,6 +176,9 @@ export function ProfileEdit() {
   const [saving, setSaving] = useState(false);
   const [visSheetFor, setVisSheetFor] = useState<string | null>(null);
   const [inviteOpen, setInviteOpen] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [photoError, setPhotoError] = useState<string | null>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (!id) return;
@@ -218,23 +222,62 @@ export function ProfileEdit() {
     }
   };
 
+  const onPhoto = async (file: File | undefined) => {
+    if (!file) return;
+    setPhotoError(null);
+    if (!/^image\/(jpeg|png|webp|gif)$/.test(file.type)) {
+      setPhotoError("Use a JPG, PNG, WebP, or GIF image.");
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      setPhotoError("Image must be under 5 MB.");
+      return;
+    }
+    setUploading(true);
+    try {
+      const { photoUrl } = await api.uploadPhoto(p.id, file);
+      setP((prev) => (prev ? { ...prev, photoUrl } : prev));
+      await refresh(); // update the avatar in the switcher / home / directory
+    } catch {
+      setPhotoError("Upload failed. Try again.");
+    } finally {
+      setUploading(false);
+      if (fileRef.current) fileRef.current.value = "";
+    }
+  };
+
   const sheetContact = contacts.find((c) => c.id === visSheetFor) ?? null;
   const saveBtn = <button className="sd-btn sd-btn-primary sd-btn-sm" onClick={() => void save()} disabled={saving}>{t("save")}</button>;
 
   const form = (
     <>
-      {/* photo (upload wired in a later milestone) */}
+      {/* photo */}
       <div className="sd-row" style={{ gap: 14 }}>
-        <div style={{ position: "relative" }}>
-          <Avatar name={`${firstName} ${lastName}`} size={66} img={p.photoUrl} color="var(--blue)" />
+        <button
+          type="button"
+          onClick={() => fileRef.current?.click()}
+          aria-label={t("addPhoto")}
+          style={{ position: "relative", border: 0, background: "none", padding: 0, cursor: "pointer", opacity: uploading ? 0.6 : 1 }}
+        >
+          <Avatar name={`${firstName} ${lastName}`} size={66} img={mediaUrl(p.photoUrl)} color="var(--blue)" />
           <div style={{ position: "absolute", right: -2, bottom: -2, width: 26, height: 26, borderRadius: 999, background: "var(--paper)", border: "1px solid var(--line)", display: "flex", alignItems: "center", justifyContent: "center", color: "var(--ink-2)" }}>
             <Icon name="upload" size={14} />
           </div>
-        </div>
+        </button>
         <div>
           <div className="sd-label" style={{ fontSize: 13 }}>{t("photo")}</div>
-          <button className="sd-btn sd-btn-secondary sd-btn-sm" style={{ marginTop: 7 }} disabled><Icon name="upload" size={15} />{t("addPhoto")}</button>
+          <button className="sd-btn sd-btn-secondary sd-btn-sm" style={{ marginTop: 7 }} disabled={uploading} onClick={() => fileRef.current?.click()}>
+            <Icon name="upload" size={15} />{uploading ? "Uploading…" : t("addPhoto")}
+          </button>
+          {photoError && <div className="sd-meta" style={{ color: "var(--warn)", marginTop: 5 }}>{photoError}</div>}
         </div>
+        <input
+          ref={fileRef}
+          type="file"
+          accept="image/jpeg,image/png,image/webp,image/gif"
+          style={{ display: "none" }}
+          onChange={(e) => void onPhoto(e.target.files?.[0])}
+        />
       </div>
 
       <Field

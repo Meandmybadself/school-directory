@@ -4,6 +4,7 @@ import type { ControllablePersonDTO, PersonProfileDTO } from "@sd/shared";
 import { Icon } from "./Icon.js";
 import { Avatar, Btn } from "./atoms.js";
 import { useI18n } from "../i18n/index.js";
+import { mediaUrl } from "../lib/api.js";
 
 function capLabel(c: string): string {
   return c.charAt(0).toUpperCase() + c.slice(1).replace("_", " ");
@@ -40,7 +41,7 @@ export function ProfileSnapshot({
   return (
     <div className="sd-card sd-card-pad">
       <div className="sd-row" style={{ gap: 12 }}>
-        <Avatar name={person.displayName} size={46} img={person.photoUrl} color="var(--blue)" />
+        <Avatar name={person.displayName} size={46} img={mediaUrl(person.photoUrl)} color="var(--blue)" />
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ fontSize: 16, fontWeight: 700, letterSpacing: "-.2px" }}>{person.displayName}</div>
           <div className="sd-meta">{person.capabilities.map(capLabel).join(" · ")}</div>
