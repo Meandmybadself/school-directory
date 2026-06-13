@@ -55,10 +55,10 @@ home.get("/neighbors", async (c) => {
     const d = haversineMiles(origin.geo_lat, origin.geo_lng, r.geo_lat, r.geo_lng);
     if (d > RADIUS_MILES) continue;
     neighbors.push({
+      id: r.owner_id,
       name: displayName(r.first_name, r.last_name, r.last_name_visibility, false),
       approxDistance: approxDistance(d),
       kind: "person",
-      connected: false,
       _d: d,
     });
   }

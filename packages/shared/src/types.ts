@@ -136,12 +136,13 @@ export interface MeDTO {
 }
 
 export interface NeighborDTO {
+  /** Person (or household) id — the card links to this profile/group. */
+  id: string;
   /** Person or household display name (last-name rule applied). */
   name: string;
   /** Rounded, human string e.g. "~0.4 mi". Never raw coordinates. */
   approxDistance: string;
   kind: "person" | "household";
-  connected: boolean;
 }
 
 export type NeighborsResponse =

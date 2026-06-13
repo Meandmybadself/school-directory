@@ -46,21 +46,20 @@ interface ViewProps {
   activePerson: NonNullable<ReturnType<typeof useSession>["activePerson"]>;
   profile: PersonProfileDTO | null;
   groups: GroupSummaryDTO[];
-  list: { name: string; approxDistance: string; connected: boolean }[] | null;
+  list: { id: string; name: string; approxDistance: string }[] | null;
   hasNeighbors: boolean;
 }
 
 function useNeighborCards(list: ViewProps["list"]) {
   const { t } = useI18n();
+  const navigate = useNavigate();
   return (list ?? []).map((n) => (
     <NeighborCard
-      key={n.name}
+      key={n.id}
       name={n.name}
       dist={n.approxDistance}
-      connected={n.connected}
-      connectText={t("connect")}
-      connectedText={t("connected")}
       memberText={t("member")}
+      onClick={() => navigate(`/persons/${n.id}`)}
     />
   ));
 }

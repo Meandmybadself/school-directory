@@ -236,20 +236,28 @@ export function GroupTile({
 export function NeighborCard({
   name,
   dist,
-  connected,
-  connectText = "Connect",
-  connectedText = "Connected",
   memberText = "Member",
+  onClick,
 }: {
   name: string;
   dist: string;
-  connected?: boolean;
-  connectText?: string;
-  connectedText?: string;
   memberText?: string;
+  onClick?: () => void;
 }) {
   return (
-    <div className="sd-card sd-card-pad" style={{ padding: 13, display: "flex", flexDirection: "column", gap: 10, minWidth: 0 }}>
+    <div
+      className="sd-card sd-card-pad"
+      role="button"
+      tabIndex={0}
+      onClick={onClick}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          onClick?.();
+        }
+      }}
+      style={{ padding: 13, display: "flex", flexDirection: "column", gap: 10, minWidth: 0, cursor: onClick ? "pointer" : undefined }}
+    >
       <div className="sd-row" style={{ justifyContent: "space-between" }}>
         <Avatar name={name} size={42} />
         <span className="sd-tag" style={{ background: "var(--blue-tint)", color: "var(--blue-800)" }}>
@@ -260,11 +268,6 @@ export function NeighborCard({
         <div style={{ fontSize: 14.5, fontWeight: 700, letterSpacing: "-.2px", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{name}</div>
         <div className="sd-meta" style={{ marginTop: 1 }}>{memberText}</div>
       </div>
-      {connected ? (
-        <button className="sd-btn sd-btn-secondary sd-btn-sm block" style={{ color: "var(--ok)" }}><Icon name="check" size={15} />{connectedText}</button>
-      ) : (
-        <button className="sd-btn sd-btn-secondary sd-btn-sm block"><Icon name="plus" size={15} />{connectText}</button>
-      )}
     </div>
   );
 }
