@@ -130,6 +130,19 @@ export interface AdminUserDTO {
   personCount: number;
 }
 
+export interface AuditEntryDTO {
+  id: string;
+  action: AuditAction | string;
+  /** Acting human's email (the admin during masquerade), or null for system. */
+  actorEmail: string | null;
+  /** When masquerading, the email of the target being acted as. */
+  masqueradingAsEmail: string | null;
+  entityKind: string | null;
+  entityId: string | null;
+  ip: string | null;
+  createdAt: string;
+}
+
 export interface MeDTO {
   user: {
     id: string;

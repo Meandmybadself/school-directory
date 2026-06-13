@@ -2,6 +2,7 @@
 // (CSV import, audit-log table, registration toggle UI) is M4.
 
 import { Hono } from "hono";
+import type { AuditEntryDTO } from "@sd/shared";
 import type { HonoEnv } from "../env.js";
 import { requireAuth } from "../middleware/session.js";
 import { randomSessionId } from "../lib/crypto.js";
@@ -27,6 +28,49 @@ admin.get("/users", async (c) => {
       personCount: u.person_count,
     })),
   });
+});
+
+/** GET /admin/audit?action=&limit=&before= — append-only audit log (FR-32). */
+admin.get("/audit", async (c) => {
+  const auth = requireAuth(c);
+  if (!auth.isSystemAdmin) return c.json({ error: "forbidden" }, 403);
+
+  const action = c.req.query("action");
+  const before = c.req.query("before"); // id cursor; rows are ULID-ordered
+  const limit = Math.min(Number.parseInt(c.req.query("limit") ?? "50", 10) || 50, 200);
+
+  const where: string[] = [];
+  const binds: unknown[] = [];
+  if (action) { where.push("a.action = ?"); binds.push(action); }
+  if (before) { where.push("a.id < ?"); binds.push(before); }
+  const whereSql = where.length ? `WHERE ${where.join(" AND ")}` : "";
+
+  const rows = await c.env.DB.prepare(
+    `SELECT a.id, a.action, a.entity_kind, a.entity_id, a.ip, a.created_at,
+            actor.email AS actor_email, masq.email AS masq_email
+     FROM audit_log a
+     LEFT JOIN user actor ON actor.id = a.actor_user_id
+     LEFT JOIN user masq  ON masq.id  = a.masquerading_as
+     ${whereSql}
+     ORDER BY a.id DESC LIMIT ?`,
+  )
+    .bind(...binds, limit)
+    .all<{
+      id: string; action: string; entity_kind: string | null; entity_id: string | null;
+      ip: string | null; created_at: string; actor_email: string | null; masq_email: string | null;
+    }>();
+
+  const entries: AuditEntryDTO[] = rows.results.map((r) => ({
+    id: r.id,
+    action: r.action,
+    actorEmail: r.actor_email,
+    masqueradingAsEmail: r.masq_email,
+    entityKind: r.entity_kind,
+    entityId: r.entity_id,
+    ip: r.ip,
+    createdAt: r.created_at,
+  }));
+  return c.json({ entries, nextBefore: entries.length === limit ? entries[entries.length - 1]?.id : null });
 });
 
 /** POST /admin/masquerade { userId } — start viewing as another User. */

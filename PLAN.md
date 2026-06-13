@@ -99,7 +99,11 @@ Privacy is resolved **server-side only**; geocoordinates are never serialized to
       (actor=admin, masquerading_as=target). `GET /admin/users` + minimal /admin
       screen to start it. Verified: 403 for non-admins, identity swap, audit,
       stop/restore + session revoke.
-- [ ] Admin console: registration toggle, audit log table, invite (CSV)
+- [x] Admin console (part): **registration toggle** (`GET/PUT /settings/registration`)
+      and **audit-log viewer** (`GET /admin/audit` with action filter + cursor
+      paging, resolves actor + masquerade-target emails). Verified: admin-gated,
+      enumeration-safe enforcement when closed, audit entries + filtering.
+- [ ] Admin console (rest): co-manager/CSV invite UI, bulk import + dry-run
 
 ---
 

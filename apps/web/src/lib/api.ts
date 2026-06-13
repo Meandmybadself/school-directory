@@ -1,6 +1,7 @@
 // Thin fetch client. Always sends credentials so the session cookie rides along.
 import type {
   AdminUserDTO,
+  AuditEntryDTO,
   ContactItemInput,
   CreateShareBody,
   GroupDetailDTO,
@@ -99,4 +100,14 @@ export const api = {
   startMasquerade: (userId: string) =>
     request<{ ok: true }>("/admin/masquerade", { method: "POST", body: JSON.stringify({ userId }) }),
   stopMasquerade: () => request<{ ok: true }>("/admin/masquerade/stop", { method: "POST" }),
+  auditLog: (opts: { action?: string; before?: string } = {}) => {
+    const q = new URLSearchParams();
+    if (opts.action) q.set("action", opts.action);
+    if (opts.before) q.set("before", opts.before);
+    const qs = q.toString();
+    return request<{ entries: AuditEntryDTO[]; nextBefore: string | null }>(`/admin/audit${qs ? `?${qs}` : ""}`);
+  },
+  getRegistration: () => request<{ open: boolean }>("/settings/registration"),
+  setRegistration: (open: boolean) =>
+    request<{ open: boolean }>("/settings/registration", { method: "PUT", body: JSON.stringify({ open }) }),
 };
