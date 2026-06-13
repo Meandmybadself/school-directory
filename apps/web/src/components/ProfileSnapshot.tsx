@@ -35,9 +35,6 @@ export function ProfileSnapshot({
   const membersN = contacts.filter((c) => c.visibility === "service").length;
   const sharedN = contacts.filter((c) => c.visibility === "private" && (c.shareCount ?? 0) > 0).length;
   const privateN = contacts.filter((c) => c.visibility === "private" && !(c.shareCount ?? 0)).length;
-  const addressItem = contacts.find((c) => c.type === "address");
-  const neighborOn = addressItem?.neighborDiscoverable ?? false;
-
   return (
     <div className="sd-card sd-card-pad">
       <div className="sd-row" style={{ gap: 12 }}>
@@ -57,14 +54,6 @@ export function ProfileSnapshot({
         <MiniStat state="private" n={privateN} label={t("privateN")} />
         <MiniStat state="shared" n={sharedN} label={t("sharedN")} />
       </div>
-      {addressItem && (
-        <div className="sd-row" style={{ gap: 9, marginTop: 13, padding: "11px 12px", background: "var(--orange-tint)", borderRadius: 11 }}>
-          <Icon name="pin" size={17} style={{ color: "var(--orange-ink)", flex: "0 0 auto" }} />
-          <span style={{ fontSize: 12.5, fontWeight: 600, color: "var(--orange-ink)", flex: 1 }}>{t("shownAsNeighbor")}</span>
-          <span style={{ fontSize: 12, fontWeight: 800, color: "var(--orange-ink)" }}>{neighborOn ? t("on") : t("off")}</span>
-          <div className={`sd-toggle${neighborOn ? " on" : ""}`} style={neighborOn ? { background: "var(--orange-700)" } : undefined} />
-        </div>
-      )}
       <Btn block kind="secondary" icon="pencil" style={{ marginTop: 13 }} onClick={() => navigate(`/persons/${person.id}/edit`)}>
         {t("editProfile")}
       </Btn>
