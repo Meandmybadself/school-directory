@@ -2,9 +2,10 @@
 // (CSV import, audit-log table, registration toggle UI) is M4.
 
 import { Hono } from "hono";
-import type { AuditEntryDTO } from "@sd/shared";
+import type { AuditEntryDTO, BulkImportRow } from "@sd/shared";
 import type { HonoEnv } from "../env.js";
 import { requireAuth } from "../middleware/session.js";
+import { runBulkImport } from "../lib/bulkImport.js";
 import { randomSessionId } from "../lib/crypto.js";
 import { isoPlus, isExpired, nowIso, MASQUERADE_TTL, SESSION_TTL } from "../lib/time.js";
 import { setSessionCookie, clearActivePersonCookie } from "../lib/cookies.js";
@@ -28,6 +29,31 @@ admin.get("/users", async (c) => {
       personCount: u.person_count,
     })),
   });
+});
+
+/** POST /admin/bulk-import { rows, dryRun } — CSV bulk import (FR-29/30). */
+admin.post("/bulk-import", async (c) => {
+  const auth = requireAuth(c);
+  if (!auth.isSystemAdmin) return c.json({ error: "forbidden" }, 403);
+  const body = await c.req.json<{ rows: BulkImportRow[]; dryRun?: boolean }>().catch(() => null);
+  if (!body || !Array.isArray(body.rows)) return c.json({ error: "invalid_body" }, 400);
+
+  const dryRun = body.dryRun !== false; // default to a safe dry-run
+  const result = await runBulkImport(c.env, body.rows, dryRun);
+  if (!dryRun) {
+    c.var.audit.push({
+      action: "bulk.import",
+      entityKind: "import",
+      entityId: null,
+      detail: {
+        rows: result.rowsProcessed,
+        personsCreated: result.personsCreated,
+        groupsCreated: result.groupsCreated,
+        invitesQueued: result.invitesQueued,
+      },
+    });
+  }
+  return c.json(result);
 });
 
 /** GET /admin/audit?action=&limit=&before= — append-only audit log (FR-32). */

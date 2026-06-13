@@ -130,6 +130,39 @@ export interface AdminUserDTO {
   personCount: number;
 }
 
+/** One normalized row submitted to bulk import (client maps CSV columns to these). */
+export interface BulkImportRow {
+  firstName: string;
+  lastName?: string;
+  email?: string;
+  group?: string;
+  groupKind?: GroupKind;
+  title?: string;
+  /** Comma- or space-separated capability codes. */
+  capabilities?: string;
+}
+
+export interface BulkImportResult {
+  dryRun: boolean;
+  rowsProcessed: number;
+  personsCreated: number;
+  personsMatched: number;
+  groupsCreated: number;
+  membershipsCreated: number;
+  invitesQueued: number;
+  errors: { row: number; message: string }[];
+}
+
+export const BULK_IMPORT_FIELDS = [
+  "firstName",
+  "lastName",
+  "email",
+  "group",
+  "title",
+  "capabilities",
+] as const;
+export type BulkImportField = (typeof BULK_IMPORT_FIELDS)[number];
+
 export interface AuditEntryDTO {
   id: string;
   action: AuditAction | string;

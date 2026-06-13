@@ -91,8 +91,13 @@ Privacy is resolved **server-side only**; geocoordinates are never serialized to
       (offline read-only banner + write-disable is wired; SW/IndexedDB cache pending)
 
 ### M4 — Bulk import, invitations, masquerade, admin console
-- [ ] CSV import with column map + dry-run, idempotent on email
-- [ ] Deferred geocode queue for bulk addresses
+- [x] **CSV bulk import** (`POST /admin/bulk-import`, sysadmin): client-side CSV
+      parse + column mapping + preview, server pipeline that dedupes within the
+      file and matches existing entities (named-person match for emailed rows;
+      siblings under one parent email stay distinct), find-or-create groups +
+      memberships, queues invites for new unclaimed people, dry-run by default.
+      Verified idempotent (re-run = 0 writes). Audited as bulk.import.
+- [ ] Deferred geocode queue for bulk addresses (import schema has no address col)
 - [x] **Masquerade** (admin): `POST /admin/masquerade` + `/stop`, short-lived
       masquerade session (effective=target, tagged with acting admin + parent
       session), persistent orange banner with "Return to admin", dual-logged

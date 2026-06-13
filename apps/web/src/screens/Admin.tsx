@@ -107,6 +107,21 @@ export function Admin() {
         </div>
       </div>
 
+      {/* Bulk import */}
+      <div style={{ marginTop: 18 }}>
+        <SectLabel>Import</SectLabel>
+        <div className="sd-card" style={{ marginTop: 9, padding: 13, display: "flex", alignItems: "center", gap: 11, cursor: "pointer" }} onClick={() => navigate("/admin/import")}>
+          <div style={{ width: 38, height: 38, borderRadius: 10, background: "var(--blue-tint)", color: "var(--blue)", display: "flex", alignItems: "center", justifyContent: "center", flex: "0 0 auto" }}>
+            <Icon name="table" size={20} />
+          </div>
+          <div style={{ flex: 1 }}>
+            <div style={{ fontSize: 14.5, fontWeight: 700 }}>Bulk import (CSV)</div>
+            <div className="sd-meta">Add members &amp; groups from a roster file, with a dry-run.</div>
+          </div>
+          <Icon name="chevright" size={18} style={{ color: "var(--ink-3)" }} />
+        </div>
+      </div>
+
       {/* Users + masquerade */}
       <div style={{ marginTop: 18 }}>
         <SectLabel>Members &amp; sign-in accounts</SectLabel>
