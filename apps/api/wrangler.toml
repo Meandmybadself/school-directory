@@ -10,6 +10,9 @@ SCHOOL_NAME = "Eisenhower"
 APP_URL = "http://localhost:5173"
 # Comma-separated origins allowed to call the API with credentials.
 ALLOWED_ORIGINS = "http://localhost:5173"
+# Geocoding endpoint (OpenStreetMap Nominatim). Override to a self-hosted/paid
+# instance if address volume ever outgrows the public endpoint's 1 rps policy.
+NOMINATIM_URL = "https://nominatim.openstreetmap.org/search"
 
 # D1 (SQLite). For LOCAL dev `wrangler dev` uses a local sqlite file under .wrangler/
 # and applies migrations from migrations_dir. Replace database_id after running

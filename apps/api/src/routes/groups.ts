@@ -12,6 +12,7 @@ import { canSeeItem, displayName, sharesFor, viewerGroupIds, type ContactItemRow
 import { capabilitiesFor } from "../lib/serialize.js";
 import { ulid } from "../lib/ids.js";
 import { nowIso } from "../lib/time.js";
+import { geocodeContact } from "../lib/geocode.js";
 
 export const groups = new Hono<HonoEnv>();
 
@@ -318,6 +319,7 @@ groups.post("/:id/contacts", async (c) => {
       isAddress && body.neighborDiscoverable ? 1 : 0, isAddress ? "pending" : "none", nowIso(), nowIso())
     .run();
   c.var.audit.push({ action: "contact.created", entityKind: "contact_item", entityId: id, detail: { groupId } });
+  if (isAddress) c.executionCtx.waitUntil(geocodeContact(c.env, id, body.value.trim()));
   return c.json({ id }, 201);
 });
 
@@ -356,6 +358,9 @@ groups.patch("/:id/contacts/:contactId", async (c) => {
   binds.push(nowIso(), contactId);
   await c.env.DB.prepare(`UPDATE contact_item SET ${sets.join(", ")} WHERE id = ?`).bind(...binds).run();
   c.var.audit.push({ action: "contact.updated", entityKind: "contact_item", entityId: contactId, detail: { groupId } });
+  if (valueChanged && item.type === "address" && typeof body.value === "string") {
+    c.executionCtx.waitUntil(geocodeContact(c.env, contactId, body.value.trim()));
+  }
   return c.json({ ok: true });
 });
 

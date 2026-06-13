@@ -8,6 +8,7 @@ import { requireAuth } from "../middleware/session.js";
 import { isController } from "../lib/privacy.js";
 import { ulid } from "../lib/ids.js";
 import { nowIso } from "../lib/time.js";
+import { geocodeContact } from "../lib/geocode.js";
 
 export const contacts = new Hono<HonoEnv>();
 
@@ -56,6 +57,7 @@ contacts.post("/persons/:id/contacts", async (c) => {
     entityId: id,
     detail: { type: body.type, personId },
   });
+  if (isAddress) c.executionCtx.waitUntil(geocodeContact(c.env, id, body.value.trim()));
   return c.json({ id }, 201);
 });
 
@@ -111,6 +113,9 @@ contacts.patch("/contacts/:id", async (c) => {
     .run();
 
   c.var.audit.push({ action: "contact.updated", entityKind: "contact_item", entityId: id });
+  if (valueChanged && item.type === "address" && typeof body.value === "string") {
+    c.executionCtx.waitUntil(geocodeContact(c.env, id, body.value.trim()));
+  }
   return c.json({ ok: true });
 });
 

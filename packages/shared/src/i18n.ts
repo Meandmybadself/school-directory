@@ -55,6 +55,7 @@ export interface Strings {
   addAddressTitle: string;
   addAddressBody: string;
   addAddressBtn: string;
+  osmAttribution: string;
   noGroups: string;
   noGroupsBody: string;
   finishTitle: string;
@@ -193,6 +194,7 @@ const en: Strings = {
   addAddressBody:
     "We'll show nearby members and a rough distance — never your exact address.",
   addAddressBtn: "Add address",
+  osmAttribution: "Distances © OpenStreetMap contributors",
   noGroups: "You're not in any groups yet",
   noGroupsBody:
     "Your household and classrooms appear here once the office or a teacher adds you.",

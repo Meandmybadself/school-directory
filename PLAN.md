@@ -81,10 +81,14 @@ Privacy is resolved **server-side only**; geocoordinates are never serialized to
 - [ ] Field-level shares (e.g. last name) — model supports it; UI not surfaced
 
 ### M3 — Neighbors + i18n + offline
-- [ ] Nominatim geocoding on address mutation (single-flight ≤1 rps, UA/attribution)
-- [ ] `GET /home/neighbors` (haversine ≤2mi, name + approx distance only)
-- [ ] Language sheet + per-user locale; CJK line-height
+- [x] Nominatim geocoding on address mutation: background (waitUntil) geocode of
+      person + group addresses, descriptive User-Agent, OSM attribution shown on
+      Home. Coords stored server-side, never serialized. Verified end-to-end.
+      (Bulk-import deferred ≤1rps queue is M4.)
+- [x] `GET /home/neighbors` (haversine ≤2mi, name + approx distance only)
+- [x] Language sheet + per-user locale; CJK line-height
 - [ ] Service worker (stale-while-revalidate) + IndexedDB mirror; read-only offline mode
+      (offline read-only banner + write-disable is wired; SW/IndexedDB cache pending)
 
 ### M4 — Bulk import, invitations, masquerade, admin console
 - [ ] CSV import with column map + dry-run, idempotent on email

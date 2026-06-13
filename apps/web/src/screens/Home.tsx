@@ -112,7 +112,10 @@ function DesktopHome({ activePerson, profile, groups, hasNeighbors, list }: View
           {t("neighbors")}
         </SectLabel>
         {hasNeighbors ? (
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 14, marginTop: 11 }}>{cards}</div>
+          <>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 14, marginTop: 11 }}>{cards}</div>
+            <p className="sd-meta" style={{ marginTop: 8, fontSize: 11 }}>{t("osmAttribution")}</p>
+          </>
         ) : (
           <div style={{ marginTop: 11, maxWidth: 520 }}>
             <CTACard icon="pin" title={t("addAddressTitle")} body={t("addAddressBody")} action={<Btn block icon="plus" onClick={() => navigate(`/persons/${activePerson.id}/edit`)}>{t("addAddressBtn")}</Btn>} />
@@ -142,7 +145,12 @@ function MobileHome({ activePerson, profile, groups, hasNeighbors, list }: ViewP
 
   let neighborsBlock: ReactNode;
   if (hasNeighbors) {
-    neighborsBlock = <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginTop: 9 }}>{cards}</div>;
+    neighborsBlock = (
+      <>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginTop: 9 }}>{cards}</div>
+        <p className="sd-meta" style={{ marginTop: 8, fontSize: 11 }}>{t("osmAttribution")}</p>
+      </>
+    );
   } else {
     neighborsBlock = (
       <div style={{ marginTop: 9 }}>

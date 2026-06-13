@@ -7,6 +7,8 @@ export interface Env {
   SCHOOL_NAME: string;
   APP_URL: string;
   ALLOWED_ORIGINS: string;
+  /** Override the Nominatim search endpoint (e.g. a self-hosted instance). */
+  NOMINATIM_URL?: string;
   // secrets (may be empty in local dev)
   RESEND_API_KEY?: string;
   EMAIL_FROM?: string;
