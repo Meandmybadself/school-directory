@@ -48,13 +48,6 @@ function Sidebar({ active }: { active: NavKey }) {
         ))}
       </nav>
       <div style={{ flex: 1 }} />
-      <div style={{ padding: 12, borderRadius: 12, background: "var(--bg)", fontSize: 12.5, color: "var(--ink-3)" }}>
-        <div className="sd-row" style={{ gap: 8 }}>
-          <Icon name="school" size={16} />
-          <span style={{ fontWeight: 700, color: "var(--ink-2)" }}>{t("brand")} School</span>
-        </div>
-        <div style={{ marginTop: 4 }}>{t("privateNote")}</div>
-      </div>
     </aside>
   );
 }
