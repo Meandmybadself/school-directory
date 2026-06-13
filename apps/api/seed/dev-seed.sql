@@ -1,0 +1,59 @@
+-- Local development seed. Mirrors the design mocks (Ruiz–Lee household, Grade 4).
+-- Apply with: pnpm db:seed:local  (after db:migrate:local)
+-- Sign in as dana@eisenhower.edu — the magic link prints to the API console.
+
+DELETE FROM membership; DELETE FROM contact_item; DELETE FROM capability_grant;
+DELETE FROM control; DELETE FROM grp; DELETE FROM person; DELETE FROM user;
+
+-- Users
+INSERT INTO user (id, email, email_verified_at, is_system_admin, created_at) VALUES
+  ('usr_dana',   'dana@eisenhower.edu',   '2025-01-01T00:00:00.000Z', 1, '2025-01-01T00:00:00.000Z'),
+  ('usr_marcus', 'marcus@eisenhower.edu', '2025-01-01T00:00:00.000Z', 0, '2025-01-01T00:00:00.000Z');
+
+-- Persons
+INSERT INTO person (id, first_name, last_name, last_name_visibility, created_at) VALUES
+  ('per_dana',    'Dana',    'Ruiz', 'initial', '2025-01-01T00:00:00.000Z'),
+  ('per_marcus',  'Marcus',  'Lee',  'full',    '2025-01-01T00:00:00.000Z'),
+  ('per_charlie', 'Charlie', 'Lee',  'initial', '2025-01-01T00:00:00.000Z'),
+  ('per_allie',   'Allie',   'Ruiz', 'initial', '2025-01-01T00:00:00.000Z'),
+  ('per_sara',    'Sara',    'Okafor','full',   '2025-01-01T00:00:00.000Z');
+
+-- Control (Dana controls herself + both kids; Marcus co-controls the kids)
+INSERT INTO control (user_id, person_id, since) VALUES
+  ('usr_dana',   'per_dana',    '2025-01-01T00:00:00.000Z'),
+  ('usr_dana',   'per_charlie', '2025-01-01T00:00:00.000Z'),
+  ('usr_dana',   'per_allie',   '2025-01-01T00:00:00.000Z'),
+  ('usr_marcus', 'per_marcus',  '2025-01-01T00:00:00.000Z'),
+  ('usr_marcus', 'per_charlie', '2025-01-01T00:00:00.000Z'),
+  ('usr_marcus', 'per_allie',   '2025-01-01T00:00:00.000Z');
+
+-- Capabilities
+INSERT INTO capability_grant (person_id, capability) VALUES
+  ('per_dana', 'parent'), ('per_dana', 'teacher'),
+  ('per_marcus', 'parent'), ('per_marcus', 'household_admin'),
+  ('per_charlie', 'student'), ('per_allie', 'student'),
+  ('per_sara', 'student');
+
+-- Groups
+INSERT INTO grp (id, kind, name, created_at) VALUES
+  ('grp_household', 'household', 'Ruiz–Lee household', '2025-01-01T00:00:00.000Z'),
+  ('grp_class',     'classroom', 'Ms. Ruiz · Grade 4', '2025-01-01T00:00:00.000Z');
+
+-- Memberships
+INSERT INTO membership (group_id, person_id, title, is_admin, joined_at) VALUES
+  ('grp_household', 'per_marcus',  'Parent', 1, '2025-01-01T00:00:00.000Z'),
+  ('grp_household', 'per_dana',    'Parent', 0, '2025-01-01T00:00:00.000Z'),
+  ('grp_household', 'per_charlie', 'Student · Grade 4', 0, '2025-01-01T00:00:00.000Z'),
+  ('grp_household', 'per_allie',   'Student · Grade 1', 0, '2025-01-01T00:00:00.000Z'),
+  ('grp_class', 'per_dana',    'Teacher', 1, '2025-01-01T00:00:00.000Z'),
+  ('grp_class', 'per_charlie', 'Student', 0, '2025-01-01T00:00:00.000Z'),
+  ('grp_class', 'per_sara',    'Student', 0, '2025-01-01T00:00:00.000Z');
+
+-- Contact items for Dana
+INSERT INTO contact_item (id, owner_kind, owner_id, type, label, value, visibility, neighbor_discoverable, geocode_status, sort_order, created_at, updated_at) VALUES
+  ('ci_dana_email', 'person', 'per_dana', 'email', 'Email',  'dana.ruiz@eisenhower.edu', 'service', 0, 'none', 0, '2025-01-01T00:00:00.000Z', '2025-01-01T00:00:00.000Z'),
+  ('ci_dana_phone', 'person', 'per_dana', 'phone', 'Mobile', '(415) 555-0148',           'service', 0, 'none', 1, '2025-01-01T00:00:00.000Z', '2025-01-01T00:00:00.000Z'),
+  ('ci_dana_web',   'person', 'per_dana', 'url',   'Website','danaruiz.studio',           'private', 0, 'none', 2, '2025-01-01T00:00:00.000Z', '2025-01-01T00:00:00.000Z'),
+  ('ci_dana_addr',  'person', 'per_dana', 'address','Home',  '128 Linden Ave',            'private', 1, 'done', 3, '2025-01-01T00:00:00.000Z', '2025-01-01T00:00:00.000Z');
+
+UPDATE contact_item SET geo_lat = 37.7849, geo_lng = -122.4094 WHERE id = 'ci_dana_addr';

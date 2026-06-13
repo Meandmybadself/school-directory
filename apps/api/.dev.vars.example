@@ -1,0 +1,7 @@
+# Copy to .dev.vars (gitignored) for local development.
+# When RESEND_API_KEY is empty, the API logs magic links to the console instead of sending email.
+RESEND_API_KEY=
+# Sender address Resend is verified to send from.
+EMAIL_FROM="Eisenhower Directory <directory@example.com>"
+# Reserved for future HMAC/signing needs.
+SESSION_SECRET=dev-only-change-me

@@ -1,0 +1,30 @@
+name = "school-directory-api"
+main = "src/index.ts"
+compatibility_date = "2025-01-01"
+compatibility_flags = ["nodejs_compat"]
+
+# Single-tenant config. SCHOOL_NAME is surfaced in UI copy via /me + i18n.
+[vars]
+SCHOOL_NAME = "Eisenhower"
+# Where the SPA lives; magic links and CORS use this origin.
+APP_URL = "http://localhost:5173"
+# Comma-separated origins allowed to call the API with credentials.
+ALLOWED_ORIGINS = "http://localhost:5173"
+
+# D1 (SQLite). For LOCAL dev `wrangler dev` uses a local sqlite file under .wrangler/
+# and applies migrations from migrations_dir. Replace database_id after running
+# `wrangler d1 create school-directory` to go remote (see README).
+[[d1_databases]]
+binding = "DB"
+database_name = "school-directory"
+database_id = "00000000-0000-0000-0000-000000000000"
+migrations_dir = "migrations"
+
+# R2 for profile photos (served via signed Worker route).
+[[r2_buckets]]
+binding = "PHOTOS"
+bucket_name = "school-directory-photos"
+
+# Secrets (set via `wrangler secret put` for remote, or .dev.vars locally):
+#   RESEND_API_KEY   — Resend email API key (magic links / invites)
+#   SESSION_SECRET   — random string used to sign nothing yet but reserved for HMAC needs

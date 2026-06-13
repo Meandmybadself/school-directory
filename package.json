@@ -1,0 +1,26 @@
+{
+  "name": "school-directory",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Privacy-conscious, members-only contact directory for a single school community.",
+  "license": "MIT",
+  "packageManager": "pnpm@10.29.1",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "dev": "pnpm --parallel --filter \"./apps/*\" dev",
+    "dev:web": "pnpm --filter @sd/web dev",
+    "dev:api": "pnpm --filter @sd/api dev",
+    "build": "pnpm --filter @sd/shared build && pnpm --filter @sd/web build && pnpm --filter @sd/api build",
+    "typecheck": "pnpm -r typecheck",
+    "lint": "pnpm -r lint",
+    "test": "pnpm -r test",
+    "db:migrate:local": "pnpm --filter @sd/api db:migrate:local",
+    "db:migrate:remote": "pnpm --filter @sd/api db:migrate:remote",
+    "db:seed:local": "pnpm --filter @sd/api db:seed:local"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.2"
+  }
+}
