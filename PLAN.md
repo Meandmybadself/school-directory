@@ -68,8 +68,12 @@ Privacy is resolved **server-side only**; geocoordinates are never serialized to
       grantee management (add/remove people & groups) wired live; "Shared · N" chip.
       Verified: a grantee gains visibility, revoke removes it, non-controller 403,
       audit logs share.created/revoked.
-- [ ] Editing: household contact info, classroom roster/title management (writes)
-- [ ] Capability-gated write tools (Teacher tools, Household admin tools)
+- [x] **Group-editing writes** (admin-gated): add/remove members, set title +
+      admin flag (last-admin guard), add/edit/delete household contacts.
+      `isGroupAdmin` authz (group admin or system admin); candidate search.
+      Verified: writes, 403 for non-admins, 409 last-admin guard, audited.
+- [ ] Capability-gated *creation* (a Teacher creating a new Classroom; new Household)
+- [ ] Group-contact per-grantee shares (currently Members/Private only on group items)
 - [ ] Field-level shares (e.g. last name) — model supports it; UI not surfaced
 
 ### M3 — Neighbors + i18n + offline

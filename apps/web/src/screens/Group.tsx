@@ -13,7 +13,8 @@ import { useI18n } from "../i18n/index.js";
 import { useIsDesktop } from "../lib/useIsDesktop.js";
 import { useSession } from "../lib/session.js";
 import { api, ApiError } from "../lib/api.js";
-import type { GroupSummaryDTO } from "@sd/shared";
+import { AddMemberSheet, MemberSheet, EditContactsSheet } from "../components/GroupSheets.js";
+import type { GroupMemberDTO, GroupSummaryDTO } from "@sd/shared";
 
 const TYPE_ICON: Record<string, IconName> = { address: "pin", phone: "phone", email: "mail", url: "link" };
 
@@ -23,20 +24,30 @@ function visState(c: ContactItemDTO): VisState {
   return "private";
 }
 
+export interface GroupActions {
+  onAddMember: () => void;
+  onMember: (m: GroupMemberDTO) => void;
+  onEditContacts: () => void;
+}
+
+type Sheet = { type: "addMember" } | { type: "member"; member: GroupMemberDTO } | { type: "editContacts" } | null;
+
 export function GroupDetail() {
   const { id } = useParams();
   const isDesktop = useIsDesktop();
   const navigate = useNavigate();
   const [g, setG] = useState<GroupDetailDTO | null>(null);
   const [error, setError] = useState<"forbidden" | "not_found" | null>(null);
+  const [sheet, setSheet] = useState<Sheet>(null);
 
-  useEffect(() => {
+  const reload = () => {
     if (!id) return;
     void api
       .group(id)
       .then(setG)
       .catch((e) => setError(e instanceof ApiError && e.status === 403 ? "forbidden" : "not_found"));
-  }, [id]);
+  };
+  useEffect(reload, [id]);
 
   if (error) {
     const msg = error === "forbidden" ? "You're not a member of this group." : "Group not found.";
@@ -47,7 +58,29 @@ export function GroupDetail() {
     );
   }
   if (!g) return null;
-  return isDesktop ? <DesktopGroup g={g} /> : <MobileGroup g={g} />;
+
+  const actions: GroupActions = {
+    onAddMember: () => setSheet({ type: "addMember" }),
+    onMember: (member) => setSheet({ type: "member", member }),
+    onEditContacts: () => setSheet({ type: "editContacts" }),
+  };
+  const onChanged = () => reload();
+
+  return (
+    <>
+      {isDesktop ? <DesktopGroup g={g} actions={actions} /> : <MobileGroup g={g} actions={actions} />}
+      {sheet?.type === "addMember" && <AddMemberSheet groupId={g.id} onClose={() => setSheet(null)} onChanged={onChanged} />}
+      {sheet?.type === "member" && <MemberSheet groupId={g.id} member={sheet.member} onClose={() => setSheet(null)} onChanged={onChanged} />}
+      {sheet?.type === "editContacts" && (
+        <EditContactsSheet
+          groupId={g.id}
+          initial={g.contacts.map((c) => ({ id: c.id, type: c.type, label: c.label, value: c.value, visibility: c.visibility, neighborDiscoverable: c.neighborDiscoverable }))}
+          onClose={() => setSheet(null)}
+          onChanged={onChanged}
+        />
+      )}
+    </>
+  );
 }
 
 function isHousehold(g: GroupDetailDTO) {
@@ -133,7 +166,7 @@ function ContactCard({ g }: { g: GroupDetailDTO }) {
 
 // ── Mobile ─────────────────────────────────────────────────────────────────
 
-function MobileGroup({ g }: { g: GroupDetailDTO }) {
+function MobileGroup({ g, actions }: { g: GroupDetailDTO; actions: GroupActions }) {
   const { t } = useI18n();
   const navigate = useNavigate();
   const hh = isHousehold(g);
@@ -142,7 +175,7 @@ function MobileGroup({ g }: { g: GroupDetailDTO }) {
       <ScreenHeader
         title={hh ? t("household") : t("classroom")}
         onLeft={() => navigate("/groups")}
-        right={g.viewerIsAdmin ? <button className={`sd-btn sd-btn-${hh ? "secondary" : "orange"} sd-btn-sm`}><Icon name={hh ? "gear" : "plus"} size={15} />{hh ? t("manage") : t("addMember")}</button> : undefined}
+        right={g.viewerIsAdmin ? <button className={`sd-btn sd-btn-${hh ? "secondary" : "orange"} sd-btn-sm`} onClick={actions.onAddMember}><Icon name="plus" size={15} />{t("addMember")}</button> : undefined}
       />
       <div className="sd-scroll">
         {/* hero */}
@@ -174,7 +207,7 @@ function MobileGroup({ g }: { g: GroupDetailDTO }) {
           )}
 
           <div>
-            <SectLabel action={g.viewerIsAdmin ? <button className="sd-btn sd-btn-ghost sd-btn-sm" style={{ height: 24, padding: "0 4px", color: hh ? undefined : "var(--orange-700)" }}>{hh ? <><Icon name="plus" size={15} />{t("addMember")}</> : t("setTitles")}</button> : undefined}>
+            <SectLabel action={g.viewerIsAdmin ? <button className="sd-btn sd-btn-ghost sd-btn-sm" style={{ height: 24, padding: "0 4px" }} onClick={actions.onAddMember}><Icon name="plus" size={15} />{t("addMember")}</button> : undefined}>
               {hh ? t("members") : t("roster")}
             </SectLabel>
             <div className="sd-card sd-card-pad" style={{ marginTop: 9, paddingTop: 4, paddingBottom: 4 }}>
@@ -187,7 +220,7 @@ function MobileGroup({ g }: { g: GroupDetailDTO }) {
                   onClick={() => navigate(`/persons/${m.personId}`)}
                   trailing={
                     g.viewerIsAdmin ? (
-                      <button aria-label="More" style={{ width: 30, height: 30, borderRadius: 8, border: 0, background: "transparent", color: "var(--ink-3)", cursor: "pointer" }}><Icon name="dot3" size={18} /></button>
+                      <button aria-label={t("setTitle")} onClick={(e) => { e.stopPropagation(); actions.onMember(m); }} style={{ width: 30, height: 30, borderRadius: 8, border: 0, background: "transparent", color: "var(--ink-3)", cursor: "pointer" }}><Icon name="dot3" size={18} /></button>
                     ) : (
                       <Icon name="chevright" size={17} style={{ color: "var(--ink-3)" }} />
                     )
@@ -199,11 +232,11 @@ function MobileGroup({ g }: { g: GroupDetailDTO }) {
 
           {g.viewerIsAdmin ? (
             hh ? (
-              <Btn block kind="secondary" icon="pencil">{t("editGroupInfo")}</Btn>
+              <Btn block kind="secondary" icon="pencil" onClick={actions.onEditContacts}>{t("editGroupInfo")}</Btn>
             ) : (
               <div className="sd-row" style={{ gap: 9 }}>
-                <Btn block kind="secondary" icon="users3" style={{ flex: 1 }}>{t("manageMembers")}</Btn>
-                <Btn block kind="secondary" icon="bolt" style={{ flex: 1 }}>{t("messageAll")}</Btn>
+                <Btn block kind="secondary" icon="users3" style={{ flex: 1 }} onClick={actions.onAddMember}>{t("manageMembers")}</Btn>
+                <Btn block kind="secondary" icon="bolt" style={{ flex: 1 }} disabled>{t("messageAll")}</Btn>
               </div>
             )
           ) : (
@@ -220,10 +253,11 @@ function MobileGroup({ g }: { g: GroupDetailDTO }) {
 
 // ── Desktop ──────────────────────────────────────────────────────────────────
 
-function DesktopGroup({ g }: { g: GroupDetailDTO }) {
+function DesktopGroup({ g, actions }: { g: GroupDetailDTO; actions: GroupActions }) {
   const { t } = useI18n();
   const navigate = useNavigate();
   const hh = isHousehold(g);
+  const showRail = g.contacts.length > 0 || (hh && g.viewerIsAdmin);
   return (
     <DesktopShell
       active="groups"
@@ -236,7 +270,7 @@ function DesktopGroup({ g }: { g: GroupDetailDTO }) {
         </div>
       }
     >
-      <div style={{ display: "grid", gridTemplateColumns: g.contacts.length ? "1fr 320px" : "1fr", gap: 22, alignItems: "start" }}>
+      <div style={{ display: "grid", gridTemplateColumns: showRail ? "1fr 320px" : "1fr", gap: 22, alignItems: "start" }}>
         <div className="sd-card" style={{ overflow: "hidden" }}>
           <div className="sd-row" style={{ gap: 14, padding: "20px 22px", borderBottom: "1px solid var(--line)", flexWrap: "wrap", rowGap: 12 }}>
             <div style={{ width: 54, height: 54, borderRadius: 14, background: hh ? "var(--blue-tint)" : "var(--orange-tint)", color: hh ? "var(--blue)" : "var(--orange-700)", display: "flex", alignItems: "center", justifyContent: "center", flex: "0 0 auto" }}>
@@ -252,7 +286,7 @@ function DesktopGroup({ g }: { g: GroupDetailDTO }) {
               <Tag tone="line"><Icon name="eye" size={12} stroke={2} />{hh ? t("viewOnly") : t("classMember")}</Tag>
             )}
             {g.viewerIsAdmin && (
-              <button className="sd-btn sd-btn-secondary sd-btn-sm"><Icon name="plus" size={15} />{t("addMember")}</button>
+              <button className="sd-btn sd-btn-secondary sd-btn-sm" onClick={actions.onAddMember}><Icon name="plus" size={15} />{t("addMember")}</button>
             )}
           </div>
           <div style={{ padding: "6px 22px 14px" }}>
@@ -267,8 +301,8 @@ function DesktopGroup({ g }: { g: GroupDetailDTO }) {
                 trailing={
                   g.viewerIsAdmin ? (
                     <div className="sd-row" style={{ gap: 8 }}>
-                      <button className="sd-btn sd-btn-ghost sd-btn-sm">{t("setTitle")}</button>
-                      <button aria-label="More" style={{ width: 30, height: 30, borderRadius: 8, border: 0, background: "transparent", color: "var(--ink-3)", cursor: "pointer" }}><Icon name="dot3" size={18} /></button>
+                      <button className="sd-btn sd-btn-ghost sd-btn-sm" onClick={(e) => { e.stopPropagation(); actions.onMember(m); }}>{t("setTitle")}</button>
+                      <button aria-label={t("manage")} onClick={(e) => { e.stopPropagation(); actions.onMember(m); }} style={{ width: 30, height: 30, borderRadius: 8, border: 0, background: "transparent", color: "var(--ink-3)", cursor: "pointer" }}><Icon name="dot3" size={18} /></button>
                     </div>
                   ) : (
                     <Icon name="chevright" size={17} style={{ color: "var(--ink-3)" }} />
@@ -279,7 +313,7 @@ function DesktopGroup({ g }: { g: GroupDetailDTO }) {
           </div>
         </div>
 
-        {g.contacts.length > 0 && (
+        {showRail && (
           <div className="sd-card sd-card-pad">
             <div className="sd-eyebrow" style={{ marginBottom: 4 }}>{hh ? t("householdContact") : t("contact")}</div>
             {hh && <p className="sd-meta" style={{ marginBottom: 12 }}>{t("cascadeNote")}</p>}
@@ -292,7 +326,8 @@ function DesktopGroup({ g }: { g: GroupDetailDTO }) {
                 vis={<Vis state={visState(c)} count={c.shareCount} withCaret={g.viewerIsAdmin} membersText={t("visMembers")} privateText={t("visPrivate")} sharedText={t("visShared")} />}
               />
             ))}
-            {g.viewerIsAdmin && <Btn block kind="secondary" icon="pencil" sm style={{ marginTop: 14 }}>{t("editGroupInfo")}</Btn>}
+            {g.contacts.length === 0 && <div className="sd-meta" style={{ padding: "4px 0 8px" }}>No shared contact info yet.</div>}
+            {g.viewerIsAdmin && hh && <Btn block kind="secondary" icon="pencil" sm style={{ marginTop: 14 }} onClick={actions.onEditContacts}>{t("editGroupInfo")}</Btn>}
           </div>
         )}
       </div>

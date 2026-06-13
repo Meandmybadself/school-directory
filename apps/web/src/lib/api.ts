@@ -67,6 +67,20 @@ export const api = {
   neighbors: () => request<NeighborsResponse>("/home/neighbors"),
 
   group: (id: string) => request<GroupDetailDTO>(`/groups/${id}`),
+  groupCandidates: (groupId: string, q: string) =>
+    request<{ targets: ShareTargetDTO[] }>(`/groups/${groupId}/candidates?q=${encodeURIComponent(q)}`),
+  addGroupMember: (groupId: string, body: { personId: string; title?: string }) =>
+    request<{ ok: true }>(`/groups/${groupId}/members`, { method: "POST", body: JSON.stringify(body) }),
+  updateGroupMember: (groupId: string, personId: string, body: { title?: string | null; isAdmin?: boolean }) =>
+    request<{ ok: true }>(`/groups/${groupId}/members/${personId}`, { method: "PATCH", body: JSON.stringify(body) }),
+  removeGroupMember: (groupId: string, personId: string) =>
+    request<{ ok: true }>(`/groups/${groupId}/members/${personId}`, { method: "DELETE" }),
+  addGroupContact: (groupId: string, body: ContactItemInput) =>
+    request<{ id: string }>(`/groups/${groupId}/contacts`, { method: "POST", body: JSON.stringify(body) }),
+  patchGroupContact: (groupId: string, contactId: string, body: Partial<ContactItemInput>) =>
+    request<{ ok: true }>(`/groups/${groupId}/contacts/${contactId}`, { method: "PATCH", body: JSON.stringify(body) }),
+  deleteGroupContact: (groupId: string, contactId: string) =>
+    request<{ ok: true }>(`/groups/${groupId}/contacts/${contactId}`, { method: "DELETE" }),
 
   listShares: (subjectKind: string, subjectRef: string) =>
     request<{ grantees: ShareGranteeDTO[] }>(
