@@ -111,6 +111,14 @@ export interface Strings {
   // language
   language: string;
   languageNote: string;
+
+  // cross-cutting states
+  offlineBanner: string;
+  offlineReadOnly: string;
+  offlineNote: string;
+  masqViewingAs: string; // uses {name}
+  masqReturn: string;
+  signOut: string;
 }
 
 const en: Strings = {
@@ -220,6 +228,14 @@ const en: Strings = {
 
   language: "Language",
   languageNote: "Changes the directory for you only.",
+
+  offlineBanner: "Offline — showing your saved copy",
+  offlineReadOnly: "Read-only",
+  offlineNote:
+    "You're offline, so the directory is read-only. Your saved copy is shown. Reconnect to make changes.",
+  masqViewingAs: "Viewing as {name}",
+  masqReturn: "Return to admin",
+  signOut: "Sign out",
 };
 
 const es: Strings = {
@@ -292,6 +308,14 @@ const es: Strings = {
 
   language: "Idioma",
   languageNote: "Cambia el directorio solo para ti.",
+
+  offlineBanner: "Sin conexión — mostrando tu copia guardada",
+  offlineReadOnly: "Solo lectura",
+  offlineNote:
+    "Estás sin conexión, así que el directorio es de solo lectura. Se muestra tu copia guardada. Reconéctate para hacer cambios.",
+  masqViewingAs: "Viendo como {name}",
+  masqReturn: "Volver a admin",
+  signOut: "Cerrar sesión",
 };
 
 const zh: Strings = {
@@ -361,6 +385,13 @@ const zh: Strings = {
 
   language: "语言",
   languageNote: "仅更改你自己的目录显示。",
+
+  offlineBanner: "离线 — 显示你保存的副本",
+  offlineReadOnly: "只读",
+  offlineNote: "你目前处于离线状态，目录为只读。正在显示你保存的副本。重新连接后即可进行更改。",
+  masqViewingAs: "正以 {name} 的身份查看",
+  masqReturn: "返回管理员",
+  signOut: "退出登录",
 };
 
 export const dictionaries: Record<Locale, Strings> = { en, es, zh };

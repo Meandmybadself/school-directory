@@ -57,3 +57,18 @@ INSERT INTO contact_item (id, owner_kind, owner_id, type, label, value, visibili
   ('ci_dana_addr',  'person', 'per_dana', 'address','Home',  '128 Linden Ave',            'private', 1, 'done', 3, '2025-01-01T00:00:00.000Z', '2025-01-01T00:00:00.000Z');
 
 UPDATE contact_item SET geo_lat = 37.7849, geo_lng = -122.4094 WHERE id = 'ci_dana_addr';
+
+-- A few discoverable neighbors near Dana so Home shows the Neighbors module.
+INSERT INTO person (id, first_name, last_name, last_name_visibility, created_at) VALUES
+  ('per_james', 'James', 'Whitfield', 'full', '2025-01-01T00:00:00.000Z'),
+  ('per_lena',  'Lena',  'Brandt',    'full', '2025-01-01T00:00:00.000Z'),
+  ('per_tomas', 'Tomás', 'Rivera',    'full', '2025-01-01T00:00:00.000Z');
+
+INSERT INTO capability_grant (person_id, capability) VALUES
+  ('per_james', 'parent'), ('per_lena', 'parent'), ('per_tomas', 'parent');
+
+INSERT INTO contact_item (id, owner_kind, owner_id, type, label, value, visibility, neighbor_discoverable, geocode_status, geo_lat, geo_lng, created_at, updated_at) VALUES
+  ('ci_sara_addr',  'person', 'per_sara',  'address', 'Home', '12 Birch St',   'private', 1, 'done', 37.7853, -122.4140, '2025-01-01T00:00:00.000Z', '2025-01-01T00:00:00.000Z'),
+  ('ci_james_addr', 'person', 'per_james', 'address', 'Home', '440 Oak Ave',   'private', 1, 'done', 37.7900, -122.4060, '2025-01-01T00:00:00.000Z', '2025-01-01T00:00:00.000Z'),
+  ('ci_lena_addr',  'person', 'per_lena',  'address', 'Home', '78 Cedar Ct',   'private', 1, 'done', 37.7770, -122.4180, '2025-01-01T00:00:00.000Z', '2025-01-01T00:00:00.000Z'),
+  ('ci_tomas_addr', 'person', 'per_tomas', 'address', 'Home', '901 Maple Way', 'private', 1, 'done', 37.7960, -122.4200, '2025-01-01T00:00:00.000Z', '2025-01-01T00:00:00.000Z');

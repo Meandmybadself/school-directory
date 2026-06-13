@@ -1,0 +1,564 @@
+/* Design tokens + component CSS — ported from design_handoff/ds.jsx, scoped to .sd.
+   Calm-institutional style (the shipped direction). Tokens are final per the handoff. */
+
+.sd {
+  --blue: #0068a8;
+  --blue-700: #00568c;
+  --blue-800: #063f63;
+  --blue-tint: #e6f1f9;
+  --blue-tint-2: #d2e6f4;
+  --orange: #faab1c;
+  --orange-700: #cf7e00;
+  --orange-ink: #8a5500;
+  --orange-tint: #fdf0d8;
+  --orange-tint-2: #fbe4b8;
+
+  --ink: #19232e;
+  --ink-2: #56636f;
+  --ink-3: #8693a0;
+  --line: #e7eaed;
+  --line-2: #dde2e6;
+  --paper: #ffffff;
+  --bg: #f3f5f7;
+  --bg-2: #eef1f4;
+  --slate-tint: #eef1f4;
+
+  --ok: #1f8a5b;
+  --warn: #b5562f;
+
+  --r-card: 16px;
+  --r-ctrl: 11px;
+  --r-sm: 8px;
+  --sh-1: 0 1px 2px rgba(20, 30, 40, 0.05);
+  --sh-2: 0 1px 3px rgba(20, 30, 40, 0.06), 0 6px 18px rgba(20, 30, 40, 0.06);
+  --sh-pop: 0 8px 30px rgba(20, 30, 40, 0.16), 0 0 0 1px rgba(20, 30, 40, 0.04);
+
+  --ff: "Hanken Grotesk", "Noto Sans SC", system-ui, sans-serif;
+  --ff-serif: "Source Serif 4", Georgia, serif;
+  --ff-mono: "Spline Sans Mono", ui-monospace, monospace;
+
+  font-family: var(--ff);
+  color: var(--ink);
+  box-sizing: border-box;
+  -webkit-font-smoothing: antialiased;
+  line-height: 1.45;
+}
+.sd *,
+.sd *::before,
+.sd *::after {
+  box-sizing: border-box;
+}
+.sd ::selection {
+  background: var(--blue-tint-2);
+}
+
+/* ── App shell: mobile-first full-screen, max-width column on larger screens ── */
+* {
+  margin: 0;
+}
+html,
+body,
+#root {
+  height: 100%;
+}
+body {
+  background: var(--bg);
+}
+.sd-app {
+  width: 100%;
+  max-width: 480px;
+  margin: 0 auto;
+  min-height: 100%;
+  background: var(--bg);
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  overflow-x: hidden;
+}
+@media (min-width: 481px) {
+  .sd-app {
+    box-shadow: var(--sh-2);
+  }
+}
+
+/* app bar */
+.sd-appbar {
+  flex: 0 0 auto;
+  background: var(--paper);
+  border-bottom: 1px solid var(--line);
+  padding: 9px 14px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+.sd-scroll {
+  flex: 1 1 auto;
+  overflow-y: auto;
+}
+.sd-body {
+  padding: 16px 16px 26px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+/* type */
+.sd-h1 {
+  font-size: 25px;
+  font-weight: 700;
+  letter-spacing: -0.5px;
+  line-height: 1.14;
+  margin: 0;
+}
+.sd-h2 {
+  font-size: 19px;
+  font-weight: 700;
+  letter-spacing: -0.3px;
+  line-height: 1.2;
+  margin: 0;
+}
+.sd-eyebrow {
+  font-size: 11.5px;
+  font-weight: 700;
+  letter-spacing: 0.7px;
+  text-transform: uppercase;
+  color: var(--ink-3);
+  margin: 0;
+}
+.sd-lead {
+  font-size: 15px;
+  color: var(--ink-2);
+  line-height: 1.5;
+  margin: 0;
+}
+.sd-meta {
+  font-size: 12.5px;
+  color: var(--ink-3);
+  margin: 0;
+}
+.sd-label {
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.2px;
+  color: var(--ink-2);
+  margin: 0;
+}
+.sd-mono {
+  font-family: var(--ff-mono);
+}
+
+/* card */
+.sd-card {
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: var(--r-card);
+  box-shadow: var(--sh-1);
+}
+.sd-card-pad {
+  padding: 16px;
+}
+.sd-sectlabel {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin: 2px 2px 0;
+}
+
+/* buttons */
+.sd-btn {
+  font-family: inherit;
+  font-size: 15px;
+  font-weight: 600;
+  border-radius: var(--r-ctrl);
+  border: 1px solid transparent;
+  padding: 0 16px;
+  height: 46px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  cursor: pointer;
+  line-height: 1;
+  white-space: nowrap;
+  transition: filter 0.15s, background 0.15s;
+}
+.sd-btn:hover:not(:disabled) {
+  filter: brightness(0.97);
+}
+.sd-btn:disabled {
+  cursor: default;
+  opacity: 0.55;
+}
+.sd-btn.block {
+  width: 100%;
+}
+.sd-btn-primary {
+  background: var(--blue);
+  color: #fff;
+  box-shadow: 0 1px 0 rgba(0, 0, 0, 0.04);
+}
+.sd-btn-secondary {
+  background: var(--paper);
+  color: var(--ink);
+  border-color: var(--line-2);
+}
+.sd-btn-ghost {
+  background: transparent;
+  color: var(--blue-700);
+}
+.sd-btn-sm {
+  height: 36px;
+  font-size: 13.5px;
+  padding: 0 13px;
+  border-radius: 9px;
+  gap: 6px;
+}
+.sd-btn-orange {
+  background: var(--orange);
+  color: #3a2700;
+}
+
+/* avatar */
+.sd-av {
+  flex: 0 0 auto;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  color: #fff;
+  letter-spacing: 0.3px;
+  overflow: hidden;
+  background-size: cover;
+  background-position: center;
+}
+
+/* visibility chip */
+.sd-vis {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 25px;
+  padding: 0 9px 0 8px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1;
+  cursor: pointer;
+  white-space: nowrap;
+  border: 1px solid transparent;
+  font-family: inherit;
+}
+.sd-vis svg {
+  flex: 0 0 auto;
+}
+.vis-members {
+  background: var(--blue-tint);
+  color: var(--blue-800);
+  border-color: var(--blue-tint-2);
+}
+.vis-private {
+  background: var(--slate-tint);
+  color: var(--ink-2);
+  border-color: var(--line-2);
+}
+.vis-shared {
+  background: var(--orange-tint);
+  color: var(--orange-ink);
+  border-color: var(--orange-tint-2);
+}
+
+/* small tag / capability pill */
+.sd-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 21px;
+  padding: 0 8px;
+  border-radius: 6px;
+  font-size: 11.5px;
+  font-weight: 600;
+  background: var(--bg-2);
+  color: var(--ink-2);
+  white-space: nowrap;
+}
+.sd-tag.blue {
+  background: var(--blue-tint);
+  color: var(--blue-800);
+}
+.sd-tag.orange {
+  background: var(--orange-tint);
+  color: var(--orange-ink);
+}
+.sd-tag.line {
+  background: transparent;
+  border: 1px solid var(--line-2);
+  color: var(--ink-2);
+}
+
+/* contact row */
+.sd-crow {
+  display: flex;
+  align-items: flex-start;
+  gap: 11px;
+  padding: 12px 0;
+  border-top: 1px solid var(--line);
+}
+.sd-crow:first-child {
+  border-top: 0;
+}
+.sd-cicon {
+  flex: 0 0 auto;
+  width: 34px;
+  height: 34px;
+  border-radius: 9px;
+  background: var(--bg-2);
+  color: var(--ink-2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-top: 1px;
+}
+.sd-cmain {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.sd-cval {
+  font-size: 14.5px;
+  font-weight: 600;
+  color: var(--ink);
+  word-break: break-word;
+}
+.sd-clabel {
+  font-size: 11.5px;
+  font-weight: 600;
+  letter-spacing: 0.3px;
+  text-transform: uppercase;
+  color: var(--ink-3);
+  margin-bottom: 1px;
+}
+
+/* member/list row */
+.sd-mrow {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 11px 0;
+  border-top: 1px solid var(--line);
+}
+.sd-mrow:first-child {
+  border-top: 0;
+}
+
+/* input */
+.sd-input {
+  width: 100%;
+  height: 48px;
+  border: 1px solid var(--line-2);
+  border-radius: var(--r-ctrl);
+  background: var(--paper);
+  padding: 0 14px;
+  font-family: inherit;
+  font-size: 16px;
+  color: var(--ink);
+  outline: none;
+}
+.sd-input::placeholder {
+  color: var(--ink-3);
+}
+.sd-input:focus {
+  border-color: var(--blue);
+  box-shadow: 0 0 0 3px var(--blue-tint);
+}
+
+/* toggle */
+.sd-toggle {
+  width: 42px;
+  height: 25px;
+  border-radius: 999px;
+  background: var(--line-2);
+  position: relative;
+  flex: 0 0 auto;
+  transition: background 0.15s;
+  cursor: pointer;
+  border: 0;
+  padding: 0;
+}
+.sd-toggle.on {
+  background: var(--blue);
+}
+.sd-toggle::after {
+  content: "";
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 21px;
+  height: 21px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.25);
+  transition: transform 0.15s;
+}
+.sd-toggle.on::after {
+  transform: translateX(17px);
+}
+
+/* segmented */
+.sd-seg {
+  display: flex;
+  background: var(--bg-2);
+  border-radius: 10px;
+  padding: 3px;
+  gap: 2px;
+}
+.sd-seg button {
+  flex: 1;
+  border: 0;
+  background: transparent;
+  font-family: inherit;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--ink-2);
+  height: 30px;
+  border-radius: 7px;
+  cursor: pointer;
+}
+.sd-seg button.on {
+  background: var(--paper);
+  color: var(--ink);
+  box-shadow: var(--sh-1);
+}
+
+/* banner */
+.sd-banner {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 8px 14px;
+  font-size: 13px;
+  font-weight: 600;
+}
+.banner-offline {
+  background: #33414f;
+  color: #eaf0f5;
+}
+.banner-masq {
+  background: var(--orange);
+  color: #3a2700;
+}
+
+/* sheet */
+.sd-sheet {
+  background: var(--paper);
+  border-radius: 20px 20px 0 0;
+  box-shadow: 0 -8px 40px rgba(20, 30, 40, 0.16);
+}
+.sd-grabber {
+  width: 38px;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--line-2);
+  margin: 10px auto 4px;
+}
+.sd-scrim {
+  position: fixed;
+  inset: 0;
+  background: rgba(16, 26, 36, 0.42);
+}
+
+/* bottom nav */
+.sd-bottomnav {
+  flex: 0 0 auto;
+  background: var(--paper);
+  border-top: 1px solid var(--line);
+  display: flex;
+  padding: 7px 8px 9px;
+  position: sticky;
+  bottom: 0;
+}
+.sd-navitem {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  color: var(--ink-3);
+  background: none;
+  border: 0;
+  cursor: pointer;
+  font-family: inherit;
+}
+.sd-navitem.on {
+  color: var(--blue);
+}
+
+/* misc */
+.sd-divider {
+  height: 1px;
+  background: var(--line);
+  border: 0;
+  margin: 0;
+}
+.sd-link {
+  color: var(--blue-700);
+  font-weight: 600;
+  text-decoration: none;
+}
+.sd-row {
+  display: flex;
+  align-items: center;
+}
+.sd-fieldcard {
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  overflow: hidden;
+}
+.sd-fieldcard > .fr {
+  padding: 12px 14px;
+  border-top: 1px solid var(--line);
+}
+.sd-fieldcard > .fr:first-child {
+  border-top: 0;
+}
+
+/* accessibility: visible focus, reduced motion */
+.sd :focus-visible {
+  outline: 2px solid var(--blue);
+  outline-offset: 2px;
+}
+@media (prefers-reduced-motion: reduce) {
+  .sd *,
+  .sd *::before,
+  .sd *::after {
+    transition: none !important;
+    animation: none !important;
+  }
+}
+
+/* CJK comfort */
+.sd-zh {
+  line-height: 1.65;
+  letter-spacing: 0.01em;
+}
+.sd-zh .sd-meta,
+.sd-zh .sd-clabel {
+  line-height: 1.5;
+}
+
+/* spinner */
+@keyframes sd-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+.sd-spinner {
+  width: 54px;
+  height: 54px;
+  border-radius: 50%;
+  border: 4px solid var(--blue-tint);
+  border-top-color: var(--blue);
+  animation: sd-spin 0.8s linear infinite;
+}
