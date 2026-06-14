@@ -102,9 +102,9 @@ groups.get("/:id", async (c) => {
 
   const viewerIsMember = memberRows.results.some((m) => myPersonIds.has(m.person_id));
   const viewerIsAdmin = memberRows.results.some((m) => myPersonIds.has(m.person_id) && m.is_admin === 1);
-  if (!viewerIsMember && !auth.isSystemAdmin) {
-    return c.json({ error: "forbidden" }, 403);
-  }
+  // Group detail is readable by any authenticated member (names are already in
+  // the directory). Non-members see the roster + service-visibility contacts;
+  // private contacts and exact addresses stay restricted below.
 
   const members: GroupMemberDTO[] = [];
   for (const m of memberRows.results) {
@@ -133,10 +133,12 @@ groups.get("/:id", async (c) => {
   const contacts: ContactItemDTO[] = [];
   for (const item of itemRows.results) {
     const shares = await sharesFor(c.env, "contact_item", item.id);
-    // Members of the group can see service-visibility group contacts; controllers
-    // set is empty for groups, so membership is the gate for 'service'.
+    // Members (and admins) see all of the group's own contacts; everyone else
+    // sees service-visibility ones plus anything explicitly shared with them.
     const visible =
-      (item.visibility === "service" && (viewerIsMember || auth.isSystemAdmin)) ||
+      viewerIsMember ||
+      auth.isSystemAdmin ||
+      item.visibility === "service" ||
       canSeeItem({
         viewer,
         item,
