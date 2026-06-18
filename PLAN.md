@@ -123,6 +123,11 @@ Privacy is resolved **server-side only**; geocoordinates are never serialized to
       InviteSheet (email → send) wired to the existing controllers endpoint;
       in-sheet success/error. Verified: invite creates a pending control_invite,
       audited; controller-gated (403 otherwise).
+- [x] **First-run / admin bootstrap**: `BOOTSTRAP_ADMIN_EMAILS` grants system_admin
+      on sign-in and bypasses the registration toggle; production defaults to
+      registration **closed** (migration 0004), local dev stays open via the seed.
+      Verified: bootstrap email signs in + becomes admin on a closed bare system;
+      non-bootstrap unknown email issues no link.
 - [ ] Admin console (rest): send queued bulk invites via Resend (batched)
 
 ---

@@ -13,6 +13,11 @@ ALLOWED_ORIGINS = "http://localhost:5173"
 # Geocoding endpoint (OpenStreetMap Nominatim). Override to a self-hosted/paid
 # instance if address volume ever outgrows the public endpoint's 1 rps policy.
 NOMINATIM_URL = "https://nominatim.openstreetmap.org/search"
+# Comma-separated emails granted system_admin on sign-in. Set this BEFORE the
+# first deploy — these accounts can sign in even when registration is closed, so
+# they bootstrap a bare instance (then open registration / bulk-import / invite).
+# e.g. "office@school.edu,principal@school.edu"
+BOOTSTRAP_ADMIN_EMAILS = ""
 
 # D1 (SQLite). For LOCAL dev `wrangler dev` uses a local sqlite file under .wrangler/
 # and applies migrations from migrations_dir. Replace database_id after running

@@ -9,7 +9,7 @@ import { ulid } from "../lib/ids.js";
 import { randomToken, randomSessionId, sha256 } from "../lib/crypto.js";
 import { isoPlus, isExpired, nowIso, MAGIC_LINK_TTL, SESSION_TTL } from "../lib/time.js";
 import { magicLinkEmail, sendEmail } from "../lib/email.js";
-import { findUserByEmail, isRegistrationOpen, normalizeEmail } from "../lib/db.js";
+import { findUserByEmail, isRegistrationOpen, normalizeEmail, isBootstrapAdmin } from "../lib/db.js";
 import { setSessionCookie, clearSessionCookie, SESSION_COOKIE } from "../lib/cookies.js";
 import { getCookie } from "hono/cookie";
 
@@ -28,8 +28,11 @@ auth.post("/start", async (c) => {
 
   const user = await findUserByEmail(c.env, email);
   const regOpen = await isRegistrationOpen(c.env);
+  // Bootstrap admins can sign in even when registration is closed (and on a
+  // bare system with no users yet), so the instance is never locked out.
+  const bootstrap = isBootstrapAdmin(c.env, email);
 
-  if (user || regOpen) {
+  if (user || regOpen || bootstrap) {
     const token = randomToken();
     const tokenHash = await sha256(token);
     await c.env.DB.prepare(
@@ -80,23 +83,33 @@ auth.get("/callback", async (c) => {
     .bind(nowIso(), row.id)
     .run();
 
-  // Find or create the user.
+  // Find or create the user. Bootstrap-admin emails always create + are granted
+  // system_admin, even when registration is closed (initial-setup path).
+  const bootstrap = isBootstrapAdmin(c.env, row.email);
   let user = await findUserByEmail(c.env, row.email);
   if (!user) {
     // signin tokens only create a user if registration was open at issue time.
     // invite tokens always create the user (they bypass the toggle).
-    if (row.kind === "signin" && row.reg_open_at_issue !== 1) return fail();
+    if (row.kind === "signin" && row.reg_open_at_issue !== 1 && !bootstrap) return fail();
     const userId = ulid();
     await c.env.DB.prepare(
-      `INSERT INTO user (id, email, email_verified_at, created_at) VALUES (?,?,?,?)`,
+      `INSERT INTO user (id, email, email_verified_at, is_system_admin, created_at) VALUES (?,?,?,?,?)`,
     )
-      .bind(userId, row.email, nowIso(), nowIso())
+      .bind(userId, row.email, nowIso(), bootstrap ? 1 : 0, nowIso())
       .run();
-    user = { id: userId, email: row.email, is_system_admin: 0, locale: null };
+    user = { id: userId, email: row.email, is_system_admin: bootstrap ? 1 : 0, locale: null };
+    if (bootstrap) {
+      c.var.audit.push({ action: "admin.action", entityKind: "user", entityId: userId, detail: { op: "bootstrap_admin" } });
+    }
   } else {
     await c.env.DB.prepare("UPDATE user SET email_verified_at = ? WHERE id = ?")
       .bind(nowIso(), user.id)
       .run();
+    // Re-grant admin if this email is configured as a bootstrap admin.
+    if (bootstrap && user.is_system_admin !== 1) {
+      await c.env.DB.prepare("UPDATE user SET is_system_admin = 1 WHERE id = ?").bind(user.id).run();
+      c.var.audit.push({ action: "admin.action", entityKind: "user", entityId: user.id, detail: { op: "bootstrap_admin" } });
+    }
   }
 
   // Invite binding: grant control + close the invite.

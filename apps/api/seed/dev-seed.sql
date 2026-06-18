@@ -9,6 +9,10 @@ DELETE FROM control_invite; DELETE FROM share;
 DELETE FROM membership; DELETE FROM contact_item; DELETE FROM capability_grant;
 DELETE FROM control; DELETE FROM grp; DELETE FROM person; DELETE FROM user;
 
+-- Local dev keeps registration open (prod defaults closed via migration 0004).
+INSERT INTO setting (key, value) VALUES ('registration_open', 'true')
+  ON CONFLICT(key) DO UPDATE SET value = 'true';
+
 -- Users
 INSERT INTO user (id, email, email_verified_at, is_system_admin, created_at) VALUES
   ('usr_dana',   'dana@eisenhower.edu',   '2025-01-01T00:00:00.000Z', 1, '2025-01-01T00:00:00.000Z'),

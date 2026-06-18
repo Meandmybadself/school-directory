@@ -4,6 +4,20 @@ export function normalizeEmail(email: string): string {
   return email.trim().toLowerCase();
 }
 
+/** Normalized set of bootstrap-admin emails from BOOTSTRAP_ADMIN_EMAILS. */
+export function bootstrapAdminEmails(env: Env): Set<string> {
+  return new Set(
+    (env.BOOTSTRAP_ADMIN_EMAILS ?? "")
+      .split(",")
+      .map((e) => e.trim().toLowerCase())
+      .filter(Boolean),
+  );
+}
+
+export function isBootstrapAdmin(env: Env, email: string): boolean {
+  return bootstrapAdminEmails(env).has(normalizeEmail(email));
+}
+
 export async function getSetting(env: Env, key: string): Promise<string | null> {
   const row = await env.DB.prepare("SELECT value FROM setting WHERE key = ?")
     .bind(key)

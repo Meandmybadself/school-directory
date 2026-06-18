@@ -9,6 +9,9 @@ export interface Env {
   ALLOWED_ORIGINS: string;
   /** Override the Nominatim search endpoint (e.g. a self-hosted instance). */
   NOMINATIM_URL?: string;
+  /** Comma-separated emails granted system_admin on sign-in (bootstrap). They
+   *  can sign in even when registration is closed. */
+  BOOTSTRAP_ADMIN_EMAILS?: string;
   // secrets (may be empty in local dev)
   RESEND_API_KEY?: string;
   EMAIL_FROM?: string;

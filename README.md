@@ -94,7 +94,10 @@ wrangler d1 migrations apply school-directory --remote
 wrangler secret put RESEND_API_KEY
 wrangler secret put EMAIL_FROM
 
-# 4. Deploy the Worker, then the Pages app
+# 4. Set the bootstrap admin(s) in wrangler.toml [vars] BEFORE deploying:
+#    BOOTSTRAP_ADMIN_EMAILS = "office@school.edu"
+
+# 5. Deploy the Worker, then the Pages app
 wrangler deploy
 cd ../web && pnpm build && wrangler pages deploy dist --project-name school-directory
 ```
@@ -102,6 +105,25 @@ cd ../web && pnpm build && wrangler pages deploy dist --project-name school-dire
 CI (`.github/workflows/`) typechecks + tests on PRs and deploys on merge to
 `main` once the repository secrets (`CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID`)
 are configured.
+
+### First-run setup (bootstrapping a bare instance)
+
+A fresh database has **no users** and ships with **registration closed**
+(migration `0004`). The first admin is bootstrapped by config, not by signing up:
+
+1. Set `BOOTSTRAP_ADMIN_EMAILS` in `apps/api/wrangler.toml` `[vars]` to the
+   office/operator email(s), comma-separated, **before deploying**. These
+   accounts can sign in even while registration is closed and are granted
+   `system_admin` on sign-in (re-granted each time, so you can add admins later).
+2. Deploy + apply migrations.
+3. That email signs in at the app → it becomes an admin.
+4. From **Admin**, bulk-import the roster (which queues invitations), and/or open
+   registration if you want families to self-onboard.
+
+There is intentionally **no "first user becomes admin"** auto-promotion — with
+open registration that would be a footgun. Without a configured bootstrap email
+on a closed instance, no one can sign in (by design); set the var to recover.
+Local dev keeps registration open and seeds an admin (`dana@eisenhower.edu`).
 
 ## Privacy posture (load-bearing)
 
