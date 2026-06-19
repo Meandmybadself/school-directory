@@ -88,3 +88,13 @@ INSERT INTO contact_item (id, owner_kind, owner_id, type, label, value, visibili
   ('ci_james_addr', 'person', 'per_james', 'address', 'Home Address', '440 Oak Ave',   'private', 1, 'done', 37.7900, -122.4060, '2025-01-01T00:00:00.000Z', '2025-01-01T00:00:00.000Z'),
   ('ci_lena_addr',  'person', 'per_lena',  'address', 'Home Address', '78 Cedar Ct',   'private', 1, 'done', 37.7770, -122.4180, '2025-01-01T00:00:00.000Z', '2025-01-01T00:00:00.000Z'),
   ('ci_tomas_addr', 'person', 'per_tomas', 'address', 'Home Address', '901 Maple Way', 'private', 1, 'done', 37.7960, -122.4200, '2025-01-01T00:00:00.000Z', '2025-01-01T00:00:00.000Z');
+
+-- A second household address (a different location ~2mi west) + a neighbor only
+-- reachable from it, to exercise multi-address cascade.
+INSERT INTO contact_item (id, owner_kind, owner_id, type, label, value, visibility, neighbor_discoverable, geocode_status, geo_lat, geo_lng, created_at, updated_at) VALUES
+  ('ci_hh_addr2',  'group',  'grp_household', 'address', 'Cabin', '5 Lakeside Dr', 'service', 0, 'done', 37.7849, -122.4500, '2025-01-01T00:00:00.000Z', '2025-01-01T00:00:00.000Z'),
+  ('ci_far_addr',  'person', 'per_far',       'address', 'Home Address', '9 West End', 'private', 1, 'done', 37.7849, -122.4520, '2025-01-01T00:00:00.000Z', '2025-01-01T00:00:00.000Z');
+
+INSERT INTO person (id, first_name, last_name, last_name_visibility, created_at) VALUES
+  ('per_far', 'Farah', 'West', 'full', '2025-01-01T00:00:00.000Z');
+INSERT INTO capability_grant (person_id, capability) VALUES ('per_far', 'parent');

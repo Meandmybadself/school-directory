@@ -29,27 +29,39 @@ home.get("/neighbors", async (c) => {
     .all<{ id: string }>();
   const householdIds = hhRows.results.map((r) => r.id);
 
-  // Origin: the Person's own geocoded address, else cascade to the household's.
-  let origin = await c.env.DB.prepare(
-    `SELECT geo_lat, geo_lng FROM contact_item
-     WHERE owner_kind = 'person' AND owner_id = ? AND type = 'address'
-       AND geo_lat IS NOT NULL ORDER BY created_at LIMIT 1`,
-  )
-    .bind(auth.activePersonId)
-    .first<Coords>();
-  if (!origin && householdIds.length) {
-    const ph = householdIds.map(() => "?").join(",");
-    origin = await c.env.DB.prepare(
+  // Origins: ALL of the Person's own geocoded addresses, else ALL of their
+  // household(s)' geocoded addresses. A neighbor counts if near ANY origin.
+  let origins = (
+    await c.env.DB.prepare(
       `SELECT geo_lat, geo_lng FROM contact_item
-       WHERE owner_kind = 'group' AND owner_id IN (${ph}) AND type = 'address'
-         AND geo_lat IS NOT NULL ORDER BY created_at LIMIT 1`,
+       WHERE owner_kind = 'person' AND owner_id = ? AND type = 'address' AND geo_lat IS NOT NULL`,
     )
-      .bind(...householdIds)
-      .first<Coords>();
+      .bind(auth.activePersonId)
+      .all<Coords>()
+  ).results;
+  if (origins.length === 0 && householdIds.length) {
+    const ph = householdIds.map(() => "?").join(",");
+    origins = (
+      await c.env.DB.prepare(
+        `SELECT geo_lat, geo_lng FROM contact_item
+         WHERE owner_kind = 'group' AND owner_id IN (${ph}) AND type = 'address' AND geo_lat IS NOT NULL`,
+      )
+        .bind(...householdIds)
+        .all<Coords>()
+    ).results;
   }
-  if (!origin) return c.json<NeighborsResponse>({ addCta: true });
+  if (origins.length === 0) return c.json<NeighborsResponse>({ addCta: true });
 
-  const box = boundingBox(origin.geo_lat, origin.geo_lng, RADIUS_MILES);
+  // Union bounding box over all origins, then nearest-origin distance.
+  let minLat = Infinity, maxLat = -Infinity, minLng = Infinity, maxLng = -Infinity;
+  for (const o of origins) {
+    const b = boundingBox(o.geo_lat, o.geo_lng, RADIUS_MILES);
+    minLat = Math.min(minLat, b.minLat); maxLat = Math.max(maxLat, b.maxLat);
+    minLng = Math.min(minLng, b.minLng); maxLng = Math.max(maxLng, b.maxLng);
+  }
+  const nearest = (lat: number, lng: number): number =>
+    Math.min(...origins.map((o) => haversineMiles(o.geo_lat, o.geo_lng, lat, lng)));
+
   const tagged: (NeighborDTO & { _d: number })[] = [];
 
   // Person candidates: discoverable, geocoded addresses other than the viewer's
@@ -65,7 +77,7 @@ home.get("/neighbors", async (c) => {
        AND ci.owner_id != ?
        AND ci.geo_lat BETWEEN ? AND ? AND ci.geo_lng BETWEEN ? AND ?${coMemberExclude}`,
   )
-    .bind(auth.activePersonId, box.minLat, box.maxLat, box.minLng, box.maxLng, ...householdIds)
+    .bind(auth.activePersonId, minLat, maxLat, minLng, maxLng, ...householdIds)
     .all<{
       owner_id: string;
       geo_lat: number;
@@ -74,9 +86,12 @@ home.get("/neighbors", async (c) => {
       last_name: string | null;
       last_name_visibility: "full" | "initial";
     }>();
+  const seenPerson = new Set<string>();
   for (const r of personRows.results) {
-    const d = haversineMiles(origin.geo_lat, origin.geo_lng, r.geo_lat, r.geo_lng);
+    if (seenPerson.has(r.owner_id)) continue; // a person may have multiple addresses
+    const d = nearest(r.geo_lat, r.geo_lng);
     if (d > RADIUS_MILES) continue;
+    seenPerson.add(r.owner_id);
     tagged.push({
       id: r.owner_id,
       name: displayName(r.first_name, r.last_name, r.last_name_visibility, false),
@@ -86,8 +101,8 @@ home.get("/neighbors", async (c) => {
     });
   }
 
-  // Household candidates: discoverable household addresses (cascade to a group),
-  // excluding the viewer's own household(s).
+  // Household candidates: discoverable household addresses, excluding the
+  // viewer's own household(s).
   const notOwn = householdIds.length ? ` AND ci.owner_id NOT IN (${householdIds.map(() => "?").join(",")})` : "";
   const groupRows = await c.env.DB.prepare(
     `SELECT ci.owner_id, ci.geo_lat, ci.geo_lng, g.name
@@ -96,11 +111,14 @@ home.get("/neighbors", async (c) => {
        AND ci.neighbor_discoverable = 1 AND ci.geo_lat IS NOT NULL
        AND ci.geo_lat BETWEEN ? AND ? AND ci.geo_lng BETWEEN ? AND ?${notOwn}`,
   )
-    .bind(box.minLat, box.maxLat, box.minLng, box.maxLng, ...householdIds)
+    .bind(minLat, maxLat, minLng, maxLng, ...householdIds)
     .all<{ owner_id: string; geo_lat: number; geo_lng: number; name: string }>();
+  const seenGroup = new Set<string>();
   for (const r of groupRows.results) {
-    const d = haversineMiles(origin.geo_lat, origin.geo_lng, r.geo_lat, r.geo_lng);
+    if (seenGroup.has(r.owner_id)) continue;
+    const d = nearest(r.geo_lat, r.geo_lng);
     if (d > RADIUS_MILES) continue;
+    seenGroup.add(r.owner_id);
     tagged.push({ id: r.owner_id, name: r.name, approxDistance: approxDistance(d), kind: "household", _d: d });
   }
 
