@@ -93,7 +93,20 @@ function isHousehold(g: GroupDetailDTO) {
 function groupKindLabel(kind: GroupSummaryDTO["kind"], t: ReturnType<typeof useI18n>["t"]): string {
   if (kind === "household") return t("household");
   if (kind === "classroom") return t("classroom");
-  return t("navGroups");
+  return t("genericGroup");
+}
+
+/** Per-kind icon + accent colors so households, classrooms, and generic groups
+ *  (School / Grades / clubs) each read distinctly. */
+function kindAccent(kind: GroupSummaryDTO["kind"]): {
+  icon: IconName;
+  color: string;
+  tint: string;
+  tagTone: "blue" | "orange" | "line";
+} {
+  if (kind === "classroom") return { icon: "school", color: "var(--orange-700)", tint: "var(--orange-tint)", tagTone: "orange" };
+  if (kind === "generic") return { icon: "users3", color: "var(--ink-2)", tint: "var(--slate-tint)", tagTone: "line" };
+  return { icon: "home", color: "var(--blue)", tint: "var(--blue-tint)", tagTone: "blue" };
 }
 
 // ── Groups index (the active Person's groups) ────────────────────────────────
@@ -104,7 +117,7 @@ export function GroupsIndex() {
   const { t } = useI18n();
   const navigate = useNavigate();
   const isDesktop = useIsDesktop();
-  const { activePerson } = useSession();
+  const { activePerson, me } = useSession();
   const [groups, setGroups] = useState<GroupSummaryDTO[]>([]);
   const [creating, setCreating] = useState(false);
   const [q, setQ] = useState("");
@@ -127,7 +140,11 @@ export function GroupsIndex() {
     return () => clearTimeout(handle);
   }, [q]);
 
-  const canCreateClassroom = !!activePerson?.capabilities.includes("teacher");
+  const isSystemAdmin = !!me?.user.isSystemAdmin;
+  // Classrooms: teachers or system admins. Generic groups (School/Grades/clubs):
+  // system admins only. Households: anyone.
+  const canCreateClassroom = !!activePerson?.capabilities.includes("teacher") || isSystemAdmin;
+  const canCreateGeneric = isSystemAdmin;
   const newBtn = (
     <button className="sd-btn sd-btn-secondary sd-btn-sm" onClick={() => setCreating(true)}>
       <Icon name="plus" size={15} />{t("newGroup")}
@@ -136,6 +153,7 @@ export function GroupsIndex() {
   const createSheet = creating ? (
     <CreateGroupSheet
       canCreateClassroom={canCreateClassroom}
+      canCreateGeneric={canCreateGeneric}
       onClose={() => setCreating(false)}
       onCreated={(id) => { setCreating(false); navigate(`/groups/${id}`); }}
     />
@@ -143,17 +161,20 @@ export function GroupsIndex() {
 
   const tilesOf = (list: GroupSummaryDTO[], emptyMsg: string) => (
     <div style={{ display: isDesktop ? "grid" : "flex", gridTemplateColumns: "1fr 1fr", flexDirection: "column", gap: isDesktop ? 12 : 9 }}>
-      {list.map((g) => (
-        <GroupTile
-          key={g.id}
-          icon={g.kind === "classroom" ? "school" : "home"}
-          name={g.name}
-          sub={`${g.memberCount} ${t("members").toLowerCase()}`}
-          color={g.kind === "classroom" ? "var(--orange-700)" : "var(--blue)"}
-          tint={g.kind === "classroom" ? "var(--orange-tint)" : "var(--blue-tint)"}
-          onClick={() => navigate(`/groups/${g.id}`)}
-        />
-      ))}
+      {list.map((g) => {
+        const a = kindAccent(g.kind);
+        return (
+          <GroupTile
+            key={g.id}
+            icon={a.icon}
+            name={g.name}
+            sub={`${g.memberCount} ${t("members").toLowerCase()}`}
+            color={a.color}
+            tint={a.tint}
+            onClick={() => navigate(`/groups/${g.id}`)}
+          />
+        );
+      })}
       {list.length === 0 && <div className="sd-card sd-card-pad sd-meta">{emptyMsg}</div>}
     </div>
   );
@@ -182,12 +203,14 @@ export function GroupsIndex() {
           </tr>
         </thead>
         <tbody>
-          {allGroups.map((g) => (
+          {allGroups.map((g) => {
+            const a = kindAccent(g.kind);
+            return (
             <tr key={g.id} onClick={() => navigate(`/groups/${g.id}`)}>
               <td>
                 <div className="sd-row" style={{ gap: 10, minWidth: 0 }}>
-                  <div style={{ width: 30, height: 30, borderRadius: 8, flex: "0 0 auto", background: g.kind === "classroom" ? "var(--orange-tint)" : "var(--blue-tint)", color: g.kind === "classroom" ? "var(--orange-700)" : "var(--blue)", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                    <Icon name={g.kind === "classroom" ? "school" : "home"} size={16} />
+                  <div style={{ width: 30, height: 30, borderRadius: 8, flex: "0 0 auto", background: a.tint, color: a.color, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                    <Icon name={a.icon} size={16} />
                   </div>
                   <span style={{ fontWeight: 700, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{g.name}</span>
                 </div>
@@ -195,7 +218,8 @@ export function GroupsIndex() {
               <td style={{ color: "var(--ink-2)", textTransform: "capitalize", whiteSpace: "nowrap" }}>{groupKindLabel(g.kind, t)}</td>
               <td style={{ textAlign: "right", color: "var(--ink-2)", whiteSpace: "nowrap" }}>{g.memberCount}</td>
             </tr>
-          ))}
+            );
+          })}
           {allGroups.length === 0 && (
             <tr><td colSpan={3} className="sd-meta" style={{ cursor: "default" }}>{t("groupsEmpty")}</td></tr>
           )}
@@ -293,19 +317,21 @@ function MobileGroup({ g, actions }: { g: GroupDetailDTO; actions: GroupActions 
   const { t } = useI18n();
   const navigate = useNavigate();
   const hh = isHousehold(g);
+  const cls = g.kind === "classroom";
+  const a = kindAccent(g.kind);
   return (
     <AppShell bottomNav={<BottomNav active="groups" />}>
       <ScreenHeader
-        title={hh ? t("household") : t("classroom")}
+        title={groupKindLabel(g.kind, t)}
         onLeft={() => navigate("/groups")}
-        right={g.viewerIsAdmin ? <button className={`sd-btn sd-btn-${hh ? "secondary" : "orange"} sd-btn-sm`} onClick={actions.onAddMember}><Icon name="plus" size={15} />{t("addMember")}</button> : undefined}
+        right={g.viewerIsAdmin ? <button className={`sd-btn sd-btn-${cls ? "orange" : "secondary"} sd-btn-sm`} onClick={actions.onAddMember}><Icon name="plus" size={15} />{t("addMember")}</button> : undefined}
       />
       <div className="sd-scroll">
         {/* hero */}
         <div style={{ background: "var(--paper)", borderBottom: "1px solid var(--line)", padding: "16px 18px 18px" }}>
           <div className="sd-row" style={{ gap: 13 }}>
-            <div style={{ width: 52, height: 52, borderRadius: 14, background: hh ? "var(--blue-tint)" : "var(--orange-tint)", color: hh ? "var(--blue)" : "var(--orange-700)", display: "flex", alignItems: "center", justifyContent: "center", flex: "0 0 auto" }}>
-              <Icon name={hh ? "home" : "school"} size={26} stroke={1.9} />
+            <div style={{ width: 52, height: 52, borderRadius: 14, background: a.tint, color: a.color, display: "flex", alignItems: "center", justifyContent: "center", flex: "0 0 auto" }}>
+              <Icon name={a.icon} size={26} stroke={1.9} />
             </div>
             <div style={{ flex: 1, minWidth: 0 }}>
               <div className="sd-h2">{g.name}</div>
@@ -314,9 +340,9 @@ function MobileGroup({ g, actions }: { g: GroupDetailDTO; actions: GroupActions 
           </div>
           <div className="sd-row" style={{ gap: 6, marginTop: 12 }}>
             {g.viewerIsAdmin ? (
-              <Tag tone={hh ? "blue" : "orange"} icon="shield">{hh ? t("youreAdmin") : t("teachThisClass")}</Tag>
+              <Tag tone={a.tagTone} icon="shield">{cls ? t("teachThisClass") : t("youreAdmin")}</Tag>
             ) : (
-              <Tag tone="line"><Icon name="eye" size={12} stroke={2} />{hh ? t("viewOnly") : t("classMember")}</Tag>
+              <Tag tone="line"><Icon name="eye" size={12} stroke={2} />{cls ? t("classMember") : t("viewOnly")}</Tag>
             )}
           </div>
         </div>
@@ -331,7 +357,7 @@ function MobileGroup({ g, actions }: { g: GroupDetailDTO; actions: GroupActions 
 
           <div>
             <SectLabel action={g.viewerIsAdmin ? <button className="sd-btn sd-btn-ghost sd-btn-sm" style={{ height: 24, padding: "0 4px" }} onClick={actions.onAddMember}><Icon name="plus" size={15} />{t("addMember")}</button> : undefined}>
-              {hh ? t("members") : t("roster")}
+              {cls ? t("roster") : t("members")}
             </SectLabel>
             <div className="sd-card sd-card-pad" style={{ marginTop: 9, paddingTop: 4, paddingBottom: 4 }}>
               {g.members.map((m) => (
@@ -366,7 +392,7 @@ function MobileGroup({ g, actions }: { g: GroupDetailDTO; actions: GroupActions 
           ) : (
             <div className="sd-row" style={{ gap: 8, padding: "11px 14px", background: "var(--bg-2)", borderRadius: 12, color: "var(--ink-2)", fontSize: 12.5, lineHeight: 1.4 }}>
               <Icon name="info" size={16} style={{ flex: "0 0 auto", marginTop: 1 }} />
-              {hh ? t("adminManages", { name: adminName(g) }) : t("teacherRuns", { name: adminName(g) })}
+              {hh ? t("adminManages", { name: adminName(g) }) : cls ? t("teacherRuns", { name: adminName(g) }) : t("genericManages", { name: adminName(g) })}
             </div>
           )}
         </div>
@@ -381,6 +407,8 @@ function DesktopGroup({ g, actions }: { g: GroupDetailDTO; actions: GroupActions
   const { t } = useI18n();
   const navigate = useNavigate();
   const hh = isHousehold(g);
+  const cls = g.kind === "classroom";
+  const a = kindAccent(g.kind);
   const showRail = g.contacts.length > 0 || (hh && g.viewerIsAdmin);
   return (
     <DesktopShell
@@ -397,24 +425,24 @@ function DesktopGroup({ g, actions }: { g: GroupDetailDTO; actions: GroupActions
       <div style={{ display: "grid", gridTemplateColumns: showRail ? "1fr 320px" : "1fr", gap: 22, alignItems: "start" }}>
         <div className="sd-card" style={{ overflow: "hidden" }}>
           <div className="sd-row" style={{ gap: 14, padding: "20px 22px", borderBottom: "1px solid var(--line)", flexWrap: "wrap", rowGap: 12 }}>
-            <div style={{ width: 54, height: 54, borderRadius: 14, background: hh ? "var(--blue-tint)" : "var(--orange-tint)", color: hh ? "var(--blue)" : "var(--orange-700)", display: "flex", alignItems: "center", justifyContent: "center", flex: "0 0 auto" }}>
-              <Icon name={hh ? "home" : "school"} size={27} stroke={1.9} />
+            <div style={{ width: 54, height: 54, borderRadius: 14, background: a.tint, color: a.color, display: "flex", alignItems: "center", justifyContent: "center", flex: "0 0 auto" }}>
+              <Icon name={a.icon} size={27} stroke={1.9} />
             </div>
             <div style={{ flex: "1 1 180px", minWidth: 0 }}>
               <div className="sd-h2" style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{g.name}</div>
               <div className="sd-meta" style={{ marginTop: 2 }}>{g.memberCount} {t("members").toLowerCase()}</div>
             </div>
             {g.viewerIsAdmin ? (
-              <Tag tone={hh ? "blue" : "orange"} icon="shield">{hh ? t("youreAdmin") : t("teachThisClass")}</Tag>
+              <Tag tone={a.tagTone} icon="shield">{cls ? t("teachThisClass") : t("youreAdmin")}</Tag>
             ) : (
-              <Tag tone="line"><Icon name="eye" size={12} stroke={2} />{hh ? t("viewOnly") : t("classMember")}</Tag>
+              <Tag tone="line"><Icon name="eye" size={12} stroke={2} />{cls ? t("classMember") : t("viewOnly")}</Tag>
             )}
             {g.viewerIsAdmin && (
               <button className="sd-btn sd-btn-secondary sd-btn-sm" onClick={actions.onAddMember}><Icon name="plus" size={15} />{t("addMember")}</button>
             )}
           </div>
           <div style={{ padding: "6px 22px 14px" }}>
-            <div className="sd-eyebrow" style={{ padding: "14px 0 4px" }}>{hh ? t("members") : t("roster")}</div>
+            <div className="sd-eyebrow" style={{ padding: "14px 0 4px" }}>{cls ? t("roster") : t("members")}</div>
             {g.members.map((m) => (
               <MemberRow
                 key={m.personId}

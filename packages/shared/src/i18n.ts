@@ -128,6 +128,9 @@ export interface Strings {
   // groups
   household: string;
   classroom: string;
+  genericGroup: string;
+  genericGroupSub: string;
+  genericManages: string; // uses {name}
   roster: string;
   members: string;
   manage: string;
@@ -313,6 +316,9 @@ const en: Strings = {
 
   household: "Household",
   classroom: "Classroom",
+  genericGroup: "Group",
+  genericGroupSub: "School, grade, club, or committee",
+  genericManages: "{name} manages this group.",
   roster: "Roster",
   members: "Members",
   manage: "Manage",
@@ -449,6 +455,9 @@ const es: Strings = {
 
   household: "Familia",
   classroom: "Aula",
+  genericGroup: "Grupo",
+  genericGroupSub: "Escuela, grado, club o comité",
+  genericManages: "{name} gestiona este grupo.",
   members: "Miembros",
   manage: "Gestionar",
 
@@ -561,6 +570,9 @@ const zh: Strings = {
 
   household: "家庭",
   classroom: "班级",
+  genericGroup: "群组",
+  genericGroupSub: "学校、年级、社团或委员会",
+  genericManages: "{name} 管理此群组。",
   members: "成员",
   manage: "管理",
 

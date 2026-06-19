@@ -176,8 +176,10 @@ groups.get("/:id", async (c) => {
 // ── Group creation ──────────────────────────────────────────────────────────
 
 /**
- * POST /groups { kind, name } — create a Household (any member) or Classroom
- * (Teacher capability required). The creator's active Person becomes the admin.
+ * POST /groups { kind, name } — create a group. Households are open to any
+ * member; Classrooms require the Teacher capability (or system admin); generic
+ * groups (School, Grades, clubs, …) are system-admin only. The creator's active
+ * Person becomes the admin.
  */
 groups.post("/", async (c) => {
   const auth = requireAuth(c);
@@ -185,7 +187,7 @@ groups.post("/", async (c) => {
   const body = await c.req.json<{ kind: string; name: string }>().catch(() => null);
   const kind = body?.kind;
   const name = body?.name?.trim();
-  if (!name || (kind !== "household" && kind !== "classroom")) {
+  if (!name || (kind !== "household" && kind !== "classroom" && kind !== "generic")) {
     return c.json({ error: "invalid_body" }, 400);
   }
 
@@ -197,9 +199,11 @@ groups.post("/", async (c) => {
       .first<{ ok: number }>();
     if (!teacher && !auth.isSystemAdmin) return c.json({ error: "forbidden" }, 403);
   }
+  // Generic groups (School / Grades / committees) are an admin construct.
+  if (kind === "generic" && !auth.isSystemAdmin) return c.json({ error: "forbidden" }, 403);
 
   const id = ulid();
-  const title = kind === "classroom" ? "Teacher" : "Parent";
+  const title = kind === "classroom" ? "Teacher" : kind === "generic" ? "Admin" : "Parent";
   const stmts = [
     c.env.DB.prepare("INSERT INTO grp (id, kind, name, created_at) VALUES (?,?,?,?)").bind(id, kind, name, nowIso()),
     c.env.DB.prepare(

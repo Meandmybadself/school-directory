@@ -1,6 +1,7 @@
 // Admin sheets for group management: add member, edit a member (title / admin /
 // remove), and edit household-owned contact info.
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import type { ContactType, GroupMemberDTO, ShareTargetDTO, Visibility } from "@sd/shared";
 import { Icon, type IconName } from "./Icon.js";
 import { Avatar, Btn, Vis } from "./atoms.js";
@@ -13,6 +14,7 @@ const TYPE_ICON: Record<ContactType, IconName> = { address: "pin", phone: "phone
 
 export function AddMemberSheet({ groupId, onClose, onChanged }: { groupId: string; onClose: () => void; onChanged: () => void }) {
   const { t } = useI18n();
+  const navigate = useNavigate();
   const [q, setQ] = useState("");
   const [targets, setTargets] = useState<ShareTargetDTO[]>([]);
   const [adding, setAdding] = useState<string | null>(null);
@@ -58,7 +60,18 @@ export function AddMemberSheet({ groupId, onClose, onChanged }: { groupId: strin
         ))}
         {targets.length === 0 && <div className="sd-meta" style={{ padding: "12px 0" }}>No one to add.</div>}
       </div>
-      <Btn block kind="secondary" style={{ marginTop: 14 }} onClick={onClose}>{t("done")}</Btn>
+      <button
+        type="button"
+        className="sd-btn sd-btn-secondary block"
+        style={{ marginTop: 12, borderStyle: "dashed" }}
+        onClick={() => {
+          onClose();
+          navigate("/persons/new");
+        }}
+      >
+        <Icon name="plus" size={17} />{t("addPerson")}
+      </button>
+      <Btn block kind="secondary" style={{ marginTop: 8 }} onClick={onClose}>{t("done")}</Btn>
     </SheetOver>
   );
 }
@@ -137,17 +150,21 @@ export function MemberSheet({
 
 export function CreateGroupSheet({
   canCreateClassroom,
+  canCreateGeneric,
   onClose,
   onCreated,
 }: {
   canCreateClassroom: boolean;
+  canCreateGeneric: boolean;
   onClose: () => void;
   onCreated: (id: string) => void;
 }) {
   const { t } = useI18n();
-  const [kind, setKind] = useState<"household" | "classroom">("household");
+  const [kind, setKind] = useState<"household" | "classroom" | "generic">("household");
   const [name, setName] = useState("");
   const [busy, setBusy] = useState(false);
+  // A chooser is only needed when more than the default Household is on offer.
+  const choose = canCreateClassroom || canCreateGeneric;
 
   const create = async () => {
     if (!name.trim()) return;
@@ -160,15 +177,23 @@ export function CreateGroupSheet({
     }
   };
 
+  const placeholder =
+    kind === "classroom" ? "Ms. Ruiz · Grade 4" : kind === "generic" ? "Grade 4 · Chess Club · Eisenhower" : "Ruiz–Lee household";
+
   return (
     <SheetOver onClose={onClose}>
-      <h2 className="sd-h2" style={{ marginBottom: canCreateClassroom ? 14 : 10 }}>
-        {canCreateClassroom ? t("createGroupChoose") : t("newHousehold")}
+      <h2 className="sd-h2" style={{ marginBottom: choose ? 14 : 10 }}>
+        {choose ? t("createGroupChoose") : t("newHousehold")}
       </h2>
-      {canCreateClassroom && (
+      {choose && (
         <div style={{ display: "flex", flexDirection: "column", gap: 9, marginBottom: 16 }}>
           <OptionRow icon="home" tone="members" title={t("household")} selected={kind === "household"} onClick={() => setKind("household")} />
-          <OptionRow icon="school" tone="shared" title={t("classroom")} selected={kind === "classroom"} onClick={() => setKind("classroom")} />
+          {canCreateClassroom && (
+            <OptionRow icon="school" tone="shared" title={t("classroom")} selected={kind === "classroom"} onClick={() => setKind("classroom")} />
+          )}
+          {canCreateGeneric && (
+            <OptionRow icon="users3" tone="private" title={t("genericGroup")} sub={t("genericGroupSub")} selected={kind === "generic"} onClick={() => setKind("generic")} />
+          )}
         </div>
       )}
       <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
@@ -178,7 +203,7 @@ export function CreateGroupSheet({
           className="sd-input"
           value={name}
           autoFocus
-          placeholder={kind === "classroom" ? "Ms. Ruiz · Grade 4" : "Ruiz–Lee household"}
+          placeholder={placeholder}
           onChange={(e) => setName(e.target.value)}
         />
       </div>
