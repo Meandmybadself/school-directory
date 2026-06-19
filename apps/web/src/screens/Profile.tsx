@@ -94,10 +94,10 @@ export function ProfileView() {
               vis={<Vis state={visState(c)} count={c.shareCount} withCaret={false} membersText={t("visMembers")} privateText={t("visPrivate")} sharedText={t("visShared")} />}
             />
           ))}
+          {p.contacts.filter((c) => c.type === "address" && c.hasLocation).map((c) => (
+            <AddressMap key={c.id} contactId={c.id} />
+          ))}
         </div>
-        {p.contacts.filter((c) => c.type === "address" && c.hasLocation).map((c) => (
-          <AddressMap key={c.id} contactId={c.id} />
-        ))}
       </div>
       {p.groups.length > 0 && (
         <div>
