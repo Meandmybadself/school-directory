@@ -46,13 +46,15 @@ export function staticMapUrl(
   return osmTileUrl(lat, lon, zoom);
 }
 
-/** OSM slippy-map tile URL containing the given point. */
+/** Slippy-map tile URL containing the given point. Uses CARTO's OSM-based
+ *  basemap at @2x (512px) so the thumbnail stays crisp on retina displays;
+ *  keyless, attribution "© OpenStreetMap contributors © CARTO". */
 export function osmTileUrl(lat: number, lon: number, zoom: number): string {
   const n = 2 ** zoom;
   const x = Math.floor(((lon + 180) / 360) * n);
   const latRad = (lat * Math.PI) / 180;
   const y = Math.floor(((1 - Math.asinh(Math.tan(latRad)) / Math.PI) / 2) * n);
-  return `https://tile.openstreetmap.org/${zoom}/${x}/${y}.png`;
+  return `https://a.basemaps.cartocdn.com/rastertiles/voyager/${zoom}/${x}/${y}@2x.png`;
 }
 
 /** Cheap bounding box for a radius in miles, to pre-filter before haversine. */

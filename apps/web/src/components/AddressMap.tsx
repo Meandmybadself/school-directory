@@ -16,7 +16,7 @@ export function AddressMap({ contactId }: { contactId: string }) {
         onError={() => setFailed(true)}
         style={{ width: "50%", height: 100, objectFit: "cover", borderRadius: 10, border: "1px solid var(--line)", display: "block" }}
       />
-      <div className="sd-meta" style={{ fontSize: 10.5, marginTop: 3 }}>© OpenStreetMap contributors</div>
+      <div className="sd-meta" style={{ fontSize: 10.5, marginTop: 3 }}>© OpenStreetMap contributors © CARTO</div>
     </div>
   );
 }
