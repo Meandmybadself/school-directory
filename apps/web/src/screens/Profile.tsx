@@ -89,7 +89,7 @@ export function ProfileView() {
             <ContactRow
               key={c.id}
               icon={ICON_BY_TYPE[c.type]}
-              label={c.label || c.type}
+              label={c.label || typeLabel(c.type, t)}
               value={c.type === "address" && !c.value ? t("exactHidden") : c.value}
               vis={<Vis state={visState(c)} count={c.shareCount} withCaret={false} membersText={t("visMembers")} privateText={t("visPrivate")} sharedText={t("visShared")} />}
             />

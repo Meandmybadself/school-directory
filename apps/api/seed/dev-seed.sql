@@ -62,7 +62,7 @@ INSERT INTO contact_item (id, owner_kind, owner_id, type, label, value, visibili
   ('ci_dana_email', 'person', 'per_dana', 'email', 'Email',  'dana.ruiz@eisenhower.edu', 'service', 0, 'none', 0, '2025-01-01T00:00:00.000Z', '2025-01-01T00:00:00.000Z'),
   ('ci_dana_phone', 'person', 'per_dana', 'phone', 'Mobile', '(415) 555-0148',           'service', 0, 'none', 1, '2025-01-01T00:00:00.000Z', '2025-01-01T00:00:00.000Z'),
   ('ci_dana_web',   'person', 'per_dana', 'url',   'Website','danaruiz.studio',           'private', 0, 'none', 2, '2025-01-01T00:00:00.000Z', '2025-01-01T00:00:00.000Z'),
-  ('ci_dana_addr',  'person', 'per_dana', 'address','Home',  '128 Linden Ave',            'private', 1, 'done', 3, '2025-01-01T00:00:00.000Z', '2025-01-01T00:00:00.000Z');
+  ('ci_dana_addr',  'person', 'per_dana', 'address','Home Address',  '128 Linden Ave',            'private', 1, 'done', 3, '2025-01-01T00:00:00.000Z', '2025-01-01T00:00:00.000Z');
 
 UPDATE contact_item SET geo_lat = 37.7849, geo_lng = -122.4094 WHERE id = 'ci_dana_addr';
 
@@ -81,7 +81,7 @@ INSERT INTO capability_grant (person_id, capability) VALUES
   ('per_james', 'parent'), ('per_lena', 'parent'), ('per_tomas', 'parent');
 
 INSERT INTO contact_item (id, owner_kind, owner_id, type, label, value, visibility, neighbor_discoverable, geocode_status, geo_lat, geo_lng, created_at, updated_at) VALUES
-  ('ci_sara_addr',  'person', 'per_sara',  'address', 'Home', '12 Birch St',   'private', 1, 'done', 37.7853, -122.4140, '2025-01-01T00:00:00.000Z', '2025-01-01T00:00:00.000Z'),
-  ('ci_james_addr', 'person', 'per_james', 'address', 'Home', '440 Oak Ave',   'private', 1, 'done', 37.7900, -122.4060, '2025-01-01T00:00:00.000Z', '2025-01-01T00:00:00.000Z'),
-  ('ci_lena_addr',  'person', 'per_lena',  'address', 'Home', '78 Cedar Ct',   'private', 1, 'done', 37.7770, -122.4180, '2025-01-01T00:00:00.000Z', '2025-01-01T00:00:00.000Z'),
-  ('ci_tomas_addr', 'person', 'per_tomas', 'address', 'Home', '901 Maple Way', 'private', 1, 'done', 37.7960, -122.4200, '2025-01-01T00:00:00.000Z', '2025-01-01T00:00:00.000Z');
+  ('ci_sara_addr',  'person', 'per_sara',  'address', 'Home Address', '12 Birch St',   'private', 1, 'done', 37.7853, -122.4140, '2025-01-01T00:00:00.000Z', '2025-01-01T00:00:00.000Z'),
+  ('ci_james_addr', 'person', 'per_james', 'address', 'Home Address', '440 Oak Ave',   'private', 1, 'done', 37.7900, -122.4060, '2025-01-01T00:00:00.000Z', '2025-01-01T00:00:00.000Z'),
+  ('ci_lena_addr',  'person', 'per_lena',  'address', 'Home Address', '78 Cedar Ct',   'private', 1, 'done', 37.7770, -122.4180, '2025-01-01T00:00:00.000Z', '2025-01-01T00:00:00.000Z'),
+  ('ci_tomas_addr', 'person', 'per_tomas', 'address', 'Home Address', '901 Maple Way', 'private', 1, 'done', 37.7960, -122.4200, '2025-01-01T00:00:00.000Z', '2025-01-01T00:00:00.000Z');
