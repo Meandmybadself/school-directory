@@ -197,6 +197,17 @@ export function GroupsIndex() {
 
   const content = (
     <>
+      <div className="sd-card sd-card-pad" style={{ background: "var(--blue-tint)", borderColor: "var(--blue-tint-2)" }}>
+        <div className="sd-row" style={{ gap: 11, alignItems: "flex-start" }}>
+          <div style={{ width: 34, height: 34, borderRadius: 9, background: "var(--paper)", color: "var(--blue)", display: "flex", alignItems: "center", justifyContent: "center", flex: "0 0 auto" }}>
+            <Icon name="users3" size={18} />
+          </div>
+          <div>
+            <div style={{ fontSize: 14.5, fontWeight: 700, color: "var(--blue-800)" }}>{t("aboutGroupsTitle")}</div>
+            <div style={{ fontSize: 13, color: "var(--blue-800)", lineHeight: 1.5, marginTop: 3 }}>{t("aboutGroupsBody")}</div>
+          </div>
+        </div>
+      </div>
       {searchBar}
       <div>
         <SectLabel>{t("myGroups")}</SectLabel>

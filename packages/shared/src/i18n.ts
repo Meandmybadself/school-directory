@@ -38,6 +38,8 @@ export interface Strings {
   searchGroups: string;
   myGroups: string;
   allGroups: string;
+  aboutGroupsTitle: string;
+  aboutGroupsBody: string;
   colName: string;
   colType: string;
   groupsResults: string;
@@ -195,6 +197,9 @@ const en: Strings = {
   searchGroups: "Search groups",
   myGroups: "Your groups",
   allGroups: "All groups",
+  aboutGroupsTitle: "What's a group?",
+  aboutGroupsBody:
+    "Groups organize the community. A Household is your family; a Classroom is a teacher's class. Schools can also use groups for a Grade, the whole School, or clubs and committees. A person can belong to several groups at once.",
   colName: "Name",
   colType: "Type",
   groupsResults: "Results",
@@ -351,6 +356,9 @@ const es: Strings = {
   searchGroups: "Buscar grupos",
   myGroups: "Tus grupos",
   allGroups: "Todos los grupos",
+  aboutGroupsTitle: "¿Qué es un grupo?",
+  aboutGroupsBody:
+    "Los grupos organizan la comunidad. Una Familia es tu hogar; un Aula es la clase de un docente. Las escuelas también pueden usar grupos para un Grado, toda la Escuela, o clubes y comités. Una persona puede pertenecer a varios grupos a la vez.",
   colName: "Nombre",
   colType: "Tipo",
   groupsResults: "Resultados",
@@ -439,6 +447,9 @@ const zh: Strings = {
   searchGroups: "搜索群组",
   myGroups: "你的群组",
   allGroups: "所有群组",
+  aboutGroupsTitle: "什么是群组？",
+  aboutGroupsBody:
+    "群组用于组织社区。家庭即你的家人；班级是某位老师的课堂。学校还可以为年级、整所学校或社团和委员会创建群组。一个人可以同时属于多个群组。",
   colName: "名称",
   colType: "类型",
   groupsResults: "结果",
