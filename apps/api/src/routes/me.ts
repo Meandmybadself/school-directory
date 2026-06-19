@@ -7,8 +7,34 @@ import { requireAuth } from "../middleware/session.js";
 import { capabilitiesFor } from "../lib/serialize.js";
 import { setActivePersonCookie } from "../lib/cookies.js";
 import { displayName } from "../lib/privacy.js";
+import { ulid } from "../lib/ids.js";
+import { nowIso } from "../lib/time.js";
 
 export const me = new Hono<HonoEnv>();
+
+/** POST /me/persons { firstName, lastName? } — self-onboarding: create the
+ *  requesting User's own directory Person and make it active. */
+me.post("/persons", async (c) => {
+  const auth = requireAuth(c);
+  const body = await c.req.json<{ firstName: string; lastName?: string | null }>().catch(() => null);
+  const firstName = body?.firstName?.trim();
+  if (!firstName) return c.json({ error: "invalid_body" }, 400);
+  const lastName = body?.lastName?.trim() || null;
+
+  const personId = ulid();
+  await c.env.DB.batch([
+    c.env.DB.prepare(
+      "INSERT INTO person (id, first_name, last_name, last_name_visibility, created_at) VALUES (?,?,?, 'full', ?)",
+    ).bind(personId, firstName, lastName, nowIso()),
+    c.env.DB.prepare(
+      "INSERT INTO control (user_id, person_id, granted_by, since) VALUES (?,?,NULL,?)",
+    ).bind(auth.userId, personId, nowIso()),
+  ]);
+  setActivePersonCookie(c, personId);
+
+  c.var.audit.push({ action: "control.granted", entityKind: "person", entityId: personId, detail: { userId: auth.userId, self: true } });
+  return c.json({ id: personId }, 201);
+});
 
 me.get("/", async (c) => {
   const auth = requireAuth(c);

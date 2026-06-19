@@ -59,6 +59,8 @@ export const api = {
   signout: () => request<{ ok: true }>("/auth/signout", { method: "POST" }),
 
   me: () => request<MeDTO>("/me"),
+  createMyPerson: (firstName: string, lastName: string | null) =>
+    request<{ id: string }>("/me/persons", { method: "POST", body: JSON.stringify({ firstName, lastName }) }),
   setActivePerson: (personId: string) =>
     request<{ ok: true; activePersonId: string }>("/me/active-person", {
       method: "POST",

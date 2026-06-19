@@ -10,6 +10,7 @@ import { GroupDetail, GroupsIndex } from "./screens/Group.js";
 import { Admin } from "./screens/Admin.js";
 import { Import } from "./screens/Import.js";
 import { Directory } from "./screens/Directory.js";
+import { CreateProfile } from "./screens/CreateProfile.js";
 import { DesktopShell } from "./components/DesktopShell.js";
 import { useIsDesktop } from "./lib/useIsDesktop.js";
 
@@ -51,21 +52,32 @@ function RequireAuth({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
+/** Routes that act on an active Person; a user with none is sent to onboarding. */
+function RequireProfile({ children }: { children: React.ReactNode }) {
+  const { loading, me } = useSession();
+  if (loading) return <Loading />;
+  if (!me) return <Navigate to="/sign-in" replace />;
+  if (me.persons.length === 0) return <Navigate to="/welcome" replace />;
+  return <>{children}</>;
+}
+
 export function App() {
   return (
     <Routes>
       <Route path="/sign-in" element={<SignIn />} />
       <Route path="/check-email" element={<CheckEmail />} />
 
-      <Route path="/" element={<RequireAuth><Home /></RequireAuth>} />
-      <Route path="/persons/:id" element={<RequireAuth><ProfileView /></RequireAuth>} />
-      <Route path="/persons/:id/edit" element={<RequireAuth><ProfileEdit /></RequireAuth>} />
-      <Route path="/persons/:id/invite" element={<RequireAuth><Stub title="Invite a co-manager" /></RequireAuth>} />
+      <Route path="/welcome" element={<RequireAuth><CreateProfile /></RequireAuth>} />
 
-      <Route path="/directory" element={<RequireAuth><Directory /></RequireAuth>} />
-      <Route path="/groups" element={<RequireAuth><GroupsIndex /></RequireAuth>} />
-      <Route path="/groups/:id" element={<RequireAuth><GroupDetail /></RequireAuth>} />
-      <Route path="/you" element={<RequireAuth><Stub title="You" nav="profile" /></RequireAuth>} />
+      <Route path="/" element={<RequireProfile><Home /></RequireProfile>} />
+      <Route path="/persons/:id" element={<RequireProfile><ProfileView /></RequireProfile>} />
+      <Route path="/persons/:id/edit" element={<RequireProfile><ProfileEdit /></RequireProfile>} />
+      <Route path="/persons/:id/invite" element={<RequireProfile><Stub title="Invite a co-manager" /></RequireProfile>} />
+
+      <Route path="/directory" element={<RequireProfile><Directory /></RequireProfile>} />
+      <Route path="/groups" element={<RequireProfile><GroupsIndex /></RequireProfile>} />
+      <Route path="/groups/:id" element={<RequireProfile><GroupDetail /></RequireProfile>} />
+      <Route path="/you" element={<RequireProfile><Stub title="You" nav="profile" /></RequireProfile>} />
       <Route path="/admin" element={<RequireAuth><Admin /></RequireAuth>} />
       <Route path="/admin/import" element={<RequireAuth><Import /></RequireAuth>} />
 

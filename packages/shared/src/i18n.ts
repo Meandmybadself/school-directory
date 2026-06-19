@@ -87,6 +87,10 @@ export interface Strings {
   exactHidden: string;
   firstName: string;
   lastName: string;
+  setupTitle: string;
+  setupLead: string;
+  createProfileBtn: string;
+  skipToAdmin: string;
   alwaysVisible: string;
   firstFixedWhy: string;
   lnFull: string;
@@ -240,6 +244,10 @@ const en: Strings = {
   exactHidden: "Exact address hidden",
   firstName: "First name",
   lastName: "Last name",
+  setupTitle: "Set up your profile",
+  setupLead: "Add your name so your community can recognize you in the directory.",
+  createProfileBtn: "Create my profile",
+  skipToAdmin: "Skip to admin console",
   alwaysVisible: "Always visible",
   firstFixedWhy:
     "People need a name to recognize you. You choose everything else.",
