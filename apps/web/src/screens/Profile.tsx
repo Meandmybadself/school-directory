@@ -95,7 +95,7 @@ export function ProfileView() {
             />
           ))}
           {p.contacts.filter((c) => c.type === "address" && c.hasLocation).map((c) => (
-            <AddressMap key={c.id} contactId={c.id} />
+            <AddressMap key={c.id} contactId={c.id} address={c.value} />
           ))}
         </div>
       </div>
@@ -456,7 +456,7 @@ function ContactEditCard({
         </div>
       )}
       {c.type === "address" && c.hasLocation && (
-        <div className="fr"><AddressMap contactId={c.id} /></div>
+        <div className="fr"><AddressMap contactId={c.id} address={c.value} /></div>
       )}
     </div>
   );
