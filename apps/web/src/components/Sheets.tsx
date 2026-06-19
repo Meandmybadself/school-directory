@@ -18,13 +18,12 @@ export function LanguageButton({ onClick }: { onClick: () => void }) {
       aria-label={t("language")}
       title={t("language")}
       style={{
-        height: 38, minWidth: 38, padding: "0 10px", borderRadius: 10,
+        height: 38, minWidth: 38, padding: "0 11px", borderRadius: 10,
         border: "1px solid var(--line)", background: "var(--paper)", color: "var(--ink-2)",
         fontWeight: 700, fontSize: 12.5, cursor: "pointer",
-        display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 4,
+        display: "inline-flex", alignItems: "center", justifyContent: "center",
       }}
     >
-      <Icon name="globe" size={15} />
       {label}
     </button>
   );
