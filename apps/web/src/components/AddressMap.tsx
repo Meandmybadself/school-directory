@@ -10,7 +10,7 @@ function googleMapsUrl(address: string): string {
   return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address)}`;
 }
 
-export function AddressMap({ contactId, address }: { contactId: string; address?: string }) {
+export function AddressMap({ contactId, address, width = "50%" }: { contactId: string; address?: string; width?: string }) {
   const [failed, setFailed] = useState(false);
   if (failed) return null;
   const img = (
@@ -22,7 +22,7 @@ export function AddressMap({ contactId, address }: { contactId: string; address?
       style={{ width: "100%", height: 100, objectFit: "cover", borderRadius: 10, border: "1px solid var(--line)", display: "block" }}
     />
   );
-  // The map is sized to 50% of the card; the click target matches the image.
+  // The click target matches the image, which is sized to `width` of its container.
   return (
     <div style={{ marginTop: 8 }}>
       {address ? (
@@ -32,12 +32,12 @@ export function AddressMap({ contactId, address }: { contactId: string; address?
           rel="noopener noreferrer"
           aria-label="Open this address in Google Maps"
           title="Open in Google Maps"
-          style={{ display: "block", width: "50%" }}
+          style={{ display: "block", width }}
         >
           {img}
         </a>
       ) : (
-        <div style={{ width: "50%" }}>{img}</div>
+        <div style={{ width }}>{img}</div>
       )}
       <div className="sd-meta" style={{ fontSize: 10.5, marginTop: 3 }}>© OpenStreetMap contributors © CARTO</div>
     </div>

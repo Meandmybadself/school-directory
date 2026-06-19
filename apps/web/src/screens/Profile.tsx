@@ -456,7 +456,7 @@ function ContactEditCard({
         </div>
       )}
       {c.type === "address" && c.hasLocation && (
-        <div className="fr"><AddressMap contactId={c.id} address={c.value} /></div>
+        <div className="fr"><AddressMap contactId={c.id} address={c.value} width="100%" /></div>
       )}
     </div>
   );
