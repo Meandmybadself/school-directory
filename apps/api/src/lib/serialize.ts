@@ -131,7 +131,11 @@ export async function buildProfile(
           : item.value,
       visibility: item.visibility,
     };
-    if (item.type === "address") dto.neighborDiscoverable = item.neighbor_discoverable === 1;
+    if (item.type === "address") {
+      dto.neighborDiscoverable = item.neighbor_discoverable === 1;
+      // Coordinates stay server-side; we only signal that a map can be rendered.
+      dto.hasLocation = viewerIsController && item.geo_lat != null && item.geo_lng != null;
+    }
     if (item.visibility === "private" && shares.count > 0) dto.shareCount = shares.count;
     contacts.push(dto);
   }

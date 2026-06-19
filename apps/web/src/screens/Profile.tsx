@@ -16,6 +16,7 @@ import { DesktopShell } from "../components/DesktopShell.js";
 import { ScreenHeader, SectLabel, ContactRow, Field } from "../components/parts.js";
 import { VisibilitySheet } from "../components/VisibilitySheet.js";
 import { InviteSheet } from "../components/InviteSheet.js";
+import { AddressMap } from "../components/AddressMap.js";
 import { useI18n } from "../i18n/index.js";
 import { useSession } from "../lib/session.js";
 import { useIsDesktop } from "../lib/useIsDesktop.js";
@@ -94,6 +95,9 @@ export function ProfileView() {
             />
           ))}
         </div>
+        {p.contacts.filter((c) => c.type === "address" && c.hasLocation).map((c) => (
+          <AddressMap key={c.id} contactId={c.id} />
+        ))}
       </div>
       {p.groups.length > 0 && (
         <div>
@@ -450,6 +454,9 @@ function ContactEditCard({
           </div>
           <button className={`sd-toggle${c.neighborDiscoverable ? " on" : ""}`} style={{ marginTop: 1, ...(c.neighborDiscoverable ? { background: "var(--orange-700)" } : {}) }} aria-pressed={c.neighborDiscoverable} onClick={() => onChange({ neighborDiscoverable: !c.neighborDiscoverable })} />
         </div>
+      )}
+      {c.type === "address" && c.hasLocation && (
+        <div className="fr"><AddressMap contactId={c.id} /></div>
       )}
     </div>
   );

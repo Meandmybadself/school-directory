@@ -19,6 +19,11 @@ NOMINATIM_URL = "https://nominatim.openstreetmap.org/search"
 # they bootstrap a bare instance (then open registration / bulk-import / invite).
 # e.g. "office@school.edu,principal@school.edu"
 BOOTSTRAP_ADMIN_EMAILS = ""
+# Optional static-map provider template ({lat}{lon}{w}{h}{zoom}) for the address
+# map thumbnail. Unset → a single OSM tile (no key). Set a keyed provider (e.g.
+# Geoapify/Stadia/Mapbox) for centered/marker maps. Rendered server-side; coords
+# never reach the client.
+# STATIC_MAP_URL = ""
 
 # D1 (SQLite). For LOCAL dev `wrangler dev` uses a local sqlite file under .wrangler/
 # and applies migrations from migrations_dir. Replace database_id after running

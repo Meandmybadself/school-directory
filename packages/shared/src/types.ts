@@ -35,6 +35,10 @@ export interface ContactItemDTO {
   visibility: Visibility;
   /** Address-only: whether this address opts into neighbor discovery. */
   neighborDiscoverable?: boolean;
+  /** Address-only: true when the address is geocoded AND the viewer may see the
+   *  exact location (a controller). Drives the server-rendered map thumbnail.
+   *  Coordinates themselves are never serialized. */
+  hasLocation?: boolean;
   /** Resolved share state for the active viewer's UI chip. */
   shareCount?: number;
 }

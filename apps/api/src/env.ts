@@ -12,6 +12,9 @@ export interface Env {
   /** Comma-separated emails granted system_admin on sign-in (bootstrap). They
    *  can sign in even when registration is closed. */
   BOOTSTRAP_ADMIN_EMAILS?: string;
+  /** Static-map image URL template with {lat} {lon} {w} {h} {zoom} placeholders.
+   *  Used server-side only to render an address thumbnail; coords never leave. */
+  STATIC_MAP_URL?: string;
   // secrets (may be empty in local dev)
   RESEND_API_KEY?: string;
   EMAIL_FROM?: string;

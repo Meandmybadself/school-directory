@@ -9,8 +9,45 @@ import { isController } from "../lib/privacy.js";
 import { ulid } from "../lib/ids.js";
 import { nowIso } from "../lib/time.js";
 import { geocodeContact } from "../lib/geocode.js";
+import { staticMapUrl } from "../lib/geo.js";
 
 export const contacts = new Hono<HonoEnv>();
+
+const MAP_W = 480;
+const MAP_H = 200;
+const MAP_ZOOM = 15;
+
+/**
+ * GET /contacts/:id/map — server-rendered static map for an address. Returns
+ * only an image; the stored coordinates never reach the client. Gated to a
+ * controller of the owning Person (i.e. someone allowed to see the exact spot).
+ */
+contacts.get("/contacts/:id/map", async (c) => {
+  const auth = requireAuth(c);
+  const item = await c.env.DB.prepare(
+    "SELECT owner_kind, owner_id, type, geo_lat, geo_lng FROM contact_item WHERE id = ?",
+  )
+    .bind(c.req.param("id"))
+    .first<{ owner_kind: string; owner_id: string; type: string; geo_lat: number | null; geo_lng: number | null }>();
+  if (!item || item.type !== "address" || item.geo_lat == null || item.geo_lng == null) {
+    return c.json({ error: "no_map" }, 404);
+  }
+  if (item.owner_kind !== "person" || !(await isController(c.env, auth.userId, item.owner_id))) {
+    return c.json({ error: "forbidden" }, 403);
+  }
+
+  const url = staticMapUrl(c.env, item.geo_lat, item.geo_lng, MAP_W, MAP_H, MAP_ZOOM);
+  const res = await fetch(url, {
+    headers: { "User-Agent": `${c.env.SCHOOL_NAME ?? "School"} School Directory (+https://github.com/Meandmybadself/school-directory)` },
+  });
+  if (!res.ok) return c.json({ error: "map_unavailable" }, 502);
+  return new Response(res.body, {
+    headers: {
+      "content-type": res.headers.get("content-type") ?? "image/png",
+      "cache-control": "private, max-age=86400",
+    },
+  });
+});
 
 const TYPES: ContactType[] = ["address", "phone", "email", "url"];
 const VIS: Visibility[] = ["service", "private"];

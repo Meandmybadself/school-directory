@@ -24,6 +24,37 @@ export function approxDistance(miles: number): string {
   return `~${rounded.toFixed(1)} mi`;
 }
 
+/** Server-side static-map URL for coords. Uses a configured provider template
+ *  (STATIC_MAP_URL with {lat}{lon}{w}{h}{zoom}) if set, else a single OSM tile
+ *  covering the location — no API key, just attribution + a descriptive UA. */
+export function staticMapUrl(
+  env: { STATIC_MAP_URL?: string },
+  lat: number,
+  lon: number,
+  w: number,
+  h: number,
+  zoom: number,
+): string {
+  if (env.STATIC_MAP_URL) {
+    return env.STATIC_MAP_URL
+      .replaceAll("{lat}", String(lat))
+      .replaceAll("{lon}", String(lon))
+      .replaceAll("{w}", String(w))
+      .replaceAll("{h}", String(h))
+      .replaceAll("{zoom}", String(zoom));
+  }
+  return osmTileUrl(lat, lon, zoom);
+}
+
+/** OSM slippy-map tile URL containing the given point. */
+export function osmTileUrl(lat: number, lon: number, zoom: number): string {
+  const n = 2 ** zoom;
+  const x = Math.floor(((lon + 180) / 360) * n);
+  const latRad = (lat * Math.PI) / 180;
+  const y = Math.floor(((1 - Math.asinh(Math.tan(latRad)) / Math.PI) / 2) * n);
+  return `https://tile.openstreetmap.org/${zoom}/${x}/${y}.png`;
+}
+
 /** Cheap bounding box for a radius in miles, to pre-filter before haversine. */
 export function boundingBox(lat: number, lng: number, miles: number) {
   const latDelta = miles / 69; // ~69 miles per degree latitude
