@@ -5,10 +5,11 @@ import { Icon, type IconName } from "./Icon.js";
 import { Avatar } from "./atoms.js";
 import type { I18nT } from "../i18n/index.js";
 
-/** Renders a contact item's value for display. URLs and addresses become links
- *  that open in a new tab (addresses go to Google Maps); the URL's protocol is
- *  stripped from the visible text, and an address with no shareable value falls
- *  back to the "exact hidden" copy. */
+/** Renders a contact item's value for display, making it actionable by type:
+ *  addresses and URLs open in a new browser tab (addresses go to Google Maps,
+ *  with the URL's protocol stripped from the visible text); emails open the mail
+ *  app (mailto:) and phones the dialer (tel:). An address with no shareable
+ *  value falls back to the "exact hidden" copy. */
 export function ContactValue({ type, value, t }: { type: ContactType; value: string; t: I18nT }) {
   if (type === "address") {
     if (!value) return <>{t("exactHidden")}</>;
@@ -27,6 +28,14 @@ export function ContactValue({ type, value, t }: { type: ContactType; value: str
         {display}
       </a>
     );
+  }
+  if (type === "email" && value) {
+    return <a href={`mailto:${value}`} className="sd-link">{value}</a>;
+  }
+  if (type === "phone" && value) {
+    // tel: needs a dialable string — keep digits, a leading +, and pause chars.
+    const dial = value.replace(/[^\d+,;]/g, "");
+    return <a href={`tel:${dial}`} className="sd-link">{value}</a>;
   }
   return <>{value}</>;
 }
