@@ -358,6 +358,13 @@ export function ProfileEdit() {
           </button>
         </div>
       </div>
+
+      {/* Always-reachable Save at the bottom of the form (the header Save can be
+          scrolled out of view, especially after the add-contact deep link). */}
+      <div className="sd-row" style={{ gap: 9, marginTop: 4 }}>
+        <Btn kind="secondary" onClick={() => navigate(-1)} disabled={saving} style={{ flex: "0 0 auto" }}>{t("cancel")}</Btn>
+        <Btn block icon="check" onClick={() => void save()} disabled={saving} style={{ flex: 1 }}>{t("save")}</Btn>
+      </div>
     </>
   );
 
