@@ -1,17 +1,38 @@
 // Composites — ported from design_handoff/parts.jsx, wired for interactivity.
 import type { CSSProperties, ReactNode } from "react";
+import type { ContactType } from "@sd/shared";
 import { Icon, type IconName } from "./Icon.js";
 import { Avatar } from "./atoms.js";
+import type { I18nT } from "../i18n/index.js";
+
+/** Renders a contact item's value for display. URLs become a link that opens in
+ *  a new tab, with the protocol stripped from the visible text; an address with
+ *  no shareable value falls back to the "exact hidden" copy. */
+export function ContactValue({ type, value, t }: { type: ContactType; value: string; t: I18nT }) {
+  if (type === "address" && !value) return <>{t("exactHidden")}</>;
+  if (type === "url" && value) {
+    const href = /^[a-z][\w+.-]*:\/\//i.test(value) ? value : `https://${value}`;
+    const display = value.replace(/^https?:\/\//i, "").replace(/\/+$/, "");
+    return (
+      <a href={href} target="_blank" rel="noopener noreferrer" className="sd-link">
+        {display}
+      </a>
+    );
+  }
+  return <>{value}</>;
+}
 
 export function SwitcherPill({
   name,
   sub,
   color,
+  img,
   onClick,
 }: {
   name: string;
   sub?: string;
   color?: string;
+  img?: string | null;
   onClick?: () => void;
 }) {
   return (
@@ -20,7 +41,7 @@ export function SwitcherPill({
       onClick={onClick}
       style={{ gap: 10, flex: 1, minWidth: 0, cursor: "pointer", background: "none", border: 0, padding: 0, textAlign: "left", font: "inherit" }}
     >
-      <Avatar name={name} size={38} color={color} />
+      <Avatar name={name} size={38} color={color} img={img} />
       <div style={{ minWidth: 0, flex: 1 }}>
         <div className="sd-row" style={{ gap: 5 }}>
           <span style={{ fontSize: 16, fontWeight: 700, letterSpacing: "-.2px", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{name}</span>
@@ -38,18 +59,20 @@ export function AppBar({
   name,
   sub,
   color,
+  img,
   trailing,
   onSwitcher,
 }: {
   name: string;
   sub?: string;
   color?: string;
+  img?: string | null;
   trailing?: ReactNode;
   onSwitcher?: () => void;
 }) {
   return (
     <div className="sd-appbar">
-      <SwitcherPill name={name} sub={sub} color={color} onClick={onSwitcher} />
+      <SwitcherPill name={name} sub={sub} color={color} img={img} onClick={onSwitcher} />
       <div className="sd-row" style={{ gap: 4, flex: "0 0 auto" }}>{trailing}</div>
     </div>
   );

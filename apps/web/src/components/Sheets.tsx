@@ -1,9 +1,10 @@
 // Bottom sheets: active-Person switcher and language picker.
+import { useNavigate } from "react-router-dom";
 import { localeNames, LOCALES, type Locale } from "@sd/shared";
 import { Icon } from "./Icon.js";
 import { Avatar } from "./atoms.js";
 import { SheetOver } from "./parts.js";
-import { useI18n } from "../i18n/index.js";
+import { capLabel, useI18n } from "../i18n/index.js";
 import { useSession } from "../lib/session.js";
 import { api, mediaUrl } from "../lib/api.js";
 
@@ -30,11 +31,13 @@ export function LanguageButton({ onClick }: { onClick: () => void }) {
 }
 
 export function PersonSwitcherSheet({ onClose }: { onClose: () => void }) {
+  const { t } = useI18n();
+  const navigate = useNavigate();
   const { me, switchPerson } = useSession();
   if (!me) return null;
   return (
     <SheetOver onClose={onClose}>
-      <h2 className="sd-h2" style={{ marginBottom: 14 }}>Acting as</h2>
+      <h2 className="sd-h2" style={{ marginBottom: 14 }}>{t("actingAs")}</h2>
       <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
         {me.persons.map((p) => {
           const sel = p.id === me.activePersonId;
@@ -52,12 +55,26 @@ export function PersonSwitcherSheet({ onClose }: { onClose: () => void }) {
               <Avatar name={p.displayName} size={40} img={mediaUrl(p.photoUrl)} />
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ fontSize: 15, fontWeight: 700 }}>{p.displayName}</div>
-                <div className="sd-meta">{p.capabilities.join(" · ") || "Member"}</div>
+                <div className="sd-meta">{p.capabilities.map((c) => capLabel(t, c)).join(" · ") || t("member")}</div>
               </div>
               {sel && <Icon name="check" size={20} style={{ color: "var(--blue)" }} />}
             </button>
           );
         })}
+        <button
+          type="button"
+          className="sd-row"
+          onClick={() => {
+            onClose();
+            navigate("/persons/new");
+          }}
+          style={{ gap: 12, padding: "12px 14px", borderRadius: 12, width: "100%", textAlign: "left", font: "inherit", cursor: "pointer", border: "1px dashed var(--line)", background: "var(--paper)", color: "var(--blue)" }}
+        >
+          <div style={{ width: 40, height: 40, borderRadius: "50%", background: "var(--blue-tint)", display: "flex", alignItems: "center", justifyContent: "center", flex: "0 0 auto" }}>
+            <Icon name="plus" size={20} />
+          </div>
+          <div style={{ fontSize: 15, fontWeight: 700 }}>{t("addPerson")}</div>
+        </button>
       </div>
     </SheetOver>
   );

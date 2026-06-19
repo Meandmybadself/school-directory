@@ -11,12 +11,8 @@ import { DesktopShell } from "../components/DesktopShell.js";
 import { PersonSwitcherSheet, LanguageSheet, LanguageButton } from "../components/Sheets.js";
 import { useSession } from "../lib/session.js";
 import { useIsDesktop } from "../lib/useIsDesktop.js";
-import { api } from "../lib/api.js";
-import { useI18n } from "../i18n/index.js";
-
-function cap(c: string): string {
-  return c.charAt(0).toUpperCase() + c.slice(1).replace("_", " ");
-}
+import { api, mediaUrl } from "../lib/api.js";
+import { capLabel, useI18n } from "../i18n/index.js";
 
 export function Home() {
   const { me, activePerson } = useSession();
@@ -158,8 +154,9 @@ function MobileHome({ activePerson, groups, hasNeighbors, list }: ViewProps) {
     <AppShell bottomNav={<BottomNav active="home" />}>
       <AppBar
         name={activePerson.displayName}
-        sub={activePerson.capabilities.map(cap).join(" · ")}
+        sub={activePerson.capabilities.map((c) => capLabel(t, c)).join(" · ")}
         color="var(--blue)"
+        img={mediaUrl(activePerson.photoUrl)}
         onSwitcher={() => setSheet("switcher")}
         trailing={
           <>

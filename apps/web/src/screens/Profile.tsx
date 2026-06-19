@@ -13,12 +13,12 @@ import { Icon, type IconName } from "../components/Icon.js";
 import { Avatar, Btn, Tag, Vis, type VisState } from "../components/atoms.js";
 import { AppShell, BottomNav } from "../components/AppShell.js";
 import { DesktopShell } from "../components/DesktopShell.js";
-import { ScreenHeader, SectLabel, ContactRow, Field } from "../components/parts.js";
+import { ScreenHeader, SectLabel, ContactRow, ContactValue, Field } from "../components/parts.js";
 import { VisibilitySheet } from "../components/VisibilitySheet.js";
 import { InviteSheet } from "../components/InviteSheet.js";
 import { AddressMap } from "../components/AddressMap.js";
 import { CONTACT_TYPE_ORDER, contactTypeName } from "../lib/contactTypes.js";
-import { useI18n } from "../i18n/index.js";
+import { capLabel, useI18n } from "../i18n/index.js";
 import { useSession } from "../lib/session.js";
 import { useIsDesktop } from "../lib/useIsDesktop.js";
 import { api, mediaUrl } from "../lib/api.js";
@@ -34,10 +34,6 @@ function visState(c: ContactItemDTO): VisState {
   if (c.visibility === "service") return "members";
   if ((c.shareCount ?? 0) > 0) return "shared";
   return "private";
-}
-
-function capLabel(c: string): string {
-  return c.charAt(0).toUpperCase() + c.slice(1).replace("_", " ");
 }
 
 // ── View ────────────────────────────────────────────────────────────────────
@@ -73,7 +69,7 @@ export function ProfileView() {
         <div className="sd-h1" style={{ fontSize: 23 }}>{p.displayName}</div>
         <div className="sd-row" style={{ gap: 6, marginTop: 8, justifyContent: "center" }}>
           {p.capabilities.map((c) => (
-            <Tag key={c} tone={c === "teacher" ? "orange" : "blue"} icon={c === "teacher" ? "school" : "users3"}>{capLabel(c)}</Tag>
+            <Tag key={c} tone={c === "teacher" ? "orange" : "blue"} icon={c === "teacher" ? "school" : "users3"}>{capLabel(t, c)}</Tag>
           ))}
         </div>
       </div>
@@ -91,7 +87,7 @@ export function ProfileView() {
               <ContactRow
                 icon={ICON_BY_TYPE[c.type]}
                 label={c.label || typeLabel(c.type, t)}
-                value={c.type === "address" && !c.value ? t("exactHidden") : c.value}
+                value={<ContactValue type={c.type} value={c.value} t={t} />}
                 vis={<Vis state={visState(c)} count={c.shareCount} withCaret={false} membersText={t("visMembers")} privateText={t("visPrivate")} sharedText={t("visShared")} />}
               />
               {c.type === "address" && c.hasLocation && <AddressMap contactId={c.id} address={c.value} />}

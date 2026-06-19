@@ -8,11 +8,11 @@ import { Icon, type IconName } from "../components/Icon.js";
 import { Avatar, Btn, Tag, Vis, type VisState } from "../components/atoms.js";
 import { AppShell, BottomNav } from "../components/AppShell.js";
 import { DesktopShell } from "../components/DesktopShell.js";
-import { ScreenHeader, SectLabel, ContactRow, MemberRow, GroupTile } from "../components/parts.js";
+import { ScreenHeader, SectLabel, ContactRow, ContactValue, MemberRow, GroupTile } from "../components/parts.js";
 import { useI18n } from "../i18n/index.js";
 import { useIsDesktop } from "../lib/useIsDesktop.js";
 import { useSession } from "../lib/session.js";
-import { api, ApiError } from "../lib/api.js";
+import { api, ApiError, mediaUrl } from "../lib/api.js";
 import { AddMemberSheet, MemberSheet, EditContactsSheet, CreateGroupSheet } from "../components/GroupSheets.js";
 import type { GroupMemberDTO, GroupSummaryDTO } from "@sd/shared";
 
@@ -279,7 +279,7 @@ function ContactCard({ g }: { g: GroupDetailDTO }) {
           key={c.id}
           icon={TYPE_ICON[c.type] ?? "info"}
           label={c.label || c.type}
-          value={c.type === "address" && !c.value ? t("exactHidden") : c.value}
+          value={<ContactValue type={c.type} value={c.value} t={t} />}
           vis={<Vis state={visState(c)} count={c.shareCount} withCaret={g.viewerIsAdmin} membersText={t("visMembers")} privateText={t("visPrivate")} sharedText={t("visShared")} />}
         />
       ))}
@@ -338,6 +338,7 @@ function MobileGroup({ g, actions }: { g: GroupDetailDTO; actions: GroupActions 
                 <MemberRow
                   key={m.personId}
                   name={m.displayName}
+                  img={mediaUrl(m.photoUrl)}
                   title={m.title ?? undefined}
                   tags={<MemberTags m={m} />}
                   onClick={() => navigate(`/persons/${m.personId}`)}
@@ -418,6 +419,7 @@ function DesktopGroup({ g, actions }: { g: GroupDetailDTO; actions: GroupActions
               <MemberRow
                 key={m.personId}
                 name={m.displayName}
+                img={mediaUrl(m.photoUrl)}
                 title={m.title ?? undefined}
                 tags={<MemberTags m={m} />}
                 onClick={() => navigate(`/persons/${m.personId}`)}
@@ -445,7 +447,7 @@ function DesktopGroup({ g, actions }: { g: GroupDetailDTO; actions: GroupActions
                 key={c.id}
                 icon={TYPE_ICON[c.type] ?? "info"}
                 label={c.label || c.type}
-                value={c.type === "address" && !c.value ? t("exactHidden") : c.value}
+                value={<ContactValue type={c.type} value={c.value} t={t} />}
                 vis={<Vis state={visState(c)} count={c.shareCount} withCaret={g.viewerIsAdmin} membersText={t("visMembers")} privateText={t("visPrivate")} sharedText={t("visShared")} />}
               />
             ))}

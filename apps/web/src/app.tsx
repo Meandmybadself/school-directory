@@ -11,6 +11,7 @@ import { Admin } from "./screens/Admin.js";
 import { Import } from "./screens/Import.js";
 import { Directory } from "./screens/Directory.js";
 import { CreateProfile } from "./screens/CreateProfile.js";
+import { AddPerson } from "./screens/AddPerson.js";
 import { DesktopShell } from "./components/DesktopShell.js";
 import { useIsDesktop } from "./lib/useIsDesktop.js";
 
@@ -70,6 +71,7 @@ export function App() {
       <Route path="/welcome" element={<RequireAuth><CreateProfile /></RequireAuth>} />
 
       <Route path="/" element={<RequireProfile><Home /></RequireProfile>} />
+      <Route path="/persons/new" element={<RequireProfile><AddPerson /></RequireProfile>} />
       <Route path="/persons/:id" element={<RequireProfile><ProfileView /></RequireProfile>} />
       <Route path="/persons/:id/edit" element={<RequireProfile><ProfileEdit /></RequireProfile>} />
       <Route path="/persons/:id/invite" element={<RequireProfile><Stub title="Invite a co-manager" /></RequireProfile>} />

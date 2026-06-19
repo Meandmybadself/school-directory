@@ -6,10 +6,12 @@ import type {
   BulkImportRow,
   ContactItemInput,
   PersonSummaryDTO,
+  CreatePersonBody,
   CreateShareBody,
   GroupDetailDTO,
   GroupSummaryDTO,
   MeDTO,
+  MyHouseholdDTO,
   NeighborsResponse,
   PersonPatchBody,
   PersonProfileDTO,
@@ -59,8 +61,10 @@ export const api = {
   signout: () => request<{ ok: true }>("/auth/signout", { method: "POST" }),
 
   me: () => request<MeDTO>("/me"),
-  createMyPerson: (firstName: string, lastName: string | null) =>
-    request<{ id: string }>("/me/persons", { method: "POST", body: JSON.stringify({ firstName, lastName }) }),
+  createPerson: (body: CreatePersonBody) =>
+    request<{ id: string; activated: boolean }>("/me/persons", { method: "POST", body: JSON.stringify(body) }),
+  myHouseholds: () =>
+    request<{ households: MyHouseholdDTO[] }>("/me/households"),
   setActivePerson: (personId: string) =>
     request<{ ok: true; activePersonId: string }>("/me/active-person", {
       method: "POST",

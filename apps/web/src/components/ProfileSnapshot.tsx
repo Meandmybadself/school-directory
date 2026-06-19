@@ -3,12 +3,8 @@ import { useNavigate } from "react-router-dom";
 import type { ControllablePersonDTO, PersonProfileDTO } from "@sd/shared";
 import { Icon } from "./Icon.js";
 import { Avatar, Btn } from "./atoms.js";
-import { useI18n } from "../i18n/index.js";
+import { capLabel, useI18n } from "../i18n/index.js";
 import { mediaUrl } from "../lib/api.js";
-
-function capLabel(c: string): string {
-  return c.charAt(0).toUpperCase() + c.slice(1).replace("_", " ");
-}
 
 function MiniStat({ state, n, label }: { state: "members" | "private" | "shared"; n: number; label: string }) {
   const cls = state === "members" ? "vis-members" : state === "shared" ? "vis-shared" : "vis-private";
@@ -41,7 +37,7 @@ export function ProfileSnapshot({
         <Avatar name={person.displayName} size={46} img={mediaUrl(person.photoUrl)} color="var(--blue)" />
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ fontSize: 16, fontWeight: 700, letterSpacing: "-.2px" }}>{person.displayName}</div>
-          <div className="sd-meta">{person.capabilities.map(capLabel).join(" · ")}</div>
+          <div className="sd-meta">{person.capabilities.map((c) => capLabel(t, c)).join(" · ")}</div>
         </div>
         <button className="sd-btn sd-btn-secondary sd-btn-sm" onClick={() => navigate(`/persons/${person.id}`)}>
           <Icon name="eye" size={15} />{t("preview")}

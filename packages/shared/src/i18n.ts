@@ -2,7 +2,7 @@
 // Keys mirror the strings objects in the design handoff (HOME_*, PROFILE_*).
 // Use `{name}` placeholders; interpolate with `t(key, { name })` in the client.
 
-import type { Locale } from "./types.js";
+import type { Capability, Locale } from "./types.js";
 
 export interface Strings {
   // brand / generic
@@ -151,6 +151,27 @@ export interface Strings {
   groupName: string;
   create: string;
   createGroupChoose: string;
+
+  // capabilities (Capability enum labels)
+  capParent: string;
+  capTeacher: string;
+  capStaff: string;
+  capStudent: string;
+  capHouseholdAdmin: string;
+
+  // person switcher
+  actingAs: string;
+  addPerson: string;
+
+  // create / add a person
+  addPersonTitle: string;
+  addPersonLead: string;
+  addPersonBtn: string;
+  personType: string;
+  personTypeNote: string;
+  personHousehold: string;
+  personHouseholdNote: string;
+  householdNone: string;
 
   // language
   language: string;
@@ -316,6 +337,24 @@ const en: Strings = {
   create: "Create",
   createGroupChoose: "What would you like to create?",
 
+  capParent: "Parent",
+  capTeacher: "Teacher",
+  capStaff: "Staff",
+  capStudent: "Student",
+  capHouseholdAdmin: "Household admin",
+
+  actingAs: "Acting as",
+  addPerson: "Add a person",
+
+  addPersonTitle: "Add a person",
+  addPersonLead: "Add a child, partner, or someone else you manage. You'll be able to act as them to edit their profile.",
+  addPersonBtn: "Add person",
+  personType: "Type",
+  personTypeNote: "Optional. You can change this later.",
+  personHousehold: "Household",
+  personHouseholdNote: "Optional. Adds them to a household so its shared address applies.",
+  householdNone: "No household",
+
   language: "Language",
   languageNote: "Changes the directory for you only.",
 
@@ -413,6 +452,24 @@ const es: Strings = {
   members: "Miembros",
   manage: "Gestionar",
 
+  capParent: "Padre/Madre",
+  capTeacher: "Docente",
+  capStaff: "Personal",
+  capStudent: "Estudiante",
+  capHouseholdAdmin: "Administrador del hogar",
+
+  actingAs: "Actuando como",
+  addPerson: "Agregar una persona",
+
+  addPersonTitle: "Agregar una persona",
+  addPersonLead: "Agrega a un hijo, pareja u otra persona que gestiones. Podrás actuar como ella para editar su perfil.",
+  addPersonBtn: "Agregar persona",
+  personType: "Tipo",
+  personTypeNote: "Opcional. Puedes cambiarlo más tarde.",
+  personHousehold: "Familia",
+  personHouseholdNote: "Opcional. La agrega a una familia para aplicar su dirección compartida.",
+  householdNone: "Sin familia",
+
   language: "Idioma",
   languageNote: "Cambia el directorio solo para ti.",
 
@@ -507,6 +564,24 @@ const zh: Strings = {
   members: "成员",
   manage: "管理",
 
+  capParent: "家长",
+  capTeacher: "老师",
+  capStaff: "教职员",
+  capStudent: "学生",
+  capHouseholdAdmin: "家庭管理员",
+
+  actingAs: "当前身份",
+  addPerson: "添加成员",
+
+  addPersonTitle: "添加成员",
+  addPersonLead: "添加孩子、配偶或其他由你管理的人。你可以切换为该成员来编辑其资料。",
+  addPersonBtn: "添加成员",
+  personType: "类型",
+  personTypeNote: "可选。之后可以更改。",
+  personHousehold: "家庭",
+  personHouseholdNote: "可选。将其加入某个家庭，以共享该家庭的地址。",
+  householdNone: "无家庭",
+
   language: "语言",
   languageNote: "仅更改你自己的目录显示。",
 
@@ -519,6 +594,16 @@ const zh: Strings = {
 };
 
 export const dictionaries: Record<Locale, Strings> = { en, es, zh };
+
+/** Maps a Capability enum to its i18n dictionary key, so labels stay translated
+ *  (never raw enum strings like "household_admin"). */
+export const capabilityLabelKeys: Record<Capability, keyof Strings> = {
+  parent: "capParent",
+  teacher: "capTeacher",
+  staff: "capStaff",
+  student: "capStudent",
+  household_admin: "capHouseholdAdmin",
+};
 
 export const localeNames: Record<Locale, { native: string; english: string }> = {
   en: { native: "English", english: "English" },

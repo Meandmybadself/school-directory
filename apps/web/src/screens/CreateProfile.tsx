@@ -28,7 +28,7 @@ export function CreateProfile() {
     if (!firstName.trim()) return;
     setBusy(true);
     try {
-      await api.createMyPerson(firstName.trim(), lastName.trim() || null);
+      await api.createPerson({ firstName: firstName.trim(), lastName: lastName.trim() || null });
       await refresh();
       navigate("/", { replace: true });
     } finally {

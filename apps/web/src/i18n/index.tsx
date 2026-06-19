@@ -1,6 +1,6 @@
 // i18n context. Strings come from @sd/shared; member content is never translated.
 import { createContext, useContext, useState, useCallback, type ReactNode } from "react";
-import { dictionaries, interpolate, type Locale, type Strings } from "@sd/shared";
+import { capabilityLabelKeys, dictionaries, interpolate, type Capability, type Locale, type Strings } from "@sd/shared";
 
 const STORAGE_KEY = "sd_locale";
 
@@ -13,11 +13,15 @@ function detectLocale(): Locale {
   return "en";
 }
 
+/** The translate function returned by useI18n — handy when passing `t` to a
+ *  module-level helper. */
+export type I18nT = (key: keyof Strings, vars?: Record<string, string | number>) => string;
+
 interface I18nValue {
   locale: Locale;
   setLocale: (l: Locale) => void;
   /** Translate a key with optional `{placeholder}` interpolation. */
-  t: (key: keyof Strings, vars?: Record<string, string | number>) => string;
+  t: I18nT;
 }
 
 const I18nContext = createContext<I18nValue | null>(null);
@@ -46,4 +50,10 @@ export function useI18n(): I18nValue {
   const ctx = useContext(I18nContext);
   if (!ctx) throw new Error("useI18n must be used within I18nProvider");
   return ctx;
+}
+
+/** Localized label for a Capability enum (e.g. "household_admin" → "Household
+ *  admin" / "Administrador del hogar"). Pass a component's `t` from useI18n. */
+export function capLabel(t: I18nT, c: Capability): string {
+  return t(capabilityLabelKeys[c]);
 }

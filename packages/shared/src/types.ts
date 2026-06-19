@@ -12,6 +12,25 @@ export type Capability =
   | "student"
   | "household_admin";
 
+/** All capability codes (mirrors the `capability` seed table). */
+export const CAPABILITIES: Capability[] = [
+  "parent",
+  "teacher",
+  "staff",
+  "student",
+  "household_admin",
+];
+
+/** Capabilities a User may assign when creating a Person they manage.
+ *  `household_admin` is intentionally excluded — it's a household role granted
+ *  through group membership, not a self-assigned type. */
+export const ASSIGNABLE_CAPABILITIES: Capability[] = [
+  "parent",
+  "student",
+  "teacher",
+  "staff",
+];
+
 /** Visibility level on a field or contact item. There is no "public" level. */
 export type Visibility = "service" | "private";
 
@@ -226,6 +245,24 @@ export interface PersonPatchBody {
   firstName?: string;
   lastName?: string | null;
   lastNameDisplay?: LastNameDisplay;
+}
+
+/** Body for POST /me/persons — create a Person the requesting User controls.
+ *  Used both for self-onboarding (name only) and for adding family members. */
+export interface CreatePersonBody {
+  firstName: string;
+  lastName?: string | null;
+  /** Optional capability codes to grant (validated server-side). */
+  capabilities?: Capability[];
+  /** Optional household group to add the new Person to. Must be a household the
+   *  requesting User administers; the household's address then cascades. */
+  householdId?: string | null;
+}
+
+/** A household the requesting User administers (for the create-person picker). */
+export interface MyHouseholdDTO {
+  id: string;
+  name: string;
 }
 
 // ── Audit ─────────────────────────────────────────────────────────────────

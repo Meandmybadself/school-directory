@@ -1,7 +1,9 @@
 // /me — the requesting User, the Persons they control, and the active Person.
 
 import { Hono } from "hono";
-import type { ControllablePersonDTO, Locale, MeDTO } from "@sd/shared";
+import type { Context } from "hono";
+import type { Capability, ControllablePersonDTO, CreatePersonBody, Locale, MeDTO, MyHouseholdDTO } from "@sd/shared";
+import { CAPABILITIES } from "@sd/shared";
 import type { HonoEnv } from "../env.js";
 import { requireAuth } from "../middleware/session.js";
 import { capabilitiesFor } from "../lib/serialize.js";
@@ -12,28 +14,97 @@ import { nowIso } from "../lib/time.js";
 
 export const me = new Hono<HonoEnv>();
 
-/** POST /me/persons { firstName, lastName? } — self-onboarding: create the
- *  requesting User's own directory Person and make it active. */
+/** True if the User administers the given household (controls an admin member). */
+async function adminsHousehold(c: Context<HonoEnv>, userId: string, groupId: string): Promise<boolean> {
+  const row = await c.env.DB.prepare(
+    `SELECT 1 AS ok FROM grp g
+     JOIN membership m ON m.group_id = g.id AND m.is_admin = 1
+     JOIN control ctl ON ctl.person_id = m.person_id
+     WHERE g.id = ? AND g.kind = 'household' AND ctl.user_id = ? LIMIT 1`,
+  )
+    .bind(groupId, userId)
+    .first<{ ok: number }>();
+  return !!row;
+}
+
+/** POST /me/persons — create a directory Person the requesting User controls.
+ *  Used for self-onboarding (name only) AND for adding family members (children,
+ *  partners, …) with optional capabilities and a household. The first Person a
+ *  User creates becomes their active Person; later ones do not steal focus. */
 me.post("/persons", async (c) => {
   const auth = requireAuth(c);
-  const body = await c.req.json<{ firstName: string; lastName?: string | null }>().catch(() => null);
+  const body = await c.req.json<CreatePersonBody>().catch(() => null);
   const firstName = body?.firstName?.trim();
   if (!firstName) return c.json({ error: "invalid_body" }, 400);
   const lastName = body?.lastName?.trim() || null;
 
+  // Whitelist requested capabilities against the known set.
+  const caps: Capability[] = Array.isArray(body?.capabilities)
+    ? [...new Set(body!.capabilities)].filter((x): x is Capability => CAPABILITIES.includes(x as Capability))
+    : [];
+
+  // A household, if given, must be one this User administers (so the new member
+  // legitimately inherits its cascading address).
+  let householdId: string | null = null;
+  if (body?.householdId) {
+    if (!(await adminsHousehold(c, auth.userId, body.householdId))) {
+      return c.json({ error: "forbidden_household" }, 403);
+    }
+    householdId = body.householdId;
+  }
+
+  // The very first Person a User creates becomes active (onboarding); additional
+  // family members are added without switching who the User is acting as.
+  const existing = await c.env.DB.prepare("SELECT COUNT(*) AS n FROM control WHERE user_id = ?")
+    .bind(auth.userId)
+    .first<{ n: number }>();
+  const makeActive = (existing?.n ?? 0) === 0;
+
   const personId = ulid();
-  await c.env.DB.batch([
+  const stmts = [
     c.env.DB.prepare(
       "INSERT INTO person (id, first_name, last_name, last_name_visibility, created_at) VALUES (?,?,?, 'full', ?)",
     ).bind(personId, firstName, lastName, nowIso()),
     c.env.DB.prepare(
-      "INSERT INTO control (user_id, person_id, granted_by, since) VALUES (?,?,NULL,?)",
-    ).bind(auth.userId, personId, nowIso()),
-  ]);
-  setActivePersonCookie(c, personId);
+      "INSERT INTO control (user_id, person_id, granted_by, since) VALUES (?,?,?,?)",
+    ).bind(auth.userId, personId, auth.userId, nowIso()),
+    ...caps.map((cap) =>
+      c.env.DB.prepare("INSERT INTO capability_grant (person_id, capability) VALUES (?, ?)").bind(personId, cap),
+    ),
+  ];
+  if (householdId) {
+    stmts.push(
+      c.env.DB.prepare(
+        "INSERT INTO membership (group_id, person_id, title, is_admin, joined_at) VALUES (?,?,NULL,0,?)",
+      ).bind(householdId, personId, nowIso()),
+    );
+  }
+  await c.env.DB.batch(stmts);
+
+  if (makeActive) setActivePersonCookie(c, personId);
 
   c.var.audit.push({ action: "control.granted", entityKind: "person", entityId: personId, detail: { userId: auth.userId, self: true } });
-  return c.json({ id: personId }, 201);
+  if (householdId) {
+    c.var.audit.push({ action: "admin.action", entityKind: "group", entityId: householdId, detail: { op: "member.add", personId } });
+  }
+  return c.json({ id: personId, activated: makeActive }, 201);
+});
+
+/** GET /me/households — households the User administers, for the create-person
+ *  picker. Names only. */
+me.get("/households", async (c) => {
+  const auth = requireAuth(c);
+  const rows = await c.env.DB.prepare(
+    `SELECT DISTINCT g.id, g.name FROM grp g
+     JOIN membership m ON m.group_id = g.id AND m.is_admin = 1
+     JOIN control ctl ON ctl.person_id = m.person_id
+     WHERE g.kind = 'household' AND ctl.user_id = ?
+     ORDER BY g.name COLLATE NOCASE`,
+  )
+    .bind(auth.userId)
+    .all<{ id: string; name: string }>();
+  const households: MyHouseholdDTO[] = rows.results.map((g) => ({ id: g.id, name: g.name }));
+  return c.json({ households });
 });
 
 me.get("/", async (c) => {

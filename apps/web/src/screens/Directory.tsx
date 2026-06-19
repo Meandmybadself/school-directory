@@ -9,14 +9,14 @@ import { Tag } from "../components/atoms.js";
 import { AppShell, BottomNav } from "../components/AppShell.js";
 import { DesktopShell } from "../components/DesktopShell.js";
 import { ScreenHeader, MemberRow } from "../components/parts.js";
-import { useI18n } from "../i18n/index.js";
+import { capLabel, useI18n, type I18nT } from "../i18n/index.js";
 import { useIsDesktop } from "../lib/useIsDesktop.js";
-import { api } from "../lib/api.js";
+import { api, mediaUrl } from "../lib/api.js";
 
-function capTags(caps: Capability[]) {
+function capTags(caps: Capability[], t: I18nT) {
   return caps.map((c) => (
     <Tag key={c} tone={c === "teacher" ? "orange" : c === "student" ? "line" : "blue"}>
-      {c.charAt(0).toUpperCase() + c.slice(1).replace("_", " ")}
+      {capLabel(t, c)}
     </Tag>
   ));
 }
@@ -77,7 +77,8 @@ export function Directory() {
         <MemberRow
           key={p.id}
           name={p.displayName}
-          tags={capTags(p.capabilities)}
+          img={mediaUrl(p.photoUrl)}
+          tags={capTags(p.capabilities, t)}
           onClick={() => navigate(`/persons/${p.id}`)}
           trailing={<Icon name="chevright" size={17} style={{ color: "var(--ink-3)" }} />}
         />
