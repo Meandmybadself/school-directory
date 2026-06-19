@@ -8,7 +8,7 @@ import { Btn } from "../components/atoms.js";
 import { AppBar, IconBtn, SectLabel, GroupTile, NeighborCard, CTACard } from "../components/parts.js";
 import { AppShell, BottomNav } from "../components/AppShell.js";
 import { DesktopShell } from "../components/DesktopShell.js";
-import { PersonSwitcherSheet, LanguageSheet } from "../components/Sheets.js";
+import { PersonSwitcherSheet, LanguageSheet, LanguageButton } from "../components/Sheets.js";
 import { useSession } from "../lib/session.js";
 import { useIsDesktop } from "../lib/useIsDesktop.js";
 import { api } from "../lib/api.js";
@@ -163,7 +163,7 @@ function MobileHome({ activePerson, groups, hasNeighbors, list }: ViewProps) {
         onSwitcher={() => setSheet("switcher")}
         trailing={
           <>
-            <IconBtn name="globe" label="Language" onClick={() => setSheet("language")} />
+            <LanguageButton onClick={() => setSheet("language")} />
             <IconBtn name="search" label="Search" onClick={() => navigate("/directory")} />
           </>
         }

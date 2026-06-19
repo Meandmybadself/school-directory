@@ -7,6 +7,29 @@ import { useI18n } from "../i18n/index.js";
 import { useSession } from "../lib/session.js";
 import { api, mediaUrl } from "../lib/api.js";
 
+/** Language trigger — shows the current language code (EN / ES / 中文) so it's
+ *  obvious it's the language switcher and which language is active. */
+export function LanguageButton({ onClick }: { onClick: () => void }) {
+  const { locale, t } = useI18n();
+  const label = locale === "zh" ? "中文" : locale.toUpperCase();
+  return (
+    <button
+      onClick={onClick}
+      aria-label={t("language")}
+      title={t("language")}
+      style={{
+        height: 38, minWidth: 38, padding: "0 10px", borderRadius: 10,
+        border: "1px solid var(--line)", background: "var(--paper)", color: "var(--ink-2)",
+        fontWeight: 700, fontSize: 12.5, cursor: "pointer",
+        display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 4,
+      }}
+    >
+      <Icon name="globe" size={15} />
+      {label}
+    </button>
+  );
+}
+
 export function PersonSwitcherSheet({ onClose }: { onClose: () => void }) {
   const { me, switchPerson } = useSession();
   if (!me) return null;

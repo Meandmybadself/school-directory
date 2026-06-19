@@ -4,8 +4,7 @@ import { useState, type ReactNode } from "react";
 import { useNavigate } from "react-router-dom";
 import { Icon, type IconName } from "./Icon.js";
 import { Avatar } from "./atoms.js";
-import { IconBtn } from "./parts.js";
-import { PersonSwitcherSheet, LanguageSheet } from "./Sheets.js";
+import { PersonSwitcherSheet, LanguageSheet, LanguageButton } from "./Sheets.js";
 import { MasqueradeBanner } from "./AppShell.js";
 import { useI18n } from "../i18n/index.js";
 import { useSession } from "../lib/session.js";
@@ -86,7 +85,7 @@ export function DesktopShell({
             />
           </div>
           <div style={{ flex: 1 }} />
-          <IconBtn name="globe" label="Language" onClick={() => setSheet("language")} />
+          <LanguageButton onClick={() => setSheet("language")} />
           {activePerson && (
             <button className="sd-deskswitch" onClick={() => setSheet("switcher")}>
               <Avatar name={activePerson.displayName} size={32} img={mediaUrl(activePerson.photoUrl)} color="var(--blue)" />
