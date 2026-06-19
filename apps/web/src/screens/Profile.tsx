@@ -1,7 +1,7 @@
 // Profile — view (as a member sees it) and edit (controllers only).
 // Responsive: mobile uses the phone column; desktop uses the sidebar shell.
-import { useEffect, useState, type ReactNode } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import type {
   ContactItemDTO,
   ContactType,
@@ -20,7 +20,6 @@ import { useI18n } from "../i18n/index.js";
 import { useSession } from "../lib/session.js";
 import { useIsDesktop } from "../lib/useIsDesktop.js";
 import { api, mediaUrl } from "../lib/api.js";
-import { useRef } from "react";
 
 const ICON_BY_TYPE: Record<ContactType, IconName> = {
   address: "pin",
@@ -178,6 +177,9 @@ export function ProfileEdit() {
   const [uploading, setUploading] = useState(false);
   const [photoError, setPhotoError] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
+  const [params] = useSearchParams();
+  const deepLinkHandled = useRef(false);
+  const contactsEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!id) return;
@@ -189,6 +191,20 @@ export function ProfileEdit() {
       setContacts(prof.contacts.map((c) => ({ ...c })));
     });
   }, [id]);
+
+  // Deep link: /persons/:id/edit?add=address (or phone/email/url) pre-adds a
+  // contact row and scrolls to it.
+  useEffect(() => {
+    if (!p || deepLinkHandled.current) return;
+    const add = params.get("add");
+    if (!add) return;
+    deepLinkHandled.current = true;
+    const valid: ContactType[] = ["address", "phone", "email", "url"];
+    const type = (valid.includes(add as ContactType) ? add : "address") as ContactType;
+    const tmpId = `tmp_${Math.random().toString(36).slice(2)}`;
+    setContacts((cs) => [...cs, { id: tmpId, type, label: "", value: "", visibility: "private", _new: true, _dirty: true }]);
+    setTimeout(() => contactsEndRef.current?.scrollIntoView({ behavior: "smooth", block: "center" }), 200);
+  }, [p, params]);
 
   if (!p) return null;
   if (!p.controlledByViewer) return <CenteredNote text="You can't edit this profile." onBack={() => navigate(-1)} />;
@@ -325,6 +341,7 @@ export function ProfileEdit() {
           <button className="sd-btn sd-btn-secondary block" style={{ borderStyle: "dashed" }} onClick={addContact}>
             <Icon name="plus" size={17} />{t("addContact")}
           </button>
+          <div ref={contactsEndRef} />
         </div>
       </div>
 

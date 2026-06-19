@@ -116,7 +116,7 @@ function DesktopHome({ activePerson, groups, hasNeighbors, list }: ViewProps) {
           </>
         ) : (
           <div style={{ marginTop: 11, maxWidth: 520 }}>
-            <CTACard icon="pin" title={t("addAddressTitle")} body={t("addAddressBody")} action={<Btn block icon="plus" onClick={() => navigate(`/persons/${activePerson.id}/edit`)}>{t("addAddressBtn")}</Btn>} />
+            <CTACard icon="pin" title={t("addAddressTitle")} body={t("addAddressBody")} action={<Btn block icon="plus" onClick={() => navigate(`/persons/${activePerson.id}/edit?add=address`)}>{t("addAddressBtn")}</Btn>} />
           </div>
         )}
       </div>
@@ -149,7 +149,7 @@ function MobileHome({ activePerson, groups, hasNeighbors, list }: ViewProps) {
   } else {
     neighborsBlock = (
       <div style={{ marginTop: 9 }}>
-        <CTACard icon="pin" title={t("addAddressTitle")} body={t("addAddressBody")} action={<Btn block icon="plus" onClick={() => navigate(`/persons/${activePerson.id}/edit`)}>{t("addAddressBtn")}</Btn>} />
+        <CTACard icon="pin" title={t("addAddressTitle")} body={t("addAddressBody")} action={<Btn block icon="plus" onClick={() => navigate(`/persons/${activePerson.id}/edit?add=address`)}>{t("addAddressBtn")}</Btn>} />
       </div>
     );
   }
