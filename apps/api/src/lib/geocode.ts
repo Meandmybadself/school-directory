@@ -18,19 +18,24 @@ function userAgent(env: Env): string {
   return `${env.SCHOOL_NAME ?? "School"} School Directory (+https://github.com/Meandmybadself/school-directory)`;
 }
 
-/** Resolve a free-text address to coordinates, or null if not found. */
-export async function geocodeAddress(
-  env: Env,
-  query: string,
-): Promise<{ lat: number; lng: number } | null> {
+/** Progressively coarser variants of an address: full, then dropping leading
+ *  comma segments (street) down to roughly "city, state zip". Lets us fall back
+ *  to an approximate location when OSM lacks the exact house. */
+function coarseVariants(query: string): string[] {
+  const parts = query.split(",").map((s) => s.trim()).filter(Boolean);
+  const variants = [query.trim()];
+  // Keep at least the last two segments (e.g. "City", "State ZIP").
+  for (let i = 1; i <= parts.length - 2; i++) {
+    variants.push(parts.slice(i).join(", "));
+  }
+  return [...new Set(variants)].slice(0, 3);
+}
+
+async function queryNominatim(env: Env, q: string): Promise<{ lat: number; lng: number } | null> {
   const base = env.NOMINATIM_URL ?? DEFAULT_ENDPOINT;
-  const url = `${base}?q=${encodeURIComponent(query)}&format=jsonv2&limit=1&addressdetails=0`;
+  const url = `${base}?q=${encodeURIComponent(q)}&format=jsonv2&limit=1&addressdetails=0`;
   const res = await fetch(url, {
-    headers: {
-      "User-Agent": userAgent(env),
-      Accept: "application/json",
-      Referer: env.APP_URL ?? "",
-    },
+    headers: { "User-Agent": userAgent(env), Accept: "application/json", Referer: env.APP_URL ?? "" },
   });
   if (!res.ok) return null;
   const data = (await res.json()) as Array<{ lat?: string; lon?: string }>;
@@ -39,6 +44,20 @@ export async function geocodeAddress(
   const lng = Number.parseFloat(data[0]?.lon ?? "");
   if (Number.isNaN(lat) || Number.isNaN(lng)) return null;
   return { lat, lng };
+}
+
+/** Resolve a free-text address to coordinates, or null if not found. Falls back
+ *  to coarser variants (drops street) so an OSM-unknown house still resolves to
+ *  its town/zip — enough for the approximate Neighbors feature. */
+export async function geocodeAddress(
+  env: Env,
+  query: string,
+): Promise<{ lat: number; lng: number } | null> {
+  for (const v of coarseVariants(query)) {
+    const r = await queryNominatim(env, v);
+    if (r) return r;
+  }
+  return null;
 }
 
 /**

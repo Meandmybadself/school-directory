@@ -29,19 +29,19 @@ home.get("/neighbors", async (c) => {
     .all<{ id: string }>();
   const householdIds = hhRows.results.map((r) => r.id);
 
-  // Origins: ALL of the Person's own geocoded addresses, else ALL of their
+  // Origins: ALL of the Person's own geocoded addresses UNION all of their
   // household(s)' geocoded addresses. A neighbor counts if near ANY origin.
-  let origins = (
+  const originRows = (
     await c.env.DB.prepare(
       `SELECT geo_lat, geo_lng FROM contact_item
        WHERE owner_kind = 'person' AND owner_id = ? AND type = 'address' AND geo_lat IS NOT NULL`,
     )
       .bind(auth.activePersonId)
       .all<Coords>()
-  ).results;
-  if (origins.length === 0 && householdIds.length) {
+  ).results.slice();
+  if (householdIds.length) {
     const ph = householdIds.map(() => "?").join(",");
-    origins = (
+    const hhAddrs = (
       await c.env.DB.prepare(
         `SELECT geo_lat, geo_lng FROM contact_item
          WHERE owner_kind = 'group' AND owner_id IN (${ph}) AND type = 'address' AND geo_lat IS NOT NULL`,
@@ -49,7 +49,16 @@ home.get("/neighbors", async (c) => {
         .bind(...householdIds)
         .all<Coords>()
     ).results;
+    originRows.push(...hhAddrs);
   }
+  // Dedupe coincident origins (e.g. an own + household copy of the same address).
+  const seenOrigin = new Set<string>();
+  const origins = originRows.filter((o) => {
+    const k = `${o.geo_lat.toFixed(5)},${o.geo_lng.toFixed(5)}`;
+    if (seenOrigin.has(k)) return false;
+    seenOrigin.add(k);
+    return true;
+  });
   if (origins.length === 0) return c.json<NeighborsResponse>({ addCta: true });
 
   // Union bounding box over all origins, then nearest-origin distance.
