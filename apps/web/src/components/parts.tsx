@@ -5,11 +5,20 @@ import { Icon, type IconName } from "./Icon.js";
 import { Avatar } from "./atoms.js";
 import type { I18nT } from "../i18n/index.js";
 
-/** Renders a contact item's value for display. URLs become a link that opens in
- *  a new tab, with the protocol stripped from the visible text; an address with
- *  no shareable value falls back to the "exact hidden" copy. */
+/** Renders a contact item's value for display. URLs and addresses become links
+ *  that open in a new tab (addresses go to Google Maps); the URL's protocol is
+ *  stripped from the visible text, and an address with no shareable value falls
+ *  back to the "exact hidden" copy. */
 export function ContactValue({ type, value, t }: { type: ContactType; value: string; t: I18nT }) {
-  if (type === "address" && !value) return <>{t("exactHidden")}</>;
+  if (type === "address") {
+    if (!value) return <>{t("exactHidden")}</>;
+    const href = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(value)}`;
+    return (
+      <a href={href} target="_blank" rel="noopener noreferrer" className="sd-link">
+        {value}
+      </a>
+    );
+  }
   if (type === "url" && value) {
     const href = /^[a-z][\w+.-]*:\/\//i.test(value) ? value : `https://${value}`;
     const display = value.replace(/^https?:\/\//i, "").replace(/\/+$/, "");
