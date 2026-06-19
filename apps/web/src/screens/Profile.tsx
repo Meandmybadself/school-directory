@@ -1,6 +1,6 @@
 // Profile — view (as a member sees it) and edit (controllers only).
 // Responsive: mobile uses the phone column; desktop uses the sidebar shell.
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { Fragment, useEffect, useRef, useState, type ReactNode } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import type {
   ContactItemDTO,
@@ -87,16 +87,15 @@ export function ProfileView() {
         <div className="sd-card sd-card-pad" style={{ marginTop: 9, paddingTop: 4, paddingBottom: 4 }}>
           {p.contacts.length === 0 && <div className="sd-meta" style={{ padding: "12px 0" }}>No shared contact info.</div>}
           {p.contacts.map((c) => (
-            <ContactRow
-              key={c.id}
-              icon={ICON_BY_TYPE[c.type]}
-              label={c.label || typeLabel(c.type, t)}
-              value={c.type === "address" && !c.value ? t("exactHidden") : c.value}
-              vis={<Vis state={visState(c)} count={c.shareCount} withCaret={false} membersText={t("visMembers")} privateText={t("visPrivate")} sharedText={t("visShared")} />}
-            />
-          ))}
-          {p.contacts.filter((c) => c.type === "address" && c.hasLocation).map((c) => (
-            <AddressMap key={c.id} contactId={c.id} address={c.value} />
+            <Fragment key={c.id}>
+              <ContactRow
+                icon={ICON_BY_TYPE[c.type]}
+                label={c.label || typeLabel(c.type, t)}
+                value={c.type === "address" && !c.value ? t("exactHidden") : c.value}
+                vis={<Vis state={visState(c)} count={c.shareCount} withCaret={false} membersText={t("visMembers")} privateText={t("visPrivate")} sharedText={t("visShared")} />}
+              />
+              {c.type === "address" && c.hasLocation && <AddressMap contactId={c.id} address={c.value} />}
+            </Fragment>
           ))}
         </div>
       </div>

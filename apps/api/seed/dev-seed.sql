@@ -70,6 +70,9 @@ UPDATE contact_item SET geo_lat = 37.7849, geo_lng = -122.4094 WHERE id = 'ci_da
 INSERT INTO contact_item (id, owner_kind, owner_id, type, label, value, visibility, geocode_status, sort_order, created_at, updated_at) VALUES
   ('ci_hh_addr',  'group', 'grp_household', 'address', 'Shared address', '128 Linden Ave', 'service', 'done', 0, '2025-01-01T00:00:00.000Z', '2025-01-01T00:00:00.000Z'),
   ('ci_hh_phone', 'group', 'grp_household', 'phone',   'Home phone',      '(415) 555-0148', 'private', 'none', 1, '2025-01-01T00:00:00.000Z', '2025-01-01T00:00:00.000Z');
+-- Geocode the household address (same house) so it cascades to members without
+-- their own address when computing Neighbors.
+UPDATE contact_item SET geo_lat = 37.7849, geo_lng = -122.4094 WHERE id = 'ci_hh_addr';
 
 -- A few discoverable neighbors near Dana so Home shows the Neighbors module.
 INSERT INTO person (id, first_name, last_name, last_name_visibility, created_at) VALUES

@@ -44,7 +44,7 @@ export function Home() {
 interface ViewProps {
   activePerson: NonNullable<ReturnType<typeof useSession>["activePerson"]>;
   groups: GroupSummaryDTO[];
-  list: { id: string; name: string; approxDistance: string }[] | null;
+  list: { id: string; name: string; approxDistance: string; kind: "person" | "household" }[] | null;
   hasNeighbors: boolean;
 }
 
@@ -53,11 +53,11 @@ function useNeighborCards(list: ViewProps["list"]) {
   const navigate = useNavigate();
   return (list ?? []).map((n) => (
     <NeighborCard
-      key={n.id}
+      key={`${n.kind}:${n.id}`}
       name={n.name}
       dist={n.approxDistance}
       memberText={t("member")}
-      onClick={() => navigate(`/persons/${n.id}`)}
+      onClick={() => navigate(n.kind === "household" ? `/groups/${n.id}` : `/persons/${n.id}`)}
     />
   ));
 }
