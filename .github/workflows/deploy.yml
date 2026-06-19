@@ -42,16 +42,18 @@ jobs:
       - name: Apply D1 migrations
         if: steps.guard.outputs.enabled == 'true'
         working-directory: apps/api
-        run: pnpm exec wrangler d1 migrations apply school-directory --remote
+        run: pnpm exec wrangler d1 migrations apply school-directory --remote --env production
 
       - name: Deploy API (Worker)
         if: steps.guard.outputs.enabled == 'true'
         working-directory: apps/api
-        run: pnpm exec wrangler deploy
+        run: pnpm exec wrangler deploy --env production
 
       - name: Build & deploy web (Pages)
         if: steps.guard.outputs.enabled == 'true'
         working-directory: apps/web
+        env:
+          VITE_API_URL: https://api-directory.meandmybadself.com
         run: |
           pnpm build
-          pnpm exec wrangler pages deploy dist --project-name school-directory
+          pnpm exec wrangler pages deploy dist --project-name school-directory --branch main

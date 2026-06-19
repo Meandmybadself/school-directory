@@ -2,6 +2,7 @@ name = "school-directory-api"
 main = "src/index.ts"
 compatibility_date = "2025-01-01"
 compatibility_flags = ["nodejs_compat"]
+account_id = "c3b373ae8a90a6494e520f962bdf462b"
 
 # Single-tenant config. SCHOOL_NAME is surfaced in UI copy via /me + i18n.
 [vars]
@@ -33,6 +34,33 @@ migrations_dir = "migrations"
 binding = "PHOTOS"
 bucket_name = "school-directory-photos"
 
-# Secrets (set via `wrangler secret put` for remote, or .dev.vars locally):
+# Secrets (set via `wrangler secret put --env production`, or .dev.vars locally):
 #   RESEND_API_KEY   — Resend email API key (magic links / invites)
-#   SESSION_SECRET   — random string used to sign nothing yet but reserved for HMAC needs
+#   EMAIL_FROM       — verified Resend sender, e.g. "Eisenhower Directory <directory@…>"
+#   SESSION_SECRET   — random string reserved for HMAC needs
+
+# ── Production environment (deploy with `wrangler deploy --env production`) ──────
+# SPA: https://directory.meandmybadself.com (Pages)
+# API: https://api-directory.meandmybadself.com (this Worker, custom domain below)
+[env.production.vars]
+SCHOOL_NAME = "Eisenhower"
+APP_URL = "https://directory.meandmybadself.com"
+ALLOWED_ORIGINS = "https://directory.meandmybadself.com"
+NOMINATIM_URL = "https://nominatim.openstreetmap.org/search"
+BOOTSTRAP_ADMIN_EMAILS = "meandmybadself@gmail.com"
+
+[[env.production.d1_databases]]
+binding = "DB"
+database_name = "school-directory"
+database_id = "ccd3f017-fce7-4ca4-a91d-7a903d2d82a6"
+migrations_dir = "migrations"
+
+[[env.production.r2_buckets]]
+binding = "PHOTOS"
+bucket_name = "school-directory-photos"
+
+# Custom domain — wrangler provisions the DNS record + cert on deploy (zone is
+# on this account).
+[[env.production.routes]]
+pattern = "api-directory.meandmybadself.com"
+custom_domain = true
