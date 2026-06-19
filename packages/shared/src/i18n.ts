@@ -86,6 +86,8 @@ export interface Strings {
   mobile: string;
   email: string;
   website: string;
+  typeAddress: string;
+  typePhone: string;
   exactHidden: string;
   firstName: string;
   lastName: string;
@@ -246,6 +248,8 @@ const en: Strings = {
   mobile: "Mobile",
   email: "Email",
   website: "Website",
+  typeAddress: "Address",
+  typePhone: "Phone",
   exactHidden: "Exact address hidden",
   firstName: "First name",
   lastName: "Last name",
@@ -389,6 +393,8 @@ const es: Strings = {
   exitPreview: "Salir",
   contact: "Contacto",
   shareCta: "Comparte tu información con {name}",
+  typeAddress: "Dirección",
+  typePhone: "Teléfono",
   homeLabel: "Dirección de casa",
   mobile: "Móvil",
   email: "Correo",
@@ -480,6 +486,8 @@ const zh: Strings = {
   exitPreview: "退出",
   contact: "联系方式",
   shareCta: "与 {name} 分享你的信息",
+  typeAddress: "地址",
+  typePhone: "电话",
   homeLabel: "家庭住址",
   mobile: "手机",
   email: "邮箱",

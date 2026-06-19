@@ -17,6 +17,7 @@ import { ScreenHeader, SectLabel, ContactRow, Field } from "../components/parts.
 import { VisibilitySheet } from "../components/VisibilitySheet.js";
 import { InviteSheet } from "../components/InviteSheet.js";
 import { AddressMap } from "../components/AddressMap.js";
+import { CONTACT_TYPE_ORDER, contactTypeName } from "../lib/contactTypes.js";
 import { useI18n } from "../i18n/index.js";
 import { useSession } from "../lib/session.js";
 import { useIsDesktop } from "../lib/useIsDesktop.js";
@@ -431,14 +432,13 @@ function ContactEditCard({
   onVis: () => void;
 }) {
   const { t } = useI18n();
-  const TYPES: ContactType[] = ["phone", "email", "url", "address"];
   return (
     <div className="sd-fieldcard">
       <div className="fr" style={{ display: "flex", alignItems: "center", gap: 10 }}>
         <div className="sd-cicon"><Icon name={ICON_BY_TYPE[c.type]} size={17} /></div>
         <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: 6 }}>
           <select value={c.type} onChange={(e) => onChange({ type: e.target.value as ContactType })} className="sd-input" style={{ height: 32, fontSize: 13, padding: "0 8px", width: "auto" }}>
-            {TYPES.map((tp) => <option key={tp} value={tp}>{typeLabel(tp, t)}</option>)}
+            {CONTACT_TYPE_ORDER.map((tp) => <option key={tp} value={tp}>{contactTypeName(tp, t)}</option>)}
           </select>
           <input className="sd-input" value={c.value} placeholder={typeLabel(c.type, t)} onChange={(e) => onChange({ value: e.target.value })} style={{ height: 38 }} />
         </div>

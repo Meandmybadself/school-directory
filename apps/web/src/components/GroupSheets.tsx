@@ -7,6 +7,7 @@ import { Avatar, Btn, Vis } from "./atoms.js";
 import { SheetOver, OptionRow } from "./parts.js";
 import { useI18n } from "../i18n/index.js";
 import { api, ApiError, mediaUrl } from "../lib/api.js";
+import { CONTACT_TYPE_ORDER, contactTypeName } from "../lib/contactTypes.js";
 
 const TYPE_ICON: Record<ContactType, IconName> = { address: "pin", phone: "phone", email: "mail", url: "link" };
 
@@ -214,7 +215,6 @@ export function EditContactsSheet({
   const [items, setItems] = useState<EditC[]>(initial.map((c) => ({ ...c })));
   const [removed, setRemoved] = useState<string[]>([]);
   const [busy, setBusy] = useState(false);
-  const TYPES: ContactType[] = ["address", "phone", "email", "url"];
 
   const update = (id: string, patch: Partial<EditC>) =>
     setItems((cs) => cs.map((c) => (c.id === id ? { ...c, ...patch, _dirty: true } : c)));
@@ -251,7 +251,7 @@ export function EditContactsSheet({
               <div className="sd-cicon"><Icon name={TYPE_ICON[c.type]} size={17} /></div>
               <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: 6 }}>
                 <select value={c.type} onChange={(e) => update(c.id, { type: e.target.value as ContactType })} className="sd-input" style={{ height: 32, fontSize: 13, padding: "0 8px", width: "auto" }}>
-                  {TYPES.map((tp) => <option key={tp} value={tp}>{tp}</option>)}
+                  {CONTACT_TYPE_ORDER.map((tp) => <option key={tp} value={tp}>{contactTypeName(tp, t)}</option>)}
                 </select>
                 <input className="sd-input" value={c.value} placeholder="Value" onChange={(e) => update(c.id, { value: e.target.value })} style={{ height: 38 }} />
               </div>
