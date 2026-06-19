@@ -40,6 +40,7 @@ export interface Strings {
   allGroups: string;
   aboutGroupsTitle: string;
   aboutGroupsBody: string;
+  whatAreGroups: string;
   colName: string;
   colType: string;
   groupsResults: string;
@@ -202,6 +203,7 @@ const en: Strings = {
   aboutGroupsTitle: "What's a group?",
   aboutGroupsBody:
     "Groups organize the community. A Household is your family; a Classroom is a teacher's class. Schools can also use groups for a Grade, the whole School, or clubs and committees. A person can belong to several groups at once.",
+  whatAreGroups: "What are groups?",
   colName: "Name",
   colType: "Type",
   groupsResults: "Results",
@@ -363,6 +365,7 @@ const es: Strings = {
   aboutGroupsTitle: "¿Qué es un grupo?",
   aboutGroupsBody:
     "Los grupos organizan la comunidad. Una Familia es tu hogar; un Aula es la clase de un docente. Las escuelas también pueden usar grupos para un Grado, toda la Escuela, o clubes y comités. Una persona puede pertenecer a varios grupos a la vez.",
+  whatAreGroups: "¿Qué son los grupos?",
   colName: "Nombre",
   colType: "Tipo",
   groupsResults: "Resultados",
@@ -456,6 +459,7 @@ const zh: Strings = {
   aboutGroupsTitle: "什么是群组？",
   aboutGroupsBody:
     "群组用于组织社区。家庭即你的家人；班级是某位老师的课堂。学校还可以为年级、整所学校或社团和委员会创建群组。一个人可以同时属于多个群组。",
+  whatAreGroups: "什么是群组？",
   colName: "名称",
   colType: "类型",
   groupsResults: "结果",

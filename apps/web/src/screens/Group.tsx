@@ -98,6 +98,8 @@ function groupKindLabel(kind: GroupSummaryDTO["kind"], t: ReturnType<typeof useI
 
 // ── Groups index (the active Person's groups) ────────────────────────────────
 
+const GROUPS_HELP_KEY = "sd.groupsHelpDismissed";
+
 export function GroupsIndex() {
   const { t } = useI18n();
   const navigate = useNavigate();
@@ -107,6 +109,10 @@ export function GroupsIndex() {
   const [creating, setCreating] = useState(false);
   const [q, setQ] = useState("");
   const [allGroups, setAllGroups] = useState<GroupSummaryDTO[]>([]);
+  const [helpDismissed, setHelpDismissed] = useState(() => localStorage.getItem(GROUPS_HELP_KEY) === "1");
+
+  const dismissHelp = () => { setHelpDismissed(true); localStorage.setItem(GROUPS_HELP_KEY, "1"); };
+  const showHelp = () => { setHelpDismissed(false); localStorage.removeItem(GROUPS_HELP_KEY); };
 
   useEffect(() => {
     if (!activePerson) return;
@@ -200,17 +206,26 @@ export function GroupsIndex() {
 
   const content = (
     <>
-      <div className="sd-card sd-card-pad" style={{ background: "var(--blue-tint)", borderColor: "var(--blue-tint-2)" }}>
-        <div className="sd-row" style={{ gap: 11, alignItems: "flex-start" }}>
-          <div style={{ width: 34, height: 34, borderRadius: 9, background: "var(--paper)", color: "var(--blue)", display: "flex", alignItems: "center", justifyContent: "center", flex: "0 0 auto" }}>
-            <Icon name="users3" size={18} />
-          </div>
-          <div>
-            <div style={{ fontSize: 14.5, fontWeight: 700, color: "var(--blue-800)" }}>{t("aboutGroupsTitle")}</div>
-            <div style={{ fontSize: 13, color: "var(--blue-800)", lineHeight: 1.5, marginTop: 3 }}>{t("aboutGroupsBody")}</div>
+      {helpDismissed ? (
+        <button className="sd-btn sd-btn-ghost sd-btn-sm" style={{ alignSelf: "flex-start", padding: "0 4px", height: 26 }} onClick={showHelp}>
+          <Icon name="info" size={15} />{t("whatAreGroups")}
+        </button>
+      ) : (
+        <div className="sd-card sd-card-pad" style={{ background: "var(--blue-tint)", borderColor: "var(--blue-tint-2)" }}>
+          <div className="sd-row" style={{ gap: 11, alignItems: "flex-start" }}>
+            <div style={{ width: 34, height: 34, borderRadius: 9, background: "var(--paper)", color: "var(--blue)", display: "flex", alignItems: "center", justifyContent: "center", flex: "0 0 auto" }}>
+              <Icon name="users3" size={18} />
+            </div>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontSize: 14.5, fontWeight: 700, color: "var(--blue-800)" }}>{t("aboutGroupsTitle")}</div>
+              <div style={{ fontSize: 13, color: "var(--blue-800)", lineHeight: 1.5, marginTop: 3 }}>{t("aboutGroupsBody")}</div>
+            </div>
+            <button onClick={dismissHelp} aria-label="Dismiss" style={{ flex: "0 0 auto", background: "none", border: 0, color: "var(--blue-800)", cursor: "pointer", padding: 2, opacity: 0.7 }}>
+              <Icon name="x" size={16} />
+            </button>
           </div>
         </div>
-      </div>
+      )}
       {searchBar}
       <div>
         <SectLabel>{t("myGroups")}</SectLabel>
