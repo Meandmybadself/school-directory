@@ -69,16 +69,19 @@ export function GroupDetail() {
   return (
     <>
       {isDesktop ? <DesktopGroup g={g} actions={actions} /> : <MobileGroup g={g} actions={actions} />}
-      {sheet?.type === "addMember" && <AddMemberSheet groupId={g.id} onClose={() => setSheet(null)} onChanged={onChanged} />}
-      {sheet?.type === "member" && <MemberSheet groupId={g.id} member={sheet.member} onClose={() => setSheet(null)} onChanged={onChanged} />}
-      {sheet?.type === "editContacts" && (
-        <EditContactsSheet
-          groupId={g.id}
-          initial={g.contacts.map((c) => ({ id: c.id, type: c.type, label: c.label, value: c.value, visibility: c.visibility, neighborDiscoverable: c.neighborDiscoverable }))}
-          onClose={() => setSheet(null)}
-          onChanged={onChanged}
-        />
-      )}
+      {/* Sheets render outside the screen's shell, so scope them to .sd for tokens. */}
+      <div className="sd">
+        {sheet?.type === "addMember" && <AddMemberSheet groupId={g.id} onClose={() => setSheet(null)} onChanged={onChanged} />}
+        {sheet?.type === "member" && <MemberSheet groupId={g.id} member={sheet.member} onClose={() => setSheet(null)} onChanged={onChanged} />}
+        {sheet?.type === "editContacts" && (
+          <EditContactsSheet
+            groupId={g.id}
+            initial={g.contacts.map((c) => ({ id: c.id, type: c.type, label: c.label, value: c.value, visibility: c.visibility, neighborDiscoverable: c.neighborDiscoverable }))}
+            onClose={() => setSheet(null)}
+            onChanged={onChanged}
+          />
+        )}
+      </div>
     </>
   );
 }
