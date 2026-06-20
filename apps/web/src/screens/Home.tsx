@@ -52,13 +52,14 @@ interface ViewProps {
   events: CalendarEventDTO[] | null;
 }
 
-/** Compact upcoming-events block for Home; hidden entirely when there's nothing. */
-function EventsSection({ events }: { events: CalendarEventDTO[] | null }) {
+/** Compact upcoming-events block for Home; hidden entirely when there's nothing.
+ *  `half` constrains it to 50% width (desktop only). */
+function EventsSection({ events, half }: { events: CalendarEventDTO[] | null; half?: boolean }) {
   const { t, locale } = useI18n();
   const navigate = useNavigate();
   if (!events || events.length === 0) return null;
   return (
-    <div>
+    <div style={half ? { maxWidth: "50%" } : undefined}>
       <SectLabel action={<button className="sd-btn sd-btn-ghost sd-btn-sm" style={{ height: 24, padding: "0 4px" }} onClick={() => navigate("/calendar")}>{t("seeAll")}</button>}>
         {t("upcomingEvents")}
       </SectLabel>
@@ -141,7 +142,7 @@ function DesktopHome({ activePerson, groups, hasNeighbors, list, events }: ViewP
   const cards = useNeighborCards(list);
   return (
     <DesktopShell active="home" title={t("navHome")}>
-      <EventsSection events={events} />
+      <EventsSection events={events} half />
       <div>
         <SectLabel action={hasNeighbors ? <button className="sd-btn sd-btn-ghost sd-btn-sm">{t("seeAll")}</button> : undefined}>
           {t("neighbors")}
