@@ -40,11 +40,12 @@ export function AppShell({
   );
 }
 
-type NavKey = "home" | "calendar" | "dir" | "groups" | "me";
+type NavKey = "home" | "calendar" | "dir" | "groups" | "me" | "admin";
 
 export function BottomNav({ active }: { active: NavKey }) {
   const { t } = useI18n();
   const navigate = useNavigate();
+  const { me } = useSession();
   const items: [IconName, NavKey, string, string][] = [
     ["home", "home", t("navHome"), "/"],
     ["calendar", "calendar", t("navCalendar"), "/calendar"],
@@ -52,6 +53,8 @@ export function BottomNav({ active }: { active: NavKey }) {
     ["users3", "groups", t("navGroups"), "/groups"],
     ["eye", "me", t("navMe"), "/you"],
   ];
+  // System admins get an Admin tab, mirroring the desktop sidebar.
+  if (me?.user.isSystemAdmin) items.push(["shield", "admin", "Admin", "/admin"]);
   return (
     <nav className="sd-bottomnav">
       {items.map(([icon, key, label, path]) => {

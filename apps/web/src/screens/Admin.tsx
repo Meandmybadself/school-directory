@@ -278,7 +278,7 @@ export function Admin() {
     return <DesktopShell active="admin" title="Admin"><div style={{ maxWidth: 720 }}>{body}</div></DesktopShell>;
   }
   return (
-    <AppShell bottomNav={<BottomNav active="me" />}>
+    <AppShell bottomNav={<BottomNav active="admin" />}>
       <ScreenHeader title="Admin" onLeft={() => navigate("/")} />
       <div className="sd-scroll"><div className="sd-body">{body}</div></div>
     </AppShell>
