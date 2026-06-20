@@ -4,8 +4,8 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import type { ContactType, GroupMemberDTO, GroupRefDTO, ShareTargetDTO, Visibility } from "@sd/shared";
 import { Icon, type IconName } from "./Icon.js";
-import { Avatar, Btn, Vis } from "./atoms.js";
-import { SheetOver, OptionRow } from "./parts.js";
+import { Avatar, Btn } from "./atoms.js";
+import { SheetOver, OptionRow, ContactVis } from "./parts.js";
 import { useI18n } from "../i18n/index.js";
 import { api, ApiError, mediaUrl } from "../lib/api.js";
 import { CONTACT_TYPE_ORDER, contactTypeName } from "../lib/contactTypes.js";
@@ -358,11 +358,10 @@ export function EditContactsSheet({
                 <input className="sd-input" value={c.value} placeholder="Value" onChange={(e) => update(c.id, { value: e.target.value })} style={{ height: 38 }} />
               </div>
               {/* Group contacts toggle Members/Private (no per-grantee shares here). */}
-              <Vis
+              <ContactVis
                 state={c.visibility === "service" ? "members" : "private"}
-                membersText={t("visMembers")}
-                privateText={t("visPrivate")}
                 onClick={() => update(c.id, { visibility: c.visibility === "service" ? "private" : "service" })}
+                t={t}
               />
               <button onClick={() => { if (!c._new) setRemoved((r) => [...r, c.id]); setItems((cs) => cs.filter((x) => x.id !== c.id)); }} aria-label="Remove" style={{ background: "none", border: 0, color: "var(--ink-3)", cursor: "pointer" }}>
                 <Icon name="x" size={18} />

@@ -255,6 +255,11 @@ body {
 .sd-vis svg {
   flex: 0 0 auto;
 }
+/* Icon-only visibility chip: tighter, symmetric padding (state shown on hover). */
+.sd-vis-icon {
+  padding: 0 7px;
+  gap: 2px;
+}
 .vis-members {
   background: var(--blue-tint);
   color: var(--blue-800);

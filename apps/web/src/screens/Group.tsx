@@ -5,10 +5,10 @@ import { Fragment, useEffect, useState, type ReactNode } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import type { ContactItemDTO, GroupDetailDTO } from "@sd/shared";
 import { Icon, type IconName } from "../components/Icon.js";
-import { Avatar, Btn, Tag, Vis, type VisState } from "../components/atoms.js";
+import { Avatar, Btn, Tag, type VisState } from "../components/atoms.js";
 import { AppShell, BottomNav } from "../components/AppShell.js";
 import { DesktopShell } from "../components/DesktopShell.js";
-import { ScreenHeader, SectLabel, ContactRow, ContactValue, MemberRow, GroupTile } from "../components/parts.js";
+import { ScreenHeader, SectLabel, ContactRow, ContactValue, ContactVis, MemberRow, GroupTile } from "../components/parts.js";
 import { useI18n } from "../i18n/index.js";
 import { useIsDesktop } from "../lib/useIsDesktop.js";
 import { useSession } from "../lib/session.js";
@@ -362,7 +362,7 @@ function ContactCard({ g }: { g: GroupDetailDTO }) {
           icon={TYPE_ICON[c.type] ?? "info"}
           label={c.label || c.type}
           value={<ContactValue type={c.type} value={c.value} t={t} />}
-          vis={<Vis state={visState(c)} count={c.shareCount} withCaret={g.viewerIsAdmin} membersText={t("visMembers")} privateText={t("visPrivate")} sharedText={t("visShared")} />}
+          vis={<ContactVis state={visState(c)} count={c.shareCount} withCaret={g.viewerIsAdmin} t={t} />}
         />
       ))}
     </div>
@@ -555,7 +555,7 @@ function DesktopGroup({ g, actions }: { g: GroupDetailDTO; actions: GroupActions
                 icon={TYPE_ICON[c.type] ?? "info"}
                 label={c.label || c.type}
                 value={<ContactValue type={c.type} value={c.value} t={t} />}
-                vis={<Vis state={visState(c)} count={c.shareCount} withCaret={g.viewerIsAdmin} membersText={t("visMembers")} privateText={t("visPrivate")} sharedText={t("visShared")} />}
+                vis={<ContactVis state={visState(c)} count={c.shareCount} withCaret={g.viewerIsAdmin} t={t} />}
               />
             ))}
             {g.contacts.length === 0 && <div className="sd-meta" style={{ padding: "4px 0 8px" }}>No shared contact info yet.</div>}

@@ -53,23 +53,27 @@ export function Avatar({
 
 export type VisState = "members" | "private" | "shared";
 
+/** Visibility chip — icon only. The state (and, when provided, its explanation)
+ *  are revealed on hover via a native tooltip. A caret is shown for interactive
+ *  dropdowns (`withCaret`). */
 export function Vis({
   state = "members",
   count,
-  label,
   withCaret = true,
   membersText = "Members",
   privateText = "Private",
   sharedText = "Shared",
+  desc,
   onClick,
 }: {
   state?: VisState;
   count?: number;
-  label?: string;
   withCaret?: boolean;
   membersText?: string;
   privateText?: string;
   sharedText?: string;
+  /** Optional explanation for the current state, appended to the tooltip. */
+  desc?: string;
   onClick?: () => void;
 }) {
   const map = {
@@ -82,16 +86,18 @@ export function Vis({
     },
   };
   const m = map[state];
+  const tip = desc ? `${m.txt} — ${desc}` : m.txt;
   const Tag = onClick ? "button" : "span";
   return (
     <Tag
-      className={`sd-vis ${m.cls}`}
+      className={`sd-vis sd-vis-icon ${m.cls}`}
       onClick={onClick}
+      title={tip}
+      aria-label={tip}
       style={onClick ? undefined : { cursor: "default" }}
       type={onClick ? "button" : undefined}
     >
       <Icon name={m.icon} size={12} stroke={2} />
-      {label || m.txt}
       {withCaret && <Icon name="chevdown" size={11} stroke={2.2} style={{ opacity: 0.5, marginLeft: 1 }} />}
     </Tag>
   );

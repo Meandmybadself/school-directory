@@ -2,8 +2,44 @@
 import type { CSSProperties, ReactNode } from "react";
 import type { ContactType } from "@sd/shared";
 import { Icon, type IconName } from "./Icon.js";
-import { Avatar } from "./atoms.js";
+import { Avatar, Vis, type VisState } from "./atoms.js";
 import type { I18nT } from "../i18n/index.js";
+
+const VIS_DESC: Record<VisState, Parameters<I18nT>[0]> = {
+  members: "visMembersDesc",
+  private: "visPrivateDesc",
+  shared: "visSharedDesc",
+};
+
+/** The visibility chip wired to i18n: an icon whose tooltip reveals the state +
+ *  its explanation. Centralizes the label/description strings so call sites only
+ *  pass state/count/role. */
+export function ContactVis({
+  state,
+  count,
+  withCaret,
+  onClick,
+  t,
+}: {
+  state: VisState;
+  count?: number;
+  withCaret?: boolean;
+  onClick?: () => void;
+  t: I18nT;
+}) {
+  return (
+    <Vis
+      state={state}
+      count={count}
+      withCaret={withCaret}
+      onClick={onClick}
+      membersText={t("visMembers")}
+      privateText={t("visPrivate")}
+      sharedText={t("visShared")}
+      desc={t(VIS_DESC[state])}
+    />
+  );
+}
 
 /** Renders a contact item's value for display, making it actionable by type:
  *  addresses and URLs open in a new browser tab (addresses go to Google Maps,

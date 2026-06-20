@@ -10,10 +10,10 @@ import type {
   Visibility,
 } from "@sd/shared";
 import { Icon, type IconName } from "../components/Icon.js";
-import { Avatar, Btn, Tag, Vis, type VisState } from "../components/atoms.js";
+import { Avatar, Btn, Tag, type VisState } from "../components/atoms.js";
 import { AppShell, BottomNav } from "../components/AppShell.js";
 import { DesktopShell } from "../components/DesktopShell.js";
-import { ScreenHeader, SectLabel, ContactRow, ContactValue, Field } from "../components/parts.js";
+import { ScreenHeader, SectLabel, ContactRow, ContactValue, ContactVis, Field } from "../components/parts.js";
 import { VisibilitySheet } from "../components/VisibilitySheet.js";
 import { InviteSheet } from "../components/InviteSheet.js";
 import { AddressMap } from "../components/AddressMap.js";
@@ -88,7 +88,7 @@ export function ProfileView() {
                 icon={ICON_BY_TYPE[c.type]}
                 label={c.label || typeLabel(c.type, t)}
                 value={<ContactValue type={c.type} value={c.value} t={t} />}
-                vis={<Vis state={visState(c)} count={c.shareCount} withCaret={false} membersText={t("visMembers")} privateText={t("visPrivate")} sharedText={t("visShared")} />}
+                vis={<ContactVis state={visState(c)} count={c.shareCount} withCaret={false} t={t} />}
               />
               {c.type === "address" && c.hasLocation && <AddressMap contactId={c.id} address={c.value} />}
             </Fragment>
@@ -111,7 +111,7 @@ export function ProfileView() {
                     {t("fromGroup", { name: via.name })}
                   </button>
                 ) : undefined}
-                vis={<Vis state={visState(c)} withCaret={false} membersText={t("visMembers")} privateText={t("visPrivate")} sharedText={t("visShared")} />}
+                vis={<ContactVis state={visState(c)} withCaret={false} t={t} />}
               />
             );
           })}
@@ -463,7 +463,7 @@ function ContactEditCard({
           </select>
           <input className="sd-input" value={c.value} placeholder={typeLabel(c.type, t)} onChange={(e) => onChange({ value: e.target.value })} style={{ height: 38 }} />
         </div>
-        <Vis state={visState(c)} count={c.shareCount} membersText={t("visMembers")} privateText={t("visPrivate")} sharedText={t("visShared")} onClick={onVis} />
+        <ContactVis state={visState(c)} count={c.shareCount} onClick={onVis} t={t} />
         <button onClick={onRemove} aria-label="Remove" style={{ background: "none", border: 0, color: "var(--ink-3)", cursor: "pointer" }}><Icon name="x" size={18} /></button>
       </div>
       {c.type === "address" && (
