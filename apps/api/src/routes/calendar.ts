@@ -3,24 +3,12 @@
 // refresh in lib/calendar.ts).
 
 import { Hono } from "hono";
-import type { CalendarEventDTO, CalendarFeedDTO } from "@sd/shared";
+import type { CalendarFeedDTO } from "@sd/shared";
 import type { HonoEnv } from "../env.js";
 import { requireAuth } from "../middleware/session.js";
+import { dedupeEvents, type CalendarRow } from "../lib/calendar.js";
 
 export const calendar = new Hono<HonoEnv>();
-
-interface EventRow {
-  id: string;
-  title: string;
-  location: string | null;
-  description: string | null;
-  starts_at: string;
-  ends_at: string | null;
-  all_day: number;
-  source_id: string;
-  source_name: string;
-  source_color: string;
-}
 
 /** GET /calendar/sources — enabled feeds (id/name/color only) for the show/hide
  *  filter. No URLs or status; available to any member. */
@@ -41,6 +29,9 @@ calendar.get("/events", async (c) => {
   requireAuth(c);
   const limit = Math.min(Math.max(Number(c.req.query("limit")) || 100, 1), 500);
   const from = c.req.query("from") || new Date().toISOString();
+  // Over-fetch so that de-duplicating the same event across feeds still yields
+  // up to `limit` distinct events.
+  const fetchCap = Math.min(limit * 5, 2000);
 
   const rows = await c.env.DB.prepare(
     `SELECT e.id, e.title, e.location, e.description, e.starts_at, e.ends_at, e.all_day,
@@ -50,19 +41,8 @@ calendar.get("/events", async (c) => {
      ORDER BY e.starts_at ASC
      LIMIT ?`,
   )
-    .bind(from, from, limit)
-    .all<EventRow>();
+    .bind(from, from, fetchCap)
+    .all<CalendarRow>();
 
-  const events: CalendarEventDTO[] = rows.results.map((r) => ({
-    id: r.id,
-    title: r.title,
-    location: r.location,
-    description: r.description,
-    start: r.starts_at,
-    end: r.ends_at,
-    allDay: r.all_day === 1,
-    sourceId: r.source_id,
-    source: { name: r.source_name, color: r.source_color },
-  }));
-  return c.json({ events });
+  return c.json({ events: dedupeEvents(rows.results, limit) });
 });

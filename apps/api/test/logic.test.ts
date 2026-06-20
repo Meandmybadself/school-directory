@@ -3,7 +3,8 @@ import { haversineMiles, approxDistance, boundingBox } from "../src/lib/geo.js";
 import { renderLastName, displayName } from "../src/lib/privacy.js";
 import { ulid } from "../src/lib/ids.js";
 import { buildGraph, ancestors, subtree, effectiveGroups, wouldCycle } from "../src/lib/groupTree.js";
-import { parseIcs } from "../src/lib/calendar.js";
+import { parseIcs, dedupeEvents, type CalendarRow } from "../src/lib/calendar.js";
+import { htmlToText } from "@sd/shared";
 
 describe("geo", () => {
   it("computes great-circle distance in miles", () => {
@@ -147,5 +148,62 @@ describe("ICS parsing", () => {
   it("ignores events outside the window", () => {
     // 6/1 and 6/8 weekly occurrences are before windowStart; nothing past 6/30.
     expect(events.every((e) => e.start >= "2026-06-10" && e.start <= "2026-06-30")).toBe(true);
+  });
+});
+
+describe("calendar de-duplication", () => {
+  const row = (over: Partial<CalendarRow>): CalendarRow => ({
+    id: "e1", title: "Assembly", location: null, description: null,
+    starts_at: "2026-06-15T15:00:00.000Z", ends_at: null, all_day: 0,
+    source_id: "s1", source_name: "A", source_color: "#111111", ...over,
+  });
+
+  it("merges the same event across feeds into one, collecting all sources", () => {
+    const rows = [
+      row({ id: "a", source_id: "s1", source_name: "A" }),
+      row({ id: "b", source_id: "s2", source_name: "B", description: "Gym, 3pm" }),
+      row({ id: "c", source_id: "s3", source_name: "C", location: "Gym" }),
+      row({ id: "d", title: "Field Trip", starts_at: "2026-06-16T09:00:00.000Z", source_id: "s1" }),
+    ];
+    const out = dedupeEvents(rows, 100);
+    expect(out.length).toBe(2);
+    const assembly = out.find((e) => e.title === "Assembly")!;
+    expect(assembly.sourceIds.sort()).toEqual(["s1", "s2", "s3"]);
+    // Richest copy wins: description from feed B, location from feed C.
+    expect(assembly.description).toBe("Gym, 3pm");
+    expect(assembly.location).toBe("Gym");
+  });
+
+  it("treats different title/start as distinct and respects the limit", () => {
+    const rows = [
+      row({ id: "a", starts_at: "2026-06-15T15:00:00.000Z" }),
+      row({ id: "b", title: "Other", starts_at: "2026-06-15T16:00:00.000Z" }),
+      row({ id: "c", title: "Third", starts_at: "2026-06-15T17:00:00.000Z" }),
+    ];
+    expect(dedupeEvents(rows, 2).length).toBe(2);
+  });
+
+  it("matches on day + time to the minute (tolerates sub-minute differences)", () => {
+    const rows = [
+      row({ id: "a", source_id: "s1", starts_at: "2026-06-15T15:00:00.000Z" }),
+      row({ id: "b", source_id: "s2", starts_at: "2026-06-15T15:00:42.000Z" }),
+    ];
+    const out = dedupeEvents(rows, 100);
+    expect(out.length).toBe(1);
+    expect(out[0]!.sourceIds.sort()).toEqual(["s1", "s2"]);
+  });
+});
+
+describe("htmlToText", () => {
+  it("turns <br> into newlines and strips other tags", () => {
+    const html = "Cheese Pizza<br/>Turkey Pepperoni Pizza<br/>Veggie Pizza<br/>Caesar Salad<br/>Peaches";
+    expect(htmlToText(html)).toBe("Cheese Pizza\nTurkey Pepperoni Pizza\nVeggie Pizza\nCaesar Salad\nPeaches");
+  });
+  it("decodes entities and drops markup", () => {
+    expect(htmlToText("Soup &amp; Salad <b>today</b>")).toBe("Soup & Salad today");
+    expect(htmlToText("Caf&#233; &#x1F355;")).toBe("Café 🍕");
+  });
+  it("leaves plain text essentially unchanged", () => {
+    expect(htmlToText("Bring water bottles.")).toBe("Bring water bottles.");
   });
 });

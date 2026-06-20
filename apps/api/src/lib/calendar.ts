@@ -5,6 +5,7 @@
 // pattern) and hand the string to the parser.
 
 import ICAL from "ical.js";
+import type { CalendarEventDTO } from "@sd/shared";
 import type { Env } from "../env.js";
 import { ulid } from "./ids.js";
 import { nowIso } from "./time.js";
@@ -147,6 +148,67 @@ export async function refreshSource(env: Env, source: SourceRow): Promise<{ ok: 
       .catch(() => {});
     return { ok: false, count: 0 };
   }
+}
+
+/** A joined calendar_event row (event + its source) as read for serialization. */
+export interface CalendarRow {
+  id: string;
+  title: string;
+  location: string | null;
+  description: string | null;
+  starts_at: string;
+  ends_at: string | null;
+  all_day: number;
+  source_id: string;
+  source_name: string;
+  source_color: string;
+}
+
+/** Collapse the same event syndicated across multiple feeds into one. Events are
+ *  matched on title + day + time-to-the-minute (tolerating sub-minute timestamp
+ *  differences between feeds); the merged event keeps the richest copy (longest
+ *  description, any location) and records every source it appears on, so the
+ *  per-calendar filter can hide it only when all its sources are hidden.
+ *  `rows` must be ordered by start; output preserves that order, capped to `limit`. */
+export function dedupeEvents(rows: CalendarRow[], limit: number): CalendarEventDTO[] {
+  interface Merged {
+    dto: CalendarEventDTO;
+    descLen: number;
+  }
+  const byKey = new Map<string, Merged>();
+  const order: string[] = [];
+  for (const r of rows) {
+    // Match on title + day + time to the minute (e.g. "2026-06-15T15:00").
+    const key = `${r.title.trim().toLowerCase()}|${r.starts_at.slice(0, 16)}`;
+    let m = byKey.get(key);
+    if (!m) {
+      m = {
+        dto: {
+          id: r.id,
+          title: r.title,
+          location: r.location,
+          description: r.description,
+          start: r.starts_at,
+          end: r.ends_at,
+          allDay: r.all_day === 1,
+          sourceIds: [r.source_id],
+          source: { name: r.source_name, color: r.source_color },
+        },
+        descLen: (r.description ?? "").length,
+      };
+      byKey.set(key, m);
+      order.push(key);
+      continue;
+    }
+    if (!m.dto.sourceIds.includes(r.source_id)) m.dto.sourceIds.push(r.source_id);
+    if (!m.dto.location && r.location) m.dto.location = r.location;
+    const dlen = (r.description ?? "").length;
+    if (dlen > m.descLen) {
+      m.dto.description = r.description;
+      m.descLen = dlen;
+    }
+  }
+  return order.slice(0, limit).map((k) => byKey.get(k)!.dto);
 }
 
 /** Refresh every enabled source. Used by the cron handler and the admin button. */

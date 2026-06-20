@@ -181,8 +181,10 @@ export interface CalendarEventDTO {
   /** ISO-8601 UTC, or null. */
   end: string | null;
   allDay: boolean;
-  /** Owning source id — for client-side per-calendar filtering. */
-  sourceId: string;
+  /** Every source this (de-duplicated) event appears on — for the per-calendar
+   *  filter. The event is hidden only when all of its sources are hidden. */
+  sourceIds: string[];
+  /** Representative source, for the event's color tag. */
   source: { name: string; color: string };
 }
 

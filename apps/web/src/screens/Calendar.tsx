@@ -4,7 +4,7 @@
 // an event opens its detail (location + description).
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import type { CalendarEventDTO, CalendarFeedDTO } from "@sd/shared";
+import { htmlToText, type CalendarEventDTO, type CalendarFeedDTO } from "@sd/shared";
 import { Icon } from "../components/Icon.js";
 import { Btn } from "../components/atoms.js";
 import { AppShell, BottomNav } from "../components/AppShell.js";
@@ -136,7 +136,7 @@ function EventDetailSheet({ e, locale, onClose }: { e: CalendarEventDTO; locale:
         </div>
       )}
       {e.description && (
-        <div style={{ fontSize: 13.5, lineHeight: 1.5, color: "var(--ink-2)", whiteSpace: "pre-wrap", wordBreak: "break-word", borderTop: "1px solid var(--line)", paddingTop: 12 }}>{e.description}</div>
+        <div style={{ fontSize: 13.5, lineHeight: 1.5, color: "var(--ink-2)", whiteSpace: "pre-wrap", wordBreak: "break-word", borderTop: "1px solid var(--line)", paddingTop: 12 }}>{htmlToText(e.description)}</div>
       )}
       <Btn block kind="secondary" style={{ marginTop: 16 }} onClick={onClose}>{t("done")}</Btn>
     </SheetOver>
@@ -171,7 +171,8 @@ export function Calendar() {
     });
   };
 
-  const visible = useMemo(() => (events ?? []).filter((e) => !hidden.has(e.sourceId)), [events, hidden]);
+  // Show an event if any of its calendars is visible (it may be on several).
+  const visible = useMemo(() => (events ?? []).filter((e) => e.sourceIds.some((id) => !hidden.has(id))), [events, hidden]);
   const groups = groupByDay(visible);
 
   const body = (
