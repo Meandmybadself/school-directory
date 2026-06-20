@@ -81,7 +81,7 @@ export function ProfileView() {
       <div>
         <SectLabel>{t("contact")}</SectLabel>
         <div className="sd-card sd-card-pad" style={{ marginTop: 9, paddingTop: 4, paddingBottom: 4 }}>
-          {p.contacts.length === 0 && <div className="sd-meta" style={{ padding: "12px 0" }}>No shared contact info.</div>}
+          {p.contacts.length === 0 && !p.groupContacts?.length && <div className="sd-meta" style={{ padding: "12px 0" }}>No shared contact info.</div>}
           {p.contacts.map((c) => (
             <Fragment key={c.id}>
               <ContactRow
@@ -92,6 +92,17 @@ export function ProfileView() {
               />
               {c.type === "address" && c.hasLocation && <AddressMap contactId={c.id} address={c.value} />}
             </Fragment>
+          ))}
+          {/* Cascaded from the Person's groups (e.g. household address). Read-only. */}
+          {(p.groupContacts ?? []).map((c) => (
+            <ContactRow
+              key={c.id}
+              icon={ICON_BY_TYPE[c.type]}
+              label={c.label || typeLabel(c.type, t)}
+              value={<ContactValue type={c.type} value={c.value} t={t} />}
+              sub={c.viaGroup ? t("fromGroup", { name: c.viaGroup.name }) : undefined}
+              vis={<Vis state={visState(c)} withCaret={false} membersText={t("visMembers")} privateText={t("visPrivate")} sharedText={t("visShared")} />}
+            />
           ))}
         </div>
       </div>

@@ -82,6 +82,7 @@ export interface Strings {
   whatOthersSee: string;
   exitPreview: string;
   contact: string;
+  fromGroup: string; // uses {name}
   shareCta: string; // uses {name}
   homeLabel: string;
   mobile: string;
@@ -274,6 +275,7 @@ const en: Strings = {
   whatOthersSee: "This is what other members see",
   exitPreview: "Exit preview",
   contact: "Contact",
+  fromGroup: "via {name}",
   shareCta: "Share your info with {name}",
   homeLabel: "Home Address",
   mobile: "Mobile",
@@ -450,6 +452,7 @@ const es: Strings = {
   whatOthersSee: "Esto es lo que ven otros miembros",
   exitPreview: "Salir",
   contact: "Contacto",
+  fromGroup: "vía {name}",
   shareCta: "Comparte tu información con {name}",
   typeAddress: "Dirección",
   typePhone: "Teléfono",
@@ -570,6 +573,7 @@ const zh: Strings = {
   whatOthersSee: "这是其他成员看到的内容",
   exitPreview: "退出",
   contact: "联系方式",
+  fromGroup: "来自 {name}",
   shareCta: "与 {name} 分享你的信息",
   typeAddress: "地址",
   typePhone: "电话",

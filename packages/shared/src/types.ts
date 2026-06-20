@@ -60,6 +60,9 @@ export interface ContactItemDTO {
   hasLocation?: boolean;
   /** Resolved share state for the active viewer's UI chip. */
   shareCount?: number;
+  /** Set when this item is cascaded from a group the Person belongs to (e.g. a
+   *  household's shared address). Read-only on the Person; edited on the group. */
+  viaGroup?: { id: string; name: string };
 }
 
 export interface PersonSummaryDTO {
@@ -76,6 +79,9 @@ export interface PersonProfileDTO extends PersonSummaryDTO {
   lastName?: string | null;
   lastNameDisplay?: LastNameDisplay;
   contacts: ContactItemDTO[];
+  /** Contacts cascaded from the Person's groups (e.g. household address),
+   *  privacy-filtered for the viewer. Read-only; carry `viaGroup`. */
+  groupContacts?: ContactItemDTO[];
   groups: GroupSummaryDTO[];
   /** True when the requesting User is a Controller of this Person. */
   controlledByViewer: boolean;

@@ -142,6 +142,59 @@ export async function buildProfile(
     contacts.push(dto);
   }
 
+  // Cascaded group contacts: items owned by groups this Person is a DIRECT
+  // member of (e.g. a household's shared address) surface on the profile, but
+  // stay read-only here (edited on the group). Visibility uses the GROUP-contact
+  // rule from the viewer's perspective: service → any member; otherwise only a
+  // fellow direct member of that group, or an explicit share. The exact address
+  // value is shown only to fellow direct members.
+  const viewerDirectGroups = new Set<string>();
+  if (viewer.personId) {
+    const vd = await env.DB.prepare("SELECT group_id FROM membership WHERE person_id = ?")
+      .bind(viewer.personId)
+      .all<{ group_id: string }>();
+    for (const r of vd.results) viewerDirectGroups.add(r.group_id);
+  }
+  const gcRows = await env.DB.prepare(
+    `SELECT ci.id, ci.owner_kind, ci.owner_id, ci.type, ci.label, ci.value, ci.visibility,
+            ci.neighbor_discoverable, ci.geo_lat, ci.geo_lng, g.name AS group_name
+     FROM contact_item ci
+     JOIN membership m ON m.group_id = ci.owner_id
+     JOIN grp g ON g.id = ci.owner_id
+     WHERE ci.owner_kind = 'group' AND m.person_id = ?
+     ORDER BY ci.sort_order, ci.created_at`,
+  )
+    .bind(personId)
+    .all<ContactItemRow & { group_name: string }>();
+
+  const groupContacts: ContactItemDTO[] = [];
+  for (const item of gcRows.results) {
+    const shares = await sharesFor(env, "contact_item", item.id);
+    const viewerInGroup = viewerDirectGroups.has(item.owner_id);
+    const visible =
+      item.visibility === "service" ||
+      viewerInGroup ||
+      canSeeItem({
+        viewer,
+        item,
+        ownerControllerUserIds: new Set(),
+        sharedWithPersonIds: shares.persons,
+        sharedWithGroupIds: shares.groups,
+        viewerGroups: vGroups,
+      });
+    if (!visible) continue;
+    const dto: ContactItemDTO = {
+      id: item.id,
+      type: item.type as ContactItemDTO["type"],
+      label: item.label,
+      value: item.type === "address" && !viewerInGroup ? "" : item.value,
+      visibility: item.visibility,
+      viaGroup: { id: item.owner_id, name: item.group_name },
+    };
+    if (item.type === "address") dto.neighborDiscoverable = item.neighbor_discoverable === 1;
+    groupContacts.push(dto);
+  }
+
   const display = person.last_name_visibility;
   const profile: PersonProfileDTO = {
     id: person.id,
@@ -153,6 +206,7 @@ export async function buildProfile(
     groups: await groupsFor(env, personId, viewer.personId),
     controlledByViewer: viewerIsController,
   };
+  if (groupContacts.length) profile.groupContacts = groupContacts;
 
   // Owner-only editable fields.
   if (viewerIsController) {
