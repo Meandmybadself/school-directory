@@ -10,7 +10,7 @@ import { capLabel, useI18n } from "../i18n/index.js";
 import { useSession } from "../lib/session.js";
 import { mediaUrl } from "../lib/api.js";
 
-type NavKey = "home" | "dir" | "groups" | "profile" | "admin";
+type NavKey = "home" | "calendar" | "dir" | "groups" | "profile" | "admin";
 
 function Sidebar({ active }: { active: NavKey }) {
   const { t } = useI18n();
@@ -18,6 +18,7 @@ function Sidebar({ active }: { active: NavKey }) {
   const { activePerson, me } = useSession();
   const items: [IconName, NavKey, string, string][] = [
     ["home", "home", t("navHome"), "/"],
+    ["calendar", "calendar", t("navCalendar"), "/calendar"],
     ["search", "dir", t("navDir"), "/directory"],
     ["users3", "groups", t("navGroups"), "/groups"],
     ["eye", "profile", t("yourProfile"), activePerson ? `/persons/${activePerson.id}` : "/"],

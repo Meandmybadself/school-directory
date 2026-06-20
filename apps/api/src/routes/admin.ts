@@ -2,11 +2,13 @@
 // (CSV import, audit-log table, registration toggle UI) is M4.
 
 import { Hono } from "hono";
-import type { AuditEntryDTO, BulkImportRow } from "@sd/shared";
-import type { HonoEnv } from "../env.js";
+import type { AuditEntryDTO, BulkImportRow, CalendarSourceDTO, CalendarSourceInput } from "@sd/shared";
+import type { Env, HonoEnv } from "../env.js";
 import { requireAuth } from "../middleware/session.js";
 import { runBulkImport } from "../lib/bulkImport.js";
+import { refreshSource, refreshAllSources } from "../lib/calendar.js";
 import { randomSessionId } from "../lib/crypto.js";
+import { ulid } from "../lib/ids.js";
 import { isoPlus, isExpired, nowIso, MASQUERADE_TTL, SESSION_TTL } from "../lib/time.js";
 import { setSessionCookie, clearActivePersonCookie } from "../lib/cookies.js";
 
@@ -171,4 +173,150 @@ admin.post("/masquerade/stop", async (c) => {
 
   c.var.audit.push({ action: "masquerade.stop", entityKind: "user", entityId: auth.userId });
   return c.json({ ok: true });
+});
+
+// ── Calendar sources (system admins) ─────────────────────────────────────────
+
+const HEX_COLOR = /^#[0-9a-fA-F]{6}$/;
+
+interface SourceRow {
+  id: string;
+  url: string;
+  name: string;
+  color: string;
+  enabled: number;
+  last_fetched_at: string | null;
+  last_status: string | null;
+  last_error: string | null;
+  event_count: number;
+}
+
+function toSourceDTO(r: SourceRow): CalendarSourceDTO {
+  return {
+    id: r.id,
+    url: r.url,
+    name: r.name,
+    color: r.color,
+    enabled: r.enabled === 1,
+    lastFetchedAt: r.last_fetched_at,
+    lastStatus: (r.last_status as CalendarSourceDTO["lastStatus"]) ?? null,
+    lastError: r.last_error,
+    eventCount: r.event_count,
+  };
+}
+
+async function loadSource(env: Env, id: string): Promise<CalendarSourceDTO | null> {
+  const row = await env.DB.prepare(
+    `SELECT s.id, s.url, s.name, s.color, s.enabled, s.last_fetched_at, s.last_status, s.last_error,
+            (SELECT COUNT(*) FROM calendar_event e WHERE e.source_id = s.id) AS event_count
+     FROM calendar_source s WHERE s.id = ?`,
+  )
+    .bind(id)
+    .first<SourceRow>();
+  return row ? toSourceDTO(row) : null;
+}
+
+/** GET /admin/calendar-sources — list ICS feeds with status + event counts. */
+admin.get("/calendar-sources", async (c) => {
+  const auth = requireAuth(c);
+  if (!auth.isSystemAdmin) return c.json({ error: "forbidden" }, 403);
+  const rows = await c.env.DB.prepare(
+    `SELECT s.id, s.url, s.name, s.color, s.enabled, s.last_fetched_at, s.last_status, s.last_error,
+            (SELECT COUNT(*) FROM calendar_event e WHERE e.source_id = s.id) AS event_count
+     FROM calendar_source s ORDER BY s.name COLLATE NOCASE`,
+  ).all<SourceRow>();
+  return c.json({ sources: rows.results.map(toSourceDTO) });
+});
+
+/** POST /admin/calendar-sources { url, name, color? } — add a feed and fetch it
+ *  immediately so events show without waiting for the next cron run. */
+admin.post("/calendar-sources", async (c) => {
+  const auth = requireAuth(c);
+  if (!auth.isSystemAdmin) return c.json({ error: "forbidden" }, 403);
+  const body = await c.req.json<CalendarSourceInput>().catch(() => null);
+  const url = body?.url?.trim();
+  const name = body?.name?.trim();
+  if (!url || !/^https?:\/\//i.test(url) || !name) return c.json({ error: "invalid_body" }, 400);
+  const color = body?.color && HEX_COLOR.test(body.color) ? body.color : "#0068A8";
+
+  const id = ulid();
+  await c.env.DB.prepare(
+    "INSERT INTO calendar_source (id, url, name, color, enabled, created_at) VALUES (?,?,?,?,1,?)",
+  )
+    .bind(id, url, name, color, nowIso())
+    .run();
+
+  await refreshSource(c.env, { id, url }); // immediate first fetch
+  c.var.audit.push({ action: "calendar.source.created", entityKind: "calendar_source", entityId: id, detail: { url } });
+  return c.json({ source: await loadSource(c.env, id) }, 201);
+});
+
+/** PATCH /admin/calendar-sources/:id { url?, name?, color?, enabled? }. */
+admin.patch("/calendar-sources/:id", async (c) => {
+  const auth = requireAuth(c);
+  if (!auth.isSystemAdmin) return c.json({ error: "forbidden" }, 403);
+  const id = c.req.param("id");
+  const existing = await c.env.DB.prepare("SELECT id, url, enabled FROM calendar_source WHERE id = ?")
+    .bind(id)
+    .first<{ id: string; url: string; enabled: number }>();
+  if (!existing) return c.json({ error: "not_found" }, 404);
+  const body = await c.req.json<CalendarSourceInput>().catch(() => null);
+  if (!body) return c.json({ error: "invalid_body" }, 400);
+
+  const sets: string[] = [];
+  const binds: unknown[] = [];
+  let nextUrl = existing.url;
+  if (typeof body.url === "string" && /^https?:\/\//i.test(body.url.trim())) {
+    nextUrl = body.url.trim();
+    sets.push("url = ?");
+    binds.push(nextUrl);
+  }
+  if (typeof body.name === "string" && body.name.trim()) {
+    sets.push("name = ?");
+    binds.push(body.name.trim());
+  }
+  if (typeof body.color === "string" && HEX_COLOR.test(body.color)) {
+    sets.push("color = ?");
+    binds.push(body.color);
+  }
+  let enablingNow = false;
+  if (typeof body.enabled === "boolean") {
+    sets.push("enabled = ?");
+    binds.push(body.enabled ? 1 : 0);
+    enablingNow = body.enabled && existing.enabled !== 1;
+  }
+  if (!sets.length) return c.json({ error: "nothing_to_update" }, 400);
+  binds.push(id);
+  await c.env.DB.prepare(`UPDATE calendar_source SET ${sets.join(", ")} WHERE id = ?`).bind(...binds).run();
+
+  // Re-fetch when the URL changed or the feed was just (re-)enabled.
+  if (nextUrl !== existing.url || enablingNow) await refreshSource(c.env, { id, url: nextUrl });
+  // Clear events if disabled.
+  if (body.enabled === false) await c.env.DB.prepare("DELETE FROM calendar_event WHERE source_id = ?").bind(id).run();
+
+  c.var.audit.push({ action: "calendar.source.updated", entityKind: "calendar_source", entityId: id });
+  return c.json({ source: await loadSource(c.env, id) });
+});
+
+/** DELETE /admin/calendar-sources/:id — remove a feed and its events. */
+admin.delete("/calendar-sources/:id", async (c) => {
+  const auth = requireAuth(c);
+  if (!auth.isSystemAdmin) return c.json({ error: "forbidden" }, 403);
+  const id = c.req.param("id");
+  const res = await c.env.DB.batch([
+    c.env.DB.prepare("DELETE FROM calendar_event WHERE source_id = ?").bind(id),
+    c.env.DB.prepare("DELETE FROM calendar_source WHERE id = ?").bind(id),
+  ]);
+  if (!res[1]?.meta.changes) return c.json({ error: "not_found" }, 404);
+  c.var.audit.push({ action: "calendar.source.deleted", entityKind: "calendar_source", entityId: id });
+  return c.json({ ok: true });
+});
+
+/** POST /admin/calendar-sources/refresh — fetch all enabled feeds now. */
+admin.post("/calendar-sources/refresh", async (c) => {
+  const auth = requireAuth(c);
+  if (!auth.isSystemAdmin) return c.json({ error: "forbidden" }, 403);
+  const result = await refreshAllSources(c.env);
+  c.var.audit.push({ action: "calendar.refreshed", entityKind: "calendar_source", entityId: null, detail: result });
+  return c.json({ ok: true, ...result });
 });

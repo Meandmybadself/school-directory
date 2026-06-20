@@ -49,6 +49,13 @@ export interface Strings {
   loadMore: string;
   showingOf: string; // uses {shown} {total}
 
+  // calendar
+  navCalendar: string;
+  calendarTitle: string;
+  upcomingEvents: string;
+  noEvents: string;
+  allDay: string;
+
   // home
   neighbors: string;
   seeAll: string;
@@ -242,6 +249,12 @@ const en: Strings = {
   loadMore: "Load more",
   showingOf: "Showing {shown} of {total}",
 
+  navCalendar: "Calendar",
+  calendarTitle: "Calendar",
+  upcomingEvents: "Upcoming events",
+  noEvents: "No upcoming events",
+  allDay: "All day",
+
   neighbors: "Neighbors",
   seeAll: "See all",
   groups: "Your groups",
@@ -431,6 +444,12 @@ const es: Strings = {
   loadMore: "Cargar más",
   showingOf: "Mostrando {shown} de {total}",
 
+  navCalendar: "Calendario",
+  calendarTitle: "Calendario",
+  upcomingEvents: "Próximos eventos",
+  noEvents: "No hay eventos próximos",
+  allDay: "Todo el día",
+
   neighbors: "Vecinos",
   seeAll: "Ver todos",
   groups: "Tus grupos",
@@ -551,6 +570,12 @@ const zh: Strings = {
   directoryEmpty: "没有匹配的成员。",
   loadMore: "加载更多",
   showingOf: "显示 {shown} / {total}",
+
+  navCalendar: "日历",
+  calendarTitle: "日历",
+  upcomingEvents: "近期活动",
+  noEvents: "暂无近期活动",
+  allDay: "全天",
 
   neighbors: "邻居",
   seeAll: "查看全部",

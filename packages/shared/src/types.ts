@@ -145,6 +145,44 @@ export interface ControllablePersonDTO {
   photoUrl: string | null;
 }
 
+// ── Calendar ────────────────────────────────────────────────────────────────
+
+/** An admin-managed public ICS feed that populates the shared calendar. */
+export interface CalendarSourceDTO {
+  id: string;
+  url: string;
+  name: string;
+  /** Hex color for the source's event tag. */
+  color: string;
+  enabled: boolean;
+  /** ISO-8601, or null until first fetched. */
+  lastFetchedAt: string | null;
+  lastStatus: "ok" | "error" | null;
+  lastError: string | null;
+  /** Count of stored upcoming events from this source. */
+  eventCount: number;
+}
+
+export interface CalendarSourceInput {
+  url: string;
+  name: string;
+  color?: string;
+  enabled?: boolean;
+}
+
+/** A single (possibly recurrence-expanded) event, already source-joined. */
+export interface CalendarEventDTO {
+  id: string;
+  title: string;
+  location: string | null;
+  /** ISO-8601 UTC. */
+  start: string;
+  /** ISO-8601 UTC, or null. */
+  end: string | null;
+  allDay: boolean;
+  source: { name: string; color: string };
+}
+
 /** A current grantee of a share, for the visibility sheet's "Shared with" list. */
 export interface ShareGranteeDTO {
   id: string; // share row id
@@ -302,6 +340,10 @@ export type AuditAction =
   | "share.revoked"
   | "bulk.import"
   | "registration.toggled"
+  | "calendar.source.created"
+  | "calendar.source.updated"
+  | "calendar.source.deleted"
+  | "calendar.refreshed"
   | "person.updated"
   | "contact.created"
   | "contact.updated"

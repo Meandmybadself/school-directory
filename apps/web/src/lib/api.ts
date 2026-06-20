@@ -4,6 +4,9 @@ import type {
   AuditEntryDTO,
   BulkImportResult,
   BulkImportRow,
+  CalendarEventDTO,
+  CalendarSourceDTO,
+  CalendarSourceInput,
   ContactItemInput,
   PersonSummaryDTO,
   CreatePersonBody,
@@ -160,4 +163,20 @@ export const api = {
   getRegistration: () => request<{ open: boolean }>("/settings/registration"),
   setRegistration: (open: boolean) =>
     request<{ open: boolean }>("/settings/registration", { method: "PUT", body: JSON.stringify({ open }) }),
+
+  // Calendar
+  calendarEvents: (opts: { limit?: number; from?: string } = {}) => {
+    const q = new URLSearchParams();
+    if (opts.limit != null) q.set("limit", String(opts.limit));
+    if (opts.from) q.set("from", opts.from);
+    const qs = q.toString();
+    return request<{ events: CalendarEventDTO[] }>(`/calendar/events${qs ? `?${qs}` : ""}`);
+  },
+  calendarSources: () => request<{ sources: CalendarSourceDTO[] }>("/admin/calendar-sources"),
+  addCalendarSource: (body: CalendarSourceInput) =>
+    request<{ source: CalendarSourceDTO }>("/admin/calendar-sources", { method: "POST", body: JSON.stringify(body) }),
+  deleteCalendarSource: (id: string) =>
+    request<{ ok: true }>(`/admin/calendar-sources/${id}`, { method: "DELETE" }),
+  refreshCalendar: () =>
+    request<{ ok: true; sources: number; events: number }>("/admin/calendar-sources/refresh", { method: "POST" }),
 };

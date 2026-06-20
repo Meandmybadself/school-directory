@@ -3,7 +3,8 @@
 
 import { Hono } from "hono";
 import { cors } from "hono/cors";
-import type { HonoEnv } from "./env.js";
+import type { Env, HonoEnv } from "./env.js";
+import { refreshAllSources } from "./lib/calendar.js";
 import { contextMiddleware } from "./middleware/context.js";
 import { sessionMiddleware, UnauthorizedError } from "./middleware/session.js";
 import { auditMiddleware } from "./middleware/audit.js";
@@ -18,6 +19,7 @@ import { groups } from "./routes/groups.js";
 import { shares } from "./routes/shares.js";
 import { admin } from "./routes/admin.js";
 import { settings } from "./routes/settings.js";
+import { calendar } from "./routes/calendar.js";
 
 const app = new Hono<HonoEnv>();
 
@@ -51,6 +53,7 @@ app.route("/groups", groups);
 app.route("/shares", shares);
 app.route("/admin", admin);
 app.route("/settings", settings);
+app.route("/calendar", calendar);
 // share-targets is exposed under /shares/targets via the shares router.
 app.route("/", contacts); // /persons/:id/contacts + /contacts/:id
 app.route("/", controllers); // /persons/:id/controllers + /control-invites
@@ -82,4 +85,10 @@ app.onError((err, c) => {
 
 app.notFound((c) => c.json({ error: "not_found" }, 404));
 
-export default app;
+// Cron: refresh the shared calendar from its ICS feeds (see wrangler.toml
+// [triggers]). Errors are recorded per-source and never throw.
+const scheduled: ExportedHandlerScheduledHandler<Env> = (_event, env, ctx) => {
+  ctx.waitUntil(refreshAllSources(env));
+};
+
+export default { fetch: app.fetch, scheduled };

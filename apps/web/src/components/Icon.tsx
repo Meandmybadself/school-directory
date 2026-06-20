@@ -6,7 +6,7 @@ export type IconName =
   | "chevright" | "chevleft" | "home" | "school" | "phone" | "mail" | "link"
   | "pin" | "x" | "wifioff" | "shield" | "search" | "arrowleft" | "bolt"
   | "upload" | "globe" | "gear" | "users3" | "file" | "table" | "swap"
-  | "dot3" | "star" | "minus" | "info";
+  | "dot3" | "star" | "minus" | "info" | "calendar";
 
 const paths: Record<IconName, ReactNode> = {
   lock: <><rect x="5" y="11" width="14" height="9" rx="2" /><path d="M8 11V8a4 4 0 0 1 8 0v3" /></>,
@@ -41,6 +41,7 @@ const paths: Record<IconName, ReactNode> = {
   star: <path d="M12 4l2.3 4.7 5.2.8-3.7 3.6.9 5.1L12 15.8 7.3 18.2l.9-5.1L4.5 9.5l5.2-.8z" />,
   minus: <path d="M5 12h14" />,
   info: <><circle cx="12" cy="12" r="8.5" /><path d="M12 11v5M12 8h.01" /></>,
+  calendar: <><rect x="4" y="5.5" width="16" height="14.5" rx="2" /><path d="M4 10h16M8 3.5v4M16 3.5v4" /></>,
 };
 
 export function Icon({

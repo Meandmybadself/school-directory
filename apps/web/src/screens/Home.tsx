@@ -2,9 +2,10 @@
 // 4-up Neighbors row and the groups list.
 import { useEffect, useState, type ReactNode } from "react";
 import { useNavigate } from "react-router-dom";
-import type { GroupSummaryDTO, NeighborsResponse, PersonProfileDTO } from "@sd/shared";
+import type { CalendarEventDTO, GroupSummaryDTO, NeighborsResponse, PersonProfileDTO } from "@sd/shared";
 import { Icon } from "../components/Icon.js";
 import { Btn } from "../components/atoms.js";
+import type { I18nT } from "../i18n/index.js";
 import { AppBar, IconBtn, SectLabel, GroupTile, NeighborCard, CTACard } from "../components/parts.js";
 import { AppShell, BottomNav } from "../components/AppShell.js";
 import { DesktopShell } from "../components/DesktopShell.js";
@@ -19,6 +20,7 @@ export function Home() {
   const isDesktop = useIsDesktop();
   const [profile, setProfile] = useState<PersonProfileDTO | null>(null);
   const [neighbors, setNeighbors] = useState<NeighborsResponse | null>(null);
+  const [events, setEvents] = useState<CalendarEventDTO[] | null>(null);
 
   const activeId = activePerson?.id;
   useEffect(() => {
@@ -27,13 +29,18 @@ export function Home() {
     void api.neighbors().then(setNeighbors).catch(() => setNeighbors({ addCta: true }));
   }, [activeId]);
 
+  // The calendar is shared (not per-Person), so fetch once.
+  useEffect(() => {
+    void api.calendarEvents({ limit: 5 }).then((r) => setEvents(r.events)).catch(() => setEvents([]));
+  }, []);
+
   if (!me || !activePerson) return null;
 
   const groups = profile?.groups ?? [];
   const list = neighbors && "neighbors" in neighbors ? neighbors.neighbors : null;
   const hasNeighbors = !!list && list.length > 0;
 
-  const shared = { activePerson, groups, list, hasNeighbors };
+  const shared = { activePerson, groups, list, hasNeighbors, events };
   return isDesktop ? <DesktopHome {...shared} /> : <MobileHome {...shared} />;
 }
 
@@ -42,6 +49,39 @@ interface ViewProps {
   groups: GroupSummaryDTO[];
   list: { id: string; name: string; approxDistance: string; kind: "person" | "household" }[] | null;
   hasNeighbors: boolean;
+  events: CalendarEventDTO[] | null;
+}
+
+/** Compact upcoming-events block for Home; hidden entirely when there's nothing. */
+function EventsSection({ events }: { events: CalendarEventDTO[] | null }) {
+  const { t, locale } = useI18n();
+  const navigate = useNavigate();
+  if (!events || events.length === 0) return null;
+  return (
+    <div>
+      <SectLabel action={<button className="sd-btn sd-btn-ghost sd-btn-sm" style={{ height: 24, padding: "0 4px" }} onClick={() => navigate("/calendar")}>{t("seeAll")}</button>}>
+        {t("upcomingEvents")}
+      </SectLabel>
+      <div className="sd-card sd-card-pad" style={{ marginTop: 9, paddingTop: 4, paddingBottom: 4, display: "flex", flexDirection: "column" }}>
+        {events.map((e) => <HomeEventRow key={e.id} e={e} locale={locale} t={t} onClick={() => navigate("/calendar")} />)}
+      </div>
+    </div>
+  );
+}
+
+function HomeEventRow({ e, locale, t, onClick }: { e: CalendarEventDTO; locale: string; t: I18nT; onClick: () => void }) {
+  const d = new Date(e.start);
+  const dateLabel = d.toLocaleDateString(locale, { weekday: "short", month: "short", day: "numeric" });
+  const timeLabel = e.allDay ? t("allDay") : d.toLocaleTimeString(locale, { hour: "numeric", minute: "2-digit" });
+  return (
+    <button type="button" onClick={onClick} className="sd-crow" style={{ gap: 11, border: 0, background: "transparent", width: "100%", textAlign: "left", font: "inherit", cursor: "pointer", alignItems: "flex-start" }}>
+      <span style={{ width: 4, alignSelf: "stretch", borderRadius: 4, background: e.source.color, flex: "0 0 auto", minHeight: 18 }} />
+      <div className="sd-cmain" style={{ minWidth: 0 }}>
+        <div style={{ fontSize: 14, fontWeight: 700, lineHeight: 1.3 }}>{e.title}</div>
+        <div className="sd-meta">{dateLabel} · {timeLabel}{e.location ? ` · ${e.location}` : ""}</div>
+      </div>
+    </button>
+  );
 }
 
 function useNeighborCards(list: ViewProps["list"]) {
@@ -95,12 +135,13 @@ function GroupsContent({ groups, columns }: { groups: GroupSummaryDTO[]; columns
 
 // ── Desktop ──────────────────────────────────────────────────────────────────
 
-function DesktopHome({ activePerson, groups, hasNeighbors, list }: ViewProps) {
+function DesktopHome({ activePerson, groups, hasNeighbors, list, events }: ViewProps) {
   const { t } = useI18n();
   const navigate = useNavigate();
   const cards = useNeighborCards(list);
   return (
     <DesktopShell active="home" title={t("navHome")}>
+      <EventsSection events={events} />
       <div>
         <SectLabel action={hasNeighbors ? <button className="sd-btn sd-btn-ghost sd-btn-sm">{t("seeAll")}</button> : undefined}>
           {t("neighbors")}
@@ -128,7 +169,7 @@ function DesktopHome({ activePerson, groups, hasNeighbors, list }: ViewProps) {
 
 // ── Mobile ─────────────────────────────────────────────────────────────────
 
-function MobileHome({ activePerson, groups, hasNeighbors, list }: ViewProps) {
+function MobileHome({ activePerson, groups, hasNeighbors, list, events }: ViewProps) {
   const { t } = useI18n();
   const navigate = useNavigate();
   const cards = useNeighborCards(list);
@@ -167,6 +208,7 @@ function MobileHome({ activePerson, groups, hasNeighbors, list }: ViewProps) {
       />
       <div className="sd-scroll">
         <div className="sd-body">
+          <EventsSection events={events} />
           <div>
             <SectLabel action={hasNeighbors ? <button className="sd-btn sd-btn-ghost sd-btn-sm" style={{ height: 24, padding: "0 4px" }}>{t("seeAll")}</button> : undefined}>
               {t("neighbors")}

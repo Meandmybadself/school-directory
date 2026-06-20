@@ -3,9 +3,9 @@
 // Admin chrome is intentionally English-only (operator tooling).
 import { useEffect, useState } from "react";
 import { Navigate, useNavigate } from "react-router-dom";
-import type { AdminUserDTO, AuditEntryDTO } from "@sd/shared";
+import type { AdminUserDTO, AuditEntryDTO, CalendarSourceDTO } from "@sd/shared";
 import { Icon } from "../components/Icon.js";
-import { Avatar, Tag } from "../components/atoms.js";
+import { Avatar, Btn, Tag } from "../components/atoms.js";
 import { AppShell, BottomNav } from "../components/AppShell.js";
 import { DesktopShell } from "../components/DesktopShell.js";
 import { ScreenHeader, SectLabel } from "../components/parts.js";
@@ -17,6 +17,7 @@ const ACTION_FILTERS = [
   "", "auth.signin", "invite.sent", "invite.accepted", "control.granted",
   "masquerade.start", "masquerade.stop", "share.created", "share.revoked",
   "person.updated", "contact.created", "contact.updated", "registration.toggled", "admin.action",
+  "calendar.source.created", "calendar.source.deleted", "calendar.refreshed",
 ];
 
 function fmtTime(iso: string): string {
@@ -25,6 +26,86 @@ function fmtTime(iso: string): string {
   } catch {
     return iso;
   }
+}
+
+/** ICS calendar feeds — add/remove sources and trigger a refresh. Events
+ *  populate via the cron job; adding a source fetches it immediately. */
+function CalendarSourcesSection() {
+  const [sources, setSources] = useState<CalendarSourceDTO[]>([]);
+  const [url, setUrl] = useState("");
+  const [name, setName] = useState("");
+  const [color, setColor] = useState("#0068A8");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const load = () => void api.calendarSources().then((r) => setSources(r.sources)).catch(() => setSources([]));
+  useEffect(load, []);
+
+  const add = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!url.trim() || !name.trim()) return;
+    setBusy(true);
+    setError(null);
+    try {
+      await api.addCalendarSource({ url: url.trim(), name: name.trim(), color });
+      setUrl("");
+      setName("");
+      load();
+    } catch {
+      setError("Couldn't add that feed — check the URL.");
+    } finally {
+      setBusy(false);
+    }
+  };
+  const remove = async (id: string) => {
+    await api.deleteCalendarSource(id).catch(() => {});
+    load();
+  };
+  const refreshNow = async () => {
+    setBusy(true);
+    try {
+      await api.refreshCalendar();
+      load();
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div style={{ marginTop: 18 }}>
+      <SectLabel action={<Btn sm kind="secondary" onClick={() => void refreshNow()} disabled={busy || sources.length === 0}>Refresh now</Btn>}>
+        Calendar sources (ICS)
+      </SectLabel>
+      <div className="sd-card sd-card-pad" style={{ marginTop: 9 }}>
+        {sources.map((s) => (
+          <div key={s.id} className="sd-crow" style={{ alignItems: "center", gap: 10 }}>
+            <span style={{ width: 12, height: 12, borderRadius: 3, background: s.color, flex: "0 0 auto" }} />
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontWeight: 700, fontSize: 14 }}>{s.name}</div>
+              <div className="sd-meta" style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{s.url}</div>
+              <div className="sd-meta" style={{ color: s.lastStatus === "error" ? "var(--warn)" : undefined }}>
+                {s.lastStatus === "error" ? `⚠ ${s.lastError ?? "fetch failed"}` : `${s.eventCount} events`}
+                {s.lastFetchedAt ? ` · ${fmtTime(s.lastFetchedAt)}` : " · never fetched"}
+              </div>
+            </div>
+            <button aria-label="Remove" onClick={() => void remove(s.id)} style={{ background: "none", border: 0, color: "var(--ink-3)", cursor: "pointer" }}>
+              <Icon name="x" size={18} />
+            </button>
+          </div>
+        ))}
+        {sources.length === 0 && <div className="sd-meta" style={{ padding: "8px 0" }}>No calendar feeds yet.</div>}
+        <form onSubmit={add} style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 10, borderTop: "1px solid var(--line)", paddingTop: 12 }}>
+          <input className="sd-input" placeholder="Feed name (e.g. School Events)" value={name} onChange={(e) => setName(e.target.value)} />
+          <input className="sd-input" placeholder="https://…/calendar.ics" value={url} onChange={(e) => setUrl(e.target.value)} />
+          <div className="sd-row" style={{ gap: 8 }}>
+            <input type="color" value={color} onChange={(e) => setColor(e.target.value)} aria-label="Tag color" style={{ width: 42, height: 38, padding: 0, border: "1px solid var(--line)", borderRadius: 8, background: "none", cursor: "pointer" }} />
+            <Btn type="submit" icon="plus" disabled={busy || !url.trim() || !name.trim()} style={{ flex: 1 }}>Add source</Btn>
+          </div>
+          {error && <div className="sd-meta" style={{ color: "var(--warn)" }}>{error}</div>}
+        </form>
+      </div>
+    </div>
+  );
 }
 
 export function Admin() {
@@ -121,6 +202,9 @@ export function Admin() {
           <Icon name="chevright" size={18} style={{ color: "var(--ink-3)" }} />
         </div>
       </div>
+
+      {/* Calendar sources */}
+      <CalendarSourcesSection />
 
       {/* Users + masquerade */}
       <div style={{ marginTop: 18 }}>

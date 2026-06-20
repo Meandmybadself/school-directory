@@ -20,6 +20,9 @@ importers:
       hono:
         specifier: ^4.6.14
         version: 4.12.25
+      ical.js:
+        specifier: ^2.2.1
+        version: 2.2.1
     devDependencies:
       '@cloudflare/workers-types':
         specifier: ^4.20250109.0
@@ -1157,6 +1160,9 @@ packages:
   hono@4.12.25:
     resolution: {integrity: sha512-2NFaIyNVgJmBs/ecmtGzlmluTFs5cHEWGTdu0t1HBwYzoGXOL5nUQBRMXsXWla5i4KkG//QMzVP88m1+I3fdAQ==}
     engines: {node: '>=16.9.0'}
+
+  ical.js@2.2.1:
+    resolution: {integrity: sha512-yK/UlPbEs316igb/tjRgbFA8ZV75rCsBJp/hWOatpyaPNlgw0dGDmU+FoicOcwX4xXkeXOkYiOmCqNPFpNPkQg==}
 
   is-arrayish@0.3.4:
     resolution: {integrity: sha512-m6UrgzFVUYawGBh1dUsWR5M2Clqic9RVXC/9f8ceNlv2IcO9j9J/z8UoCLPqtsPBFNzEpfR3xftohbfqDx8EQA==}
@@ -2353,6 +2359,8 @@ snapshots:
   glob-to-regexp@0.4.1: {}
 
   hono@4.12.25: {}
+
+  ical.js@2.2.1: {}
 
   is-arrayish@0.3.4:
     optional: true

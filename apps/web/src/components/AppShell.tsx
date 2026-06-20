@@ -40,13 +40,14 @@ export function AppShell({
   );
 }
 
-type NavKey = "home" | "dir" | "groups" | "me";
+type NavKey = "home" | "calendar" | "dir" | "groups" | "me";
 
 export function BottomNav({ active }: { active: NavKey }) {
   const { t } = useI18n();
   const navigate = useNavigate();
   const items: [IconName, NavKey, string, string][] = [
     ["home", "home", t("navHome"), "/"],
+    ["calendar", "calendar", t("navCalendar"), "/calendar"],
     ["search", "dir", t("navDir"), "/directory"],
     ["users3", "groups", t("navGroups"), "/groups"],
     ["eye", "me", t("navMe"), "/you"],

@@ -15,7 +15,8 @@
   },
   "dependencies": {
     "@sd/shared": "workspace:*",
-    "hono": "^4.6.14"
+    "hono": "^4.6.14",
+    "ical.js": "^2.2.1"
   },
   "devDependencies": {
     "@cloudflare/workers-types": "^4.20250109.0",

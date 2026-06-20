@@ -39,6 +39,11 @@ migrations_dir = "migrations"
 binding = "PHOTOS"
 bucket_name = "school-directory-photos"
 
+# Shared-calendar refresh: re-fetch all ICS feeds every 3 hours (see the
+# `scheduled` handler in src/index.ts). Mirrored under env.production below.
+[triggers]
+crons = ["0 */3 * * *"]
+
 # Secrets (set via `wrangler secret put --env production`, or .dev.vars locally):
 #   RESEND_API_KEY   — Resend email API key (magic links / invites)
 #   EMAIL_FROM       — verified Resend sender, e.g. "Eisenhower Directory <directory@…>"
@@ -63,6 +68,9 @@ migrations_dir = "migrations"
 [[env.production.r2_buckets]]
 binding = "PHOTOS"
 bucket_name = "school-directory-photos"
+
+[env.production.triggers]
+crons = ["0 */3 * * *"]
 
 # Custom domain — wrangler provisions the DNS record + cert on deploy (zone is
 # on this account).

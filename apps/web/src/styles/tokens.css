@@ -481,6 +481,7 @@ body {
 }
 .sd-navitem {
   flex: 1;
+  min-width: 0; /* allow equal shrink with 5 items on narrow phones */
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -490,6 +491,12 @@ body {
   border: 0;
   cursor: pointer;
   font-family: inherit;
+}
+.sd-navitem span {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .sd-navitem.on {
   color: var(--blue);

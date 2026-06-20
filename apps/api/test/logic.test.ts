@@ -3,6 +3,7 @@ import { haversineMiles, approxDistance, boundingBox } from "../src/lib/geo.js";
 import { renderLastName, displayName } from "../src/lib/privacy.js";
 import { ulid } from "../src/lib/ids.js";
 import { buildGraph, ancestors, subtree, effectiveGroups, wouldCycle } from "../src/lib/groupTree.js";
+import { parseIcs } from "../src/lib/calendar.js";
 
 describe("geo", () => {
   it("computes great-circle distance in miles", () => {
@@ -92,5 +93,57 @@ describe("group hierarchy closure", () => {
     ]);
     expect(() => ancestors(bad.parentOf, "a")).not.toThrow();
     expect(() => subtree(bad.childrenOf, "a")).not.toThrow();
+  });
+});
+
+describe("ICS parsing", () => {
+  const ICS = [
+    "BEGIN:VCALENDAR",
+    "VERSION:2.0",
+    "PRODID:-//Test//EN",
+    "BEGIN:VEVENT",
+    "UID:timed-1",
+    "SUMMARY:Timed Event",
+    "DTSTART:20260615T150000Z",
+    "DTEND:20260615T160000Z",
+    "LOCATION:Gym",
+    "END:VEVENT",
+    "BEGIN:VEVENT",
+    "UID:allday-1",
+    "SUMMARY:All Day Event",
+    "DTSTART;VALUE=DATE:20260616",
+    "DTEND;VALUE=DATE:20260617",
+    "END:VEVENT",
+    "BEGIN:VEVENT",
+    "UID:weekly-1",
+    "SUMMARY:Weekly Meeting",
+    "DTSTART:20260601T170000Z",
+    "DTEND:20260601T173000Z",
+    "RRULE:FREQ=WEEKLY;COUNT=10",
+    "END:VEVENT",
+    "END:VCALENDAR",
+  ].join("\r\n");
+
+  const events = parseIcs(ICS, new Date("2026-06-10T00:00:00Z"), new Date("2026-06-30T00:00:00Z"));
+
+  it("includes timed and all-day events within the window", () => {
+    const timed = events.find((e) => e.title === "Timed Event");
+    expect(timed?.allDay).toBe(false);
+    expect(timed?.location).toBe("Gym");
+    expect(timed?.start).toBe("2026-06-15T15:00:00.000Z");
+
+    const allday = events.find((e) => e.title === "All Day Event");
+    expect(allday?.allDay).toBe(true);
+  });
+
+  it("expands a weekly recurrence, bounded to the window", () => {
+    // FREQ=WEEKLY from 2026-06-01: occurrences on 6/15, 6/22, 6/29 fall in window.
+    const weekly = events.filter((e) => e.title === "Weekly Meeting");
+    expect(weekly.length).toBe(3);
+  });
+
+  it("ignores events outside the window", () => {
+    // 6/1 and 6/8 weekly occurrences are before windowStart; nothing past 6/30.
+    expect(events.every((e) => e.start >= "2026-06-10" && e.start <= "2026-06-30")).toBe(true);
   });
 });

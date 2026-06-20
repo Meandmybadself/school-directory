@@ -12,6 +12,7 @@ import { Import } from "./screens/Import.js";
 import { Directory } from "./screens/Directory.js";
 import { CreateProfile } from "./screens/CreateProfile.js";
 import { AddPerson } from "./screens/AddPerson.js";
+import { Calendar } from "./screens/Calendar.js";
 import { DesktopShell } from "./components/DesktopShell.js";
 import { useIsDesktop } from "./lib/useIsDesktop.js";
 
@@ -76,6 +77,7 @@ export function App() {
       <Route path="/persons/:id/edit" element={<RequireProfile><ProfileEdit /></RequireProfile>} />
       <Route path="/persons/:id/invite" element={<RequireProfile><Stub title="Invite a co-manager" /></RequireProfile>} />
 
+      <Route path="/calendar" element={<RequireProfile><Calendar /></RequireProfile>} />
       <Route path="/directory" element={<RequireProfile><Directory /></RequireProfile>} />
       <Route path="/groups" element={<RequireProfile><GroupsIndex /></RequireProfile>} />
       <Route path="/groups/:id" element={<RequireProfile><GroupDetail /></RequireProfile>} />
