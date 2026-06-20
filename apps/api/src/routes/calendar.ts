@@ -15,7 +15,7 @@ export const calendar = new Hono<HonoEnv>();
 calendar.get("/sources", async (c) => {
   requireAuth(c);
   const rows = await c.env.DB.prepare(
-    "SELECT id, name, color FROM calendar_source WHERE enabled = 1 ORDER BY name COLLATE NOCASE",
+    "SELECT id, name, color, url FROM calendar_source WHERE enabled = 1 ORDER BY name COLLATE NOCASE",
   ).all<CalendarFeedDTO>();
   return c.json({ sources: rows.results });
 });

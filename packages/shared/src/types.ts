@@ -188,11 +188,13 @@ export interface CalendarEventDTO {
   source: { name: string; color: string };
 }
 
-/** Public-facing calendar feed (no URL/status) — for the show/hide filter. */
+/** Public-facing calendar feed — for the show/hide filter and ICS download link.
+ *  The URL is exposed (these are public feeds); admin-only status stays private. */
 export interface CalendarFeedDTO {
   id: string;
   name: string;
   color: string;
+  url: string;
 }
 
 /** A current grantee of a share, for the visibility sheet's "Shared with" list. */

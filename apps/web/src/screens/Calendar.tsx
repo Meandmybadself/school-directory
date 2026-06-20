@@ -71,29 +71,48 @@ function EventRow({ e, locale, onOpen }: { e: CalendarEventDTO; locale: string; 
   );
 }
 
-/** Show/hide chips for each feed; toggling persists to localStorage. */
+/** Per-calendar controls: a show/hide toggle (≥2 feeds) and an ICS download
+ *  link. Toggling persists to localStorage. */
 function FilterBar({ feeds, hidden, onToggle }: { feeds: CalendarFeedDTO[]; hidden: Set<string>; onToggle: (id: string) => void }) {
   const { t } = useI18n();
-  if (feeds.length < 2) return null;
+  if (feeds.length === 0) return null;
+  const canFilter = feeds.length >= 2;
   return (
     <div>
       <SectLabel>{t("calendars")}</SectLabel>
       <div className="sd-row" style={{ gap: 8, flexWrap: "wrap", marginTop: 9 }}>
         {feeds.map((f) => {
           const on = !hidden.has(f.id);
+          const pad = { display: "inline-flex", alignItems: "center", gap: 6, padding: "5px 9px", fontSize: 13, fontWeight: 600 } as const;
           return (
-            <button
+            <div
               key={f.id}
-              type="button"
-              onClick={() => onToggle(f.id)}
-              aria-pressed={on}
-              className="sd-tag"
-              style={{ cursor: "pointer", font: "inherit", gap: 6, border: "1px solid var(--line)", background: "var(--paper)", color: on ? "var(--ink)" : "var(--ink-3)", opacity: on ? 1 : 0.6 }}
+              className="sd-row"
+              style={{ gap: 0, border: "1px solid var(--line)", borderRadius: 999, overflow: "hidden", background: "var(--paper)", opacity: canFilter && !on ? 0.55 : 1 }}
             >
-              <span style={{ width: 10, height: 10, borderRadius: 3, background: on ? f.color : "var(--line-2)", flex: "0 0 auto" }} />
-              {f.name}
-              <Icon name={on ? "eye" : "minus"} size={12} stroke={2} style={{ opacity: 0.6 }} />
-            </button>
+              {canFilter ? (
+                <button type="button" onClick={() => onToggle(f.id)} aria-pressed={on} style={{ ...pad, border: 0, background: "transparent", font: "inherit", cursor: "pointer", color: on ? "var(--ink)" : "var(--ink-3)" }}>
+                  <span style={{ width: 10, height: 10, borderRadius: 3, background: on ? f.color : "var(--line-2)", flex: "0 0 auto" }} />
+                  {f.name}
+                  <Icon name={on ? "eye" : "minus"} size={12} stroke={2} style={{ opacity: 0.6 }} />
+                </button>
+              ) : (
+                <span style={pad}>
+                  <span style={{ width: 10, height: 10, borderRadius: 3, background: f.color, flex: "0 0 auto" }} />
+                  {f.name}
+                </span>
+              )}
+              <a
+                href={f.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                title={t("downloadIcs", { name: f.name })}
+                aria-label={t("downloadIcs", { name: f.name })}
+                style={{ display: "inline-flex", alignItems: "center", padding: "5px 9px", color: "var(--ink-3)", borderLeft: "1px solid var(--line)" }}
+              >
+                <Icon name="download" size={14} />
+              </a>
+            </div>
           );
         })}
       </div>

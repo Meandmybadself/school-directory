@@ -56,6 +56,7 @@ export interface Strings {
   noEvents: string;
   allDay: string;
   calendars: string;
+  downloadIcs: string; // uses {name}
 
   // home
   neighbors: string;
@@ -256,6 +257,7 @@ const en: Strings = {
   noEvents: "No upcoming events",
   allDay: "All day",
   calendars: "Calendars",
+  downloadIcs: "Download {name} (.ics)",
 
   neighbors: "Neighbors",
   seeAll: "See all",
@@ -452,6 +454,7 @@ const es: Strings = {
   noEvents: "No hay eventos próximos",
   allDay: "Todo el día",
   calendars: "Calendarios",
+  downloadIcs: "Descargar {name} (.ics)",
 
   neighbors: "Vecinos",
   seeAll: "Ver todos",
@@ -580,6 +583,7 @@ const zh: Strings = {
   noEvents: "暂无近期活动",
   allDay: "全天",
   calendars: "日历",
+  downloadIcs: "下载 {name}（.ics）",
 
   neighbors: "邻居",
   seeAll: "查看全部",
