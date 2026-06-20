@@ -94,16 +94,27 @@ export function ProfileView() {
             </Fragment>
           ))}
           {/* Cascaded from the Person's groups (e.g. household address). Read-only. */}
-          {(p.groupContacts ?? []).map((c) => (
-            <ContactRow
-              key={c.id}
-              icon={ICON_BY_TYPE[c.type]}
-              label={c.label || typeLabel(c.type, t)}
-              value={<ContactValue type={c.type} value={c.value} t={t} />}
-              sub={c.viaGroup ? t("fromGroup", { name: c.viaGroup.name }) : undefined}
-              vis={<Vis state={visState(c)} withCaret={false} membersText={t("visMembers")} privateText={t("visPrivate")} sharedText={t("visShared")} />}
-            />
-          ))}
+          {(p.groupContacts ?? []).map((c) => {
+            const via = c.viaGroup;
+            return (
+              <ContactRow
+                key={c.id}
+                icon={ICON_BY_TYPE[c.type]}
+                label={c.label || typeLabel(c.type, t)}
+                value={<ContactValue type={c.type} value={c.value} t={t} />}
+                sub={via ? (
+                  <button
+                    type="button"
+                    onClick={() => navigate(`/groups/${via.id}`)}
+                    style={{ background: "none", border: 0, padding: 0, font: "inherit", color: "var(--blue)", cursor: "pointer" }}
+                  >
+                    {t("fromGroup", { name: via.name })}
+                  </button>
+                ) : undefined}
+                vis={<Vis state={visState(c)} withCaret={false} membersText={t("visMembers")} privateText={t("visPrivate")} sharedText={t("visShared")} />}
+              />
+            );
+          })}
         </div>
       </div>
       {p.groups.length > 0 && (
