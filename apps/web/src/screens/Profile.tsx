@@ -118,6 +118,9 @@ export function ProfileView() {
     </>
   );
 
+  // When previewing your own profile, the Edit button lives inside the notice
+  // bar. (For a profile you control but aren't acting as, there's no bar, so the
+  // button keeps its header/row placement below.)
   const previewNotice = isOwn ? (
     <div className="sd-row" style={{ background: "var(--ink)", color: "#fff", padding: "8px 14px", gap: 9, fontSize: 12.5, borderRadius: isDesktop ? 12 : 0, marginBottom: isDesktop ? 4 : 0 }}>
       <Icon name="eye" size={16} style={{ flex: "0 0 auto" }} />
@@ -125,6 +128,7 @@ export function ProfileView() {
         <strong style={{ fontWeight: 700 }}>{t("previewingAsMember")}</strong>
         <div style={{ opacity: 0.7, fontSize: 11.5 }}>{t("whatOthersSee")}</div>
       </div>
+      {editBtn}
     </div>
   ) : null;
 
@@ -133,7 +137,7 @@ export function ProfileView() {
       <DesktopShell active="profile" title={t("yourProfile")}>
         <div style={{ maxWidth: 760, width: "100%" }}>
           {previewNotice}
-          <div className="sd-row" style={{ justifyContent: "flex-end", marginBottom: 12 }}>{editBtn}</div>
+          {!isOwn && editBtn && <div className="sd-row" style={{ justifyContent: "flex-end", marginBottom: 12 }}>{editBtn}</div>}
           <div className="sd-card" style={{ overflow: "hidden", padding: 0 }}>{hero}</div>
           <div style={{ display: "flex", flexDirection: "column", gap: 14, marginTop: 14 }}>{body}</div>
         </div>
@@ -143,7 +147,7 @@ export function ProfileView() {
 
   return (
     <AppShell banner={previewNotice ?? undefined}>
-      <ScreenHeader title="" onLeft={() => navigate(-1)} right={editBtn} />
+      <ScreenHeader title="" onLeft={() => navigate(-1)} right={isOwn ? undefined : editBtn} />
       <div className="sd-scroll">
         {hero}
         <div className="sd-body" style={{ gap: 12 }}>{body}</div>
