@@ -3,7 +3,7 @@
 // refresh in lib/calendar.ts).
 
 import { Hono } from "hono";
-import type { CalendarEventDTO } from "@sd/shared";
+import type { CalendarEventDTO, CalendarFeedDTO } from "@sd/shared";
 import type { HonoEnv } from "../env.js";
 import { requireAuth } from "../middleware/session.js";
 
@@ -13,12 +13,24 @@ interface EventRow {
   id: string;
   title: string;
   location: string | null;
+  description: string | null;
   starts_at: string;
   ends_at: string | null;
   all_day: number;
+  source_id: string;
   source_name: string;
   source_color: string;
 }
+
+/** GET /calendar/sources — enabled feeds (id/name/color only) for the show/hide
+ *  filter. No URLs or status; available to any member. */
+calendar.get("/sources", async (c) => {
+  requireAuth(c);
+  const rows = await c.env.DB.prepare(
+    "SELECT id, name, color FROM calendar_source WHERE enabled = 1 ORDER BY name COLLATE NOCASE",
+  ).all<CalendarFeedDTO>();
+  return c.json({ sources: rows.results });
+});
 
 /** GET /calendar/events?limit=&from= — upcoming (ongoing or future) events,
  *  earliest first. `from` defaults to now; an event counts as upcoming if it
@@ -31,8 +43,8 @@ calendar.get("/events", async (c) => {
   const from = c.req.query("from") || new Date().toISOString();
 
   const rows = await c.env.DB.prepare(
-    `SELECT e.id, e.title, e.location, e.starts_at, e.ends_at, e.all_day,
-            s.name AS source_name, s.color AS source_color
+    `SELECT e.id, e.title, e.location, e.description, e.starts_at, e.ends_at, e.all_day,
+            e.source_id, s.name AS source_name, s.color AS source_color
      FROM calendar_event e JOIN calendar_source s ON s.id = e.source_id
      WHERE (e.ends_at >= ? OR e.ends_at IS NULL OR e.starts_at >= ?)
      ORDER BY e.starts_at ASC
@@ -45,9 +57,11 @@ calendar.get("/events", async (c) => {
     id: r.id,
     title: r.title,
     location: r.location,
+    description: r.description,
     start: r.starts_at,
     end: r.ends_at,
     allDay: r.all_day === 1,
+    sourceId: r.source_id,
     source: { name: r.source_name, color: r.source_color },
   }));
   return c.json({ events });

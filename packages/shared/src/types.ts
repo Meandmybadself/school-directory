@@ -175,12 +175,22 @@ export interface CalendarEventDTO {
   id: string;
   title: string;
   location: string | null;
+  description: string | null;
   /** ISO-8601 UTC. */
   start: string;
   /** ISO-8601 UTC, or null. */
   end: string | null;
   allDay: boolean;
+  /** Owning source id — for client-side per-calendar filtering. */
+  sourceId: string;
   source: { name: string; color: string };
+}
+
+/** Public-facing calendar feed (no URL/status) — for the show/hide filter. */
+export interface CalendarFeedDTO {
+  id: string;
+  name: string;
+  color: string;
 }
 
 /** A current grantee of a share, for the visibility sheet's "Shared with" list. */

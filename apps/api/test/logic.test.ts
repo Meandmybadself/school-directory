@@ -104,6 +104,7 @@ describe("ICS parsing", () => {
     "BEGIN:VEVENT",
     "UID:timed-1",
     "SUMMARY:Timed Event",
+    "DESCRIPTION:Bring water bottles.",
     "DTSTART:20260615T150000Z",
     "DTEND:20260615T160000Z",
     "LOCATION:Gym",
@@ -130,6 +131,7 @@ describe("ICS parsing", () => {
     const timed = events.find((e) => e.title === "Timed Event");
     expect(timed?.allDay).toBe(false);
     expect(timed?.location).toBe("Gym");
+    expect(timed?.description).toBe("Bring water bottles.");
     expect(timed?.start).toBe("2026-06-15T15:00:00.000Z");
 
     const allday = events.find((e) => e.title === "All Day Event");

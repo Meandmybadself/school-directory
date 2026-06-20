@@ -5,6 +5,7 @@ import type {
   BulkImportResult,
   BulkImportRow,
   CalendarEventDTO,
+  CalendarFeedDTO,
   CalendarSourceDTO,
   CalendarSourceInput,
   ContactItemInput,
@@ -172,6 +173,7 @@ export const api = {
     const qs = q.toString();
     return request<{ events: CalendarEventDTO[] }>(`/calendar/events${qs ? `?${qs}` : ""}`);
   },
+  calendarFeeds: () => request<{ sources: CalendarFeedDTO[] }>("/calendar/sources"),
   calendarSources: () => request<{ sources: CalendarSourceDTO[] }>("/admin/calendar-sources"),
   addCalendarSource: (body: CalendarSourceInput) =>
     request<{ source: CalendarSourceDTO }>("/admin/calendar-sources", { method: "POST", body: JSON.stringify(body) }),

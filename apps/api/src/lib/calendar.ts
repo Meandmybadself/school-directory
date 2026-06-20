@@ -28,6 +28,7 @@ interface ParsedEvent {
   uid: string | null;
   title: string;
   location: string | null;
+  description: string | null;
   start: string; // ISO-8601 UTC
   end: string | null; // ISO-8601 UTC
   allDay: boolean;
@@ -65,6 +66,7 @@ export function parseIcs(text: string, windowStart: Date, windowEnd: Date): Pars
         uid: event.uid ?? null,
         title: titleOf(event),
         location: (event.location ?? "").trim() || null,
+        description: (event.description ?? "").trim() || null,
         start: startDate.toISOString(),
         end: end ? end.toJSDate().toISOString() : null,
         allDay: start.isDate === true,
@@ -124,9 +126,9 @@ export async function refreshSource(env: Env, source: SourceRow): Promise<{ ok: 
     // modest chunks (rather than one huge D1 batch), then mark the source ok.
     const inserts = events.map((e) =>
       env.DB.prepare(
-        `INSERT INTO calendar_event (id, source_id, uid, title, location, starts_at, ends_at, all_day, created_at)
-         VALUES (?,?,?,?,?,?,?,?,?)`,
-      ).bind(ulid(), source.id, e.uid, e.title, e.location, e.start, e.end, e.allDay ? 1 : 0, nowIso()),
+        `INSERT INTO calendar_event (id, source_id, uid, title, location, description, starts_at, ends_at, all_day, created_at)
+         VALUES (?,?,?,?,?,?,?,?,?,?)`,
+      ).bind(ulid(), source.id, e.uid, e.title, e.location, e.description, e.start, e.end, e.allDay ? 1 : 0, nowIso()),
     );
     await env.DB.prepare("DELETE FROM calendar_event WHERE source_id = ?").bind(source.id).run();
     for (let i = 0; i < inserts.length; i += INSERT_CHUNK) {
