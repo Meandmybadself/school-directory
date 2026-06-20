@@ -88,6 +88,15 @@ export interface GroupSummaryDTO {
   memberCount: number;
   /** Viewer's role in this group, if any. */
   isAdmin?: boolean;
+  /** Parent group in the hierarchy (School → Grade → Classroom), or null. */
+  parentId?: string | null;
+}
+
+/** A bare group reference for breadcrumbs / pickers. */
+export interface GroupRefDTO {
+  id: string;
+  name: string;
+  kind: GroupKind;
 }
 
 export interface GroupMemberDTO {
@@ -114,6 +123,12 @@ export interface GroupDetailDTO {
   members: GroupMemberDTO[];
   /** Group-owned contact items (e.g. household cascading address), filtered. */
   contacts: ContactItemDTO[];
+  /** Hierarchy. `ancestors` runs root → … → immediate parent (breadcrumb);
+   *  `children` are the immediate sub-groups. Households never nest, so these
+   *  are empty for households. */
+  parentId?: string | null;
+  ancestors?: GroupRefDTO[];
+  children?: GroupSummaryDTO[];
 }
 
 export interface ControllablePersonDTO {

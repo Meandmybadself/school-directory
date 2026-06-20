@@ -5,6 +5,7 @@
 
 import type { LastNameDisplay, Visibility } from "@sd/shared";
 import type { Env } from "../env.js";
+import { effectiveGroupIdsForPerson } from "./groupTree.js";
 
 export interface ContactItemRow {
   id: string;
@@ -48,15 +49,13 @@ export async function isController(
   return !!row;
 }
 
-/** Group ids the viewer's active Person belongs to. */
+/** Effective group ids the viewer's active Person belongs to. Membership rolls
+ *  UP the hierarchy: a member of a classroom is also an effective member of its
+ *  grade and the school, so a private item shared with an ancestor group reaches
+ *  descendant members. (With a flat hierarchy this equals direct memberships.) */
 export async function viewerGroupIds(env: Env, viewer: Viewer): Promise<Set<string>> {
   if (!viewer.personId) return new Set();
-  const rows = await env.DB.prepare(
-    "SELECT group_id FROM membership WHERE person_id = ?",
-  )
-    .bind(viewer.personId)
-    .all<{ group_id: string }>();
-  return new Set(rows.results.map((r) => r.group_id));
+  return effectiveGroupIdsForPerson(env, viewer.personId);
 }
 
 /**

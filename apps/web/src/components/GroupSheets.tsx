@@ -2,7 +2,7 @@
 // remove), and edit household-owned contact info.
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import type { ContactType, GroupMemberDTO, ShareTargetDTO, Visibility } from "@sd/shared";
+import type { ContactType, GroupMemberDTO, GroupRefDTO, ShareTargetDTO, Visibility } from "@sd/shared";
 import { Icon, type IconName } from "./Icon.js";
 import { Avatar, Btn, Vis } from "./atoms.js";
 import { SheetOver, OptionRow } from "./parts.js";
@@ -208,6 +208,83 @@ export function CreateGroupSheet({
         />
       </div>
       <Btn block icon="plus" style={{ marginTop: 16 }} onClick={() => void create()} disabled={busy || !name.trim()}>{t("create")}</Btn>
+    </SheetOver>
+  );
+}
+
+// ── Set a group's parent (system admins) ─────────────────────────────────────
+
+export function SetParentSheet({
+  groupId,
+  currentParentId,
+  onClose,
+  onChanged,
+}: {
+  groupId: string;
+  currentParentId: string | null;
+  onClose: () => void;
+  onChanged: () => void;
+}) {
+  const { t } = useI18n();
+  const [q, setQ] = useState("");
+  const [candidates, setCandidates] = useState<GroupRefDTO[]>([]);
+  const [busy, setBusy] = useState<string | null>(null);
+
+  useEffect(() => {
+    const id = setTimeout(() => {
+      void api.groupParentCandidates(groupId, q).then((r) => setCandidates(r.candidates)).catch(() => setCandidates([]));
+    }, 200);
+    return () => clearTimeout(id);
+  }, [q, groupId]);
+
+  const choose = async (parentId: string | null) => {
+    setBusy(parentId ?? "__none__");
+    try {
+      await api.setGroupParent(groupId, parentId);
+      onChanged();
+      onClose();
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  return (
+    <SheetOver onClose={onClose}>
+      <h2 className="sd-h2" style={{ marginBottom: 10 }}>{t("setParentGroup")}</h2>
+      <input className="sd-input" placeholder={`${t("navGroups")}…`} value={q} onChange={(e) => setQ(e.target.value)} autoFocus />
+      <div style={{ display: "flex", flexDirection: "column", gap: 6, marginTop: 12, maxHeight: 340, overflowY: "auto" }}>
+        <button
+          type="button"
+          className="sd-row"
+          disabled={busy !== null}
+          onClick={() => void choose(null)}
+          style={{ gap: 11, padding: "10px 8px", borderRadius: 10, border: 0, background: "transparent", width: "100%", textAlign: "left", font: "inherit", cursor: "pointer" }}
+        >
+          <div style={{ width: 34, height: 34, borderRadius: 9, background: "var(--slate-tint)", color: "var(--ink-2)", display: "flex", alignItems: "center", justifyContent: "center", flex: "0 0 auto" }}>
+            <Icon name="x" size={16} />
+          </div>
+          <span style={{ flex: 1, fontSize: 14.5, fontWeight: 600 }}>{t("parentNone")}</span>
+          {!currentParentId && <Icon name="check" size={18} style={{ color: "var(--blue)" }} />}
+        </button>
+        {candidates.map((g) => (
+          <button
+            key={g.id}
+            type="button"
+            className="sd-row"
+            disabled={busy !== null}
+            onClick={() => void choose(g.id)}
+            style={{ gap: 11, padding: "10px 8px", borderRadius: 10, border: 0, background: "transparent", width: "100%", textAlign: "left", font: "inherit", cursor: "pointer" }}
+          >
+            <div style={{ width: 34, height: 34, borderRadius: 9, background: "var(--slate-tint)", color: "var(--ink-2)", display: "flex", alignItems: "center", justifyContent: "center", flex: "0 0 auto" }}>
+              <Icon name={g.kind === "classroom" ? "school" : g.kind === "household" ? "home" : "users3"} size={16} />
+            </div>
+            <span style={{ flex: 1, fontSize: 14.5, fontWeight: 600 }}>{g.name}</span>
+            {g.id === currentParentId && <Icon name="check" size={18} style={{ color: "var(--blue)" }} />}
+          </button>
+        ))}
+        {candidates.length === 0 && <div className="sd-meta" style={{ padding: "12px 0" }}>{t("noEligibleGroups")}</div>}
+      </div>
+      <Btn block kind="secondary" style={{ marginTop: 14 }} onClick={onClose}>{t("done")}</Btn>
     </SheetOver>
   );
 }

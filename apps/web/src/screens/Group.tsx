@@ -1,7 +1,7 @@
 // Group detail (Household / Classroom) — mobile + desktop layouts.
 // Desktop Household mirrors design_handoff/screens-desktop.jsx (wide member card
 // + 320px household-contact rail).
-import { useEffect, useState, type ReactNode } from "react";
+import { Fragment, useEffect, useState, type ReactNode } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import type { ContactItemDTO, GroupDetailDTO } from "@sd/shared";
 import { Icon, type IconName } from "../components/Icon.js";
@@ -13,7 +13,7 @@ import { useI18n } from "../i18n/index.js";
 import { useIsDesktop } from "../lib/useIsDesktop.js";
 import { useSession } from "../lib/session.js";
 import { api, ApiError, mediaUrl } from "../lib/api.js";
-import { AddMemberSheet, MemberSheet, EditContactsSheet, CreateGroupSheet } from "../components/GroupSheets.js";
+import { AddMemberSheet, MemberSheet, EditContactsSheet, CreateGroupSheet, SetParentSheet } from "../components/GroupSheets.js";
 import type { GroupMemberDTO, GroupSummaryDTO } from "@sd/shared";
 
 const TYPE_ICON: Record<string, IconName> = { address: "pin", phone: "phone", email: "mail", url: "link" };
@@ -28,14 +28,22 @@ export interface GroupActions {
   onAddMember: () => void;
   onMember: (m: GroupMemberDTO) => void;
   onEditContacts: () => void;
+  /** Present only when the viewer may edit the hierarchy (system admin). */
+  onSetParent?: () => void;
 }
 
-type Sheet = { type: "addMember" } | { type: "member"; member: GroupMemberDTO } | { type: "editContacts" } | null;
+type Sheet =
+  | { type: "addMember" }
+  | { type: "member"; member: GroupMemberDTO }
+  | { type: "editContacts" }
+  | { type: "setParent" }
+  | null;
 
 export function GroupDetail() {
   const { id } = useParams();
   const isDesktop = useIsDesktop();
   const navigate = useNavigate();
+  const { me } = useSession();
   const [g, setG] = useState<GroupDetailDTO | null>(null);
   const [error, setError] = useState<"forbidden" | "not_found" | null>(null);
   const [sheet, setSheet] = useState<Sheet>(null);
@@ -59,10 +67,14 @@ export function GroupDetail() {
   }
   if (!g) return null;
 
+  // Hierarchy editing is a school-structure concern: system admins only, and
+  // households never nest.
+  const canEditHierarchy = !!me?.user.isSystemAdmin && g.kind !== "household";
   const actions: GroupActions = {
     onAddMember: () => setSheet({ type: "addMember" }),
     onMember: (member) => setSheet({ type: "member", member }),
     onEditContacts: () => setSheet({ type: "editContacts" }),
+    onSetParent: canEditHierarchy ? () => setSheet({ type: "setParent" }) : undefined,
   };
   const onChanged = () => reload();
 
@@ -73,6 +85,7 @@ export function GroupDetail() {
       <div className="sd">
         {sheet?.type === "addMember" && <AddMemberSheet groupId={g.id} onClose={() => setSheet(null)} onChanged={onChanged} />}
         {sheet?.type === "member" && <MemberSheet groupId={g.id} member={sheet.member} onClose={() => setSheet(null)} onChanged={onChanged} />}
+        {sheet?.type === "setParent" && <SetParentSheet groupId={g.id} currentParentId={g.parentId ?? null} onClose={() => setSheet(null)} onChanged={onChanged} />}
         {sheet?.type === "editContacts" && (
           <EditContactsSheet
             groupId={g.id}
@@ -107,6 +120,51 @@ function kindAccent(kind: GroupSummaryDTO["kind"]): {
   if (kind === "classroom") return { icon: "school", color: "var(--orange-700)", tint: "var(--orange-tint)", tagTone: "orange" };
   if (kind === "generic") return { icon: "users3", color: "var(--ink-2)", tint: "var(--slate-tint)", tagTone: "line" };
   return { icon: "home", color: "var(--blue)", tint: "var(--blue-tint)", tagTone: "blue" };
+}
+
+/** Breadcrumb of ancestor groups (root → … → parent), each a link. */
+function Breadcrumb({ g }: { g: GroupDetailDTO }) {
+  const navigate = useNavigate();
+  if (!g.ancestors?.length) return null;
+  return (
+    <div className="sd-row" style={{ gap: 5, flexWrap: "wrap", fontSize: 12.5, fontWeight: 600, marginBottom: 8 }}>
+      {g.ancestors.map((a) => (
+        <Fragment key={a.id}>
+          <button onClick={() => navigate(`/groups/${a.id}`)} style={{ background: "none", border: 0, color: "var(--blue)", cursor: "pointer", font: "inherit", padding: 0 }}>{a.name}</button>
+          <Icon name="chevright" size={12} style={{ color: "var(--ink-3)" }} />
+        </Fragment>
+      ))}
+      <span style={{ color: "var(--ink-3)" }}>{g.name}</span>
+    </div>
+  );
+}
+
+/** Immediate sub-groups as navigable tiles. */
+function Subgroups({ g }: { g: GroupDetailDTO }) {
+  const navigate = useNavigate();
+  const { t } = useI18n();
+  if (!g.children?.length) return null;
+  return (
+    <div>
+      <SectLabel>{t("subgroups")}</SectLabel>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 9, marginTop: 9 }}>
+        {g.children.map((c) => {
+          const a = kindAccent(c.kind);
+          return (
+            <GroupTile
+              key={c.id}
+              icon={a.icon}
+              name={c.name}
+              sub={`${c.memberCount} ${t("members").toLowerCase()}`}
+              color={a.color}
+              tint={a.tint}
+              onClick={() => navigate(`/groups/${c.id}`)}
+            />
+          );
+        })}
+      </div>
+    </div>
+  );
 }
 
 // ── Groups index (the active Person's groups) ────────────────────────────────
@@ -329,6 +387,7 @@ function MobileGroup({ g, actions }: { g: GroupDetailDTO; actions: GroupActions 
       <div className="sd-scroll">
         {/* hero */}
         <div style={{ background: "var(--paper)", borderBottom: "1px solid var(--line)", padding: "16px 18px 18px" }}>
+          <Breadcrumb g={g} />
           <div className="sd-row" style={{ gap: 13 }}>
             <div style={{ width: 52, height: 52, borderRadius: 14, background: a.tint, color: a.color, display: "flex", alignItems: "center", justifyContent: "center", flex: "0 0 auto" }}>
               <Icon name={a.icon} size={26} stroke={1.9} />
@@ -380,6 +439,12 @@ function MobileGroup({ g, actions }: { g: GroupDetailDTO; actions: GroupActions 
             </div>
           </div>
 
+          <Subgroups g={g} />
+
+          {actions.onSetParent && (
+            <Btn block kind="secondary" icon="users3" onClick={actions.onSetParent}>{t("setParentGroup")}</Btn>
+          )}
+
           {g.viewerIsAdmin ? (
             hh ? (
               <Btn block kind="secondary" icon="pencil" onClick={actions.onEditContacts}>{t("editGroupInfo")}</Btn>
@@ -415,8 +480,14 @@ function DesktopGroup({ g, actions }: { g: GroupDetailDTO; actions: GroupActions
       active="groups"
       title={t("navGroups")}
       breadcrumb={
-        <div className="sd-row" style={{ gap: 6, color: "var(--ink-3)", fontSize: 13, fontWeight: 600, whiteSpace: "nowrap" }}>
+        <div className="sd-row" style={{ gap: 6, color: "var(--ink-3)", fontSize: 13, fontWeight: 600, whiteSpace: "nowrap", flexWrap: "wrap" }}>
           <button onClick={() => navigate("/groups")} style={{ background: "none", border: 0, color: "inherit", cursor: "pointer", font: "inherit" }}>{t("navGroups")}</button>
+          {(g.ancestors ?? []).map((anc) => (
+            <Fragment key={anc.id}>
+              <Icon name="chevright" size={14} />
+              <button onClick={() => navigate(`/groups/${anc.id}`)} style={{ background: "none", border: 0, color: "var(--blue)", cursor: "pointer", font: "inherit" }}>{anc.name}</button>
+            </Fragment>
+          ))}
           <Icon name="chevright" size={14} />
           <span style={{ color: "var(--ink)" }}>{g.name}</span>
         </div>
@@ -439,6 +510,9 @@ function DesktopGroup({ g, actions }: { g: GroupDetailDTO; actions: GroupActions
             )}
             {g.viewerIsAdmin && (
               <button className="sd-btn sd-btn-secondary sd-btn-sm" onClick={actions.onAddMember}><Icon name="plus" size={15} />{t("addMember")}</button>
+            )}
+            {actions.onSetParent && (
+              <button className="sd-btn sd-btn-secondary sd-btn-sm" onClick={actions.onSetParent}><Icon name="users3" size={15} />{t("setParentGroup")}</button>
             )}
           </div>
           <div style={{ padding: "6px 22px 14px" }}>
@@ -464,6 +538,11 @@ function DesktopGroup({ g, actions }: { g: GroupDetailDTO; actions: GroupActions
               />
             ))}
           </div>
+          {!!g.children?.length && (
+            <div style={{ padding: "10px 22px 18px", borderTop: "1px solid var(--line)" }}>
+              <Subgroups g={g} />
+            </div>
+          )}
         </div>
 
         {showRail && (

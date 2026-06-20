@@ -10,6 +10,7 @@ import type {
   CreateShareBody,
   GroupDetailDTO,
   GroupKind,
+  GroupRefDTO,
   GroupSummaryDTO,
   MeDTO,
   MyHouseholdDTO,
@@ -114,6 +115,10 @@ export const api = {
     request<{ groups: GroupSummaryDTO[] }>(`/groups?q=${encodeURIComponent(q)}`),
   createGroup: (body: { kind: GroupKind; name: string }) =>
     request<{ id: string }>("/groups", { method: "POST", body: JSON.stringify(body) }),
+  setGroupParent: (groupId: string, parentId: string | null) =>
+    request<{ ok: true }>(`/groups/${groupId}/parent`, { method: "PATCH", body: JSON.stringify({ parentId }) }),
+  groupParentCandidates: (groupId: string, q: string) =>
+    request<{ candidates: GroupRefDTO[] }>(`/groups/${groupId}/parent-candidates?q=${encodeURIComponent(q)}`),
   groupCandidates: (groupId: string, q: string) =>
     request<{ targets: ShareTargetDTO[] }>(`/groups/${groupId}/candidates?q=${encodeURIComponent(q)}`),
   addGroupMember: (groupId: string, body: { personId: string; title?: string }) =>

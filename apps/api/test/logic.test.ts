@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import { haversineMiles, approxDistance, boundingBox } from "../src/lib/geo.js";
 import { renderLastName, displayName } from "../src/lib/privacy.js";
 import { ulid } from "../src/lib/ids.js";
+import { buildGraph, ancestors, subtree, effectiveGroups, wouldCycle } from "../src/lib/groupTree.js";
 
 describe("geo", () => {
   it("computes great-circle distance in miles", () => {
@@ -47,5 +48,49 @@ describe("ulid", () => {
     const early = ulid(1000);
     const late = ulid(2000);
     expect(late > early).toBe(true);
+  });
+});
+
+describe("group hierarchy closure", () => {
+  // School → {Grade4, Faculty}; Grade4 → {Room4A, Room4B}
+  const edges = [
+    { id: "school", parentId: null },
+    { id: "grade4", parentId: "school" },
+    { id: "faculty", parentId: "school" },
+    { id: "room4a", parentId: "grade4" },
+    { id: "room4b", parentId: "grade4" },
+    { id: "house", parentId: null }, // household: never nests
+  ];
+  const { parentOf, childrenOf } = buildGraph(edges);
+
+  it("ancestors run immediate-parent-first up to the root", () => {
+    expect(ancestors(parentOf, "room4a")).toEqual(["grade4", "school"]);
+    expect(ancestors(parentOf, "school")).toEqual([]);
+  });
+
+  it("subtree includes the node and all descendants", () => {
+    expect(subtree(childrenOf, "grade4").sort()).toEqual(["grade4", "room4a", "room4b"]);
+    expect(subtree(childrenOf, "room4a")).toEqual(["room4a"]);
+  });
+
+  it("effective groups roll a classroom member up into grade and school", () => {
+    expect(effectiveGroups(parentOf, ["room4a"])).toEqual(new Set(["room4a", "grade4", "school"]));
+    // A direct school member is NOT pushed down into grades/classrooms.
+    expect(effectiveGroups(parentOf, ["school"])).toEqual(new Set(["school"]));
+  });
+
+  it("rejects reparenting that would create a cycle", () => {
+    expect(wouldCycle(childrenOf, "grade4", "room4a")).toBe(true); // parent into own child
+    expect(wouldCycle(childrenOf, "grade4", "grade4")).toBe(true); // self
+    expect(wouldCycle(childrenOf, "faculty", "grade4")).toBe(false); // sibling move is fine
+  });
+
+  it("is cycle-safe even on malformed data", () => {
+    const bad = buildGraph([
+      { id: "a", parentId: "b" },
+      { id: "b", parentId: "a" },
+    ]);
+    expect(() => ancestors(bad.parentOf, "a")).not.toThrow();
+    expect(() => subtree(bad.childrenOf, "a")).not.toThrow();
   });
 });

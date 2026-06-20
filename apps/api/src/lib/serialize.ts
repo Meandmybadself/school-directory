@@ -42,7 +42,7 @@ async function groupsFor(
   viewerPersonId: string | null,
 ): Promise<GroupSummaryDTO[]> {
   const rows = await env.DB.prepare(
-    `SELECT g.id, g.kind, g.name,
+    `SELECT g.id, g.kind, g.name, g.parent_id,
             (SELECT COUNT(*) FROM membership m2 WHERE m2.group_id = g.id) AS member_count,
             m.is_admin AS person_is_admin
      FROM membership m JOIN grp g ON g.id = m.group_id
@@ -53,6 +53,7 @@ async function groupsFor(
       id: string;
       kind: GroupSummaryDTO["kind"];
       name: string;
+      parent_id: string | null;
       member_count: number;
       person_is_admin: number;
     }>();
@@ -74,6 +75,7 @@ async function groupsFor(
     name: r.name,
     memberCount: r.member_count,
     isAdmin: viewerAdmin.has(r.id),
+    parentId: r.parent_id,
   }));
 }
 

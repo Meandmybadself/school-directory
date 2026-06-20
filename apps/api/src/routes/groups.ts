@@ -5,11 +5,12 @@
 
 import { Hono } from "hono";
 import type { Context } from "hono";
-import type { ContactItemDTO, ContactItemInput, ContactType, GroupDetailDTO, GroupMemberDTO, GroupSummaryDTO, ShareTargetDTO, Visibility } from "@sd/shared";
+import type { Capability, ContactItemDTO, ContactItemInput, ContactType, GroupDetailDTO, GroupMemberDTO, GroupRefDTO, GroupSummaryDTO, ShareTargetDTO, Visibility } from "@sd/shared";
 import type { HonoEnv } from "../env.js";
 import { requireAuth } from "../middleware/session.js";
 import { canSeeItem, displayName, sharesFor, viewerGroupIds, type ContactItemRow } from "../lib/privacy.js";
 import { capabilitiesFor } from "../lib/serialize.js";
+import { loadGroupGraph, ancestors, subtree, wouldCycle } from "../lib/groupTree.js";
 import { ulid } from "../lib/ids.js";
 import { nowIso } from "../lib/time.js";
 import { geocodeContact } from "../lib/geocode.js";
@@ -69,23 +70,36 @@ groups.get("/:id", async (c) => {
   const groupId = c.req.param("id");
   const viewer = { userId: auth.userId, personId: auth.activePersonId };
 
-  const group = await c.env.DB.prepare("SELECT id, kind, name FROM grp WHERE id = ?")
+  const group = await c.env.DB.prepare("SELECT id, kind, name, parent_id FROM grp WHERE id = ?")
     .bind(groupId)
-    .first<{ id: string; kind: GroupDetailDTO["kind"]; name: string }>();
+    .first<{ id: string; kind: GroupDetailDTO["kind"]; name: string; parent_id: string | null }>();
   if (!group) return c.json({ error: "not_found" }, 404);
 
-  // Membership rows for this group.
+  // Hierarchy closure: this group's roster rolls up its descendants' members.
+  const graph = await loadGroupGraph(c.env);
+  const rosterGroupIds = subtree(graph.childrenOf, groupId); // group + descendants
+  const placeholders = rosterGroupIds.map(() => "?").join(",");
+
+  // Effective membership rows: direct members of this group OR any descendant.
+  // A person can appear in several sub-groups, so dedup by person, keeping admin
+  // status / title from THIS group's own membership (roles don't roll up).
   const memberRows = await c.env.DB.prepare(
-    `SELECT m.person_id, m.title, m.is_admin,
+    `SELECT m.person_id,
+            MAX(CASE WHEN m.group_id = ? THEN m.title END) AS title,
+            MAX(CASE WHEN m.group_id = ? THEN m.is_admin ELSE 0 END) AS is_admin,
+            MAX(CASE WHEN m.group_id = ? THEN 1 ELSE 0 END) AS is_direct,
             p.first_name, p.last_name, p.last_name_visibility, p.photo_object_key
      FROM membership m JOIN person p ON p.id = m.person_id
-     WHERE m.group_id = ? ORDER BY m.is_admin DESC, p.first_name`,
+     WHERE m.group_id IN (${placeholders})
+     GROUP BY m.person_id
+     ORDER BY is_admin DESC, p.first_name`,
   )
-    .bind(groupId)
+    .bind(groupId, groupId, groupId, ...rosterGroupIds)
     .all<{
       person_id: string;
       title: string | null;
       is_admin: number;
+      is_direct: number;
       first_name: string;
       last_name: string | null;
       last_name_visibility: "full" | "initial";
@@ -100,25 +114,44 @@ groups.get("/:id", async (c) => {
     .all<{ person_id: string }>();
   const myPersonIds = new Set(controlled.results.map((r) => r.person_id));
 
+  // `viewerIsMember` rolls up (effective membership in the subtree) for roster /
+  // affordances, but the confidentiality of this group's OWN private contacts and
+  // exact address must NOT roll up — those stay gated on DIRECT membership so a
+  // descendant member can't read a parent group's private contact info.
   const viewerIsMember = memberRows.results.some((m) => myPersonIds.has(m.person_id));
+  const viewerIsDirectMember = memberRows.results.some((m) => myPersonIds.has(m.person_id) && m.is_direct === 1);
   const viewerIsAdmin = memberRows.results.some((m) => myPersonIds.has(m.person_id) && m.is_admin === 1);
   // Group detail is readable by any authenticated member (names are already in
-  // the directory). Non-members see the roster + service-visibility contacts;
-  // private contacts and exact addresses stay restricted below.
+  // the directory). Non-(direct-)members see the roster + service-visibility
+  // contacts; private contacts and exact addresses stay restricted below.
 
-  const members: GroupMemberDTO[] = [];
-  for (const m of memberRows.results) {
-    members.push({
-      personId: m.person_id,
-      // First name is always visible to co-members; last name rule applied.
-      displayName: displayName(m.first_name, m.last_name, m.last_name_visibility, myPersonIds.has(m.person_id)),
-      title: m.title,
-      isAdmin: m.is_admin === 1,
-      isYou: myPersonIds.has(m.person_id),
-      capabilities: await capabilitiesFor(c.env, m.person_id),
-      photoUrl: m.photo_object_key ? `/photos/${m.photo_object_key}` : null,
-    });
+  // Batch capabilities for the whole (possibly large, rolled-up) roster instead
+  // of one query per member.
+  const memberIds = memberRows.results.map((m) => m.person_id);
+  const capsByPerson = new Map<string, Capability[]>();
+  if (memberIds.length) {
+    const capRows = await c.env.DB.prepare(
+      `SELECT person_id, capability FROM capability_grant WHERE person_id IN (${memberIds.map(() => "?").join(",")})`,
+    )
+      .bind(...memberIds)
+      .all<{ person_id: string; capability: Capability }>();
+    for (const r of capRows.results) {
+      const arr = capsByPerson.get(r.person_id) ?? [];
+      arr.push(r.capability);
+      capsByPerson.set(r.person_id, arr);
+    }
   }
+
+  const members: GroupMemberDTO[] = memberRows.results.map((m) => ({
+    personId: m.person_id,
+    // First name is always visible to co-members; last name rule applied.
+    displayName: displayName(m.first_name, m.last_name, m.last_name_visibility, myPersonIds.has(m.person_id)),
+    title: m.title,
+    isAdmin: m.is_admin === 1,
+    isYou: myPersonIds.has(m.person_id),
+    capabilities: capsByPerson.get(m.person_id) ?? [],
+    photoUrl: m.photo_object_key ? `/photos/${m.photo_object_key}` : null,
+  }));
 
   // Group-owned contact items (e.g. household shared address).
   const itemRows = await c.env.DB.prepare(
@@ -133,10 +166,12 @@ groups.get("/:id", async (c) => {
   const contacts: ContactItemDTO[] = [];
   for (const item of itemRows.results) {
     const shares = await sharesFor(c.env, "contact_item", item.id);
-    // Members (and admins) see all of the group's own contacts; everyone else
-    // sees service-visibility ones plus anything explicitly shared with them.
+    // Direct members (and admins) see all of the group's own contacts; everyone
+    // else — including descendant-only members — sees service-visibility ones
+    // plus anything explicitly shared with them (ancestor-group shares roll down
+    // via vGroups in canSeeItem).
     const visible =
-      viewerIsMember ||
+      viewerIsDirectMember ||
       auth.isSystemAdmin ||
       item.visibility === "service" ||
       canSeeItem({
@@ -152,12 +187,44 @@ groups.get("/:id", async (c) => {
       id: item.id,
       type: item.type as ContactItemDTO["type"],
       label: item.label,
-      value: item.type === "address" && !viewerIsAdmin && !viewerIsMember ? "" : item.value,
+      value: item.type === "address" && !viewerIsAdmin && !viewerIsDirectMember ? "" : item.value,
       visibility: item.visibility,
     };
     if (item.type === "address") dto.neighborDiscoverable = item.neighbor_discoverable === 1;
     if (item.visibility === "private" && shares.count > 0) dto.shareCount = shares.count;
     contacts.push(dto);
+  }
+
+  // Breadcrumb (root → … → parent) and immediate sub-groups for the hierarchy UI.
+  const ancestorIds = ancestors(graph.parentOf, groupId).reverse(); // root-first
+  const refRows = ancestorIds.length
+    ? await c.env.DB.prepare(
+        `SELECT id, name, kind FROM grp WHERE id IN (${ancestorIds.map(() => "?").join(",")})`,
+      )
+        .bind(...ancestorIds)
+        .all<{ id: string; name: string; kind: GroupRefDTO["kind"] }>()
+    : { results: [] as { id: string; name: string; kind: GroupRefDTO["kind"] }[] };
+  const refById = new Map(refRows.results.map((r) => [r.id, r]));
+  const ancestorRefs: GroupRefDTO[] = ancestorIds
+    .map((id) => refById.get(id))
+    .filter((r): r is { id: string; name: string; kind: GroupRefDTO["kind"] } => !!r)
+    .map((r) => ({ id: r.id, name: r.name, kind: r.kind }));
+
+  const childIds = graph.childrenOf.get(groupId) ?? [];
+  const children: GroupSummaryDTO[] = [];
+  for (const cid of childIds) {
+    const cg = await c.env.DB.prepare("SELECT id, kind, name, parent_id FROM grp WHERE id = ?")
+      .bind(cid)
+      .first<{ id: string; kind: GroupSummaryDTO["kind"]; name: string; parent_id: string | null }>();
+    if (!cg) continue;
+    // Each child's roll-up count includes its own descendants.
+    const sub = subtree(graph.childrenOf, cid);
+    const cnt = await c.env.DB.prepare(
+      `SELECT COUNT(DISTINCT person_id) AS n FROM membership WHERE group_id IN (${sub.map(() => "?").join(",")})`,
+    )
+      .bind(...sub)
+      .first<{ n: number }>();
+    children.push({ id: cg.id, kind: cg.kind, name: cg.name, memberCount: cnt?.n ?? 0, parentId: cg.parent_id });
   }
 
   const dto: GroupDetailDTO = {
@@ -169,6 +236,9 @@ groups.get("/:id", async (c) => {
     viewerIsMember,
     members,
     contacts,
+    parentId: group.parent_id,
+    ancestors: ancestorRefs,
+    children,
   };
   return c.json(dto);
 });
@@ -221,6 +291,66 @@ groups.post("/", async (c) => {
 
   c.var.audit.push({ action: "admin.action", entityKind: "group", entityId: id, detail: { op: "group.create", kind } });
   return c.json({ id }, 201);
+});
+
+// ── Hierarchy (system admins) ────────────────────────────────────────────────
+
+/** PATCH /groups/:id/parent { parentId } — set or clear a group's parent.
+ *  System-admin only. Households never nest; cycles are rejected. */
+groups.patch("/:id/parent", async (c) => {
+  const auth = requireAuth(c);
+  if (!auth.isSystemAdmin) return c.json({ error: "forbidden" }, 403);
+  const groupId = c.req.param("id");
+  const body = await c.req.json<{ parentId: string | null }>().catch(() => null);
+  if (!body || !("parentId" in body)) return c.json({ error: "invalid_body" }, 400);
+  const parentId = body.parentId || null;
+
+  const group = await c.env.DB.prepare("SELECT id, kind FROM grp WHERE id = ?")
+    .bind(groupId)
+    .first<{ id: string; kind: string }>();
+  if (!group) return c.json({ error: "not_found" }, 404);
+  if (group.kind === "household") return c.json({ error: "households_dont_nest" }, 409);
+
+  if (parentId) {
+    const parent = await c.env.DB.prepare("SELECT id, kind FROM grp WHERE id = ?")
+      .bind(parentId)
+      .first<{ id: string; kind: string }>();
+    if (!parent) return c.json({ error: "parent_not_found" }, 404);
+    if (parent.kind === "household") return c.json({ error: "households_dont_nest" }, 409);
+    const { childrenOf } = await loadGroupGraph(c.env);
+    if (wouldCycle(childrenOf, groupId, parentId)) return c.json({ error: "would_cycle" }, 409);
+  }
+
+  await c.env.DB.prepare("UPDATE grp SET parent_id = ? WHERE id = ?").bind(parentId, groupId).run();
+  c.var.audit.push({ action: "admin.action", entityKind: "group", entityId: groupId, detail: { op: "group.reparent", parentId } });
+  return c.json({ ok: true });
+});
+
+/** GET /groups/:id/parent-candidates?q= — non-household groups eligible as this
+ *  group's parent (excludes itself and its own descendants). System-admin only. */
+groups.get("/:id/parent-candidates", async (c) => {
+  const auth = requireAuth(c);
+  if (!auth.isSystemAdmin) return c.json({ error: "forbidden" }, 403);
+  const groupId = c.req.param("id");
+  const exists = await c.env.DB.prepare("SELECT 1 AS ok FROM grp WHERE id = ?").bind(groupId).first<{ ok: number }>();
+  if (!exists) return c.json({ error: "not_found" }, 404);
+
+  const { childrenOf } = await loadGroupGraph(c.env);
+  const excluded = subtree(childrenOf, groupId); // self + descendants (≥1: self)
+  const q = (c.req.query("q") ?? "").trim().toLowerCase();
+  const like = `%${q}%`;
+  // Exclude self + descendants in SQL so LIMIT counts only eligible candidates.
+  const rows = await c.env.DB.prepare(
+    `SELECT id, name, kind FROM grp
+     WHERE kind != 'household'
+       AND id NOT IN (${excluded.map(() => "?").join(",")})
+       AND (? = '' OR lower(name) LIKE ?)
+     ORDER BY name COLLATE NOCASE LIMIT 50`,
+  )
+    .bind(...excluded, q, like)
+    .all<{ id: string; name: string; kind: GroupRefDTO["kind"] }>();
+  const candidates: GroupRefDTO[] = rows.results.map((r) => ({ id: r.id, name: r.name, kind: r.kind }));
+  return c.json({ candidates });
 });
 
 // ── Member management (group admins) ────────────────────────────────────────

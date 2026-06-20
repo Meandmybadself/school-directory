@@ -154,6 +154,11 @@ export interface Strings {
   groupName: string;
   create: string;
   createGroupChoose: string;
+  subgroups: string;
+  parentGroup: string;
+  setParentGroup: string;
+  parentNone: string;
+  noEligibleGroups: string;
 
   // capabilities (Capability enum labels)
   capParent: string;
@@ -342,6 +347,11 @@ const en: Strings = {
   groupName: "Name",
   create: "Create",
   createGroupChoose: "What would you like to create?",
+  subgroups: "Sub-groups",
+  parentGroup: "Parent group",
+  setParentGroup: "Set parent group",
+  parentNone: "No parent (top level)",
+  noEligibleGroups: "No eligible groups.",
 
   capParent: "Parent",
   capTeacher: "Teacher",
@@ -458,6 +468,11 @@ const es: Strings = {
   genericGroup: "Grupo",
   genericGroupSub: "Escuela, grado, club o comité",
   genericManages: "{name} gestiona este grupo.",
+  subgroups: "Subgrupos",
+  parentGroup: "Grupo principal",
+  setParentGroup: "Establecer grupo principal",
+  parentNone: "Sin grupo principal (nivel superior)",
+  noEligibleGroups: "No hay grupos elegibles.",
   members: "Miembros",
   manage: "Gestionar",
 
@@ -573,6 +588,11 @@ const zh: Strings = {
   genericGroup: "群组",
   genericGroupSub: "学校、年级、社团或委员会",
   genericManages: "{name} 管理此群组。",
+  subgroups: "子群组",
+  parentGroup: "上级群组",
+  setParentGroup: "设置上级群组",
+  parentNone: "无上级（顶层）",
+  noEligibleGroups: "没有符合条件的群组。",
   members: "成员",
   manage: "管理",
 
