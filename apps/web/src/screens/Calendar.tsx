@@ -83,7 +83,7 @@ function FilterBar({ feeds, hidden, onToggle }: { feeds: CalendarFeedDTO[]; hidd
       <div className="sd-row" style={{ gap: 8, flexWrap: "wrap", marginTop: 9 }}>
         {feeds.map((f) => {
           const on = !hidden.has(f.id);
-          const pad = { display: "inline-flex", alignItems: "center", gap: 6, padding: "5px 9px", fontSize: 13, fontWeight: 600 } as const;
+          const pad = { display: "inline-flex", alignItems: "center", gap: 5, padding: "4px 8px", fontSize: 11.5, fontWeight: 600 } as const;
           return (
             <div
               key={f.id}
