@@ -45,13 +45,13 @@ type NavKey = "home" | "calendar" | "dir" | "groups" | "me" | "admin";
 export function BottomNav({ active }: { active: NavKey }) {
   const { t } = useI18n();
   const navigate = useNavigate();
-  const { me } = useSession();
+  const { me, activePerson } = useSession();
   const items: [IconName, NavKey, string, string][] = [
     ["home", "home", t("navHome"), "/"],
     ["calendar", "calendar", t("navCalendar"), "/calendar"],
     ["search", "dir", t("navDir"), "/directory"],
     ["users3", "groups", t("navGroups"), "/groups"],
-    ["eye", "me", t("navMe"), "/you"],
+    ["eye", "me", t("yourProfile"), activePerson ? `/persons/${activePerson.id}` : "/"],
   ];
   // System admins get an Admin tab, mirroring the desktop sidebar.
   if (me?.user.isSystemAdmin) items.push(["shield", "admin", "Admin", "/admin"]);

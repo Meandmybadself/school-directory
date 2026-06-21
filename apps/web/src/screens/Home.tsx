@@ -39,8 +39,11 @@ export function Home() {
   const groups = profile?.groups ?? [];
   const list = neighbors && "neighbors" in neighbors ? neighbors.neighbors : null;
   const hasNeighbors = !!list && list.length > 0;
+  // The server says addCta only when the Person has NO address at all. An empty
+  // `list` with no addCta means: has an address, just no neighbors nearby.
+  const noAddress = !!neighbors && "addCta" in neighbors;
 
-  const shared = { activePerson, groups, list, hasNeighbors, events };
+  const shared = { activePerson, groups, list, hasNeighbors, noAddress, events };
   return isDesktop ? <DesktopHome {...shared} /> : <MobileHome {...shared} />;
 }
 
@@ -49,6 +52,8 @@ interface ViewProps {
   groups: GroupSummaryDTO[];
   list: { id: string; name: string; approxDistance: string; kind: "person" | "household" }[] | null;
   hasNeighbors: boolean;
+  /** True only when the Person has no address at all (show the add-address CTA). */
+  noAddress: boolean;
   events: CalendarEventDTO[] | null;
 }
 
@@ -136,7 +141,7 @@ function GroupsContent({ groups, columns }: { groups: GroupSummaryDTO[]; columns
 
 // ── Desktop ──────────────────────────────────────────────────────────────────
 
-function DesktopHome({ activePerson, groups, hasNeighbors, list, events }: ViewProps) {
+function DesktopHome({ activePerson, groups, hasNeighbors, noAddress, list, events }: ViewProps) {
   const { t } = useI18n();
   const navigate = useNavigate();
   const cards = useNeighborCards(list);
@@ -152,10 +157,12 @@ function DesktopHome({ activePerson, groups, hasNeighbors, list, events }: ViewP
             <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 14, marginTop: 11 }}>{cards}</div>
             <p className="sd-meta" style={{ marginTop: 8, fontSize: 11 }}>{t("osmAttribution")}</p>
           </>
-        ) : (
+        ) : noAddress ? (
           <div style={{ marginTop: 11, maxWidth: 520 }}>
             <CTACard icon="pin" title={t("addAddressTitle")} body={t("addAddressBody")} action={<Btn block icon="plus" onClick={() => navigate(`/persons/${activePerson.id}/edit?add=address`)}>{t("addAddressBtn")}</Btn>} />
           </div>
+        ) : (
+          <div className="sd-card sd-card-pad sd-meta" style={{ marginTop: 11, maxWidth: 520 }}>{t("noNeighbors")}</div>
         )}
       </div>
       <div>
@@ -170,7 +177,7 @@ function DesktopHome({ activePerson, groups, hasNeighbors, list, events }: ViewP
 
 // ── Mobile ─────────────────────────────────────────────────────────────────
 
-function MobileHome({ activePerson, groups, hasNeighbors, list, events }: ViewProps) {
+function MobileHome({ activePerson, groups, hasNeighbors, noAddress, list, events }: ViewProps) {
   const { t } = useI18n();
   const navigate = useNavigate();
   const cards = useNeighborCards(list);
@@ -184,11 +191,15 @@ function MobileHome({ activePerson, groups, hasNeighbors, list, events }: ViewPr
         <p className="sd-meta" style={{ marginTop: 8, fontSize: 11 }}>{t("osmAttribution")}</p>
       </>
     );
-  } else {
+  } else if (noAddress) {
     neighborsBlock = (
       <div style={{ marginTop: 9 }}>
         <CTACard icon="pin" title={t("addAddressTitle")} body={t("addAddressBody")} action={<Btn block icon="plus" onClick={() => navigate(`/persons/${activePerson.id}/edit?add=address`)}>{t("addAddressBtn")}</Btn>} />
       </div>
+    );
+  } else {
+    neighborsBlock = (
+      <div className="sd-card sd-card-pad sd-meta" style={{ marginTop: 9 }}>{t("noNeighbors")}</div>
     );
   }
 

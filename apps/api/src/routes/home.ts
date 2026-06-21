@@ -59,7 +59,28 @@ home.get("/neighbors", async (c) => {
     seenOrigin.add(k);
     return true;
   });
-  if (origins.length === 0) return c.json<NeighborsResponse>({ addCta: true });
+  if (origins.length === 0) {
+    // No geocoded origin. Only prompt "add your address" if the Person genuinely
+    // has NO address at all (own or household). If they have one that simply
+    // isn't geocoded yet (pending/unresolvable), show the empty neighbors state
+    // instead of telling them to add an address they already have.
+    const own = await c.env.DB.prepare(
+      "SELECT 1 AS x FROM contact_item WHERE owner_kind = 'person' AND owner_id = ? AND type = 'address' LIMIT 1",
+    )
+      .bind(auth.activePersonId)
+      .first<{ x: number }>();
+    let hasAddress = !!own;
+    if (!hasAddress && householdIds.length) {
+      const ph = householdIds.map(() => "?").join(",");
+      const hh = await c.env.DB.prepare(
+        `SELECT 1 AS x FROM contact_item WHERE owner_kind = 'group' AND owner_id IN (${ph}) AND type = 'address' LIMIT 1`,
+      )
+        .bind(...householdIds)
+        .first<{ x: number }>();
+      hasAddress = !!hh;
+    }
+    return c.json<NeighborsResponse>(hasAddress ? { neighbors: [] } : { addCta: true });
+  }
 
   // Union bounding box over all origins, then nearest-origin distance.
   let minLat = Infinity, maxLat = -Infinity, minLng = Infinity, maxLng = -Infinity;

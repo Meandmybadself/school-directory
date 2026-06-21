@@ -60,6 +60,7 @@ export interface Strings {
 
   // home
   neighbors: string;
+  noNeighbors: string;
   seeAll: string;
   groups: string;
   member: string;
@@ -260,6 +261,7 @@ const en: Strings = {
   downloadIcs: "Download {name} (.ics)",
 
   neighbors: "Neighbors",
+  noNeighbors: "No neighbors nearby yet.",
   seeAll: "See all",
   groups: "Your groups",
   member: "Member",
@@ -457,6 +459,7 @@ const es: Strings = {
   downloadIcs: "Descargar {name} (.ics)",
 
   neighbors: "Vecinos",
+  noNeighbors: "Aún no hay vecinos cerca.",
   seeAll: "Ver todos",
   groups: "Tus grupos",
   member: "Miembro",
@@ -586,6 +589,7 @@ const zh: Strings = {
   downloadIcs: "下载 {name}（.ics）",
 
   neighbors: "邻居",
+  noNeighbors: "附近暂无邻居。",
   seeAll: "查看全部",
   groups: "你的群组",
   member: "成员",
