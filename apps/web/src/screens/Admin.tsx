@@ -11,7 +11,7 @@ import { DesktopShell } from "../components/DesktopShell.js";
 import { ScreenHeader, SectLabel } from "../components/parts.js";
 import { useSession } from "../lib/session.js";
 import { useIsDesktop } from "../lib/useIsDesktop.js";
-import { api } from "../lib/api.js";
+import { api, ApiError } from "../lib/api.js";
 
 const ACTION_FILTERS = [
   "", "auth.signin", "invite.sent", "invite.accepted", "control.granted",
@@ -108,6 +108,51 @@ function CalendarSourcesSection() {
   );
 }
 
+/** Create a sign-in account, optionally suppressing the welcome email. */
+function CreateUserForm({ onCreated }: { onCreated: () => void }) {
+  const [email, setEmail] = useState("");
+  const [sysAdmin, setSysAdmin] = useState(false);
+  const [sendEmail, setSendEmail] = useState(true);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const submit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!email.trim()) return;
+    setBusy(true);
+    setError(null);
+    try {
+      await api.createUser({ email: email.trim(), isSystemAdmin: sysAdmin, sendEmail });
+      setEmail("");
+      setSysAdmin(false);
+      onCreated();
+    } catch (err) {
+      setError(err instanceof ApiError && err.status === 409 ? "That email already has an account." : "Couldn't create the user.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <form onSubmit={submit} style={{ display: "flex", flexDirection: "column", gap: 8, borderTop: "1px solid var(--line)", paddingTop: 12, marginTop: 4 }}>
+      <input className="sd-input" type="email" placeholder="new.member@example.com" value={email} onChange={(e) => setEmail(e.target.value)} />
+      <label className="sd-row" style={{ gap: 8, fontSize: 13, cursor: "pointer" }}>
+        <input type="checkbox" checked={sendEmail} onChange={(e) => setSendEmail(e.target.checked)} />
+        Email them a sign-in link
+      </label>
+      <label className="sd-row" style={{ gap: 8, fontSize: 13, cursor: "pointer" }}>
+        <input type="checkbox" checked={sysAdmin} onChange={(e) => setSysAdmin(e.target.checked)} />
+        System admin
+      </label>
+      <div className="sd-meta" style={{ lineHeight: 1.4 }}>
+        The account works immediately; they can sign in any time via “Email me a link” even with sign-ups closed.
+      </div>
+      <Btn type="submit" icon="plus" disabled={busy || !email.trim()}>Create user</Btn>
+      {error && <div className="sd-meta" style={{ color: "var(--warn)" }}>{error}</div>}
+    </form>
+  );
+}
+
 export function Admin() {
   const navigate = useNavigate();
   const isDesktop = useIsDesktop();
@@ -120,8 +165,9 @@ export function Admin() {
   const [filter, setFilter] = useState("");
   const [nextBefore, setNextBefore] = useState<string | null>(null);
 
+  const loadUsers = () => void api.adminUsers().then((r) => setUsers(r.users)).catch(() => setUsers([]));
   useEffect(() => {
-    void api.adminUsers().then((r) => setUsers(r.users)).catch(() => setUsers([]));
+    loadUsers();
     void api.getRegistration().then((r) => setRegOpen(r.open)).catch(() => setRegOpen(null));
   }, []);
 
@@ -232,6 +278,7 @@ export function Admin() {
             );
           })}
           {users.length === 0 && <div className="sd-meta" style={{ padding: "12px 0" }}>No users.</div>}
+          <CreateUserForm onCreated={loadUsers} />
         </div>
       </div>
 

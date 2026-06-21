@@ -7,10 +7,12 @@ import type { Env, HonoEnv } from "../env.js";
 import { requireAuth } from "../middleware/session.js";
 import { runBulkImport } from "../lib/bulkImport.js";
 import { refreshSource, refreshAllSources } from "../lib/calendar.js";
-import { randomSessionId } from "../lib/crypto.js";
+import { randomSessionId, randomToken, sha256 } from "../lib/crypto.js";
 import { ulid } from "../lib/ids.js";
-import { isoPlus, isExpired, nowIso, MASQUERADE_TTL, SESSION_TTL } from "../lib/time.js";
+import { isoPlus, isExpired, nowIso, MAGIC_LINK_TTL, MASQUERADE_TTL, SESSION_TTL } from "../lib/time.js";
 import { setSessionCookie, clearActivePersonCookie } from "../lib/cookies.js";
+import { findUserByEmail, normalizeEmail } from "../lib/db.js";
+import { magicLinkEmail, sendEmail } from "../lib/email.js";
 
 export const admin = new Hono<HonoEnv>();
 
@@ -31,6 +33,50 @@ admin.get("/users", async (c) => {
       personCount: u.person_count,
     })),
   });
+});
+
+/** POST /admin/users { email, isSystemAdmin?, sendEmail? } — create a sign-in
+ *  account. The account exists immediately (so they can sign in even when
+ *  registration is closed). A sign-in link is emailed unless sendEmail is false;
+ *  either way they can later request one themselves via "Email me a link". */
+admin.post("/users", async (c) => {
+  const auth = requireAuth(c);
+  if (!auth.isSystemAdmin) return c.json({ error: "forbidden" }, 403);
+  const body = await c.req.json<{ email: string; isSystemAdmin?: boolean; sendEmail?: boolean }>().catch(() => null);
+  const email = body?.email ? normalizeEmail(body.email) : "";
+  if (!email.includes("@")) return c.json({ error: "invalid_email" }, 400);
+  if (await findUserByEmail(c.env, email)) return c.json({ error: "user_exists" }, 409);
+
+  const id = ulid();
+  await c.env.DB.prepare(
+    "INSERT INTO user (id, email, is_system_admin, created_at) VALUES (?,?,?,?)",
+  )
+    .bind(id, email, body?.isSystemAdmin ? 1 : 0, nowIso())
+    .run();
+
+  const sendInvite = body?.sendEmail !== false;
+  if (sendInvite) {
+    const token = randomToken();
+    const tokenHash = await sha256(token);
+    await c.env.DB.prepare(
+      `INSERT INTO auth_token (id, email, kind, token_hash, reg_open_at_issue, expires_at, created_at)
+       VALUES (?,?, 'signin', ?, 1, ?, ?)`,
+    )
+      .bind(ulid(), email, tokenHash, isoPlus(MAGIC_LINK_TTL), nowIso())
+      .run();
+    const link = `${new URL(c.req.url).origin}/auth/callback?t=${token}`;
+    const msg = magicLinkEmail(c.env, link);
+    msg.to = email;
+    c.executionCtx.waitUntil(sendEmail(c.env, msg));
+  }
+
+  c.var.audit.push({
+    action: "admin.action",
+    entityKind: "user",
+    entityId: id,
+    detail: { op: "user.create", emailSent: sendInvite },
+  });
+  return c.json({ user: { id, email, isSystemAdmin: !!body?.isSystemAdmin, personCount: 0 } }, 201);
 });
 
 /** POST /admin/bulk-import { rows, dryRun } — CSV bulk import (FR-29/30). */

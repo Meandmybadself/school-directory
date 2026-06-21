@@ -149,6 +149,8 @@ export const api = {
     request<{ targets: ShareTargetDTO[] }>(`/shares/targets?q=${encodeURIComponent(q)}`),
 
   adminUsers: () => request<{ users: AdminUserDTO[] }>("/admin/users"),
+  createUser: (body: { email: string; isSystemAdmin?: boolean; sendEmail?: boolean }) =>
+    request<{ user: AdminUserDTO }>("/admin/users", { method: "POST", body: JSON.stringify(body) }),
   startMasquerade: (userId: string) =>
     request<{ ok: true }>("/admin/masquerade", { method: "POST", body: JSON.stringify({ userId }) }),
   stopMasquerade: () => request<{ ok: true }>("/admin/masquerade/stop", { method: "POST" }),
