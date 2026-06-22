@@ -72,7 +72,7 @@ function CalendarSourcesSection() {
   };
 
   return (
-    <div style={{ marginTop: 18 }}>
+    <div>
       <SectLabel action={<Btn sm kind="secondary" onClick={() => void refreshNow()} disabled={busy || sources.length === 0}>Refresh now</Btn>}>
         Calendar sources (ICS)
       </SectLabel>
@@ -164,6 +164,7 @@ export function Admin() {
   const [entries, setEntries] = useState<AuditEntryDTO[]>([]);
   const [filter, setFilter] = useState("");
   const [nextBefore, setNextBefore] = useState<string | null>(null);
+  const [tab, setTab] = useState<"users" | "calendar" | "audit">("users");
 
   const loadUsers = () => void api.adminUsers().then((r) => setUsers(r.users)).catch(() => setUsers([]));
   useEffect(() => {
@@ -210,7 +211,28 @@ export function Admin() {
     setNextBefore(r.nextBefore);
   };
 
-  const body = (
+  const tabs: [typeof tab, string][] = [["users", "Users"], ["calendar", "Calendar"], ["audit", "Audit log"]];
+  const tabBar = (
+    <div className="sd-row" style={{ gap: 2, borderBottom: "1px solid var(--line)", marginBottom: 16 }}>
+      {tabs.map(([key, label]) => (
+        <button
+          key={key}
+          type="button"
+          onClick={() => setTab(key)}
+          style={{
+            padding: "9px 14px", border: 0, background: "none", font: "inherit", cursor: "pointer",
+            fontSize: 13.5, fontWeight: 700, marginBottom: -1,
+            color: tab === key ? "var(--blue)" : "var(--ink-3)",
+            borderBottom: `2px solid ${tab === key ? "var(--blue)" : "transparent"}`,
+          }}
+        >
+          {label}
+        </button>
+      ))}
+    </div>
+  );
+
+  const usersTab = (
     <>
       {/* Registration toggle */}
       <SectLabel>Sign-ups</SectLabel>
@@ -249,9 +271,6 @@ export function Admin() {
         </div>
       </div>
 
-      {/* Calendar sources */}
-      <CalendarSourcesSection />
-
       {/* Users + masquerade */}
       <div style={{ marginTop: 18 }}>
         <SectLabel>Members &amp; sign-in accounts</SectLabel>
@@ -281,10 +300,12 @@ export function Admin() {
           <CreateUserForm onCreated={loadUsers} />
         </div>
       </div>
+    </>
+  );
 
-      {/* Audit log */}
-      <div style={{ marginTop: 18 }}>
-        <SectLabel
+  const auditTab = (
+    <div>
+      <SectLabel
           action={
             <select className="sd-input" value={filter} onChange={(e) => setFilter(e.target.value)} style={{ height: 30, width: "auto", fontSize: 12.5, padding: "0 8px" }}>
               {ACTION_FILTERS.map((a) => <option key={a} value={a}>{a || "All actions"}</option>)}
@@ -317,7 +338,15 @@ export function Admin() {
           <Icon name="info" size={16} style={{ flex: "0 0 auto", marginTop: 1 }} />
           The audit log is append-only and hash-chained. Masquerade actions show the admin and the member they acted as.
         </div>
-      </div>
+    </div>
+  );
+
+  const body = (
+    <>
+      {tabBar}
+      {tab === "users" && usersTab}
+      {tab === "calendar" && <CalendarSourcesSection />}
+      {tab === "audit" && auditTab}
     </>
   );
 
