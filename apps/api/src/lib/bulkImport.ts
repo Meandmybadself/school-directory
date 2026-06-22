@@ -48,6 +48,7 @@ export async function runBulkImport(
   const groupByName = new Map<string, string>(); // group name -> groupId
   const membershipSeen = new Set<string>(); // `${groupId}:${personId}`
   const inviteSeen = new Set<string>(); // `${personId}:${email}`
+  const phoneSeen = new Set<string>(); // `${personId}:${phone}`
   let synthetic = 0;
   const synthId = (p: string) => `dry_${p}_${++synthetic}`;
 
@@ -115,6 +116,26 @@ export async function runBulkImport(
           )
             .bind(personId, cap)
             .run();
+        }
+      }
+
+      // ── Phone (contact item) ────────────────────────────────────────────
+      const phone = row.phone?.trim();
+      if (phone && !personId.startsWith("dry_")) {
+        const pkey = `${personId}:${phone}`;
+        if (!phoneSeen.has(pkey)) {
+          phoneSeen.add(pkey);
+          if (commit && !(await hasPhone(env, personId, phone))) {
+            const cid = ulid();
+            await env.DB.prepare(
+              `INSERT INTO contact_item
+                 (id, owner_kind, owner_id, type, label, value, visibility,
+                  neighbor_discoverable, geocode_status, created_at, updated_at)
+               VALUES (?, 'person', ?, 'phone', NULL, ?, 'private', 0, 'none', ?, ?)`,
+            )
+              .bind(cid, personId, phone, nowIso(), nowIso())
+              .run();
+          }
         }
       }
 
@@ -235,6 +256,16 @@ export async function runBulkImport(
       "SELECT 1 AS ok FROM membership WHERE group_id = ? AND person_id = ? LIMIT 1",
     )
       .bind(groupId, personId)
+      .first<{ ok: number }>();
+    return !!row;
+  }
+
+  async function hasPhone(e: Env, personId: string, value: string): Promise<boolean> {
+    if (personId.startsWith("dry_")) return false;
+    const row = await e.DB.prepare(
+      "SELECT 1 AS ok FROM contact_item WHERE owner_kind = 'person' AND owner_id = ? AND type = 'phone' AND value = ? LIMIT 1",
+    )
+      .bind(personId, value)
       .first<{ ok: number }>();
     return !!row;
   }

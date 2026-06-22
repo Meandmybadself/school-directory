@@ -233,6 +233,7 @@ export interface BulkImportRow {
   firstName: string;
   lastName?: string;
   email?: string;
+  phone?: string;
   group?: string;
   groupKind?: GroupKind;
   title?: string;
@@ -255,6 +256,7 @@ export const BULK_IMPORT_FIELDS = [
   "firstName",
   "lastName",
   "email",
+  "phone",
   "group",
   "title",
   "capabilities",

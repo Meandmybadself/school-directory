@@ -17,6 +17,7 @@ const FIELD_LABEL: Record<BulkImportField, string> = {
   firstName: "First name *",
   lastName: "Last name",
   email: "Email",
+  phone: "Phone",
   group: "Group",
   title: "Title",
   capabilities: "Capabilities",
@@ -25,6 +26,7 @@ const SYNONYMS: Record<BulkImportField, string[]> = {
   firstName: ["first", "firstname", "first name", "given"],
   lastName: ["last", "lastname", "last name", "surname", "family"],
   email: ["email", "e-mail", "mail"],
+  phone: ["phone", "phone number", "telephone", "tel", "mobile", "cell", "cell phone"],
   group: ["group", "class", "classroom", "household", "room"],
   title: ["title", "role"],
   capabilities: ["capabilities", "capability", "caps", "roles", "type"],
@@ -67,6 +69,7 @@ export function Import() {
       firstName: cell(r, mapping.firstName ?? -1),
       lastName: cell(r, mapping.lastName ?? -1) || undefined,
       email: cell(r, mapping.email ?? -1) || undefined,
+      phone: cell(r, mapping.phone ?? -1) || undefined,
       group: cell(r, mapping.group ?? -1) || undefined,
       title: cell(r, mapping.title ?? -1) || undefined,
       capabilities: cell(r, mapping.capabilities ?? -1) || undefined,
@@ -90,7 +93,7 @@ export function Import() {
       <SectLabel>Upload a CSV</SectLabel>
       <div className="sd-card sd-card-pad" style={{ marginTop: 9, display: "flex", flexDirection: "column", gap: 12 }}>
         <p className="sd-meta" style={{ lineHeight: 1.5 }}>
-          Columns: first name, last name, email, group, title, capabilities. Email rows queue an invite.
+          Columns: first name, last name, email, phone, group, title, capabilities. Email rows queue an invite.
           Re-running the same file makes no duplicate changes.
         </p>
         <label className="sd-btn sd-btn-secondary" style={{ alignSelf: "flex-start", cursor: "pointer" }}>
@@ -129,7 +132,7 @@ export function Import() {
                 <div key={i} className="sd-crow" style={{ alignItems: "center" }}>
                   <div className="sd-cmain">
                     <div style={{ fontSize: 13.5, fontWeight: 700 }}>{[r.firstName, r.lastName].filter(Boolean).join(" ") || "—"}</div>
-                    <div className="sd-meta">{[r.email, r.group && `· ${r.group}`, r.title && `· ${r.title}`, r.capabilities && `· ${r.capabilities}`].filter(Boolean).join(" ")}</div>
+                    <div className="sd-meta">{[r.email, r.phone && `· ${r.phone}`, r.group && `· ${r.group}`, r.title && `· ${r.title}`, r.capabilities && `· ${r.capabilities}`].filter(Boolean).join(" ")}</div>
                   </div>
                 </div>
               ))}
