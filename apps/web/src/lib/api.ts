@@ -161,8 +161,8 @@ export const api = {
     const qs = q.toString();
     return request<{ entries: AuditEntryDTO[]; nextBefore: string | null }>(`/admin/audit${qs ? `?${qs}` : ""}`);
   },
-  bulkImport: (rows: BulkImportRow[], dryRun: boolean) =>
-    request<BulkImportResult>("/admin/bulk-import", { method: "POST", body: JSON.stringify({ rows, dryRun }) }),
+  bulkImport: (rows: BulkImportRow[], dryRun: boolean, sendInvites = false) =>
+    request<BulkImportResult>("/admin/bulk-import", { method: "POST", body: JSON.stringify({ rows, dryRun, sendInvites }) }),
   getRegistration: () => request<{ open: boolean }>("/settings/registration"),
   setRegistration: (open: boolean) =>
     request<{ open: boolean }>("/settings/registration", { method: "PUT", body: JSON.stringify({ open }) }),

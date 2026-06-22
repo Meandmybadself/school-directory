@@ -51,6 +51,21 @@ export function magicLinkEmail(env: Env, link: string): SendArgs {
   };
 }
 
+/** Sent to people added via bulk import: a sign-in link that, when used, binds
+ *  the recipient as a controller of their imported listing (INVITE_TTL = 14 days). */
+export function directoryInviteEmail(env: Env, link: string, personName: string): SendArgs {
+  const school = env.SCHOOL_NAME;
+  const who = personName.trim() || "you";
+  return {
+    to: "",
+    subject: `You're listed in the ${school} School Directory`,
+    text: `${who} has been added to the ${school} School Directory.\n\nSign in to view the directory and manage your profile:\n${link}\n\nThis link expires in 14 days. If you weren't expecting this, you can ignore this email.`,
+    html: `<p><strong>${who}</strong> has been added to the <strong>${school} School Directory</strong>.</p>
+<p><a href="${link}">Sign in to view the directory and manage your profile</a></p>
+<p style="color:#56636f;font-size:13px">This link expires in 14 days. If you weren't expecting this, you can ignore this email.</p>`,
+  };
+}
+
 export function inviteEmail(
   env: Env,
   link: string,

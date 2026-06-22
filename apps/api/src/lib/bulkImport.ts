@@ -13,6 +13,14 @@ import { randomToken, sha256 } from "./crypto.js";
 const CAPS: Capability[] = ["parent", "teacher", "staff", "student", "household_admin"];
 const MAX_ROWS = 2000;
 
+/** A pending invite created during a committed import. Holds the raw token so the
+ *  caller can build a sign-in link — never serialize this to the client. */
+export interface QueuedInvite {
+  email: string;
+  token: string;
+  personName: string;
+}
+
 function parseCaps(raw: string | undefined): Capability[] {
   if (!raw) return [];
   return raw
@@ -25,7 +33,8 @@ export async function runBulkImport(
   env: Env,
   rows: BulkImportRow[],
   dryRun: boolean,
-): Promise<BulkImportResult> {
+): Promise<{ result: BulkImportResult; invites: QueuedInvite[] }> {
+  const invites: QueuedInvite[] = [];
   const result: BulkImportResult = {
     dryRun,
     rowsProcessed: 0,
@@ -40,7 +49,7 @@ export async function runBulkImport(
 
   if (rows.length > MAX_ROWS) {
     result.errors.push({ row: 0, message: `Too many rows (max ${MAX_ROWS}).` });
-    return result;
+    return { result, invites };
   }
 
   // In-memory state so the plan is consistent within one import (dry or real).
@@ -102,7 +111,10 @@ export async function runBulkImport(
           if (!inviteSeen.has(ikey) && !(await hasPendingInvite(env, personId, email))) {
             inviteSeen.add(ikey);
             result.invitesQueued++;
-            if (commit) await queueInvite(env, personId, email);
+            if (commit) {
+              const token = await queueInvite(env, personId, email);
+              invites.push({ email, token, personName: [firstName, lastName].filter(Boolean).join(" ") });
+            }
           }
         }
       }
@@ -179,7 +191,7 @@ export async function runBulkImport(
     }
   }
 
-  return result;
+  return { result, invites };
 
   // ── helpers (closures share synthId for dry-run) ──────────────────────────
   async function resolvePerson(
@@ -280,7 +292,7 @@ export async function runBulkImport(
     return !!row;
   }
 
-  async function queueInvite(e: Env, personId: string, email: string): Promise<void> {
+  async function queueInvite(e: Env, personId: string, email: string): Promise<string> {
     const token = randomToken();
     const tokenHash = await sha256(token);
     await e.DB.batch([
@@ -293,5 +305,6 @@ export async function runBulkImport(
          VALUES (?,?, 'invite', ?, ?, NULL, 1, ?, ?)`,
       ).bind(ulid(), email, tokenHash, personId, isoPlus(INVITE_TTL), nowIso()),
     ]);
+    return token;
   }
 }

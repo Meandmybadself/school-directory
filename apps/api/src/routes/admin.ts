@@ -12,9 +12,25 @@ import { ulid } from "../lib/ids.js";
 import { isoPlus, isExpired, nowIso, MAGIC_LINK_TTL, MASQUERADE_TTL, SESSION_TTL } from "../lib/time.js";
 import { setSessionCookie, clearActivePersonCookie } from "../lib/cookies.js";
 import { findUserByEmail, normalizeEmail } from "../lib/db.js";
-import { magicLinkEmail, sendEmail } from "../lib/email.js";
+import { magicLinkEmail, directoryInviteEmail, sendEmail } from "../lib/email.js";
+import type { QueuedInvite } from "../lib/bulkImport.js";
 
 export const admin = new Hono<HonoEnv>();
+
+/** Email bulk-import sign-in links in small batches so a large import doesn't
+ *  fire thousands of Resend calls at once. Failures are swallowed by sendEmail. */
+async function sendBulkInvites(env: Env, origin: string, invites: QueuedInvite[]): Promise<void> {
+  const CONCURRENCY = 5;
+  for (let i = 0; i < invites.length; i += CONCURRENCY) {
+    await Promise.all(
+      invites.slice(i, i + CONCURRENCY).map((inv) => {
+        const msg = directoryInviteEmail(env, `${origin}/auth/callback?t=${inv.token}`, inv.personName);
+        msg.to = inv.email;
+        return sendEmail(env, msg);
+      }),
+    );
+  }
+}
 
 /** GET /admin/users — directory of Users (system admins only). */
 admin.get("/users", async (c) => {
@@ -83,12 +99,17 @@ admin.post("/users", async (c) => {
 admin.post("/bulk-import", async (c) => {
   const auth = requireAuth(c);
   if (!auth.isSystemAdmin) return c.json({ error: "forbidden" }, 403);
-  const body = await c.req.json<{ rows: BulkImportRow[]; dryRun?: boolean }>().catch(() => null);
+  const body = await c.req.json<{ rows: BulkImportRow[]; dryRun?: boolean; sendInvites?: boolean }>().catch(() => null);
   if (!body || !Array.isArray(body.rows)) return c.json({ error: "invalid_body" }, 400);
 
   const dryRun = body.dryRun !== false; // default to a safe dry-run
-  const result = await runBulkImport(c.env, body.rows, dryRun);
+  const sendInvites = body.sendInvites === true; // opt-in: email new members a sign-in link
+  const { result, invites } = await runBulkImport(c.env, body.rows, dryRun);
   if (!dryRun) {
+    const emailsSent = sendInvites ? invites.length : 0;
+    if (emailsSent > 0) {
+      c.executionCtx.waitUntil(sendBulkInvites(c.env, new URL(c.req.url).origin, invites));
+    }
     c.var.audit.push({
       action: "bulk.import",
       entityKind: "import",
@@ -98,6 +119,7 @@ admin.post("/bulk-import", async (c) => {
         personsCreated: result.personsCreated,
         groupsCreated: result.groupsCreated,
         invitesQueued: result.invitesQueued,
+        emailsSent,
       },
     });
   }

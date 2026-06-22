@@ -47,9 +47,10 @@ export function Import() {
   const [headers, setHeaders] = useState<string[]>([]);
   const [rows, setRows] = useState<string[][]>([]);
   const [mapping, setMapping] = useState<Record<BulkImportField, number>>({} as Record<BulkImportField, number>);
-  const [result, setResult] = useState<(BulkImportResult & { committed?: boolean }) | null>(null);
+  const [result, setResult] = useState<(BulkImportResult & { committed?: boolean; emailed?: boolean }) | null>(null);
   const [busy, setBusy] = useState(false);
   const [fileName, setFileName] = useState("");
+  const [sendInvites, setSendInvites] = useState(false);
 
   if (me && !me.user.isSystemAdmin) return <Navigate to="/" replace />;
 
@@ -81,8 +82,8 @@ export function Import() {
   const run = async (dryRun: boolean) => {
     setBusy(true);
     try {
-      const r = await api.bulkImport(importRows, dryRun);
-      setResult({ ...r, committed: !dryRun });
+      const r = await api.bulkImport(importRows, dryRun, sendInvites);
+      setResult({ ...r, committed: !dryRun, emailed: !dryRun && sendInvites });
     } finally {
       setBusy(false);
     }
@@ -93,8 +94,9 @@ export function Import() {
       <SectLabel>Upload a CSV</SectLabel>
       <div className="sd-card sd-card-pad" style={{ marginTop: 9, display: "flex", flexDirection: "column", gap: 12 }}>
         <p className="sd-meta" style={{ lineHeight: 1.5 }}>
-          Columns: first name, last name, email, phone, group, title, capabilities. Email rows queue an invite.
-          Re-running the same file makes no duplicate changes.
+          Columns: first name, last name, email, phone, group, title, capabilities. Rows with an email get a
+          pending invite; check the box below to also email them a sign-in link. Re-running the same file makes
+          no duplicate changes.
         </p>
         <label className="sd-btn sd-btn-secondary" style={{ alignSelf: "flex-start", cursor: "pointer" }}>
           <Icon name="upload" size={16} />{fileName || "Choose CSV file"}
@@ -140,7 +142,12 @@ export function Import() {
             </div>
           </div>
 
-          <div className="sd-row" style={{ gap: 9, marginTop: 16 }}>
+          <label className="sd-row" style={{ gap: 8, marginTop: 16, cursor: "pointer", alignItems: "center" }}>
+            <input type="checkbox" checked={sendInvites} onChange={(e) => setSendInvites(e.target.checked)} />
+            <span className="sd-meta">Email a sign-in link to people who have an email address.</span>
+          </label>
+
+          <div className="sd-row" style={{ gap: 9, marginTop: 12 }}>
             <Btn kind="secondary" icon="eye" disabled={!mappedOk || busy} onClick={() => void run(true)}>Dry run</Btn>
             <Btn icon="upload" disabled={!mappedOk || busy} onClick={() => void run(false)}>Import</Btn>
           </div>
@@ -157,7 +164,9 @@ export function Import() {
             Rows processed: {result.rowsProcessed}<br />
             People created: {result.personsCreated} · matched: {result.personsMatched}<br />
             Groups created: {result.groupsCreated} · memberships: {result.membershipsCreated}<br />
-            Invites queued: {result.invitesQueued}
+            {result.emailed
+              ? `Invite emails sent: ${result.invitesQueued}`
+              : `Invites created${result.committed ? " (not emailed)" : ""}: ${result.invitesQueued}`}
           </div>
           {result.errors.length > 0 && (
             <div style={{ marginTop: 8 }}>
