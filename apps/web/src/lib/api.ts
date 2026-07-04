@@ -179,6 +179,8 @@ export const api = {
   calendarSources: () => request<{ sources: CalendarSourceDTO[] }>("/admin/calendar-sources"),
   addCalendarSource: (body: CalendarSourceInput) =>
     request<{ source: CalendarSourceDTO }>("/admin/calendar-sources", { method: "POST", body: JSON.stringify(body) }),
+  updateCalendarSource: (id: string, body: Partial<CalendarSourceInput>) =>
+    request<{ source: CalendarSourceDTO }>(`/admin/calendar-sources/${id}`, { method: "PATCH", body: JSON.stringify(body) }),
   deleteCalendarSource: (id: string) =>
     request<{ ok: true }>(`/admin/calendar-sources/${id}`, { method: "DELETE" }),
   refreshCalendar: () =>

@@ -2,7 +2,7 @@
 // 4-up Neighbors row and the groups list.
 import { useEffect, useState, type ReactNode } from "react";
 import { useNavigate } from "react-router-dom";
-import type { CalendarEventDTO, GroupSummaryDTO, NeighborsResponse, PersonProfileDTO } from "@sd/shared";
+import { htmlToText, type CalendarEventDTO, type GroupSummaryDTO, type NeighborsResponse, type PersonProfileDTO } from "@sd/shared";
 import { Icon } from "../components/Icon.js";
 import { Btn } from "../components/atoms.js";
 import type { I18nT } from "../i18n/index.js";
@@ -10,6 +10,7 @@ import { AppBar, IconBtn, SectLabel, GroupTile, NeighborCard, CTACard } from "..
 import { AppShell, BottomNav } from "../components/AppShell.js";
 import { DesktopShell } from "../components/DesktopShell.js";
 import { PersonSwitcherSheet, LanguageSheet, LanguageButton } from "../components/Sheets.js";
+import { showsDescription, showsAllDayLabel } from "../lib/calendar.js";
 import { useSession } from "../lib/session.js";
 import { useIsDesktop } from "../lib/useIsDesktop.js";
 import { api, mediaUrl } from "../lib/api.js";
@@ -57,7 +58,14 @@ interface ViewProps {
   events: CalendarEventDTO[] | null;
 }
 
+/** Height of a single event card. Rows are uniform so the 2-row clip lands on a
+ *  row boundary. */
+const CARD_H = 70;
+/** Wrapping grid clipped to 2 card rows: pad + 2·card + inter-row gap + pad. */
+const GRID_MAX_H = 12 + CARD_H * 2 + 8 + 12;
+
 /** Compact upcoming-events block for Home; hidden entirely when there's nothing.
+ *  Events lay out as a wrapping grid of cards, clipped to a max of 2 rows.
  *  `half` constrains it to 50% width (desktop only). */
 function EventsSection({ events, half }: { events: CalendarEventDTO[] | null; half?: boolean }) {
   const { t, locale } = useI18n();
@@ -68,7 +76,7 @@ function EventsSection({ events, half }: { events: CalendarEventDTO[] | null; ha
       <SectLabel action={<button className="sd-btn sd-btn-ghost sd-btn-sm" style={{ height: 24, padding: "0 4px" }} onClick={() => navigate("/calendar")}>{t("seeAll")}</button>}>
         {t("upcomingEvents")}
       </SectLabel>
-      <div className="sd-card sd-card-pad" style={{ marginTop: 9, paddingTop: 4, paddingBottom: 4, display: "flex", flexDirection: "column" }}>
+      <div className="sd-card" style={{ marginTop: 9, padding: 12, display: "flex", flexWrap: "wrap", gap: 8, maxHeight: GRID_MAX_H, overflow: "hidden" }}>
         {events.map((e) => <HomeEventRow key={e.id} e={e} locale={locale} t={t} onClick={() => navigate("/calendar")} />)}
       </div>
     </div>
@@ -79,12 +87,21 @@ function HomeEventRow({ e, locale, t, onClick }: { e: CalendarEventDTO; locale: 
   const d = new Date(e.start);
   const dateLabel = d.toLocaleDateString(locale, { weekday: "short", month: "short", day: "numeric" });
   const timeLabel = e.allDay ? t("allDay") : d.toLocaleTimeString(locale, { hour: "numeric", minute: "2-digit" });
+  const showTime = e.allDay ? showsAllDayLabel(e) : true;
+  const ellipsis = { overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } as const;
   return (
-    <button type="button" onClick={onClick} className="sd-crow" style={{ gap: 11, border: 0, background: "transparent", width: "100%", textAlign: "left", font: "inherit", cursor: "pointer", alignItems: "flex-start" }}>
-      <span style={{ width: 4, alignSelf: "stretch", borderRadius: 4, background: e.source.color, flex: "0 0 auto", minHeight: 18 }} />
-      <div className="sd-cmain" style={{ minWidth: 0 }}>
-        <div style={{ fontSize: 14, fontWeight: 700, lineHeight: 1.3 }}>{e.title}</div>
-        <div className="sd-meta">{dateLabel} · {timeLabel}{e.location ? ` · ${e.location}` : ""}</div>
+    <button
+      type="button"
+      onClick={onClick}
+      style={{ flex: "1 1 200px", minWidth: 0, height: CARD_H, overflow: "hidden", display: "flex", gap: 9, alignItems: "flex-start", border: "1px solid var(--line)", borderRadius: 10, background: "var(--paper)", padding: "9px 11px", textAlign: "left", font: "inherit", cursor: "pointer" }}
+    >
+      <span style={{ width: 4, alignSelf: "stretch", borderRadius: 4, background: e.source.color, flex: "0 0 auto" }} />
+      <div style={{ minWidth: 0, flex: 1 }}>
+        <div style={{ fontSize: 13.5, fontWeight: 700, lineHeight: 1.3, ...ellipsis }}>{e.title}</div>
+        {showsDescription(e) && (
+          <div style={{ fontSize: 12, lineHeight: 1.35, color: "var(--ink-2)", ...ellipsis }}>{htmlToText(e.description!)}</div>
+        )}
+        <div className="sd-meta" style={ellipsis}>{dateLabel}{showTime ? ` · ${timeLabel}` : ""}{e.location ? ` · ${e.location}` : ""}</div>
       </div>
     </button>
   );

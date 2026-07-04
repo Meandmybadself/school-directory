@@ -17,7 +17,7 @@ const ACTION_FILTERS = [
   "", "auth.signin", "invite.sent", "invite.accepted", "control.granted",
   "masquerade.start", "masquerade.stop", "share.created", "share.revoked",
   "person.updated", "contact.created", "contact.updated", "registration.toggled", "admin.action",
-  "calendar.source.created", "calendar.source.deleted", "calendar.refreshed",
+  "calendar.source.created", "calendar.source.updated", "calendar.source.deleted", "calendar.refreshed",
 ];
 
 function fmtTime(iso: string): string {
@@ -28,7 +28,81 @@ function fmtTime(iso: string): string {
   }
 }
 
-/** ICS calendar feeds — add/remove sources and trigger a refresh. Events
+/** A single calendar feed row: read-only summary, or an inline edit form for
+ *  its name / URL / color when the pencil is tapped. */
+function SourceRow({ source: s, onSave, onRemove }: {
+  source: CalendarSourceDTO;
+  onSave: (id: string, patch: { name: string; url: string; color: string }) => Promise<void>;
+  onRemove: (id: string) => void;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [name, setName] = useState(s.name);
+  const [url, setUrl] = useState(s.url);
+  const [color, setColor] = useState(s.color);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const startEdit = () => {
+    setName(s.name);
+    setUrl(s.url);
+    setColor(s.color);
+    setError(null);
+    setEditing(true);
+  };
+  const submit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!name.trim() || !/^https?:\/\//i.test(url.trim())) {
+      setError("Enter a name and a valid http(s) URL.");
+      return;
+    }
+    setBusy(true);
+    setError(null);
+    try {
+      await onSave(s.id, { name: name.trim(), url: url.trim(), color });
+      setEditing(false);
+    } catch {
+      setError("Couldn't save — check the URL.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  if (editing) {
+    return (
+      <form onSubmit={submit} className="sd-crow" style={{ flexDirection: "column", alignItems: "stretch", gap: 8 }}>
+        <input className="sd-input" placeholder="Feed name" value={name} onChange={(e) => setName(e.target.value)} />
+        <input className="sd-input" placeholder="https://…/calendar.ics" value={url} onChange={(e) => setUrl(e.target.value)} />
+        <div className="sd-row" style={{ gap: 8 }}>
+          <input type="color" value={color} onChange={(e) => setColor(e.target.value)} aria-label="Tag color" style={{ width: 42, height: 38, padding: 0, border: "1px solid var(--line)", borderRadius: 8, background: "none", cursor: "pointer" }} />
+          <Btn type="submit" icon="check" disabled={busy || !name.trim() || !url.trim()} style={{ flex: 1 }}>Save</Btn>
+          <Btn type="button" kind="secondary" onClick={() => setEditing(false)} disabled={busy}>Cancel</Btn>
+        </div>
+        {error && <div className="sd-meta" style={{ color: "var(--warn)" }}>{error}</div>}
+      </form>
+    );
+  }
+  return (
+    <div className="sd-crow" style={{ alignItems: "center", gap: 10 }}>
+      <span style={{ width: 12, height: 12, borderRadius: 3, background: s.color, flex: "0 0 auto" }} />
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ fontWeight: 700, fontSize: 14 }}>{s.name}</div>
+        <div className="sd-meta" style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{s.url}</div>
+        <div className="sd-meta" style={{ color: s.lastStatus === "error" ? "var(--warn)" : undefined }}>
+          {s.lastStatus === "error" ? `⚠ ${s.lastError ?? "fetch failed"}` : `${s.eventCount} events`}
+          {s.lastFetchedAt ? ` · ${fmtTime(s.lastFetchedAt)}` : " · never fetched"}
+        </div>
+      </div>
+      <button aria-label="Edit" onClick={startEdit} style={{ background: "none", border: 0, color: "var(--ink-3)", cursor: "pointer" }}>
+        <Icon name="pencil" size={16} />
+      </button>
+      <button aria-label="Remove" onClick={() => onRemove(s.id)} style={{ background: "none", border: 0, color: "var(--ink-3)", cursor: "pointer" }}>
+        <Icon name="x" size={18} />
+      </button>
+    </div>
+  );
+}
+
+/** ICS calendar feeds — add/edit/remove sources and trigger a refresh. Events
  *  populate via the cron job; adding a source fetches it immediately. */
 function CalendarSourcesSection() {
   const [sources, setSources] = useState<CalendarSourceDTO[]>([]);
@@ -61,6 +135,10 @@ function CalendarSourcesSection() {
     await api.deleteCalendarSource(id).catch(() => {});
     load();
   };
+  const save = async (id: string, patch: { name: string; url: string; color: string }) => {
+    await api.updateCalendarSource(id, patch);
+    load();
+  };
   const refreshNow = async () => {
     setBusy(true);
     try {
@@ -78,20 +156,7 @@ function CalendarSourcesSection() {
       </SectLabel>
       <div className="sd-card sd-card-pad" style={{ marginTop: 9 }}>
         {sources.map((s) => (
-          <div key={s.id} className="sd-crow" style={{ alignItems: "center", gap: 10 }}>
-            <span style={{ width: 12, height: 12, borderRadius: 3, background: s.color, flex: "0 0 auto" }} />
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ fontWeight: 700, fontSize: 14 }}>{s.name}</div>
-              <div className="sd-meta" style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{s.url}</div>
-              <div className="sd-meta" style={{ color: s.lastStatus === "error" ? "var(--warn)" : undefined }}>
-                {s.lastStatus === "error" ? `⚠ ${s.lastError ?? "fetch failed"}` : `${s.eventCount} events`}
-                {s.lastFetchedAt ? ` · ${fmtTime(s.lastFetchedAt)}` : " · never fetched"}
-              </div>
-            </div>
-            <button aria-label="Remove" onClick={() => void remove(s.id)} style={{ background: "none", border: 0, color: "var(--ink-3)", cursor: "pointer" }}>
-              <Icon name="x" size={18} />
-            </button>
-          </div>
+          <SourceRow key={s.id} source={s} onSave={save} onRemove={remove} />
         ))}
         {sources.length === 0 && <div className="sd-meta" style={{ padding: "8px 0" }}>No calendar feeds yet.</div>}
         <form onSubmit={add} style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 10, borderTop: "1px solid var(--line)", paddingTop: 12 }}>

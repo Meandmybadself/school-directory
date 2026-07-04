@@ -13,6 +13,7 @@ import { ScreenHeader, SectLabel, SheetOver } from "../components/parts.js";
 import { useI18n } from "../i18n/index.js";
 import { useIsDesktop } from "../lib/useIsDesktop.js";
 import { api } from "../lib/api.js";
+import { showsDescription, showsAllDayLabel, showsTitle } from "../lib/calendar.js";
 
 const HIDDEN_KEY = "sd_cal_hidden";
 
@@ -53,20 +54,29 @@ function timeOf(e: CalendarEventDTO, locale: string, t: ReturnType<typeof useI18
   return e.allDay ? t("allDay") : new Date(e.start).toLocaleTimeString(locale, { hour: "numeric", minute: "2-digit" });
 }
 
+
 function EventRow({ e, locale, onOpen }: { e: CalendarEventDTO; locale: string; onOpen: () => void }) {
   const { t } = useI18n();
+  const showTime = e.allDay ? showsAllDayLabel(e) : true;
+  const showTitle = showsTitle(e);
   return (
-    <button type="button" onClick={onOpen} className="sd-crow" style={{ gap: 11, border: 0, background: "transparent", width: "100%", textAlign: "left", font: "inherit", cursor: "pointer", alignItems: "flex-start" }}>
-      <div style={{ width: 64, flex: "0 0 auto", fontSize: 12.5, fontWeight: 700, color: "var(--ink-2)", paddingTop: 1 }}>{timeOf(e, locale, t)}</div>
+    <button
+      type="button"
+      onClick={onOpen}
+      style={{ display: "flex", gap: 9, alignItems: "flex-start", border: "1px solid var(--line)", borderRadius: 10, background: "var(--paper)", padding: "10px 12px", textAlign: "left", font: "inherit", cursor: "pointer", minWidth: 0 }}
+    >
       <span style={{ width: 4, alignSelf: "stretch", borderRadius: 4, background: e.source.color, flex: "0 0 auto", minHeight: 18 }} />
-      <div className="sd-cmain" style={{ minWidth: 0 }}>
-        <div style={{ fontSize: 14.5, fontWeight: 700, lineHeight: 1.3 }}>{e.title}</div>
+      <div style={{ minWidth: 0, flex: 1 }}>
+        {showTime && <div style={{ fontSize: 12.5, fontWeight: 700, color: "var(--ink-2)" }}>{timeOf(e, locale, t)}</div>}
+        {showTitle && <div style={{ fontSize: 14.5, fontWeight: 700, lineHeight: 1.3, marginTop: showTime ? 1 : 0 }}>{e.title}</div>}
+        {showsDescription(e) && (
+          <div style={{ fontSize: 13, lineHeight: 1.45, color: "var(--ink-2)", whiteSpace: "pre-wrap", wordBreak: "break-word", marginTop: 3 }}>{htmlToText(e.description!)}</div>
+        )}
         <div className="sd-row" style={{ gap: 8, flexWrap: "wrap", marginTop: 2 }}>
           {e.location && <span className="sd-meta">{e.location}</span>}
           <span className="sd-meta" style={{ color: e.source.color, fontWeight: 600 }}>{e.source.name}</span>
         </div>
       </div>
-      <Icon name="chevright" size={16} style={{ color: "var(--ink-3)", flex: "0 0 auto", marginTop: 3 }} />
     </button>
   );
 }
@@ -129,6 +139,7 @@ function EventDetailSheet({ e, locale, onClose }: { e: CalendarEventDTO; locale:
   const start = new Date(e.start);
   const end = e.end ? new Date(e.end) : null;
   const dateStr = start.toLocaleDateString(locale, { weekday: "long", month: "long", day: "numeric" });
+  const showTime = e.allDay ? showsAllDayLabel(e) : true;
   let timeStr: string;
   if (e.allDay) {
     timeStr = t("allDay");
@@ -143,10 +154,10 @@ function EventDetailSheet({ e, locale, onClose }: { e: CalendarEventDTO; locale:
         <span style={{ width: 10, height: 10, borderRadius: 3, background: e.source.color, flex: "0 0 auto" }} />
         <span className="sd-meta" style={{ color: e.source.color, fontWeight: 700 }}>{e.source.name}</span>
       </div>
-      <h2 className="sd-h2" style={{ marginBottom: 10 }}>{e.title}</h2>
+      {showsTitle(e) && <h2 className="sd-h2" style={{ marginBottom: 10 }}>{e.title}</h2>}
       <div className="sd-row" style={{ gap: 9, marginBottom: e.location ? 8 : 14 }}>
         <Icon name="calendar" size={17} style={{ color: "var(--ink-3)", flex: "0 0 auto" }} />
-        <div style={{ fontSize: 14 }}>{dateStr}<span style={{ color: "var(--ink-3)" }}> · {timeStr}</span></div>
+        <div style={{ fontSize: 14 }}>{dateStr}{showTime && <span style={{ color: "var(--ink-3)" }}> · {timeStr}</span>}</div>
       </div>
       {e.location && (
         <div className="sd-row" style={{ gap: 9, marginBottom: 14 }}>
@@ -154,8 +165,8 @@ function EventDetailSheet({ e, locale, onClose }: { e: CalendarEventDTO; locale:
           <a href={googleMapsUrl(e.location)} target="_blank" rel="noopener noreferrer" className="sd-link" style={{ fontSize: 14 }}>{e.location}</a>
         </div>
       )}
-      {e.description && (
-        <div style={{ fontSize: 13.5, lineHeight: 1.5, color: "var(--ink-2)", whiteSpace: "pre-wrap", wordBreak: "break-word", borderTop: "1px solid var(--line)", paddingTop: 12 }}>{htmlToText(e.description)}</div>
+      {showsDescription(e) && (
+        <div style={{ fontSize: 13.5, lineHeight: 1.5, color: "var(--ink-2)", whiteSpace: "pre-wrap", wordBreak: "break-word", borderTop: "1px solid var(--line)", paddingTop: 12 }}>{htmlToText(e.description!)}</div>
       )}
       <Btn block kind="secondary" style={{ marginTop: 16 }} onClick={onClose}>{t("done")}</Btn>
     </SheetOver>
@@ -203,14 +214,16 @@ export function Calendar() {
       {events && visible.length === 0 && (
         <div className="sd-card sd-card-pad sd-meta" style={{ textAlign: "center", padding: "28px 16px" }}>{t("noEvents")}</div>
       )}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(240px, 1fr))", gap: 16, alignItems: "start" }}>
       {groups.map((g) => (
         <div key={g.key}>
           <SectLabel>{g.date.toLocaleDateString(locale, { weekday: "long", month: "long", day: "numeric" })}</SectLabel>
-          <div className="sd-card sd-card-pad" style={{ marginTop: 9, paddingTop: 4, paddingBottom: 4, display: "flex", flexDirection: "column" }}>
+          <div className="sd-card" style={{ marginTop: 9, padding: 12, display: "flex", flexDirection: "column", gap: 8 }}>
             {g.events.map((e) => <EventRow key={e.id} e={e} locale={locale} onOpen={() => setSelected(e)} />)}
           </div>
         </div>
       ))}
+      </div>
     </>
   );
 
