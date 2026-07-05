@@ -54,6 +54,15 @@ function RequireAuth({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
+/** Auth entry points (sign-in). A visitor who already has a valid session is
+ *  sent straight to Home rather than shown the login form. */
+function RedirectIfAuthed({ children }: { children: React.ReactNode }) {
+  const { loading, me } = useSession();
+  if (loading) return <Loading />;
+  if (me) return <Navigate to="/" replace />;
+  return <>{children}</>;
+}
+
 /** Routes that act on an active Person; a user with none is sent to onboarding. */
 function RequireProfile({ children }: { children: React.ReactNode }) {
   const { loading, me } = useSession();
@@ -66,7 +75,7 @@ function RequireProfile({ children }: { children: React.ReactNode }) {
 export function App() {
   return (
     <Routes>
-      <Route path="/sign-in" element={<SignIn />} />
+      <Route path="/sign-in" element={<RedirectIfAuthed><SignIn /></RedirectIfAuthed>} />
       <Route path="/check-email" element={<CheckEmail />} />
 
       <Route path="/welcome" element={<RequireAuth><CreateProfile /></RequireAuth>} />
