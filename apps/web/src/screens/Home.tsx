@@ -65,14 +65,13 @@ const CARD_H = 70;
 const GRID_MAX_H = 12 + CARD_H * 2 + 8 + 12;
 
 /** Compact upcoming-events block for Home; hidden entirely when there's nothing.
- *  Events lay out as a wrapping grid of cards, clipped to a max of 2 rows.
- *  `half` constrains it to 50% width (desktop only). */
-function EventsSection({ events, half }: { events: CalendarEventDTO[] | null; half?: boolean }) {
+ *  Events lay out as a wrapping grid of cards, clipped to a max of 2 rows. */
+function EventsSection({ events }: { events: CalendarEventDTO[] | null }) {
   const { t, locale } = useI18n();
   const navigate = useNavigate();
   if (!events || events.length === 0) return null;
   return (
-    <div style={half ? { maxWidth: "50%" } : undefined}>
+    <div>
       <SectLabel action={<button className="sd-btn sd-btn-ghost sd-btn-sm" style={{ height: 24, padding: "0 4px" }} onClick={() => navigate("/calendar")}>{t("seeAll")}</button>}>
         {t("upcomingEvents")}
       </SectLabel>
@@ -108,14 +107,12 @@ function HomeEventRow({ e, locale, t, onClick }: { e: CalendarEventDTO; locale: 
 }
 
 function useNeighborCards(list: ViewProps["list"]) {
-  const { t } = useI18n();
   const navigate = useNavigate();
   return (list ?? []).map((n) => (
     <NeighborCard
       key={`${n.kind}:${n.id}`}
       name={n.name}
       dist={n.approxDistance}
-      memberText={t("member")}
       onClick={() => navigate(n.kind === "household" ? `/groups/${n.id}` : `/persons/${n.id}`)}
     />
   ));
@@ -164,7 +161,7 @@ function DesktopHome({ activePerson, groups, hasNeighbors, noAddress, list, even
   const cards = useNeighborCards(list);
   return (
     <DesktopShell active="home" title={t("navHome")}>
-      <EventsSection events={events} half />
+      <EventsSection events={events} />
       <div>
         <SectLabel action={hasNeighbors ? <button className="sd-btn sd-btn-ghost sd-btn-sm">{t("seeAll")}</button> : undefined}>
           {t("neighbors")}

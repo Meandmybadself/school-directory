@@ -313,12 +313,10 @@ export function GroupTile({
 export function NeighborCard({
   name,
   dist,
-  memberText = "Member",
   onClick,
 }: {
   name: string;
   dist: string;
-  memberText?: string;
   onClick?: () => void;
 }) {
   return (
@@ -343,7 +341,6 @@ export function NeighborCard({
       </div>
       <div>
         <div style={{ fontSize: 14.5, fontWeight: 700, letterSpacing: "-.2px", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{name}</div>
-        <div className="sd-meta" style={{ marginTop: 1 }}>{memberText}</div>
       </div>
     </div>
   );

@@ -218,7 +218,7 @@ export function Calendar() {
       {groups.map((g) => (
         <div key={g.key}>
           <SectLabel>{g.date.toLocaleDateString(locale, { weekday: "long", month: "long", day: "numeric" })}</SectLabel>
-          <div className="sd-card" style={{ marginTop: 9, padding: 12, display: "flex", flexDirection: "column", gap: 8 }}>
+          <div style={{ marginTop: 9, display: "flex", flexDirection: "column", gap: 8 }}>
             {g.events.map((e) => <EventRow key={e.id} e={e} locale={locale} onOpen={() => setSelected(e)} />)}
           </div>
         </div>
