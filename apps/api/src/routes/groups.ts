@@ -246,17 +246,20 @@ groups.get("/:id", async (c) => {
 // ── Group creation ──────────────────────────────────────────────────────────
 
 /**
- * POST /groups { kind, name } — create a group. Households are open to any
- * member; Classrooms require the Teacher capability (or system admin); generic
- * groups (School, Grades, clubs, …) are system-admin only. The creator's active
- * Person becomes the admin.
+ * POST /groups { kind, name, parentId? } — create a group. Households are open
+ * to any member; Classrooms require the Teacher capability (or system admin);
+ * generic groups (School, Grades, clubs, …) are system-admin only. The creator's
+ * active Person becomes the admin. Passing `parentId` creates it as a sub-group
+ * of that group — a hierarchy (school-structure) action: system-admin only, and
+ * households never nest.
  */
 groups.post("/", async (c) => {
   const auth = requireAuth(c);
   if (!auth.activePersonId) return c.json({ error: "no_active_person" }, 400);
-  const body = await c.req.json<{ kind: string; name: string }>().catch(() => null);
+  const body = await c.req.json<{ kind: string; name: string; parentId?: string | null }>().catch(() => null);
   const kind = body?.kind;
   const name = body?.name?.trim();
+  const parentId = body?.parentId || null;
   if (!name || (kind !== "household" && kind !== "classroom" && kind !== "generic")) {
     return c.json({ error: "invalid_body" }, 400);
   }
@@ -272,10 +275,22 @@ groups.post("/", async (c) => {
   // Generic groups (School / Grades / committees) are an admin construct.
   if (kind === "generic" && !auth.isSystemAdmin) return c.json({ error: "forbidden" }, 403);
 
+  // Nesting under a parent is system-admin-only, mirroring PATCH /:id/parent.
+  // Households never participate in the hierarchy (as child or parent).
+  if (parentId) {
+    if (!auth.isSystemAdmin) return c.json({ error: "forbidden" }, 403);
+    if (kind === "household") return c.json({ error: "households_dont_nest" }, 409);
+    const parent = await c.env.DB.prepare("SELECT kind FROM grp WHERE id = ?")
+      .bind(parentId)
+      .first<{ kind: string }>();
+    if (!parent) return c.json({ error: "parent_not_found" }, 404);
+    if (parent.kind === "household") return c.json({ error: "households_dont_nest" }, 409);
+  }
+
   const id = ulid();
   const title = kind === "classroom" ? "Teacher" : kind === "generic" ? "Admin" : "Parent";
   const stmts = [
-    c.env.DB.prepare("INSERT INTO grp (id, kind, name, created_at) VALUES (?,?,?,?)").bind(id, kind, name, nowIso()),
+    c.env.DB.prepare("INSERT INTO grp (id, kind, name, parent_id, created_at) VALUES (?,?,?,?,?)").bind(id, kind, name, parentId, nowIso()),
     c.env.DB.prepare(
       "INSERT INTO membership (group_id, person_id, title, is_admin, joined_at) VALUES (?,?,?,1,?)",
     ).bind(id, auth.activePersonId, title, nowIso()),
@@ -289,7 +304,7 @@ groups.post("/", async (c) => {
   }
   await c.env.DB.batch(stmts);
 
-  c.var.audit.push({ action: "admin.action", entityKind: "group", entityId: id, detail: { op: "group.create", kind } });
+  c.var.audit.push({ action: "admin.action", entityKind: "group", entityId: id, detail: { op: "group.create", kind, parentId } });
   return c.json({ id }, 201);
 });
 

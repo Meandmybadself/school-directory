@@ -117,7 +117,7 @@ export const api = {
   group: (id: string) => request<GroupDetailDTO>(`/groups/${id}`),
   searchGroups: (q: string) =>
     request<{ groups: GroupSummaryDTO[] }>(`/groups?q=${encodeURIComponent(q)}`),
-  createGroup: (body: { kind: GroupKind; name: string }) =>
+  createGroup: (body: { kind: GroupKind; name: string; parentId?: string }) =>
     request<{ id: string }>("/groups", { method: "POST", body: JSON.stringify(body) }),
   setGroupParent: (groupId: string, parentId: string | null) =>
     request<{ ok: true }>(`/groups/${groupId}/parent`, { method: "PATCH", body: JSON.stringify({ parentId }) }),

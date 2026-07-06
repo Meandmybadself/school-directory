@@ -30,6 +30,8 @@ export interface GroupActions {
   onEditContacts: () => void;
   /** Present only when the viewer may edit the hierarchy (system admin). */
   onSetParent?: () => void;
+  /** Present only when the viewer may edit the hierarchy (system admin). */
+  onCreateSubgroup?: () => void;
 }
 
 type Sheet =
@@ -37,13 +39,14 @@ type Sheet =
   | { type: "member"; member: GroupMemberDTO }
   | { type: "editContacts" }
   | { type: "setParent" }
+  | { type: "createSubgroup" }
   | null;
 
 export function GroupDetail() {
   const { id } = useParams();
   const isDesktop = useIsDesktop();
   const navigate = useNavigate();
-  const { me } = useSession();
+  const { me, activePerson } = useSession();
   const [g, setG] = useState<GroupDetailDTO | null>(null);
   const [error, setError] = useState<"forbidden" | "not_found" | null>(null);
   const [sheet, setSheet] = useState<Sheet>(null);
@@ -75,6 +78,7 @@ export function GroupDetail() {
     onMember: (member) => setSheet({ type: "member", member }),
     onEditContacts: () => setSheet({ type: "editContacts" }),
     onSetParent: canEditHierarchy ? () => setSheet({ type: "setParent" }) : undefined,
+    onCreateSubgroup: canEditHierarchy ? () => setSheet({ type: "createSubgroup" }) : undefined,
   };
   const onChanged = () => reload();
 
@@ -86,6 +90,15 @@ export function GroupDetail() {
         {sheet?.type === "addMember" && <AddMemberSheet groupId={g.id} onClose={() => setSheet(null)} onChanged={onChanged} />}
         {sheet?.type === "member" && <MemberSheet groupId={g.id} member={sheet.member} onClose={() => setSheet(null)} onChanged={onChanged} />}
         {sheet?.type === "setParent" && <SetParentSheet groupId={g.id} currentParentId={g.parentId ?? null} onClose={() => setSheet(null)} onChanged={onChanged} />}
+        {sheet?.type === "createSubgroup" && (
+          <CreateGroupSheet
+            parentId={g.id}
+            canCreateClassroom={!!activePerson?.capabilities.includes("teacher") || !!me?.user.isSystemAdmin}
+            canCreateGeneric={!!me?.user.isSystemAdmin}
+            onClose={() => setSheet(null)}
+            onCreated={() => { setSheet(null); onChanged(); }}
+          />
+        )}
         {sheet?.type === "editContacts" && (
           <EditContactsSheet
             groupId={g.id}
@@ -441,6 +454,9 @@ function MobileGroup({ g, actions }: { g: GroupDetailDTO; actions: GroupActions 
 
           <Subgroups g={g} />
 
+          {actions.onCreateSubgroup && (
+            <Btn block kind="secondary" icon="plus" onClick={actions.onCreateSubgroup}>{t("createSubgroup")}</Btn>
+          )}
           {actions.onSetParent && (
             <Btn block kind="secondary" icon="users3" onClick={actions.onSetParent}>{t("setParentGroup")}</Btn>
           )}
@@ -510,6 +526,9 @@ function DesktopGroup({ g, actions }: { g: GroupDetailDTO; actions: GroupActions
             )}
             {g.viewerIsAdmin && (
               <button className="sd-btn sd-btn-secondary sd-btn-sm" onClick={actions.onAddMember}><Icon name="plus" size={15} />{t("addMember")}</button>
+            )}
+            {actions.onCreateSubgroup && (
+              <button className="sd-btn sd-btn-secondary sd-btn-sm" onClick={actions.onCreateSubgroup}><Icon name="plus" size={15} />{t("createSubgroup")}</button>
             )}
             {actions.onSetParent && (
               <button className="sd-btn sd-btn-secondary sd-btn-sm" onClick={actions.onSetParent}><Icon name="users3" size={15} />{t("setParentGroup")}</button>

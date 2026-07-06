@@ -165,6 +165,7 @@ export interface Strings {
   groupName: string;
   create: string;
   createGroupChoose: string;
+  createSubgroup: string;
   subgroups: string;
   parentGroup: string;
   setParentGroup: string;
@@ -368,6 +369,7 @@ const en: Strings = {
   groupName: "Name",
   create: "Create",
   createGroupChoose: "What would you like to create?",
+  createSubgroup: "Create sub-group",
   subgroups: "Sub-groups",
   parentGroup: "Parent group",
   setParentGroup: "Set parent group",
@@ -499,6 +501,7 @@ const es: Strings = {
   genericGroup: "Grupo",
   genericGroupSub: "Escuela, grado, club o comité",
   genericManages: "{name} gestiona este grupo.",
+  createSubgroup: "Crear subgrupo",
   subgroups: "Subgrupos",
   parentGroup: "Grupo principal",
   setParentGroup: "Establecer grupo principal",
@@ -629,6 +632,7 @@ const zh: Strings = {
   genericGroup: "群组",
   genericGroupSub: "学校、年级、社团或委员会",
   genericManages: "{name} 管理此群组。",
+  createSubgroup: "创建子群组",
   subgroups: "子群组",
   parentGroup: "上级群组",
   setParentGroup: "设置上级群组",

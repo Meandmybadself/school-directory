@@ -151,26 +151,33 @@ export function MemberSheet({
 export function CreateGroupSheet({
   canCreateClassroom,
   canCreateGeneric,
+  parentId,
   onClose,
   onCreated,
 }: {
   canCreateClassroom: boolean;
   canCreateGeneric: boolean;
+  /** When set, the new group is created as a sub-group of this group. Households
+   *  never nest, so sub-group mode offers only Classroom / Generic. */
+  parentId?: string;
   onClose: () => void;
   onCreated: (id: string) => void;
 }) {
   const { t } = useI18n();
-  const [kind, setKind] = useState<"household" | "classroom" | "generic">("household");
+  const isSub = !!parentId;
+  const [kind, setKind] = useState<"household" | "classroom" | "generic">(isSub ? "generic" : "household");
   const [name, setName] = useState("");
   const [busy, setBusy] = useState(false);
-  // A chooser is only needed when more than the default Household is on offer.
-  const choose = canCreateClassroom || canCreateGeneric;
+  // Households can't be a child; sub-group mode drops that option. A chooser is
+  // only needed when more than one option is on offer.
+  const canHousehold = !isSub;
+  const choose = [canHousehold, canCreateClassroom, canCreateGeneric].filter(Boolean).length > 1;
 
   const create = async () => {
     if (!name.trim()) return;
     setBusy(true);
     try {
-      const { id } = await api.createGroup({ kind, name: name.trim() });
+      const { id } = await api.createGroup({ kind, name: name.trim(), ...(parentId ? { parentId } : {}) });
       onCreated(id);
     } finally {
       setBusy(false);
@@ -179,15 +186,16 @@ export function CreateGroupSheet({
 
   const placeholder =
     kind === "classroom" ? "Ms. Ruiz · Grade 4" : kind === "generic" ? "Grade 4 · Chess Club · Eisenhower" : "Ruiz–Lee household";
+  const heading = isSub ? t("createSubgroup") : choose ? t("createGroupChoose") : t("newHousehold");
 
   return (
     <SheetOver onClose={onClose}>
-      <h2 className="sd-h2" style={{ marginBottom: choose ? 14 : 10 }}>
-        {choose ? t("createGroupChoose") : t("newHousehold")}
-      </h2>
+      <h2 className="sd-h2" style={{ marginBottom: choose ? 14 : 10 }}>{heading}</h2>
       {choose && (
         <div style={{ display: "flex", flexDirection: "column", gap: 9, marginBottom: 16 }}>
-          <OptionRow icon="home" tone="members" title={t("household")} selected={kind === "household"} onClick={() => setKind("household")} />
+          {canHousehold && (
+            <OptionRow icon="home" tone="members" title={t("household")} selected={kind === "household"} onClick={() => setKind("household")} />
+          )}
           {canCreateClassroom && (
             <OptionRow icon="school" tone="shared" title={t("classroom")} selected={kind === "classroom"} onClick={() => setKind("classroom")} />
           )}
