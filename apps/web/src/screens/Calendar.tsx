@@ -70,7 +70,7 @@ function EventRow({ e, locale, onOpen }: { e: CalendarEventDTO; locale: string; 
         {showTime && <div style={{ fontSize: 12.5, fontWeight: 700, color: "var(--ink-2)" }}>{timeOf(e, locale, t)}</div>}
         {showTitle && <div style={{ fontSize: 14.5, fontWeight: 700, lineHeight: 1.3, marginTop: showTime ? 1 : 0 }}>{e.title}</div>}
         {showsDescription(e) && (
-          <div style={{ fontSize: 13, lineHeight: 1.45, color: "var(--ink-2)", whiteSpace: "pre-wrap", wordBreak: "break-word", marginTop: 3 }}>{htmlToText(e.description!)}</div>
+          <div style={{ fontSize: 13, lineHeight: 1.45, color: "var(--ink-2)", whiteSpace: "pre-wrap", wordBreak: "break-word", marginTop: 3, display: "-webkit-box", WebkitBoxOrient: "vertical", WebkitLineClamp: 3, overflow: "hidden" }}>{htmlToText(e.description!)}</div>
         )}
         <div className="sd-row" style={{ gap: 8, flexWrap: "wrap", marginTop: 2 }}>
           {e.location && <span className="sd-meta">{e.location}</span>}
