@@ -90,6 +90,7 @@ export interface Strings {
   editProfile: string;
   previewingAsMember: string;
   whatOthersSee: string;
+  hiddenFromMembers: string; // uses {count}
   exitPreview: string;
   contact: string;
   fromGroup: string; // uses {name}
@@ -293,6 +294,7 @@ const en: Strings = {
   editProfile: "Edit profile",
   previewingAsMember: "Previewing as a member",
   whatOthersSee: "This is what other members see",
+  hiddenFromMembers: "{count} hidden from members",
   exitPreview: "Exit preview",
   contact: "Contact",
   fromGroup: "via {name}",
@@ -480,6 +482,7 @@ const es: Strings = {
   editProfile: "Editar perfil",
   previewingAsMember: "Vista de un miembro",
   whatOthersSee: "Esto es lo que ven otros miembros",
+  hiddenFromMembers: "{count} oculto(s) para los miembros",
   exitPreview: "Salir",
   contact: "Contacto",
   fromGroup: "vía {name}",
@@ -611,6 +614,7 @@ const zh: Strings = {
   editProfile: "编辑资料",
   previewingAsMember: "以成员身份预览",
   whatOthersSee: "这是其他成员看到的内容",
+  hiddenFromMembers: "{count} 项对成员隐藏",
   exitPreview: "退出",
   contact: "联系方式",
   fromGroup: "来自 {name}",

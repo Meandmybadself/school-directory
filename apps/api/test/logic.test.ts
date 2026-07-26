@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { haversineMiles, approxDistance, boundingBox } from "../src/lib/geo.js";
-import { renderLastName, displayName } from "../src/lib/privacy.js";
+import { renderLastName, displayName, canSeeItem, type ContactItemRow } from "../src/lib/privacy.js";
 import { ulid } from "../src/lib/ids.js";
 import { buildGraph, ancestors, subtree, effectiveGroups, wouldCycle } from "../src/lib/groupTree.js";
 import { parseIcs, dedupeEvents, type CalendarRow } from "../src/lib/calendar.js";
@@ -36,6 +36,66 @@ describe("last-name rule", () => {
     expect(renderLastName("Ruiz", "initial", false)).toBe("R.");
     expect(displayName("Dana", "Ruiz", "full", false)).toBe("Dana Ruiz");
     expect(displayName("Dana", "Ruiz", "initial", false)).toBe("Dana R.");
+  });
+});
+
+describe("member's-eye preview (?as=member)", () => {
+  const viewer = { userId: "u_dana", personId: "p_dana" };
+  const item = (visibility: "service" | "private"): ContactItemRow => ({
+    id: "ci_1",
+    owner_kind: "person",
+    owner_id: "p_dana",
+    type: "phone",
+    label: null,
+    value: "555-0100",
+    visibility,
+    neighbor_discoverable: 0,
+    geo_lat: null,
+    geo_lng: null,
+  });
+  // Preview mode calls canSeeItem with the controller set and every share set
+  // emptied — the exact inputs a plain member would resolve against.
+  const asMember = (visibility: "service" | "private") =>
+    canSeeItem({
+      viewer,
+      item: item(visibility),
+      ownerControllerUserIds: new Set(),
+      sharedWithPersonIds: new Set(),
+      sharedWithGroupIds: new Set(),
+      viewerGroups: new Set(),
+    });
+
+  it("hides a controller's own private item", () => {
+    // Without the preview inputs the controller sees it; with them, they don't.
+    expect(
+      canSeeItem({
+        viewer,
+        item: item("private"),
+        ownerControllerUserIds: new Set(["u_dana"]),
+        sharedWithPersonIds: new Set(),
+        sharedWithGroupIds: new Set(),
+        viewerGroups: new Set(),
+      }),
+    ).toBe(true);
+    expect(asMember("private")).toBe(false);
+  });
+
+  it("keeps member-visible items", () => {
+    expect(asMember("service")).toBe(true);
+  });
+
+  it("hides a private item shared only with the previewer's own groups", () => {
+    // A generic member is not a share target, so group shares must not leak in.
+    expect(
+      canSeeItem({
+        viewer,
+        item: item("private"),
+        ownerControllerUserIds: new Set(),
+        sharedWithPersonIds: new Set(),
+        sharedWithGroupIds: new Set(["g_room5"]),
+        viewerGroups: new Set(),
+      }),
+    ).toBe(false);
   });
 });
 

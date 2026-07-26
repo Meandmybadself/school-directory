@@ -43,19 +43,20 @@ export function ProfileView() {
   const navigate = useNavigate();
   const isDesktop = useIsDesktop();
   const { id } = useParams();
-  const { activePerson } = useSession();
   const [p, setP] = useState<PersonProfileDTO | null>(null);
   const [notFound, setNotFound] = useState(false);
 
+  // The view screen is always a member's-eye view: a Controller (or an admin
+  // looking at a Person they manage) must not be shown private items here, or
+  // the "what others see" promise below is a lie. Editing uses the full fetch.
   useEffect(() => {
     if (!id) return;
-    void api.person(id).then(setP).catch(() => setNotFound(true));
+    void api.person(id, { asMember: true }).then(setP).catch(() => setNotFound(true));
   }, [id]);
 
   if (notFound) return <CenteredNote text="Profile not found." onBack={() => navigate(-1)} />;
   if (!p) return null;
 
-  const isOwn = activePerson?.id === p.id;
   const editBtn = p.controlledByViewer ? (
     <button className="sd-btn sd-btn-secondary sd-btn-sm" onClick={() => navigate(`/persons/${p.id}/edit`)}>
       <Icon name="pencil" size={15} />{t("editProfile")}
@@ -140,15 +141,18 @@ export function ProfileView() {
     </>
   );
 
-  // When previewing your own profile, the Edit button lives inside the notice
-  // bar. (For a profile you control but aren't acting as, there's no bar, so the
-  // button keeps its header/row placement below.)
-  const previewNotice = isOwn ? (
+  // Any profile you control gets the preview bar — it explains why private items
+  // are missing — and the Edit button lives inside it.
+  const hidden = p.hiddenFromMembers ?? 0;
+  const previewNotice = p.previewAsMember ? (
     <div className="sd-row" style={{ background: "var(--ink)", color: "#fff", padding: "8px 14px", gap: 9, fontSize: 12.5, borderRadius: isDesktop ? 12 : 0, marginBottom: isDesktop ? 4 : 0 }}>
       <Icon name="eye" size={16} style={{ flex: "0 0 auto" }} />
       <div style={{ flex: 1, lineHeight: 1.25 }}>
         <strong style={{ fontWeight: 700 }}>{t("previewingAsMember")}</strong>
-        <div style={{ opacity: 0.7, fontSize: 11.5 }}>{t("whatOthersSee")}</div>
+        <div style={{ opacity: 0.7, fontSize: 11.5 }}>
+          {t("whatOthersSee")}
+          {hidden > 0 && ` · ${t("hiddenFromMembers", { count: String(hidden) })}`}
+        </div>
       </div>
       {editBtn}
     </div>
@@ -159,7 +163,6 @@ export function ProfileView() {
       <DesktopShell active="profile" title={t("yourProfile")}>
         <div style={{ maxWidth: 760, width: "100%" }}>
           {previewNotice}
-          {!isOwn && editBtn && <div className="sd-row" style={{ justifyContent: "flex-end", marginBottom: 12 }}>{editBtn}</div>}
           <div className="sd-card" style={{ overflow: "hidden", padding: 0 }}>{hero}</div>
           <div style={{ display: "flex", flexDirection: "column", gap: 14, marginTop: 14 }}>{body}</div>
         </div>
@@ -169,7 +172,7 @@ export function ProfileView() {
 
   return (
     <AppShell banner={previewNotice ?? undefined}>
-      <ScreenHeader title="" onLeft={() => navigate(-1)} right={isOwn ? undefined : editBtn} />
+      <ScreenHeader title="" onLeft={() => navigate(-1)} />
       <div className="sd-scroll">
         {hero}
         <div className="sd-body" style={{ gap: 12 }}>{body}</div>

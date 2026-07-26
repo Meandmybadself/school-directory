@@ -18,11 +18,15 @@ const PHOTO_TYPES: Record<string, string> = {
 };
 const MAX_PHOTO_BYTES = 5 * 1024 * 1024; // 5 MB
 
-/** GET /persons/:id — profile as the active viewer is permitted to see it. */
+/** GET /persons/:id — profile as the active viewer is permitted to see it.
+ *  `?as=member` asks a Controller's view to be downgraded to a plain member's,
+ *  so the view screen is an honest preview of what everyone else sees. */
 persons.get("/:id", async (c) => {
   const auth = requireAuth(c);
   const viewer = { userId: auth.userId, personId: auth.activePersonId };
-  const profile = await buildProfile(c.env, viewer, c.req.param("id"));
+  const profile = await buildProfile(c.env, viewer, c.req.param("id"), {
+    asMember: c.req.query("as") === "member",
+  });
   if (!profile) return c.json({ error: "not_found" }, 404);
   return c.json(profile);
 });

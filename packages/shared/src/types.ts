@@ -85,6 +85,12 @@ export interface PersonProfileDTO extends PersonSummaryDTO {
   groups: GroupSummaryDTO[];
   /** True when the requesting User is a Controller of this Person. */
   controlledByViewer: boolean;
+  /** Set when the profile was built with `?as=member`: a Controller asked to see
+   *  it exactly as an ordinary member does, so private items are absent. */
+  previewAsMember?: boolean;
+  /** Preview only — how many of this Person's own contact items members cannot
+   *  see. Group-owned cascaded items are excluded; they're edited on the group. */
+  hiddenFromMembers?: number;
 }
 
 export interface GroupSummaryDTO {

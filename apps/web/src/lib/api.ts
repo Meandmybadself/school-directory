@@ -79,7 +79,9 @@ export const api = {
   setLocale: (locale: string) =>
     request<{ ok: true }>("/me/locale", { method: "PUT", body: JSON.stringify({ locale }) }),
 
-  person: (id: string) => request<PersonProfileDTO>(`/persons/${id}`),
+  /** `asMember` renders a profile you control the way everyone else sees it. */
+  person: (id: string, opts?: { asMember?: boolean }) =>
+    request<PersonProfileDTO>(`/persons/${id}${opts?.asMember ? "?as=member" : ""}`),
   patchPerson: (id: string, body: PersonPatchBody) =>
     request<PersonProfileDTO>(`/persons/${id}`, { method: "PATCH", body: JSON.stringify(body) }),
   uploadPhoto: async (personId: string, file: File): Promise<{ photoUrl: string }> => {

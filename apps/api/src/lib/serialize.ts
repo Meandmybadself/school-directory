@@ -83,11 +83,20 @@ function photoUrl(key: string | null): string | null {
   return key ? `/photos/${key}` : null;
 }
 
+export interface BuildProfileOptions {
+  /** Render the profile as an ordinary member sees it, dropping the Controller
+   *  shortcut. Only meaningful (and only honoured) when the viewer actually
+   *  controls the Person — for everyone else the normal rules already apply and
+   *  suppressing their shares would UNDER-report what they may see. */
+  asMember?: boolean;
+}
+
 /** Build a profile DTO for `viewer` looking at `personId`, or null if missing. */
 export async function buildProfile(
   env: Env,
   viewer: Viewer,
   personId: string,
+  opts: BuildProfileOptions = {},
 ): Promise<PersonProfileDTO | null> {
   const person = await env.DB.prepare(
     "SELECT id, first_name, last_name, last_name_visibility, photo_object_key FROM person WHERE id = ?",
@@ -97,8 +106,17 @@ export async function buildProfile(
   if (!person) return null;
 
   const controllers = await controllerUserIds(env, personId);
-  const viewerIsController = controllers.has(viewer.userId);
+  const controlsPerson = controllers.has(viewer.userId);
+  // Preview mode: a Controller asks to see the profile through a plain member's
+  // eyes. `controlsPerson` still drives edit affordances; `viewerIsController`
+  // drives every privacy decision below and is forced off while previewing.
+  const previewAsMember = opts.asMember === true && controlsPerson;
+  const viewerIsController = controlsPerson && !previewAsMember;
   const vGroups = await viewerGroupIds(env, viewer);
+  // A generic member is nobody's share target, so previews resolve against
+  // empty share/group sets rather than the previewer's own memberships.
+  const noShares = new Set<string>();
+  let hiddenFromMembers = 0;
 
   // Contact items owned by this person.
   const itemRows = await env.DB.prepare(
@@ -115,12 +133,15 @@ export async function buildProfile(
     const visible = canSeeItem({
       viewer,
       item,
-      ownerControllerUserIds: controllers,
-      sharedWithPersonIds: shares.persons,
-      sharedWithGroupIds: shares.groups,
-      viewerGroups: vGroups,
+      ownerControllerUserIds: previewAsMember ? noShares : controllers,
+      sharedWithPersonIds: previewAsMember ? noShares : shares.persons,
+      sharedWithGroupIds: previewAsMember ? noShares : shares.groups,
+      viewerGroups: previewAsMember ? noShares : vGroups,
     });
-    if (!visible) continue;
+    if (!visible) {
+      hiddenFromMembers++;
+      continue;
+    }
 
     const dto: ContactItemDTO = {
       id: item.id,
@@ -149,7 +170,7 @@ export async function buildProfile(
   // fellow direct member of that group, or an explicit share. The exact address
   // value is shown only to fellow direct members.
   const viewerDirectGroups = new Set<string>();
-  if (viewer.personId) {
+  if (viewer.personId && !previewAsMember) {
     const vd = await env.DB.prepare("SELECT group_id FROM membership WHERE person_id = ?")
       .bind(viewer.personId)
       .all<{ group_id: string }>();
@@ -178,10 +199,12 @@ export async function buildProfile(
         viewer,
         item,
         ownerControllerUserIds: new Set(),
-        sharedWithPersonIds: shares.persons,
-        sharedWithGroupIds: shares.groups,
-        viewerGroups: vGroups,
+        sharedWithPersonIds: previewAsMember ? noShares : shares.persons,
+        sharedWithGroupIds: previewAsMember ? noShares : shares.groups,
+        viewerGroups: previewAsMember ? noShares : vGroups,
       });
+    // Not counted in hiddenFromMembers: these belong to the group, not the
+    // Person, so they aren't something Edit on this profile can change.
     if (!visible) continue;
     const dto: ContactItemDTO = {
       id: item.id,
@@ -204,9 +227,13 @@ export async function buildProfile(
     photoUrl: photoUrl(person.photo_object_key),
     contacts,
     groups: await groupsFor(env, personId, viewer.personId),
-    controlledByViewer: viewerIsController,
+    controlledByViewer: controlsPerson,
   };
   if (groupContacts.length) profile.groupContacts = groupContacts;
+  if (previewAsMember) {
+    profile.previewAsMember = true;
+    profile.hiddenFromMembers = hiddenFromMembers;
+  }
 
   // Owner-only editable fields.
   if (viewerIsController) {
