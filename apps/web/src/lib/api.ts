@@ -123,8 +123,12 @@ export const api = {
     request<{ groups: GroupSummaryDTO[] }>(`/groups?q=${encodeURIComponent(q)}`),
   createGroup: (body: { kind: GroupKind; name: string; parentId?: string }) =>
     request<{ id: string }>("/groups", { method: "POST", body: JSON.stringify(body) }),
-  renameGroup: (groupId: string, name: string) =>
-    request<{ id: string; name: string }>(`/groups/${groupId}`, { method: "PATCH", body: JSON.stringify({ name }) }),
+  /** Rename and/or re-type a group; send only what changed. */
+  updateGroup: (groupId: string, patch: { name?: string; kind?: GroupKind }) =>
+    request<{ id: string; name: string; kind: GroupKind }>(`/groups/${groupId}`, {
+      method: "PATCH",
+      body: JSON.stringify(patch),
+    }),
   deleteGroup: (groupId: string) =>
     request<{ ok: true }>(`/groups/${groupId}`, { method: "DELETE" }),
   setGroupParent: (groupId: string, parentId: string | null) =>

@@ -181,6 +181,10 @@ export interface Strings {
   deleteGroupHasChildren: string;
   deleteGroupFailed: string;
   renameGroupFailed: string;
+  groupType: string;
+  groupTypeChangeNote: string;
+  changeTypeFailed: string;
+  changeTypeHasChildren: string;
   reparentFailed: string;
   reparentRejected: string;
   confirmDelete: string;
@@ -398,6 +402,10 @@ const en: Strings = {
   deleteGroupHasChildren: "Move or delete its sub-groups first.",
   deleteGroupFailed: "Couldn't delete this group.",
   renameGroupFailed: "Couldn't rename this group.",
+  groupType: "Type",
+  groupTypeChangeNote: "The type decides what the group does. Only a household shares an address with its members and appears in neighbor discovery, and only a household's admins get the household-admin badge.",
+  changeTypeFailed: "Couldn't change this group's type.",
+  changeTypeHasChildren: "A household can't hold sub-groups — move them out first.",
   reparentFailed: "Couldn't move this group.",
   reparentRejected: "That group can't be the parent — pick another.",
   confirmDelete: "Yes, delete",
@@ -543,6 +551,10 @@ const es: Strings = {
   deleteGroupHasChildren: "Primero mueve o elimina sus subgrupos.",
   deleteGroupFailed: "No se pudo eliminar este grupo.",
   renameGroupFailed: "No se pudo cambiar el nombre de este grupo.",
+  groupType: "Tipo",
+  groupTypeChangeNote: "El tipo define lo que hace el grupo. Solo una familia comparte una dirección con sus miembros y aparece en la búsqueda de vecinos, y solo los administradores de una familia reciben la insignia de administrador familiar.",
+  changeTypeFailed: "No se pudo cambiar el tipo de este grupo.",
+  changeTypeHasChildren: "Una familia no puede contener subgrupos: muévelos primero.",
   reparentFailed: "No se pudo mover este grupo.",
   reparentRejected: "Ese grupo no puede ser el principal: elige otro.",
   confirmDelete: "Sí, eliminar",
@@ -687,6 +699,10 @@ const zh: Strings = {
   deleteGroupHasChildren: "请先移动或删除其子群组。",
   deleteGroupFailed: "无法删除此群组。",
   renameGroupFailed: "无法重命名此群组。",
+  groupType: "类型",
+  groupTypeChangeNote: "类型决定群组的作用。只有家庭会与成员共享地址并出现在邻居发现中，也只有家庭的管理员才会获得家庭管理员标识。",
+  changeTypeFailed: "无法更改此群组的类型。",
+  changeTypeHasChildren: "家庭不能包含子群组，请先将其移出。",
   reparentFailed: "无法移动此群组。",
   reparentRejected: "该群组不能作为上级，请选择其他群组。",
   confirmDelete: "确认删除",

@@ -77,6 +77,10 @@ export function GroupDetail() {
   const isSystemAdmin = !!me?.user.isSystemAdmin;
   const canReparent = isSystemAdmin;
   const canCreateSubgroup = isSystemAdmin && g.kind !== "household";
+  // Same authority as creating that kind — it's what changing a group's type
+  // takes on the server too.
+  const canCreateClassroom = !!activePerson?.capabilities.includes("teacher") || isSystemAdmin;
+  const canCreateGeneric = isSystemAdmin;
   const actions: GroupActions = {
     onAddMember: () => setSheet({ type: "addMember" }),
     onMember: (member) => setSheet({ type: "member", member }),
@@ -97,6 +101,8 @@ export function GroupDetail() {
           <EditGroupSheet
             group={g}
             canReparent={canReparent}
+            canCreateClassroom={canCreateClassroom}
+            canCreateGeneric={canCreateGeneric}
             onClose={() => setSheet(null)}
             onChanged={onChanged}
             onDeleted={() => { setSheet(null); navigate("/groups"); }}
@@ -105,8 +111,8 @@ export function GroupDetail() {
         {sheet?.type === "createSubgroup" && (
           <CreateGroupSheet
             parentId={g.id}
-            canCreateClassroom={!!activePerson?.capabilities.includes("teacher") || !!me?.user.isSystemAdmin}
-            canCreateGeneric={!!me?.user.isSystemAdmin}
+            canCreateClassroom={canCreateClassroom}
+            canCreateGeneric={canCreateGeneric}
             onClose={() => setSheet(null)}
             onCreated={() => { setSheet(null); onChanged(); }}
           />

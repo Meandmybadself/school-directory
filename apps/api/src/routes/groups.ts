@@ -41,6 +41,44 @@ function canDeleteKind(kind: string, viewerIsAdmin: boolean, isSystemAdmin: bool
   return kind !== "generic";
 }
 
+/** Authority to bring a group of `kind` into existence: households are open to
+ *  any member, classrooms need the Teacher capability, generic groups (School /
+ *  Grades / clubs) are an admin construct. Used by POST /groups and, together
+ *  with canDeleteKind, by a kind change — which is a create and a delete back
+ *  to back, so it must clear both bars. */
+async function canCreateKind(c: Context<HonoEnv>, kind: string): Promise<boolean> {
+  const auth = requireAuth(c);
+  if (auth.isSystemAdmin) return true;
+  if (kind === "generic") return false;
+  if (kind === "classroom") {
+    if (!auth.activePersonId) return false;
+    const teacher = await c.env.DB.prepare(
+      "SELECT 1 AS ok FROM capability_grant WHERE person_id = ? AND capability = 'teacher' LIMIT 1",
+    )
+      .bind(auth.activePersonId)
+      .first<{ ok: number }>();
+    return !!teacher;
+  }
+  return true; // household
+}
+
+/** Admin members whose `household_admin` grant rests on this household alone —
+ *  computed BEFORE the household stops being one (or stops existing), so the
+ *  profile badge doesn't outlive the thing that justified it. */
+async function householdAdminsLosingGrant(c: Context<HonoEnv>, groupId: string): Promise<string[]> {
+  const rows = await c.env.DB.prepare(
+    `SELECT m.person_id FROM membership m
+      WHERE m.group_id = ? AND m.is_admin = 1
+        AND NOT EXISTS (
+          SELECT 1 FROM membership m2 JOIN grp g2 ON g2.id = m2.group_id
+           WHERE m2.person_id = m.person_id AND m2.is_admin = 1
+             AND g2.kind = 'household' AND g2.id != ?)`,
+  )
+    .bind(groupId, groupId)
+    .all<{ person_id: string }>();
+  return rows.results.map((r) => r.person_id);
+}
+
 /** Guard helper: 403 unless the caller administers the group (or is a sys admin). */
 async function requireGroupAdmin(c: Context<HonoEnv>, groupId: string): Promise<string | Response> {
   const auth = requireAuth(c);
@@ -275,16 +313,7 @@ groups.post("/", async (c) => {
     return c.json({ error: "invalid_body" }, 400);
   }
 
-  if (kind === "classroom") {
-    const teacher = await c.env.DB.prepare(
-      "SELECT 1 AS ok FROM capability_grant WHERE person_id = ? AND capability = 'teacher' LIMIT 1",
-    )
-      .bind(auth.activePersonId)
-      .first<{ ok: number }>();
-    if (!teacher && !auth.isSystemAdmin) return c.json({ error: "forbidden" }, 403);
-  }
-  // Generic groups (School / Grades / committees) are an admin construct.
-  if (kind === "generic" && !auth.isSystemAdmin) return c.json({ error: "forbidden" }, 403);
+  if (!(await canCreateKind(c, kind))) return c.json({ error: "forbidden" }, 403);
 
   // Nesting under a parent is system-admin-only, mirroring PATCH /:id/parent.
   // A household may be a CHILD (it joins the parent's scope), but never a
@@ -322,22 +351,91 @@ groups.post("/", async (c) => {
 
 // ── Rename & delete ─────────────────────────────────────────────────────────
 
-/** PATCH /groups/:id { name } — rename a group (group admins).
- *  `kind` is deliberately immutable: household / classroom / generic carry
- *  different cascade, capability and hierarchy semantics, so switching one after
- *  the fact would silently rewrite what the group means. Delete and recreate. */
+/** PATCH /groups/:id { name?, kind? } — rename a group and/or change its kind
+ *  (group admins). At least one field is required.
+ *
+ *  A kind change is a delete-and-recreate expressed as one edit, so it takes
+ *  both authorities: canDeleteKind over what the group is today and
+ *  canCreateKind over what it's becoming. The side effects that make a kind
+ *  MEAN something are carried across with it:
+ *    · → household  grants household_admin to the group's admins, and is refused
+ *                   if the group has sub-groups (a household never holds one).
+ *    · household →  drops household_admin from admins who held it only for this
+ *                   household, and the group's address stops feeding neighbor
+ *                   discovery (that query reads kind = 'household').
+ *  Group-owned contacts, memberships and the parent link are untouched. */
 groups.patch("/:id", async (c) => {
+  const auth = requireAuth(c);
   const groupId = c.req.param("id");
   const admin = await requireGroupAdmin(c, groupId);
   if (typeof admin !== "string") return admin;
 
-  const body = await c.req.json<{ name: string }>().catch(() => null);
-  const name = body?.name?.trim();
-  if (!name) return c.json({ error: "invalid_body" }, 400);
+  const body = await c.req.json<{ name?: string; kind?: string }>().catch(() => null);
+  if (!body) return c.json({ error: "invalid_body" }, 400);
+  const hasName = typeof body.name === "string";
+  const hasKind = typeof body.kind === "string";
+  if (!hasName && !hasKind) return c.json({ error: "invalid_body" }, 400);
+  const name = body.name?.trim();
+  if (hasName && !name) return c.json({ error: "invalid_body" }, 400);
+  if (hasKind && body.kind !== "household" && body.kind !== "classroom" && body.kind !== "generic") {
+    return c.json({ error: "invalid_body" }, 400);
+  }
 
-  await c.env.DB.prepare("UPDATE grp SET name = ? WHERE id = ?").bind(name, groupId).run();
-  c.var.audit.push({ action: "admin.action", entityKind: "group", entityId: groupId, detail: { op: "group.rename", name } });
-  return c.json({ id: groupId, name });
+  const group = await c.env.DB.prepare("SELECT id, kind, name FROM grp WHERE id = ?")
+    .bind(groupId)
+    .first<{ id: string; kind: string; name: string }>();
+  if (!group) return c.json({ error: "not_found" }, 404);
+
+  const nextKind = hasKind ? (body.kind as string) : group.kind;
+  const kindChanged = nextKind !== group.kind;
+
+  const stmts = [];
+  if (kindChanged) {
+    const viewerIsAdmin = await isGroupAdmin(c, auth.userId, groupId);
+    if (!canDeleteKind(group.kind, viewerIsAdmin, auth.isSystemAdmin)) return c.json({ error: "forbidden" }, 403);
+    if (!(await canCreateKind(c, nextKind))) return c.json({ error: "forbidden" }, 403);
+
+    if (nextKind === "household") {
+      const kids = await c.env.DB.prepare("SELECT COUNT(*) AS n FROM grp WHERE parent_id = ?")
+        .bind(groupId)
+        .first<{ n: number }>();
+      if ((kids?.n ?? 0) > 0) return c.json({ error: "has_children", children: kids?.n ?? 0 }, 409);
+      stmts.push(
+        c.env.DB.prepare(
+          `INSERT INTO capability_grant (person_id, capability)
+           SELECT person_id, 'household_admin' FROM membership WHERE group_id = ? AND is_admin = 1
+           ON CONFLICT DO NOTHING`,
+        ).bind(groupId),
+      );
+    }
+    if (group.kind === "household") {
+      for (const personId of await householdAdminsLosingGrant(c, groupId)) {
+        stmts.push(
+          c.env.DB.prepare(
+            "DELETE FROM capability_grant WHERE person_id = ? AND capability = 'household_admin'",
+          ).bind(personId),
+        );
+      }
+    }
+    stmts.push(c.env.DB.prepare("UPDATE grp SET kind = ? WHERE id = ?").bind(nextKind, groupId));
+  }
+  if (name && name !== group.name) {
+    stmts.push(c.env.DB.prepare("UPDATE grp SET name = ? WHERE id = ?").bind(name, groupId));
+  }
+  if (stmts.length) await c.env.DB.batch(stmts);
+
+  if (name && name !== group.name) {
+    c.var.audit.push({ action: "admin.action", entityKind: "group", entityId: groupId, detail: { op: "group.rename", name } });
+  }
+  if (kindChanged) {
+    c.var.audit.push({
+      action: "admin.action",
+      entityKind: "group",
+      entityId: groupId,
+      detail: { op: "group.retype", from: group.kind, to: nextKind },
+    });
+  }
+  return c.json({ id: groupId, name: name ?? group.name, kind: nextKind });
 });
 
 /** DELETE /groups/:id — remove a group and everything it owns: memberships,
@@ -368,20 +466,8 @@ groups.delete("/:id", async (c) => {
   // household_admin is granted when a household is created; drop it from anyone
   // whose last household this was, so the profile badge doesn't outlive it.
   // Computed before the memberships go away.
-  let losesHouseholdAdmin: string[] = [];
-  if (group.kind === "household") {
-    const rows = await c.env.DB.prepare(
-      `SELECT m.person_id FROM membership m
-        WHERE m.group_id = ? AND m.is_admin = 1
-          AND NOT EXISTS (
-            SELECT 1 FROM membership m2 JOIN grp g2 ON g2.id = m2.group_id
-             WHERE m2.person_id = m.person_id AND m2.is_admin = 1
-               AND g2.kind = 'household' AND g2.id != ?)`,
-    )
-      .bind(groupId, groupId)
-      .all<{ person_id: string }>();
-    losesHouseholdAdmin = rows.results.map((r) => r.person_id);
-  }
+  const losesHouseholdAdmin =
+    group.kind === "household" ? await householdAdminsLosingGrant(c, groupId) : [];
 
   const owned = await c.env.DB.prepare(
     "SELECT id FROM contact_item WHERE owner_kind = 'group' AND owner_id = ?",

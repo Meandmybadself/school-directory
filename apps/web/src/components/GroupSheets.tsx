@@ -2,7 +2,7 @@
 // remove), and edit household-owned contact info.
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import type { ContactType, GroupDetailDTO, GroupMemberDTO, GroupRefDTO, ShareTargetDTO, Visibility } from "@sd/shared";
+import type { ContactType, GroupDetailDTO, GroupKind, GroupMemberDTO, GroupRefDTO, ShareTargetDTO, Visibility } from "@sd/shared";
 import { Icon, type IconName } from "./Icon.js";
 import { Avatar, Btn } from "./atoms.js";
 import { SheetOver, OptionRow, ContactVis } from "./parts.js";
@@ -221,15 +221,17 @@ export function CreateGroupSheet({
 
 // ── Edit / delete a group ────────────────────────────────────────────────────
 
-/** Rename a group, move it in the hierarchy, and — when the viewer is allowed —
- *  delete it. Delete is a two-step: the button arms a confirmation that spells
- *  out what goes away. Kind isn't editable; the server refuses to change it.
+/** Rename a group, change its type, move it in the hierarchy, and — when the
+ *  viewer is allowed — delete it. Delete is a two-step: the button arms a
+ *  confirmation that spells out what goes away.
  *
  *  Re-parenting opens an inline picker rather than a second stacked sheet, so
  *  "where does this group live" stays part of editing it. */
 export function EditGroupSheet({
   group,
   canReparent,
+  canCreateClassroom,
+  canCreateGeneric,
   onClose,
   onChanged,
   onDeleted,
@@ -239,6 +241,11 @@ export function EditGroupSheet({
    *  to households too — they can be moved under a group (the candidate list
    *  never offers a household, since one can't be a parent). */
   canReparent: boolean;
+  /** Which types this viewer may switch the group TO — the same authority that
+   *  gates creating one. Authority over the type it already IS is `viewerCanDelete`,
+   *  which is what the server checks on the other side. */
+  canCreateClassroom: boolean;
+  canCreateGeneric: boolean;
   onClose: () => void;
   onChanged: () => void;
   onDeleted: () => void;
@@ -246,9 +253,21 @@ export function EditGroupSheet({
   const { t } = useI18n();
   const [view, setView] = useState<"main" | "parent">("main");
   const [name, setName] = useState(group.name);
+  const [kind, setKind] = useState<GroupKind>(group.kind);
   const [busy, setBusy] = useState(false);
   const [confirming, setConfirming] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // A household never holds a sub-group, so that switch is off the table until
+  // the children are moved out. The current type always stays selectable.
+  const hasChildren = (group.children?.length ?? 0) > 0;
+  const allKinds: { kind: GroupKind; icon: IconName; tone: "members" | "shared" | "private"; title: string; sub?: string; offered: boolean }[] = [
+    { kind: "household", icon: "home", tone: "members", title: t("household"), offered: !hasChildren },
+    { kind: "classroom", icon: "school", tone: "shared", title: t("classroom"), offered: canCreateClassroom },
+    { kind: "generic", icon: "users3", tone: "private", title: t("genericGroup"), sub: t("genericGroupSub"), offered: canCreateGeneric },
+  ];
+  const kindOptions = allKinds.filter((o) => o.offered || o.kind === group.kind);
+  const canRetype = !!group.viewerCanDelete && kindOptions.length > 1;
 
   // ancestors run root → … → immediate parent, so the last one is the parent.
   const parent = group.ancestors?.length ? group.ancestors[group.ancestors.length - 1] : null;
@@ -271,15 +290,22 @@ export function EditGroupSheet({
 
   const save = async () => {
     const next = name.trim();
-    if (!next || next === group.name) return onClose();
+    const patch: { name?: string; kind?: GroupKind } = {};
+    if (next && next !== group.name) patch.name = next;
+    if (kind !== group.kind) patch.kind = kind;
+    if (!patch.name && !patch.kind) return onClose();
     setBusy(true);
     setError(null);
     try {
-      await api.renameGroup(group.id, next);
+      await api.updateGroup(group.id, patch);
       onChanged();
       onClose();
-    } catch {
-      setError(t("renameGroupFailed"));
+    } catch (e) {
+      if (patch.kind) {
+        setError(e instanceof ApiError && e.status === 409 ? t("changeTypeHasChildren") : t("changeTypeFailed"));
+      } else {
+        setError(t("renameGroupFailed"));
+      }
     } finally {
       setBusy(false);
     }
@@ -334,6 +360,26 @@ export function EditGroupSheet({
           onChange={(e) => setName(e.target.value)}
         />
       </div>
+
+      {canRetype && (
+        <div style={{ display: "flex", flexDirection: "column", gap: 9, marginTop: 14 }}>
+          <span className="sd-label">{t("groupType")}</span>
+          {kindOptions.map((o) => (
+            <OptionRow
+              key={o.kind}
+              icon={o.icon}
+              tone={o.tone}
+              title={o.title}
+              sub={o.sub}
+              selected={kind === o.kind}
+              onClick={() => setKind(o.kind)}
+            />
+          ))}
+          {kind !== group.kind && (
+            <div className="sd-meta" style={{ lineHeight: 1.45 }}>{t("groupTypeChangeNote")}</div>
+          )}
+        </div>
+      )}
 
       {canReparent && (
         <div style={{ display: "flex", flexDirection: "column", gap: 6, marginTop: 14 }}>
