@@ -9,6 +9,7 @@ import { ulid } from "../lib/ids.js";
 import { randomToken, randomSessionId, sha256 } from "../lib/crypto.js";
 import { isoPlus, isExpired, nowIso, MAGIC_LINK_TTL, SESSION_TTL } from "../lib/time.js";
 import { magicLinkEmail, sendEmail } from "../lib/email.js";
+import { notifyNewUser } from "../lib/notify.js";
 import { findUserByEmail, isRegistrationOpen, normalizeEmail, isBootstrapAdmin } from "../lib/db.js";
 import { setSessionCookie, clearSessionCookie, SESSION_COOKIE } from "../lib/cookies.js";
 import { getCookie } from "hono/cookie";
@@ -92,12 +93,18 @@ auth.get("/callback", async (c) => {
     // invite tokens always create the user (they bypass the toggle).
     if (row.kind === "signin" && row.reg_open_at_issue !== 1 && !bootstrap) return fail();
     const userId = ulid();
+    const joinedAt = nowIso();
+    const via = row.kind === "invite" ? "invite" : "signup";
     await c.env.DB.prepare(
-      `INSERT INTO user (id, email, email_verified_at, is_system_admin, created_at) VALUES (?,?,?,?,?)`,
+      `INSERT INTO user (id, email, email_verified_at, is_system_admin, created_at, joined_via) VALUES (?,?,?,?,?,?)`,
     )
-      .bind(userId, row.email, nowIso(), bootstrap ? 1 : 0, nowIso())
+      .bind(userId, row.email, joinedAt, bootstrap ? 1 : 0, joinedAt, via)
       .run();
     user = { id: userId, email: row.email, is_system_admin: bootstrap ? 1 : 0, locale: null };
+    // Tell the admins someone joined (no-op unless notifications are "instant").
+    c.executionCtx.waitUntil(
+      notifyNewUser(c.env, { email: row.email, via, createdAt: joinedAt }),
+    );
     if (bootstrap) {
       c.var.audit.push({ action: "admin.action", entityKind: "user", entityId: userId, detail: { op: "bootstrap_admin" } });
     }

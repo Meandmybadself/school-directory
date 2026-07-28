@@ -346,6 +346,20 @@ export interface MyHouseholdDTO {
   name: string;
 }
 
+// ── Instance settings ──────────────────────────────────────────────────────
+
+/** How system admins hear about new sign-ups. `off` by default (NFR-1): the
+ *  instance sends nothing until an admin opts in.
+ *  - `instant` — one email per join, as it happens.
+ *  - `daily`   — a single digest of everyone who joined since the last one. */
+export type NewUserNotify = "off" | "instant" | "daily";
+
+export const NEW_USER_NOTIFY_MODES = ["off", "instant", "daily"] as const;
+
+export interface NotificationSettingsDTO {
+  newUser: NewUserNotify;
+}
+
 // ── Audit ─────────────────────────────────────────────────────────────────
 
 /** Actions captured in the append-only audit log (FR-31). */
@@ -362,6 +376,7 @@ export type AuditAction =
   | "share.revoked"
   | "bulk.import"
   | "registration.toggled"
+  | "notify.toggled"
   | "calendar.source.created"
   | "calendar.source.updated"
   | "calendar.source.deleted"

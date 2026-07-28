@@ -64,8 +64,10 @@ admin.post("/users", async (c) => {
   if (await findUserByEmail(c.env, email)) return c.json({ error: "user_exists" }, 409);
 
   const id = ulid();
+  // joined_via 'admin' keeps this out of new-member notifications — whoever is
+  // creating the account doesn't need an email telling them it happened.
   await c.env.DB.prepare(
-    "INSERT INTO user (id, email, is_system_admin, created_at) VALUES (?,?,?,?)",
+    "INSERT INTO user (id, email, is_system_admin, created_at, joined_via) VALUES (?,?,?,?, 'admin')",
   )
     .bind(id, email, body?.isSystemAdmin ? 1 : 0, nowIso())
     .run();

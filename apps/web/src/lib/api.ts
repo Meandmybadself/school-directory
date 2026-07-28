@@ -19,6 +19,8 @@ import type {
   MeDTO,
   MyHouseholdDTO,
   NeighborsResponse,
+  NewUserNotify,
+  NotificationSettingsDTO,
   PersonPatchBody,
   PersonProfileDTO,
   ShareGranteeDTO,
@@ -168,6 +170,9 @@ export const api = {
   getRegistration: () => request<{ open: boolean }>("/settings/registration"),
   setRegistration: (open: boolean) =>
     request<{ open: boolean }>("/settings/registration", { method: "PUT", body: JSON.stringify({ open }) }),
+  getNotifications: () => request<NotificationSettingsDTO>("/settings/notifications"),
+  setNotifications: (newUser: NewUserNotify) =>
+    request<NotificationSettingsDTO>("/settings/notifications", { method: "PUT", body: JSON.stringify({ newUser }) }),
 
   // Calendar
   calendarEvents: (opts: { limit?: number; from?: string } = {}) => {

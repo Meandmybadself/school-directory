@@ -1,0 +1,11 @@
+-- Record how each user account came to exist. The daily new-member digest
+-- (Admin → Notifications) runs from a cron, long after the request that created
+-- the account, so it can't infer this at send time.
+--
+-- Values: 'signup' (self-serve, registration open), 'invite' (accepted a
+-- controller/directory invite), 'admin' (provisioned from the admin console).
+-- NULL = account predates this column; treated as 'signup' when displayed.
+--
+-- Admin-provisioned accounts are deliberately excluded from notifications: the
+-- admin who made one already knows it exists.
+ALTER TABLE user ADD COLUMN joined_via TEXT;

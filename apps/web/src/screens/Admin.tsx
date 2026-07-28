@@ -3,7 +3,7 @@
 // Admin chrome is intentionally English-only (operator tooling).
 import { useEffect, useState } from "react";
 import { Navigate, useNavigate } from "react-router-dom";
-import type { AdminUserDTO, AuditEntryDTO, CalendarSourceDTO } from "@sd/shared";
+import type { AdminUserDTO, AuditEntryDTO, CalendarSourceDTO, NewUserNotify } from "@sd/shared";
 import { Icon } from "../components/Icon.js";
 import { Avatar, Btn, Tag } from "../components/atoms.js";
 import { AppShell, BottomNav } from "../components/AppShell.js";
@@ -16,7 +16,7 @@ import { api, ApiError } from "../lib/api.js";
 const ACTION_FILTERS = [
   "", "auth.signin", "invite.sent", "invite.accepted", "control.granted",
   "masquerade.start", "masquerade.stop", "share.created", "share.revoked",
-  "person.updated", "contact.created", "contact.updated", "registration.toggled", "admin.action",
+  "person.updated", "contact.created", "contact.updated", "registration.toggled", "notify.toggled", "admin.action",
   "calendar.source.created", "calendar.source.updated", "calendar.source.deleted", "calendar.refreshed",
 ];
 
@@ -173,6 +173,88 @@ function CalendarSourcesSection() {
   );
 }
 
+/** New-member notifications: a master switch plus, when on, the delivery mode.
+ *  "off" is the stored default, so a fresh instance emails nobody. */
+function NotificationsSection() {
+  const [mode, setMode] = useState<NewUserNotify | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    void api.getNotifications().then((r) => setMode(r.newUser)).catch(() => setMode(null));
+  }, []);
+
+  const save = async (next: NewUserNotify) => {
+    const prev = mode;
+    setMode(next); // optimistic
+    setBusy(true);
+    try {
+      const r = await api.setNotifications(next);
+      setMode(r.newUser);
+    } catch {
+      setMode(prev ?? null); // revert on failure
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const on = mode !== null && mode !== "off";
+  const choices: [NewUserNotify, string, string][] = [
+    ["instant", "Right away", "One email per person, as they join."],
+    ["daily", "Daily digest", "One summary each morning (~8am), only if anyone joined."],
+  ];
+
+  return (
+    <div style={{ marginTop: 18 }}>
+      <SectLabel>Notifications</SectLabel>
+      <div className="sd-card sd-card-pad" style={{ marginTop: 9 }}>
+        <div className="sd-row" style={{ gap: 12 }}>
+          <div style={{ flex: 1 }}>
+            <div style={{ fontSize: 14.5, fontWeight: 700 }}>Email admins about new members</div>
+            <div className="sd-meta" style={{ marginTop: 2, lineHeight: 1.4 }}>
+              {on
+                ? "Every system admin gets a notice when someone signs up or accepts an invite."
+                : "Nobody is notified when someone joins."}
+            </div>
+          </div>
+          <button
+            className={`sd-toggle${on ? " on" : ""}`}
+            aria-pressed={on}
+            aria-label="Toggle new-member notifications"
+            disabled={mode === null || busy}
+            onClick={() => void save(on ? "off" : "instant")}
+          />
+        </div>
+
+        {on && (
+          <div style={{ marginTop: 12, borderTop: "1px solid var(--line)", paddingTop: 12, display: "flex", flexDirection: "column", gap: 8 }}>
+            {choices.map(([value, label, help]) => (
+              <label key={value} className="sd-row" style={{ gap: 9, alignItems: "flex-start", cursor: "pointer" }}>
+                <input
+                  type="radio"
+                  name="new-user-notify"
+                  checked={mode === value}
+                  disabled={busy}
+                  onChange={() => void save(value)}
+                  style={{ marginTop: 2 }}
+                />
+                <span>
+                  <span style={{ fontSize: 13.5, fontWeight: 700 }}>{label}</span>
+                  <span className="sd-meta" style={{ display: "block", lineHeight: 1.4 }}>{help}</span>
+                </span>
+              </label>
+            ))}
+          </div>
+        )}
+
+        <div className="sd-meta" style={{ marginTop: 10, lineHeight: 1.4 }}>
+          Accounts you create yourself don't send a notice. Switching to the digest starts
+          the window now — people who joined earlier won't be replayed.
+        </div>
+      </div>
+    </div>
+  );
+}
+
 /** Create a sign-in account, optionally suppressing the welcome email. */
 function CreateUserForm({ onCreated }: { onCreated: () => void }) {
   const [email, setEmail] = useState("");
@@ -321,6 +403,8 @@ export function Admin() {
         </div>
       </div>
 
+      <NotificationsSection />
+
       {/* Bulk import */}
       <div style={{ marginTop: 18 }}>
         <SectLabel>Import</SectLabel>
@@ -433,5 +517,6 @@ function iconForAction(action: string): import("../components/Icon.js").IconName
   if (action.startsWith("contact")) return "phone";
   if (action.startsWith("invite")) return "mail";
   if (action.startsWith("registration")) return "gear";
+  if (action.startsWith("notify")) return "mail";
   return "bolt";
 }

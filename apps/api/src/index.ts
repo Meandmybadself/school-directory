@@ -5,6 +5,7 @@ import { Hono } from "hono";
 import { cors } from "hono/cors";
 import type { Env, HonoEnv } from "./env.js";
 import { refreshAllSources } from "./lib/calendar.js";
+import { sendNewUserDigest } from "./lib/notify.js";
 import { contextMiddleware } from "./middleware/context.js";
 import { sessionMiddleware, UnauthorizedError } from "./middleware/session.js";
 import { auditMiddleware } from "./middleware/audit.js";
@@ -85,9 +86,19 @@ app.onError((err, c) => {
 
 app.notFound((c) => c.json({ error: "not_found" }, 404));
 
-// Cron: refresh the shared calendar from its ICS feeds (see wrangler.toml
-// [triggers]). Errors are recorded per-source and never throw.
-const scheduled: ExportedHandlerScheduledHandler<Env> = (_event, env, ctx) => {
+// Cron (see wrangler.toml [triggers]). Two schedules share this handler:
+//   0 */3 * * *  — refresh the shared calendar from its ICS feeds. Errors are
+//                  recorded per-source and never throw.
+//   0 13 * * *   — send the new-member digest (~8am Central). No-op unless an
+//                  admin has set notifications to "daily".
+// The two never collide: */3 fires on even hours only.
+const DIGEST_CRON = "0 13 * * *";
+
+const scheduled: ExportedHandlerScheduledHandler<Env> = (event, env, ctx) => {
+  if (event.cron === DIGEST_CRON) {
+    ctx.waitUntil(sendNewUserDigest(env));
+    return;
+  }
   ctx.waitUntil(refreshAllSources(env));
 };
 

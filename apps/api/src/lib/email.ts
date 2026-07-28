@@ -39,6 +39,75 @@ export async function sendEmail(env: Env, msg: SendArgs): Promise<void> {
   }
 }
 
+/** Member-entered values (emails, names) land in admin notifications — escape
+ *  them so a hostile local-part can't inject markup into an admin's inbox. */
+function esc(s: string): string {
+  return s
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
+/** How a user account came into being — shown verbatim in admin notifications. */
+export type JoinedVia = "signup" | "invite";
+
+const VIA_LABEL: Record<JoinedVia, string> = {
+  signup: "signed up",
+  invite: "accepted an invitation",
+};
+
+export interface NewUserSummary {
+  email: string;
+  via: JoinedVia;
+  createdAt: string;
+}
+
+function fmtWhen(iso: string): string {
+  // Admin tooling is English-only; UTC keeps the cron digest unambiguous.
+  return `${iso.slice(0, 10)} ${iso.slice(11, 16)} UTC`;
+}
+
+/** Sent to system admins the moment someone joins (notifications = "instant"). */
+export function newUserEmail(env: Env, u: NewUserSummary): SendArgs {
+  const school = env.SCHOOL_NAME;
+  const admin = `${env.APP_URL}/admin`;
+  const what = VIA_LABEL[u.via];
+  return {
+    to: "",
+    subject: `New sign-up: ${u.email}`,
+    text: `${u.email} ${what} and joined the ${school} School Directory.\n\n${fmtWhen(u.createdAt)}\n\nManage members: ${admin}\n\nYou're getting this because new-member notifications are on. Turn them off in Admin → Notifications.`,
+    html: `<p><strong>${esc(u.email)}</strong> ${what} and joined the <strong>${esc(school)} School Directory</strong>.</p>
+<p style="color:#56636f;font-size:13px">${fmtWhen(u.createdAt)}</p>
+<p><a href="${admin}">Manage members</a></p>
+<p style="color:#56636f;font-size:13px">You're getting this because new-member notifications are on. Turn them off in Admin → Notifications.</p>`,
+  };
+}
+
+/** Daily roll-up of everyone who joined since the last digest (= "daily"). */
+export function newUserDigestEmail(env: Env, users: NewUserSummary[]): SendArgs {
+  const school = env.SCHOOL_NAME;
+  const admin = `${env.APP_URL}/admin`;
+  const n = users.length;
+  const heading = `${n} new ${n === 1 ? "member" : "members"} joined the ${school} School Directory`;
+  const lines = users.map((u) => `• ${u.email} — ${VIA_LABEL[u.via]}, ${fmtWhen(u.createdAt)}`);
+  const rows = users
+    .map(
+      (u) =>
+        `<li><strong>${esc(u.email)}</strong> <span style="color:#56636f">— ${VIA_LABEL[u.via]}, ${fmtWhen(u.createdAt)}</span></li>`,
+    )
+    .join("\n");
+  return {
+    to: "",
+    subject: `${n} new ${n === 1 ? "sign-up" : "sign-ups"} — ${school} School Directory`,
+    text: `${heading}\n\n${lines.join("\n")}\n\nManage members: ${admin}\n\nYou're getting this because the daily new-member digest is on. Change it in Admin → Notifications.`,
+    html: `<p>${esc(heading)}.</p>
+<ul>${rows}</ul>
+<p><a href="${admin}">Manage members</a></p>
+<p style="color:#56636f;font-size:13px">You're getting this because the daily new-member digest is on. Change it in Admin → Notifications.</p>`,
+  };
+}
+
 export function magicLinkEmail(env: Env, link: string): SendArgs {
   const school = env.SCHOOL_NAME;
   return {

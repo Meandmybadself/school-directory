@@ -3,9 +3,11 @@
 // to reveal account existence to clients.
 
 import { Hono } from "hono";
+import { NEW_USER_NOTIFY_MODES, type NewUserNotify } from "@sd/shared";
 import type { HonoEnv } from "../env.js";
 import { requireAuth } from "../middleware/session.js";
 import { isRegistrationOpen, setSetting } from "../lib/db.js";
+import { getNewUserNotify, setNewUserNotify } from "../lib/notify.js";
 
 export const settings = new Hono<HonoEnv>();
 
@@ -26,4 +28,24 @@ settings.put("/registration", async (c) => {
   await setSetting(c.env, "registration_open", body.open ? "true" : "false");
   c.var.audit.push({ action: "registration.toggled", entityKind: "setting", entityId: "registration_open", detail: { open: body.open } });
   return c.json({ open: body.open });
+});
+
+/** GET /settings/notifications → { newUser } (system admins). */
+settings.get("/notifications", async (c) => {
+  const auth = requireAuth(c);
+  if (!auth.isSystemAdmin) return c.json({ error: "forbidden" }, 403);
+  return c.json({ newUser: await getNewUserNotify(c.env) });
+});
+
+/** PUT /settings/notifications { newUser } (system admins). */
+settings.put("/notifications", async (c) => {
+  const auth = requireAuth(c);
+  if (!auth.isSystemAdmin) return c.json({ error: "forbidden" }, 403);
+  const body = await c.req.json<{ newUser: NewUserNotify }>().catch(() => null);
+  const mode = body?.newUser;
+  if (!mode || !NEW_USER_NOTIFY_MODES.includes(mode)) return c.json({ error: "invalid_body" }, 400);
+
+  await setNewUserNotify(c.env, mode);
+  c.var.audit.push({ action: "notify.toggled", entityKind: "setting", entityId: "new_user_notify", detail: { mode } });
+  return c.json({ newUser: mode });
 });
