@@ -307,6 +307,7 @@ export function Admin() {
 
   const [users, setUsers] = useState<AdminUserDTO[]>([]);
   const [busy, setBusy] = useState<string | null>(null);
+  const [usersError, setUsersError] = useState<string | null>(null);
   const [regOpen, setRegOpen] = useState<boolean | null>(null);
   const [entries, setEntries] = useState<AuditEntryDTO[]>([]);
   const [filter, setFilter] = useState("");
@@ -334,6 +335,22 @@ export function Admin() {
       await api.startMasquerade(userId);
       await refresh();
       navigate("/");
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  /** Grant or revoke system admin. Optimistic; reverts if the API says no. */
+  const setAdmin = async (userId: string, next: boolean) => {
+    setBusy(`role:${userId}`);
+    setUsersError(null);
+    setUsers((list) => list.map((u) => (u.id === userId ? { ...u, isSystemAdmin: next } : u)));
+    try {
+      const r = await api.setUserAdmin(userId, next);
+      setUsers((list) => list.map((u) => (u.id === userId ? r.user : u)));
+    } catch {
+      setUsers((list) => list.map((u) => (u.id === userId ? { ...u, isSystemAdmin: !next } : u)));
+      setUsersError(`Couldn't ${next ? "grant" : "remove"} admin for that account.`);
     } finally {
       setBusy(null);
     }
@@ -438,14 +455,28 @@ export function Admin() {
                   <div className="sd-meta">{u.personCount} {u.personCount === 1 ? "person" : "people"}</div>
                 </div>
                 {!isSelf && (
-                  <button className="sd-btn sd-btn-secondary sd-btn-sm" disabled={busy === u.id} onClick={() => void masquerade(u.id)}>
-                    <Icon name="eye" size={15} />Masquerade
-                  </button>
+                  <div className="sd-row" style={{ gap: 6, flexWrap: "wrap", justifyContent: "flex-end", flex: "0 0 auto" }}>
+                    <button
+                      className="sd-btn sd-btn-secondary sd-btn-sm"
+                      disabled={busy === `role:${u.id}`}
+                      onClick={() => void setAdmin(u.id, !u.isSystemAdmin)}
+                    >
+                      <Icon name="shield" size={15} />{u.isSystemAdmin ? "Remove admin" : "Make admin"}
+                    </button>
+                    <button className="sd-btn sd-btn-secondary sd-btn-sm" disabled={busy === u.id} onClick={() => void masquerade(u.id)}>
+                      <Icon name="eye" size={15} />Masquerade
+                    </button>
+                  </div>
                 )}
               </div>
             );
           })}
           {users.length === 0 && <div className="sd-meta" style={{ padding: "12px 0" }}>No users.</div>}
+          {usersError && <div className="sd-meta" style={{ padding: "4px 0", color: "var(--warn)" }}>{usersError}</div>}
+          <div className="sd-meta" style={{ padding: "8px 0 4px", lineHeight: 1.4 }}>
+            Admins get the full console — this list, masquerade, import, and the audit log.
+            You can't change your own role; ask another admin.
+          </div>
           <CreateUserForm onCreated={loadUsers} />
         </div>
       </div>

@@ -159,6 +159,11 @@ export const api = {
   adminUsers: () => request<{ users: AdminUserDTO[] }>("/admin/users"),
   createUser: (body: { email: string; isSystemAdmin?: boolean; sendEmail?: boolean }) =>
     request<{ user: AdminUserDTO }>("/admin/users", { method: "POST", body: JSON.stringify(body) }),
+  setUserAdmin: (userId: string, isSystemAdmin: boolean) =>
+    request<{ user: AdminUserDTO }>(`/admin/users/${userId}`, {
+      method: "PATCH",
+      body: JSON.stringify({ isSystemAdmin }),
+    }),
   startMasquerade: (userId: string) =>
     request<{ ok: true }>("/admin/masquerade", { method: "POST", body: JSON.stringify({ userId }) }),
   stopMasquerade: () => request<{ ok: true }>("/admin/masquerade/stop", { method: "POST" }),

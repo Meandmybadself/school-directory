@@ -97,6 +97,45 @@ admin.post("/users", async (c) => {
   return c.json({ user: { id, email, isSystemAdmin: !!body?.isSystemAdmin, personCount: 0 } }, 201);
 });
 
+/** PATCH /admin/users/:id { isSystemAdmin } — grant or revoke system admin. */
+admin.patch("/users/:id", async (c) => {
+  const auth = requireAuth(c);
+  if (!auth.isSystemAdmin) return c.json({ error: "forbidden" }, 403);
+  // The one admin op a masquerade session never gets: acting *as* someone must
+  // not become a route to handing out privileges under their name.
+  if (auth.isMasquerading) return c.json({ error: "forbidden_while_masquerading" }, 403);
+
+  const id = c.req.param("id");
+  const body = await c.req.json<{ isSystemAdmin?: boolean }>().catch(() => null);
+  if (typeof body?.isSystemAdmin !== "boolean") return c.json({ error: "invalid_body" }, 400);
+  // No self-demotion: it's the only way to lock every admin out of the console,
+  // and it keeps "remove admin" from ever emptying the admin set.
+  if (id === auth.userId) return c.json({ error: "cannot_change_own_role" }, 400);
+
+  const target = await c.env.DB.prepare(
+    `SELECT u.id, u.email, u.is_system_admin,
+            (SELECT COUNT(*) FROM control ctl WHERE ctl.user_id = u.id) AS person_count
+     FROM user u WHERE u.id = ? AND u.disabled_at IS NULL`,
+  )
+    .bind(id)
+    .first<{ id: string; email: string; is_system_admin: number; person_count: number }>();
+  if (!target) return c.json({ error: "not_found" }, 404);
+
+  const next = body.isSystemAdmin;
+  if ((target.is_system_admin === 1) !== next) {
+    await c.env.DB.prepare("UPDATE user SET is_system_admin = ? WHERE id = ?").bind(next ? 1 : 0, id).run();
+    c.var.audit.push({
+      action: "admin.action",
+      entityKind: "user",
+      entityId: id,
+      detail: { op: next ? "user.admin.granted" : "user.admin.revoked", email: target.email },
+    });
+  }
+  return c.json({
+    user: { id: target.id, email: target.email, isSystemAdmin: next, personCount: target.person_count },
+  });
+});
+
 /** POST /admin/bulk-import { rows, dryRun } — CSV bulk import (FR-29/30). */
 admin.post("/bulk-import", async (c) => {
   const auth = requireAuth(c);
