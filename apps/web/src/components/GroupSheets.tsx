@@ -222,25 +222,52 @@ export function CreateGroupSheet({
 
 // ── Edit / delete a group ────────────────────────────────────────────────────
 
-/** Rename a group, and — when the viewer is allowed — delete it. Delete is a
- *  two-step: the button arms a confirmation that spells out what goes away.
- *  Kind isn't editable; the server refuses to change it. */
+/** Rename a group, move it in the hierarchy, and — when the viewer is allowed —
+ *  delete it. Delete is a two-step: the button arms a confirmation that spells
+ *  out what goes away. Kind isn't editable; the server refuses to change it.
+ *
+ *  Re-parenting opens an inline picker rather than a second stacked sheet, so
+ *  "where does this group live" stays part of editing it. */
 export function EditGroupSheet({
   group,
+  canReparent,
   onClose,
   onChanged,
   onDeleted,
 }: {
   group: GroupDetailDTO;
+  /** Hierarchy edits are a school-structure concern: system admins, and never
+   *  households (they don't nest). The server enforces the same rule. */
+  canReparent: boolean;
   onClose: () => void;
   onChanged: () => void;
   onDeleted: () => void;
 }) {
   const { t } = useI18n();
+  const [view, setView] = useState<"main" | "parent">("main");
   const [name, setName] = useState(group.name);
   const [busy, setBusy] = useState(false);
   const [confirming, setConfirming] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // ancestors run root → … → immediate parent, so the last one is the parent.
+  const parent = group.ancestors?.length ? group.ancestors[group.ancestors.length - 1] : null;
+
+  const reparent = async (parentId: string | null) => {
+    setBusy(true);
+    setError(null);
+    try {
+      await api.setGroupParent(group.id, parentId);
+      onChanged();
+      setView("main");
+    } catch (e) {
+      setError(
+        e instanceof ApiError && e.status === 409 ? t("reparentRejected") : t("reparentFailed"),
+      );
+    } finally {
+      setBusy(false);
+    }
+  };
 
   const save = async () => {
     const next = name.trim();
@@ -276,6 +303,24 @@ export function EditGroupSheet({
     }
   };
 
+  if (view === "parent") {
+    return (
+      <SheetOver onClose={onClose}>
+        <h2 className="sd-h2" style={{ marginBottom: 10 }}>{t("setParentGroup")}</h2>
+        <ParentPicker
+          groupId={group.id}
+          currentParentId={group.parentId ?? null}
+          busy={busy}
+          onPick={(id) => void reparent(id)}
+        />
+        {error && <div className="sd-meta" style={{ color: "var(--warn)", textAlign: "center", marginTop: 10 }}>{error}</div>}
+        <Btn block kind="secondary" style={{ marginTop: 14 }} onClick={() => { setError(null); setView("main"); }} disabled={busy}>
+          {t("cancel")}
+        </Btn>
+      </SheetOver>
+    );
+  }
+
   return (
     <SheetOver onClose={onClose}>
       <h2 className="sd-h2" style={{ marginBottom: 12 }}>{t("editGroup")}</h2>
@@ -289,6 +334,26 @@ export function EditGroupSheet({
           onChange={(e) => setName(e.target.value)}
         />
       </div>
+
+      {canReparent && (
+        <div style={{ display: "flex", flexDirection: "column", gap: 6, marginTop: 14 }}>
+          <span className="sd-label">{t("parentGroup")}</span>
+          <button
+            type="button"
+            className="sd-row"
+            onClick={() => { setError(null); setView("parent"); }}
+            disabled={busy}
+            style={{ gap: 10, padding: "10px 12px", background: "var(--bg-2)", borderRadius: 11, width: "100%", border: 0, font: "inherit", cursor: "pointer", textAlign: "left" }}
+          >
+            <Icon name="users3" size={17} style={{ color: "var(--ink-2)", flex: "0 0 auto" }} />
+            <span style={{ flex: 1, fontSize: 13.5, fontWeight: 600, color: parent ? undefined : "var(--ink-3)" }}>
+              {parent ? parent.name : t("parentNone")}
+            </span>
+            <Icon name="chevright" size={17} style={{ color: "var(--ink-3)", flex: "0 0 auto" }} />
+          </button>
+        </div>
+      )}
+
       <Btn block icon="check" style={{ marginTop: 16 }} onClick={() => void save()} disabled={busy || !name.trim()}>
         {t("save")}
       </Btn>
@@ -332,23 +397,24 @@ export function EditGroupSheet({
   );
 }
 
-// ── Set a group's parent (system admins) ─────────────────────────────────────
+// ── Parent picker (used inside EditGroupSheet) ───────────────────────────────
 
-export function SetParentSheet({
+/** Candidate list for "where should this group live". The server excludes the
+ *  group itself and its own descendants, so the list can't offer a cycle. */
+function ParentPicker({
   groupId,
   currentParentId,
-  onClose,
-  onChanged,
+  busy,
+  onPick,
 }: {
   groupId: string;
   currentParentId: string | null;
-  onClose: () => void;
-  onChanged: () => void;
+  busy: boolean;
+  onPick: (parentId: string | null) => void;
 }) {
   const { t } = useI18n();
   const [q, setQ] = useState("");
   const [candidates, setCandidates] = useState<GroupRefDTO[]>([]);
-  const [busy, setBusy] = useState<string | null>(null);
 
   useEffect(() => {
     const id = setTimeout(() => {
@@ -357,45 +423,21 @@ export function SetParentSheet({
     return () => clearTimeout(id);
   }, [q, groupId]);
 
-  const choose = async (parentId: string | null) => {
-    setBusy(parentId ?? "__none__");
-    try {
-      await api.setGroupParent(groupId, parentId);
-      onChanged();
-      onClose();
-    } finally {
-      setBusy(null);
-    }
-  };
+  const rowStyle = { gap: 11, padding: "10px 8px", borderRadius: 10, border: 0, background: "transparent", width: "100%", textAlign: "left" as const, font: "inherit", cursor: "pointer" };
+  const iconStyle = { width: 34, height: 34, borderRadius: 9, background: "var(--slate-tint)", color: "var(--ink-2)", display: "flex", alignItems: "center", justifyContent: "center", flex: "0 0 auto" };
 
   return (
-    <SheetOver onClose={onClose}>
-      <h2 className="sd-h2" style={{ marginBottom: 10 }}>{t("setParentGroup")}</h2>
+    <>
       <input className="sd-input" placeholder={`${t("navGroups")}…`} value={q} onChange={(e) => setQ(e.target.value)} autoFocus />
       <div style={{ display: "flex", flexDirection: "column", gap: 6, marginTop: 12, maxHeight: 340, overflowY: "auto" }}>
-        <button
-          type="button"
-          className="sd-row"
-          disabled={busy !== null}
-          onClick={() => void choose(null)}
-          style={{ gap: 11, padding: "10px 8px", borderRadius: 10, border: 0, background: "transparent", width: "100%", textAlign: "left", font: "inherit", cursor: "pointer" }}
-        >
-          <div style={{ width: 34, height: 34, borderRadius: 9, background: "var(--slate-tint)", color: "var(--ink-2)", display: "flex", alignItems: "center", justifyContent: "center", flex: "0 0 auto" }}>
-            <Icon name="x" size={16} />
-          </div>
+        <button type="button" className="sd-row" disabled={busy} onClick={() => onPick(null)} style={rowStyle}>
+          <div style={iconStyle}><Icon name="x" size={16} /></div>
           <span style={{ flex: 1, fontSize: 14.5, fontWeight: 600 }}>{t("parentNone")}</span>
           {!currentParentId && <Icon name="check" size={18} style={{ color: "var(--blue)" }} />}
         </button>
         {candidates.map((g) => (
-          <button
-            key={g.id}
-            type="button"
-            className="sd-row"
-            disabled={busy !== null}
-            onClick={() => void choose(g.id)}
-            style={{ gap: 11, padding: "10px 8px", borderRadius: 10, border: 0, background: "transparent", width: "100%", textAlign: "left", font: "inherit", cursor: "pointer" }}
-          >
-            <div style={{ width: 34, height: 34, borderRadius: 9, background: "var(--slate-tint)", color: "var(--ink-2)", display: "flex", alignItems: "center", justifyContent: "center", flex: "0 0 auto" }}>
+          <button key={g.id} type="button" className="sd-row" disabled={busy} onClick={() => onPick(g.id)} style={rowStyle}>
+            <div style={iconStyle}>
               <Icon name={g.kind === "classroom" ? "school" : g.kind === "household" ? "home" : "users3"} size={16} />
             </div>
             <span style={{ flex: 1, fontSize: 14.5, fontWeight: 600 }}>{g.name}</span>
@@ -404,8 +446,7 @@ export function SetParentSheet({
         ))}
         {candidates.length === 0 && <div className="sd-meta" style={{ padding: "12px 0" }}>{t("noEligibleGroups")}</div>}
       </div>
-      <Btn block kind="secondary" style={{ marginTop: 14 }} onClick={onClose}>{t("done")}</Btn>
-    </SheetOver>
+    </>
   );
 }
 

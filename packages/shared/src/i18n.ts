@@ -181,6 +181,8 @@ export interface Strings {
   deleteGroupHasChildren: string;
   deleteGroupFailed: string;
   renameGroupFailed: string;
+  reparentFailed: string;
+  reparentRejected: string;
   confirmDelete: string;
 
   // capabilities (Capability enum labels)
@@ -396,6 +398,8 @@ const en: Strings = {
   deleteGroupHasChildren: "Move or delete its sub-groups first.",
   deleteGroupFailed: "Couldn't delete this group.",
   renameGroupFailed: "Couldn't rename this group.",
+  reparentFailed: "Couldn't move this group.",
+  reparentRejected: "That group can't be the parent — pick another.",
   confirmDelete: "Yes, delete",
 
   capParent: "Parent",
@@ -539,6 +543,8 @@ const es: Strings = {
   deleteGroupHasChildren: "Primero mueve o elimina sus subgrupos.",
   deleteGroupFailed: "No se pudo eliminar este grupo.",
   renameGroupFailed: "No se pudo cambiar el nombre de este grupo.",
+  reparentFailed: "No se pudo mover este grupo.",
+  reparentRejected: "Ese grupo no puede ser el principal: elige otro.",
   confirmDelete: "Sí, eliminar",
   members: "Miembros",
   manage: "Gestionar",
@@ -681,6 +687,8 @@ const zh: Strings = {
   deleteGroupHasChildren: "请先移动或删除其子群组。",
   deleteGroupFailed: "无法删除此群组。",
   renameGroupFailed: "无法重命名此群组。",
+  reparentFailed: "无法移动此群组。",
+  reparentRejected: "该群组不能作为上级，请选择其他群组。",
   confirmDelete: "确认删除",
   members: "成员",
   manage: "管理",
