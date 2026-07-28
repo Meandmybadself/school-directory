@@ -121,7 +121,7 @@ describe("group hierarchy closure", () => {
     { id: "faculty", parentId: "school" },
     { id: "room4a", parentId: "grade4" },
     { id: "room4b", parentId: "grade4" },
-    { id: "house", parentId: null }, // household: never nests
+    { id: "house", parentId: "grade4" }, // a household may sit under a group
   ];
   const { parentOf, childrenOf } = buildGraph(edges);
 
@@ -131,8 +131,19 @@ describe("group hierarchy closure", () => {
   });
 
   it("subtree includes the node and all descendants", () => {
-    expect(subtree(childrenOf, "grade4").sort()).toEqual(["grade4", "room4a", "room4b"]);
+    expect(subtree(childrenOf, "grade4").sort()).toEqual(["grade4", "house", "room4a", "room4b"]);
     expect(subtree(childrenOf, "room4a")).toEqual(["room4a"]);
+  });
+
+  // A household nested under a group joins that group's scope: its members roll
+  // up and see what's shared there. The reverse must never happen — nothing may
+  // sit under a household, or outsiders would roll up into the family's scope.
+  // (The kind check itself lives in PATCH /groups/:id/parent; this pins the
+  // closure behaviour the rule depends on.)
+  it("rolls a nested household's members up into its parent group", () => {
+    expect(effectiveGroups(parentOf, ["house"])).toEqual(new Set(["house", "grade4", "school"]));
+    // …and never the other way: a grade member is not pulled into the household.
+    expect(effectiveGroups(parentOf, ["grade4"]).has("house")).toBe(false);
   });
 
   it("effective groups roll a classroom member up into grade and school", () => {

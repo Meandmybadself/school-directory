@@ -261,8 +261,8 @@ groups.get("/:id", async (c) => {
  * to any member; Classrooms require the Teacher capability (or system admin);
  * generic groups (School, Grades, clubs, …) are system-admin only. The creator's
  * active Person becomes the admin. Passing `parentId` creates it as a sub-group
- * of that group — a hierarchy (school-structure) action: system-admin only, and
- * households never nest.
+ * of that group — a hierarchy (school-structure) action: system-admin only.
+ * Households may be nested UNDER a group but never contain one (see below).
  */
 groups.post("/", async (c) => {
   const auth = requireAuth(c);
@@ -287,10 +287,11 @@ groups.post("/", async (c) => {
   if (kind === "generic" && !auth.isSystemAdmin) return c.json({ error: "forbidden" }, 403);
 
   // Nesting under a parent is system-admin-only, mirroring PATCH /:id/parent.
-  // Households never participate in the hierarchy (as child or parent).
+  // A household may be a CHILD (it joins the parent's scope), but never a
+  // PARENT — membership rolls upward, so anything under a household would pull
+  // outsiders into that family's share scope.
   if (parentId) {
     if (!auth.isSystemAdmin) return c.json({ error: "forbidden" }, 403);
-    if (kind === "household") return c.json({ error: "households_dont_nest" }, 409);
     const parent = await c.env.DB.prepare("SELECT kind FROM grp WHERE id = ?")
       .bind(parentId)
       .first<{ kind: string }>();
@@ -425,7 +426,15 @@ groups.delete("/:id", async (c) => {
 // ── Hierarchy (system admins) ────────────────────────────────────────────────
 
 /** PATCH /groups/:id/parent { parentId } — set or clear a group's parent.
- *  System-admin only. Households never nest; cycles are rejected. */
+ *  System-admin only; cycles are rejected.
+ *
+ *  A household may be moved UNDER a group: membership rolls up, so its members
+ *  become effective members of the parent and see what's shared there. The
+ *  reverse is refused — a household can never be a parent, because that would
+ *  roll outsiders up into the family's own share scope. Nesting does not change
+ *  who can see the household's contacts (those stay gated on DIRECT membership)
+ *  and does not affect the address cascade or neighbor discovery, both of which
+ *  read direct household membership only. */
 groups.patch("/:id/parent", async (c) => {
   const auth = requireAuth(c);
   if (!auth.isSystemAdmin) return c.json({ error: "forbidden" }, 403);
@@ -438,7 +447,6 @@ groups.patch("/:id/parent", async (c) => {
     .bind(groupId)
     .first<{ id: string; kind: string }>();
   if (!group) return c.json({ error: "not_found" }, 404);
-  if (group.kind === "household") return c.json({ error: "households_dont_nest" }, 409);
 
   if (parentId) {
     const parent = await c.env.DB.prepare("SELECT id, kind FROM grp WHERE id = ?")

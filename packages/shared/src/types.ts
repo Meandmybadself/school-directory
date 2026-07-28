@@ -140,8 +140,8 @@ export interface GroupDetailDTO {
   /** Group-owned contact items (e.g. household cascading address), filtered. */
   contacts: ContactItemDTO[];
   /** Hierarchy. `ancestors` runs root → … → immediate parent (breadcrumb);
-   *  `children` are the immediate sub-groups. Households never nest, so these
-   *  are empty for households. */
+   *  `children` are the immediate sub-groups. A household may sit UNDER a group
+   *  but never contains one, so `children` is always empty for a household. */
   parentId?: string | null;
   ancestors?: GroupRefDTO[];
   children?: GroupSummaryDTO[];

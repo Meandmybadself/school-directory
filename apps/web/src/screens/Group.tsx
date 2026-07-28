@@ -71,15 +71,18 @@ export function GroupDetail() {
   }
   if (!g) return null;
 
-  // Hierarchy editing is a school-structure concern: system admins only, and
-  // households never nest.
-  const canEditHierarchy = !!me?.user.isSystemAdmin && g.kind !== "household";
+  // Hierarchy editing is a school-structure concern: system admins only.
+  // A household can be moved UNDER a group, but never hold sub-groups — so the
+  // two directions are gated separately (the server enforces the same split).
+  const isSystemAdmin = !!me?.user.isSystemAdmin;
+  const canReparent = isSystemAdmin;
+  const canCreateSubgroup = isSystemAdmin && g.kind !== "household";
   const actions: GroupActions = {
     onAddMember: () => setSheet({ type: "addMember" }),
     onMember: (member) => setSheet({ type: "member", member }),
     onEditContacts: () => setSheet({ type: "editContacts" }),
     onEditGroup: g.viewerIsAdmin || me?.user.isSystemAdmin ? () => setSheet({ type: "editGroup" }) : undefined,
-    onCreateSubgroup: canEditHierarchy ? () => setSheet({ type: "createSubgroup" }) : undefined,
+    onCreateSubgroup: canCreateSubgroup ? () => setSheet({ type: "createSubgroup" }) : undefined,
   };
   const onChanged = () => reload();
 
@@ -93,7 +96,7 @@ export function GroupDetail() {
         {sheet?.type === "editGroup" && (
           <EditGroupSheet
             group={g}
-            canReparent={canEditHierarchy}
+            canReparent={canReparent}
             onClose={() => setSheet(null)}
             onChanged={onChanged}
             onDeleted={() => { setSheet(null); navigate("/groups"); }}

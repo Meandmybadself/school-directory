@@ -158,7 +158,7 @@ export function CreateGroupSheet({
   canCreateClassroom: boolean;
   canCreateGeneric: boolean;
   /** When set, the new group is created as a sub-group of this group. Households
-   *  never nest, so sub-group mode offers only Classroom / Generic. */
+   *  are allowed here — they can sit under a group, they just can't hold one. */
   parentId?: string;
   onClose: () => void;
   onCreated: (id: string) => void;
@@ -168,9 +168,8 @@ export function CreateGroupSheet({
   const [kind, setKind] = useState<"household" | "classroom" | "generic">(isSub ? "generic" : "household");
   const [name, setName] = useState("");
   const [busy, setBusy] = useState(false);
-  // Households can't be a child; sub-group mode drops that option. A chooser is
-  // only needed when more than one option is on offer.
-  const canHousehold = !isSub;
+  // A chooser is only needed when more than one option is on offer.
+  const canHousehold = true;
   const choose = [canHousehold, canCreateClassroom, canCreateGeneric].filter(Boolean).length > 1;
 
   const create = async () => {
@@ -236,8 +235,9 @@ export function EditGroupSheet({
   onDeleted,
 }: {
   group: GroupDetailDTO;
-  /** Hierarchy edits are a school-structure concern: system admins, and never
-   *  households (they don't nest). The server enforces the same rule. */
+  /** Hierarchy edits are a school-structure concern: system admins only. Applies
+   *  to households too — they can be moved under a group (the candidate list
+   *  never offers a household, since one can't be a parent). */
   canReparent: boolean;
   onClose: () => void;
   onChanged: () => void;
