@@ -31,6 +31,16 @@ async function isGroupAdmin(c: Context<HonoEnv>, userId: string, groupId: string
   return !!row;
 }
 
+/** Deleting a group takes the same authority as creating one of that kind, plus
+ *  admin rights over the group itself: households and classrooms are managed by
+ *  whoever runs them, generic groups (School / Grades / clubs) are an admin
+ *  construct. Mirrors the rules in POST /groups. */
+function canDeleteKind(kind: string, viewerIsAdmin: boolean, isSystemAdmin: boolean): boolean {
+  if (isSystemAdmin) return true;
+  if (!viewerIsAdmin) return false;
+  return kind !== "generic";
+}
+
 /** Guard helper: 403 unless the caller administers the group (or is a sys admin). */
 async function requireGroupAdmin(c: Context<HonoEnv>, groupId: string): Promise<string | Response> {
   const auth = requireAuth(c);
@@ -234,6 +244,7 @@ groups.get("/:id", async (c) => {
     memberCount: memberRows.results.length,
     viewerIsAdmin,
     viewerIsMember,
+    viewerCanDelete: canDeleteKind(group.kind, viewerIsAdmin, auth.isSystemAdmin),
     members,
     contacts,
     parentId: group.parent_id,
@@ -306,6 +317,109 @@ groups.post("/", async (c) => {
 
   c.var.audit.push({ action: "admin.action", entityKind: "group", entityId: id, detail: { op: "group.create", kind, parentId } });
   return c.json({ id }, 201);
+});
+
+// ── Rename & delete ─────────────────────────────────────────────────────────
+
+/** PATCH /groups/:id { name } — rename a group (group admins).
+ *  `kind` is deliberately immutable: household / classroom / generic carry
+ *  different cascade, capability and hierarchy semantics, so switching one after
+ *  the fact would silently rewrite what the group means. Delete and recreate. */
+groups.patch("/:id", async (c) => {
+  const groupId = c.req.param("id");
+  const admin = await requireGroupAdmin(c, groupId);
+  if (typeof admin !== "string") return admin;
+
+  const body = await c.req.json<{ name: string }>().catch(() => null);
+  const name = body?.name?.trim();
+  if (!name) return c.json({ error: "invalid_body" }, 400);
+
+  await c.env.DB.prepare("UPDATE grp SET name = ? WHERE id = ?").bind(name, groupId).run();
+  c.var.audit.push({ action: "admin.action", entityKind: "group", entityId: groupId, detail: { op: "group.rename", name } });
+  return c.json({ id: groupId, name });
+});
+
+/** DELETE /groups/:id — remove a group and everything it owns: memberships,
+ *  group-owned contact items (household cascade) and any shares pointing at
+ *  either. Members and their own contact info are untouched.
+ *
+ *  A group with sub-groups is refused (409 has_children) rather than orphaning
+ *  or silently re-parenting them — move the children first, deliberately. */
+groups.delete("/:id", async (c) => {
+  const auth = requireAuth(c);
+  const groupId = c.req.param("id");
+
+  const group = await c.env.DB.prepare("SELECT id, kind, name FROM grp WHERE id = ?")
+    .bind(groupId)
+    .first<{ id: string; kind: string; name: string }>();
+  if (!group) return c.json({ error: "not_found" }, 404);
+
+  const viewerIsAdmin = await isGroupAdmin(c, auth.userId, groupId);
+  if (!canDeleteKind(group.kind, viewerIsAdmin, auth.isSystemAdmin)) {
+    return c.json({ error: "forbidden" }, 403);
+  }
+
+  const kids = await c.env.DB.prepare("SELECT COUNT(*) AS n FROM grp WHERE parent_id = ?")
+    .bind(groupId)
+    .first<{ n: number }>();
+  if ((kids?.n ?? 0) > 0) return c.json({ error: "has_children", children: kids?.n ?? 0 }, 409);
+
+  // household_admin is granted when a household is created; drop it from anyone
+  // whose last household this was, so the profile badge doesn't outlive it.
+  // Computed before the memberships go away.
+  let losesHouseholdAdmin: string[] = [];
+  if (group.kind === "household") {
+    const rows = await c.env.DB.prepare(
+      `SELECT m.person_id FROM membership m
+        WHERE m.group_id = ? AND m.is_admin = 1
+          AND NOT EXISTS (
+            SELECT 1 FROM membership m2 JOIN grp g2 ON g2.id = m2.group_id
+             WHERE m2.person_id = m.person_id AND m2.is_admin = 1
+               AND g2.kind = 'household' AND g2.id != ?)`,
+    )
+      .bind(groupId, groupId)
+      .all<{ person_id: string }>();
+    losesHouseholdAdmin = rows.results.map((r) => r.person_id);
+  }
+
+  const owned = await c.env.DB.prepare(
+    "SELECT id FROM contact_item WHERE owner_kind = 'group' AND owner_id = ?",
+  )
+    .bind(groupId)
+    .all<{ id: string }>();
+  const contactIds = owned.results.map((r) => r.id);
+
+  const stmts = [];
+  if (contactIds.length) {
+    stmts.push(
+      c.env.DB.prepare(
+        `DELETE FROM share WHERE subject_kind = 'contact_item'
+           AND subject_ref IN (${contactIds.map(() => "?").join(",")})`,
+      ).bind(...contactIds),
+    );
+  }
+  stmts.push(
+    c.env.DB.prepare("DELETE FROM share WHERE target_kind = 'group' AND target_id = ?").bind(groupId),
+    c.env.DB.prepare("DELETE FROM contact_item WHERE owner_kind = 'group' AND owner_id = ?").bind(groupId),
+    c.env.DB.prepare("DELETE FROM membership WHERE group_id = ?").bind(groupId),
+    c.env.DB.prepare("DELETE FROM grp WHERE id = ?").bind(groupId),
+  );
+  for (const personId of losesHouseholdAdmin) {
+    stmts.push(
+      c.env.DB.prepare(
+        "DELETE FROM capability_grant WHERE person_id = ? AND capability = 'household_admin'",
+      ).bind(personId),
+    );
+  }
+  await c.env.DB.batch(stmts);
+
+  c.var.audit.push({
+    action: "admin.action",
+    entityKind: "group",
+    entityId: groupId,
+    detail: { op: "group.delete", kind: group.kind, name: group.name, contactsRemoved: contactIds.length },
+  });
+  return c.json({ ok: true });
 });
 
 // ── Hierarchy (system admins) ────────────────────────────────────────────────

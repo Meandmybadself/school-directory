@@ -13,7 +13,7 @@ import { useI18n } from "../i18n/index.js";
 import { useIsDesktop } from "../lib/useIsDesktop.js";
 import { useSession } from "../lib/session.js";
 import { api, ApiError, mediaUrl } from "../lib/api.js";
-import { AddMemberSheet, MemberSheet, EditContactsSheet, CreateGroupSheet, SetParentSheet } from "../components/GroupSheets.js";
+import { AddMemberSheet, MemberSheet, EditContactsSheet, CreateGroupSheet, SetParentSheet, EditGroupSheet } from "../components/GroupSheets.js";
 import type { GroupMemberDTO, GroupSummaryDTO } from "@sd/shared";
 
 const TYPE_ICON: Record<string, IconName> = { address: "pin", phone: "phone", email: "mail", url: "link" };
@@ -28,6 +28,8 @@ export interface GroupActions {
   onAddMember: () => void;
   onMember: (m: GroupMemberDTO) => void;
   onEditContacts: () => void;
+  /** Rename / delete the group itself. Present for group admins. */
+  onEditGroup?: () => void;
   /** Present only when the viewer may edit the hierarchy (system admin). */
   onSetParent?: () => void;
   /** Present only when the viewer may edit the hierarchy (system admin). */
@@ -38,6 +40,7 @@ type Sheet =
   | { type: "addMember" }
   | { type: "member"; member: GroupMemberDTO }
   | { type: "editContacts" }
+  | { type: "editGroup" }
   | { type: "setParent" }
   | { type: "createSubgroup" }
   | null;
@@ -77,6 +80,7 @@ export function GroupDetail() {
     onAddMember: () => setSheet({ type: "addMember" }),
     onMember: (member) => setSheet({ type: "member", member }),
     onEditContacts: () => setSheet({ type: "editContacts" }),
+    onEditGroup: g.viewerIsAdmin || me?.user.isSystemAdmin ? () => setSheet({ type: "editGroup" }) : undefined,
     onSetParent: canEditHierarchy ? () => setSheet({ type: "setParent" }) : undefined,
     onCreateSubgroup: canEditHierarchy ? () => setSheet({ type: "createSubgroup" }) : undefined,
   };
@@ -90,6 +94,14 @@ export function GroupDetail() {
         {sheet?.type === "addMember" && <AddMemberSheet groupId={g.id} onClose={() => setSheet(null)} onChanged={onChanged} />}
         {sheet?.type === "member" && <MemberSheet groupId={g.id} member={sheet.member} onClose={() => setSheet(null)} onChanged={onChanged} />}
         {sheet?.type === "setParent" && <SetParentSheet groupId={g.id} currentParentId={g.parentId ?? null} onClose={() => setSheet(null)} onChanged={onChanged} />}
+        {sheet?.type === "editGroup" && (
+          <EditGroupSheet
+            group={g}
+            onClose={() => setSheet(null)}
+            onChanged={onChanged}
+            onDeleted={() => { setSheet(null); navigate("/groups"); }}
+          />
+        )}
         {sheet?.type === "createSubgroup" && (
           <CreateGroupSheet
             parentId={g.id}
@@ -460,6 +472,9 @@ function MobileGroup({ g, actions }: { g: GroupDetailDTO; actions: GroupActions 
           {actions.onSetParent && (
             <Btn block kind="secondary" icon="users3" onClick={actions.onSetParent}>{t("setParentGroup")}</Btn>
           )}
+          {actions.onEditGroup && (
+            <Btn block kind="secondary" icon="pencil" onClick={actions.onEditGroup}>{t("editGroup")}</Btn>
+          )}
 
           {g.viewerIsAdmin ? (
             hh ? (
@@ -532,6 +547,9 @@ function DesktopGroup({ g, actions }: { g: GroupDetailDTO; actions: GroupActions
             )}
             {actions.onSetParent && (
               <button className="sd-btn sd-btn-secondary sd-btn-sm" onClick={actions.onSetParent}><Icon name="users3" size={15} />{t("setParentGroup")}</button>
+            )}
+            {actions.onEditGroup && (
+              <button className="sd-btn sd-btn-secondary sd-btn-sm" onClick={actions.onEditGroup}><Icon name="pencil" size={15} />{t("editGroup")}</button>
             )}
           </div>
           <div style={{ padding: "6px 22px 14px" }}>

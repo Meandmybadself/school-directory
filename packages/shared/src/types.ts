@@ -132,6 +132,10 @@ export interface GroupDetailDTO {
   viewerIsAdmin: boolean;
   /** True when the viewer's active Person is a member at all. */
   viewerIsMember: boolean;
+  /** True when the viewer may delete this group. Deleting takes the authority to
+   *  create the kind (generic groups are system-admin-only) plus admin rights
+   *  over the group; the server owns the rule, the UI just reads it. */
+  viewerCanDelete?: boolean;
   members: GroupMemberDTO[];
   /** Group-owned contact items (e.g. household cascading address), filtered. */
   contacts: ContactItemDTO[];

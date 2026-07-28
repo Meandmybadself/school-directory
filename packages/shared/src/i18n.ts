@@ -172,6 +172,16 @@ export interface Strings {
   setParentGroup: string;
   parentNone: string;
   noEligibleGroups: string;
+  editGroup: string;
+  renameGroup: string;
+  deleteGroup: string;
+  deleteGroupConfirm: string; // uses {name}
+  deleteGroupWarn: string; // uses {count}
+  deleteGroupKeepsPeople: string;
+  deleteGroupHasChildren: string;
+  deleteGroupFailed: string;
+  renameGroupFailed: string;
+  confirmDelete: string;
 
   // capabilities (Capability enum labels)
   capParent: string;
@@ -377,6 +387,16 @@ const en: Strings = {
   setParentGroup: "Set parent group",
   parentNone: "No parent (top level)",
   noEligibleGroups: "No eligible groups.",
+  editGroup: "Edit group",
+  renameGroup: "Rename",
+  deleteGroup: "Delete group",
+  deleteGroupConfirm: "Delete “{name}”?",
+  deleteGroupWarn: "This can't be undone.",
+  deleteGroupKeepsPeople: "The {count} people in it stay in the directory — only the group and the contact info it shares are removed.",
+  deleteGroupHasChildren: "Move or delete its sub-groups first.",
+  deleteGroupFailed: "Couldn't delete this group.",
+  renameGroupFailed: "Couldn't rename this group.",
+  confirmDelete: "Yes, delete",
 
   capParent: "Parent",
   capTeacher: "Teacher",
@@ -510,6 +530,16 @@ const es: Strings = {
   setParentGroup: "Establecer grupo principal",
   parentNone: "Sin grupo principal (nivel superior)",
   noEligibleGroups: "No hay grupos elegibles.",
+  editGroup: "Editar grupo",
+  renameGroup: "Cambiar nombre",
+  deleteGroup: "Eliminar grupo",
+  deleteGroupConfirm: "¿Eliminar «{name}»?",
+  deleteGroupWarn: "Esta acción no se puede deshacer.",
+  deleteGroupKeepsPeople: "Las {count} personas del grupo permanecen en el directorio: solo se elimina el grupo y la información de contacto que comparte.",
+  deleteGroupHasChildren: "Primero mueve o elimina sus subgrupos.",
+  deleteGroupFailed: "No se pudo eliminar este grupo.",
+  renameGroupFailed: "No se pudo cambiar el nombre de este grupo.",
+  confirmDelete: "Sí, eliminar",
   members: "Miembros",
   manage: "Gestionar",
 
@@ -642,6 +672,16 @@ const zh: Strings = {
   setParentGroup: "设置上级群组",
   parentNone: "无上级（顶层）",
   noEligibleGroups: "没有符合条件的群组。",
+  editGroup: "编辑群组",
+  renameGroup: "重命名",
+  deleteGroup: "删除群组",
+  deleteGroupConfirm: "确定删除“{name}”？",
+  deleteGroupWarn: "此操作无法撤销。",
+  deleteGroupKeepsPeople: "群组中的 {count} 人仍保留在通讯录中——只会删除该群组及其共享的联系信息。",
+  deleteGroupHasChildren: "请先移动或删除其子群组。",
+  deleteGroupFailed: "无法删除此群组。",
+  renameGroupFailed: "无法重命名此群组。",
+  confirmDelete: "确认删除",
   members: "成员",
   manage: "管理",
 

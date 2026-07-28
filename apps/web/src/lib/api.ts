@@ -123,6 +123,10 @@ export const api = {
     request<{ groups: GroupSummaryDTO[] }>(`/groups?q=${encodeURIComponent(q)}`),
   createGroup: (body: { kind: GroupKind; name: string; parentId?: string }) =>
     request<{ id: string }>("/groups", { method: "POST", body: JSON.stringify(body) }),
+  renameGroup: (groupId: string, name: string) =>
+    request<{ id: string; name: string }>(`/groups/${groupId}`, { method: "PATCH", body: JSON.stringify({ name }) }),
+  deleteGroup: (groupId: string) =>
+    request<{ ok: true }>(`/groups/${groupId}`, { method: "DELETE" }),
   setGroupParent: (groupId: string, parentId: string | null) =>
     request<{ ok: true }>(`/groups/${groupId}/parent`, { method: "PATCH", body: JSON.stringify({ parentId }) }),
   groupParentCandidates: (groupId: string, q: string) =>

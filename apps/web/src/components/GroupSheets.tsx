@@ -2,7 +2,7 @@
 // remove), and edit household-owned contact info.
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import type { ContactType, GroupMemberDTO, GroupRefDTO, ShareTargetDTO, Visibility } from "@sd/shared";
+import type { ContactType, GroupDetailDTO, GroupMemberDTO, GroupRefDTO, ShareTargetDTO, Visibility } from "@sd/shared";
 import { Icon, type IconName } from "./Icon.js";
 import { Avatar, Btn } from "./atoms.js";
 import { SheetOver, OptionRow, ContactVis } from "./parts.js";
@@ -216,6 +216,118 @@ export function CreateGroupSheet({
         />
       </div>
       <Btn block icon="plus" style={{ marginTop: 16 }} onClick={() => void create()} disabled={busy || !name.trim()}>{t("create")}</Btn>
+    </SheetOver>
+  );
+}
+
+// ── Edit / delete a group ────────────────────────────────────────────────────
+
+/** Rename a group, and — when the viewer is allowed — delete it. Delete is a
+ *  two-step: the button arms a confirmation that spells out what goes away.
+ *  Kind isn't editable; the server refuses to change it. */
+export function EditGroupSheet({
+  group,
+  onClose,
+  onChanged,
+  onDeleted,
+}: {
+  group: GroupDetailDTO;
+  onClose: () => void;
+  onChanged: () => void;
+  onDeleted: () => void;
+}) {
+  const { t } = useI18n();
+  const [name, setName] = useState(group.name);
+  const [busy, setBusy] = useState(false);
+  const [confirming, setConfirming] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const save = async () => {
+    const next = name.trim();
+    if (!next || next === group.name) return onClose();
+    setBusy(true);
+    setError(null);
+    try {
+      await api.renameGroup(group.id, next);
+      onChanged();
+      onClose();
+    } catch {
+      setError(t("renameGroupFailed"));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const remove = async () => {
+    setBusy(true);
+    setError(null);
+    try {
+      await api.deleteGroup(group.id);
+      onDeleted();
+    } catch (e) {
+      setError(
+        e instanceof ApiError && e.status === 409
+          ? t("deleteGroupHasChildren")
+          : t("deleteGroupFailed"),
+      );
+      setConfirming(false);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <SheetOver onClose={onClose}>
+      <h2 className="sd-h2" style={{ marginBottom: 12 }}>{t("editGroup")}</h2>
+      <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+        <label className="sd-label" htmlFor="egname">{t("groupName")}</label>
+        <input
+          id="egname"
+          className="sd-input"
+          value={name}
+          autoFocus
+          onChange={(e) => setName(e.target.value)}
+        />
+      </div>
+      <Btn block icon="check" style={{ marginTop: 16 }} onClick={() => void save()} disabled={busy || !name.trim()}>
+        {t("save")}
+      </Btn>
+
+      {group.viewerCanDelete && (
+        <div style={{ marginTop: 18, borderTop: "1px solid var(--line)", paddingTop: 14 }}>
+          {confirming ? (
+            <>
+              <div style={{ fontSize: 14.5, fontWeight: 700 }}>{t("deleteGroupConfirm", { name: group.name })}</div>
+              <div className="sd-meta" style={{ marginTop: 4, lineHeight: 1.45 }}>
+                {t("deleteGroupKeepsPeople", { count: String(group.memberCount) })} {t("deleteGroupWarn")}
+              </div>
+              <div className="sd-row" style={{ gap: 9, marginTop: 12 }}>
+                <Btn block kind="secondary" style={{ flex: 1 }} onClick={() => setConfirming(false)} disabled={busy}>
+                  {t("cancel")}
+                </Btn>
+                <button
+                  className="sd-btn block"
+                  style={{ flex: 1, background: "var(--warn)", color: "#fff", borderColor: "var(--warn)" }}
+                  onClick={() => void remove()}
+                  disabled={busy}
+                >
+                  {t("confirmDelete")}
+                </button>
+              </div>
+            </>
+          ) : (
+            <button
+              className="sd-btn sd-btn-ghost block"
+              style={{ color: "var(--warn)" }}
+              onClick={() => { setError(null); setConfirming(true); }}
+              disabled={busy}
+            >
+              <Icon name="x" size={17} />{t("deleteGroup")}
+            </button>
+          )}
+        </div>
+      )}
+      {error && <div className="sd-meta" style={{ color: "var(--warn)", textAlign: "center", marginTop: 10 }}>{error}</div>}
     </SheetOver>
   );
 }
