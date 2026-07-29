@@ -1,0 +1,15 @@
+name = "school-directory-redirect"
+main = "src/index.ts"
+compatibility_date = "2025-01-01"
+account_id = "c3b373ae8a90a6494e520f962bdf462b"
+
+# Only deployed to production — there is nothing to run locally. Owns the
+# retired hostname and 301s to directory.eisenhower.school (see src/index.ts).
+#
+# Custom domain — wrangler provisions the DNS record + cert on deploy. The
+# meandmybadself.com zone is on this account; the CNAME that previously pointed
+# this hostname at the Pages project was removed when the domain was detached
+# from it, so wrangler owns the record now.
+[[env.production.routes]]
+pattern = "directory.meandmybadself.com"
+custom_domain = true

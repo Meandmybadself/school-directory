@@ -14,6 +14,7 @@ Resend email, Nominatim geocoding.
 ```
 apps/web            React SPA (Vite). Ported design system in src/components, screens in src/screens.
 apps/api            Hono Worker. Routes in src/routes, shared logic in src/lib, middleware in src/middleware.
+apps/redirect       One-file Worker owning the retired directory.meandmybadself.com; 301s to the live host.
 apps/api/migrations Ordered D1 SQL migrations (NNNN_name.sql). Never edit an applied migration — add a new one.
 packages/shared     Domain types (types.ts) + i18n dictionaries (i18n.ts). Imported as `@sd/shared`.
 docs/               Product spec (PLAN/SRD/SDD). Source of truth for requirements.

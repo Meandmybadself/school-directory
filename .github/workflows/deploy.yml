@@ -51,11 +51,16 @@ jobs:
         working-directory: apps/api
         run: pnpm exec wrangler deploy --env production
 
+      - name: Deploy legacy-host redirect (Worker)
+        if: steps.guard.outputs.enabled == 'true'
+        working-directory: apps/redirect
+        run: pnpm exec wrangler deploy --env production
+
       - name: Build & deploy web (Pages)
         if: steps.guard.outputs.enabled == 'true'
         working-directory: apps/web
         env:
-          VITE_API_URL: https://api-directory.meandmybadself.com
+          VITE_API_URL: https://api-directory.eisenhower.school
         run: |
           pnpm build
           pnpm exec wrangler pages deploy dist --project-name school-directory --branch main

@@ -37,6 +37,21 @@ importers:
         specifier: ^3.99.0
         version: 3.114.17(@cloudflare/workers-types@4.20260613.1)
 
+  apps/redirect:
+    devDependencies:
+      '@cloudflare/workers-types':
+        specifier: ^4.20250109.0
+        version: 4.20260613.1
+      typescript:
+        specifier: ^5.7.2
+        version: 5.9.3
+      vitest:
+        specifier: ^2.1.8
+        version: 2.1.9
+      wrangler:
+        specifier: ^3.99.0
+        version: 3.114.17(@cloudflare/workers-types@4.20260613.1)
+
   apps/web:
     dependencies:
       '@sd/shared':

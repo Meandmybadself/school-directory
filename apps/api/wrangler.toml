@@ -53,12 +53,13 @@ crons = ["0 */3 * * *", "0 13 * * *"]
 #   SESSION_SECRET   — random string reserved for HMAC needs
 
 # ── Production environment (deploy with `wrangler deploy --env production`) ──────
-# SPA: https://directory.meandmybadself.com (Pages)
-# API: https://api-directory.meandmybadself.com (this Worker, custom domain below)
+# SPA: https://directory.eisenhower.school (Pages)
+# API: https://api-directory.eisenhower.school (this Worker, custom domain below)
+# The former host (directory.meandmybadself.com) 301s here via apps/redirect.
 [env.production.vars]
 SCHOOL_NAME = "Eisenhower"
-APP_URL = "https://directory.meandmybadself.com"
-ALLOWED_ORIGINS = "https://directory.meandmybadself.com"
+APP_URL = "https://directory.eisenhower.school"
+ALLOWED_ORIGINS = "https://directory.eisenhower.school"
 NOMINATIM_URL = "https://nominatim.openstreetmap.org/search"
 BOOTSTRAP_ADMIN_EMAILS = "meandmybadself@gmail.com"
 
@@ -78,5 +79,5 @@ crons = ["0 */3 * * *", "0 13 * * *"]
 # Custom domain — wrangler provisions the DNS record + cert on deploy (zone is
 # on this account).
 [[env.production.routes]]
-pattern = "api-directory.meandmybadself.com"
+pattern = "api-directory.eisenhower.school"
 custom_domain = true
