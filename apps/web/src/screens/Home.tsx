@@ -118,6 +118,20 @@ function useNeighborCards(list: ViewProps["list"]) {
   ));
 }
 
+// Empty neighbors state: the viewer has an address, but nothing discoverable is
+// near it (or theirs isn't geocoded yet). The note explains the two conditions
+// that actually gate the list — proximity and the other member's opt-in — so it
+// doesn't read as "this feature is broken".
+function NoNeighborsCard({ marginTop }: { marginTop: number }) {
+  const { t } = useI18n();
+  return (
+    <div className="sd-card sd-card-pad sd-meta" style={{ marginTop, maxWidth: 520 }}>
+      {t("noNeighbors")}
+      <p style={{ fontSize: 11.5, opacity: 0.85, lineHeight: 1.4, marginTop: 6 }}>{t("noNeighborsBody")}</p>
+    </div>
+  );
+}
+
 function GroupsContent({ groups, columns }: { groups: GroupSummaryDTO[]; columns: number }) {
   const { t } = useI18n();
   const navigate = useNavigate();
@@ -176,7 +190,7 @@ function DesktopHome({ activePerson, groups, hasNeighbors, noAddress, list, even
             <CTACard icon="pin" title={t("addAddressTitle")} body={t("addAddressBody")} action={<Btn block icon="plus" onClick={() => navigate(`/persons/${activePerson.id}/edit?add=address`)}>{t("addAddressBtn")}</Btn>} />
           </div>
         ) : (
-          <div className="sd-card sd-card-pad sd-meta" style={{ marginTop: 11, maxWidth: 520 }}>{t("noNeighbors")}</div>
+          <NoNeighborsCard marginTop={11} />
         )}
       </div>
       <div>
@@ -212,9 +226,7 @@ function MobileHome({ activePerson, groups, hasNeighbors, noAddress, list, event
       </div>
     );
   } else {
-    neighborsBlock = (
-      <div className="sd-card sd-card-pad sd-meta" style={{ marginTop: 9 }}>{t("noNeighbors")}</div>
-    );
+    neighborsBlock = <NoNeighborsCard marginTop={9} />;
   }
 
   return (

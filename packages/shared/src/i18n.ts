@@ -61,6 +61,7 @@ export interface Strings {
   // home
   neighbors: string;
   noNeighbors: string;
+  noNeighborsBody: string;
   seeAll: string;
   groups: string;
   member: string;
@@ -280,6 +281,8 @@ const en: Strings = {
 
   neighbors: "Neighbors",
   noNeighbors: "No neighbors nearby yet.",
+  noNeighborsBody:
+    "Neighbors appear once other members within 2 miles turn on “Show me as a neighbor” for their address. Your own household isn't listed here.",
   seeAll: "See all",
   groups: "Your groups",
   member: "Member",
@@ -496,6 +499,8 @@ const es: Strings = {
 
   neighbors: "Vecinos",
   noNeighbors: "Aún no hay vecinos cerca.",
+  noNeighborsBody:
+    "Los vecinos aparecen cuando otros miembros a menos de 2 millas activan la opción para mostrarse como vecinos en su dirección. Tu propia Familia no aparece aquí.",
   seeAll: "Ver todos",
   groups: "Tus grupos",
   member: "Miembro",
@@ -644,6 +649,8 @@ const zh: Strings = {
 
   neighbors: "邻居",
   noNeighbors: "附近暂无邻居。",
+  noNeighborsBody:
+    "当 2 英里内的其他成员为自己的地址开启邻居显示后，他们就会出现在这里。你自己家庭的成员不会列出。",
   seeAll: "查看全部",
   groups: "你的群组",
   member: "成员",
