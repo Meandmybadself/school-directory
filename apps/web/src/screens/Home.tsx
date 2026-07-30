@@ -13,7 +13,7 @@ import { PersonSwitcherSheet, LanguageSheet, LanguageButton } from "../component
 import { showsDescription, showsAllDayLabel } from "../lib/calendar.js";
 import { useSession } from "../lib/session.js";
 import { useIsDesktop } from "../lib/useIsDesktop.js";
-import { api, mediaUrl } from "../lib/api.js";
+import { api, mediaUrl, CALENDAR_APP_URL } from "../lib/api.js";
 import { capLabel, useI18n } from "../i18n/index.js";
 
 export function Home() {
@@ -65,18 +65,22 @@ const CARD_H = 70;
 const GRID_MAX_H = 12 + CARD_H * 2 + 8 + 12;
 
 /** Compact upcoming-events block for Home; hidden entirely when there's nothing.
- *  Events lay out as a wrapping grid of cards, clipped to a max of 2 rows. */
+ *  Events lay out as a wrapping grid of cards, clipped to a max of 2 rows. The
+ *  full agenda lives on the calendar site now, so "See all" and each card link
+ *  out there rather than to an in-app route. */
 function EventsSection({ events }: { events: CalendarEventDTO[] | null }) {
   const { t, locale } = useI18n();
-  const navigate = useNavigate();
   if (!events || events.length === 0) return null;
+  const openCalendar = () => {
+    window.location.href = CALENDAR_APP_URL;
+  };
   return (
     <div>
-      <SectLabel action={<button className="sd-btn sd-btn-ghost sd-btn-sm" style={{ height: 24, padding: "0 4px" }} onClick={() => navigate("/calendar")}>{t("seeAll")}</button>}>
+      <SectLabel action={<button className="sd-btn sd-btn-ghost sd-btn-sm" style={{ height: 24, padding: "0 4px" }} onClick={openCalendar}>{t("seeAll")}</button>}>
         {t("upcomingEvents")}
       </SectLabel>
       <div className="sd-card" style={{ marginTop: 9, padding: 12, display: "flex", flexWrap: "wrap", gap: 8, maxHeight: GRID_MAX_H, overflow: "hidden" }}>
-        {events.map((e) => <HomeEventRow key={e.id} e={e} locale={locale} t={t} onClick={() => navigate("/calendar")} />)}
+        {events.map((e) => <HomeEventRow key={e.id} e={e} locale={locale} t={t} onClick={openCalendar} />)}
       </div>
     </div>
   );

@@ -61,6 +61,17 @@ jobs:
         working-directory: apps/web
         env:
           VITE_API_URL: https://api-directory.eisenhower.school
+          VITE_CALENDAR_URL: https://calendar.eisenhower.school
         run: |
           pnpm build
           pnpm exec wrangler pages deploy dist --project-name school-directory --branch main
+
+      - name: Build & deploy calendar (Pages)
+        if: steps.guard.outputs.enabled == 'true'
+        working-directory: apps/calendar
+        env:
+          VITE_API_URL: https://api-directory.eisenhower.school
+          VITE_DIRECTORY_URL: https://directory.eisenhower.school
+        run: |
+          pnpm build
+          pnpm exec wrangler pages deploy dist --project-name school-calendar --branch main

@@ -1,4 +1,6 @@
 // The app frame: .sd scope + centered column, optional banners + bottom nav.
+// Mirrors the directory app's shell so the two sites read as one system; the nav
+// item list is this app's own (calendar + admin, plus a link back to directory).
 import type { ReactNode } from "react";
 import { useNavigate } from "react-router-dom";
 import { Icon, type IconName } from "./Icon.js";
@@ -6,15 +8,22 @@ import { OfflineBanner, MasqBanner } from "./parts.js";
 import { useOnline } from "../lib/useOnline.js";
 import { useI18n } from "../i18n/index.js";
 import { useSession } from "../lib/session.js";
-import { CALENDAR_APP_URL } from "../lib/api.js";
+import { DIRECTORY_URL } from "../lib/api.js";
 
-/** Persistent masquerade banner, shown app-wide whenever an admin is acting as another user. */
+/** Persistent masquerade banner. The session is shared with the directory, so an
+ *  admin who started masquerading there is still masquerading here. */
 export function MasqueradeBanner() {
   const { t } = useI18n();
-  const { isMasquerading, activePerson, me, stopMasquerade } = useSession();
+  const { isMasquerading, displayName, stopMasquerade } = useSession();
   if (!isMasquerading) return null;
-  const who = activePerson?.displayName ?? me?.user.email ?? "user";
-  return <MasqBanner user={who} text={t("masqViewingAs")} back={t("masqReturn")} onBack={() => void stopMasquerade()} />;
+  return (
+    <MasqBanner
+      user={displayName || "user"}
+      text={t("masqViewingAs")}
+      back={t("masqReturn")}
+      onBack={() => void stopMasquerade()}
+    />
+  );
 }
 
 export function AppShell({
@@ -41,24 +50,26 @@ export function AppShell({
   );
 }
 
-type NavKey = "home" | "calendar" | "dir" | "groups" | "me" | "admin";
+export type NavKey = "calendar" | "admin" | "directory";
+
+/** Nav items. Absolute paths point at the directory app (a different origin), so
+ *  they navigate the browser rather than the router. Kept in step with the
+ *  desktop Sidebar in DesktopShell.tsx. */
+export function navItems(t: ReturnType<typeof useI18n>["t"], isSystemAdmin: boolean) {
+  const items: [IconName, NavKey, string, string][] = [
+    ["calendar", "calendar", t("navCalendar"), "/"],
+  ];
+  if (isSystemAdmin) items.push(["shield", "admin", "Admin", "/admin"]);
+  items.push(["school", "directory", t("brandSub"), DIRECTORY_URL]);
+  return items;
+}
 
 export function BottomNav({ active }: { active: NavKey }) {
   const { t } = useI18n();
   const navigate = useNavigate();
-  const { me, activePerson } = useSession();
-  // The calendar lives on its own site now, so its entry is an absolute URL and
-  // navigates the browser rather than the router. Kept in step with the desktop
-  // Sidebar in DesktopShell.tsx, which duplicates this list.
-  const items: [IconName, NavKey, string, string][] = [
-    ["home", "home", t("navHome"), "/"],
-    ["calendar", "calendar", t("navCalendar"), CALENDAR_APP_URL],
-    ["search", "dir", t("navDir"), "/directory"],
-    ["users3", "groups", t("navGroups"), "/groups"],
-    ["eye", "me", t("yourProfile"), activePerson ? `/persons/${activePerson.id}` : "/"],
-  ];
-  // System admins get an Admin tab, mirroring the desktop sidebar.
-  if (me?.user.isSystemAdmin) items.push(["shield", "admin", "Admin", "/admin"]);
+  const { me } = useSession();
+  const items = navItems(t, !!me?.user.isSystemAdmin);
+
   return (
     <nav className="sd-bottomnav">
       {items.map(([icon, key, label, path]) => {

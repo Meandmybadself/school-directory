@@ -1,5 +1,7 @@
+import { useEffect } from "react";
 import { Navigate, Route, Routes, useNavigate } from "react-router-dom";
 import { useSession } from "./lib/session.js";
+import { CALENDAR_APP_URL } from "./lib/api.js";
 import { AppShell } from "./components/AppShell.js";
 import { Btn } from "./components/atoms.js";
 import { Icon } from "./components/Icon.js";
@@ -12,7 +14,6 @@ import { Import } from "./screens/Import.js";
 import { Directory } from "./screens/Directory.js";
 import { CreateProfile } from "./screens/CreateProfile.js";
 import { AddPerson } from "./screens/AddPerson.js";
-import { Calendar } from "./screens/Calendar.js";
 import { DesktopShell } from "./components/DesktopShell.js";
 import { useIsDesktop } from "./lib/useIsDesktop.js";
 
@@ -45,6 +46,17 @@ function Stub({ title, nav = "home" }: { title: string; nav?: "home" | "dir" | "
   );
   if (isDesktop) return <DesktopShell active={nav} title={title}>{body}</DesktopShell>;
   return <AppShell><div className="sd-scroll">{body}</div></AppShell>;
+}
+
+/** The calendar now lives on its own site. This keeps old /calendar bookmarks and
+ *  deep links working instead of dropping them on the catch-all redirect to Home.
+ *  `replace` so the back button returns to wherever the member actually came
+ *  from, rather than bouncing them straight back out again. */
+function ExternalRedirect({ to }: { to: string }) {
+  useEffect(() => {
+    window.location.replace(to);
+  }, [to]);
+  return <Loading />;
 }
 
 function RequireAuth({ children }: { children: React.ReactNode }) {
@@ -86,7 +98,7 @@ export function App() {
       <Route path="/persons/:id/edit" element={<RequireProfile><ProfileEdit /></RequireProfile>} />
       <Route path="/persons/:id/invite" element={<RequireProfile><Stub title="Invite a co-manager" /></RequireProfile>} />
 
-      <Route path="/calendar" element={<RequireProfile><Calendar /></RequireProfile>} />
+      <Route path="/calendar" element={<ExternalRedirect to={CALENDAR_APP_URL} />} />
       <Route path="/directory" element={<RequireProfile><Directory /></RequireProfile>} />
       <Route path="/groups" element={<RequireProfile><GroupsIndex /></RequireProfile>} />
       <Route path="/groups/:id" element={<RequireProfile><GroupDetail /></RequireProfile>} />

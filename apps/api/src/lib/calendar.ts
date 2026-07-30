@@ -5,7 +5,7 @@
 // pattern) and hand the string to the parser.
 
 import ICAL from "ical.js";
-import type { CalendarEventDTO } from "@sd/shared";
+import type { CalendarEventDTO, CalendarEventKind } from "@sd/shared";
 import type { Env } from "../env.js";
 import { ulid } from "./ids.js";
 import { nowIso } from "./time.js";
@@ -25,7 +25,7 @@ const INSERT_CHUNK = 100;
 /** Abort a feed fetch that hangs, so one bad source can't stall the refresh. */
 const FETCH_TIMEOUT_MS = 15000;
 
-interface ParsedEvent {
+export interface ParsedEvent {
   uid: string | null;
   title: string;
   location: string | null;
@@ -42,6 +42,25 @@ function userAgent(env: Env): string {
 /** A school-feed event with no SUMMARY still gets a usable title. */
 function titleOf(event: ICAL.Event): string {
   return (event.summary ?? "").trim() || "(untitled)";
+}
+
+/** Normalize one ICAL.Time to an ISO-8601 UTC string.
+ *
+ *  All-day values (`VALUE=DATE`, no time and no timezone) are read from their
+ *  calendar fields rather than via `toJSDate()`, which resolves a floating date
+ *  in the *runtime's* local zone — that yields midnight UTC on Workers but shifts
+ *  the timestamp by the host offset anywhere else, which can land the event on
+ *  the wrong calendar day east of UTC. Timed values carry a real instant and
+ *  convert directly. */
+function isoOf(t: ICAL.Time): string {
+  if (t.isDate) return new Date(Date.UTC(t.year, t.month - 1, t.day)).toISOString();
+  return t.toJSDate().toISOString();
+}
+
+/** Epoch ms for an ICAL.Time, normalized the same way as `isoOf` so window
+ *  comparisons agree with what gets stored. */
+function msOf(t: ICAL.Time): number {
+  return new Date(isoOf(t)).getTime();
 }
 
 /** Parse ICS text into a flat list of events, expanding recurrences within
@@ -62,14 +81,13 @@ export function parseIcs(text: string, windowStart: Date, windowEnd: Date): Pars
     if (!event.startDate) continue;
 
     const push = (start: ICAL.Time, end: ICAL.Time | null) => {
-      const startDate = start.toJSDate();
       out.push({
         uid: event.uid ?? null,
         title: titleOf(event),
         location: (event.location ?? "").trim() || null,
         description: (event.description ?? "").trim() || null,
-        start: startDate.toISOString(),
-        end: end ? end.toJSDate().toISOString() : null,
+        start: isoOf(start),
+        end: end ? isoOf(end) : null,
         allDay: start.isDate === true,
       });
     };
@@ -82,7 +100,7 @@ export function parseIcs(text: string, windowStart: Date, windowEnd: Date): Pars
       // long-past rule can't loop forever, but only STORE in-window occurrences.
       while ((next = iter.next()) && iterations < MAX_ITERATIONS) {
         iterations++;
-        const occMs = next.toJSDate().getTime();
+        const occMs = msOf(next);
         if (occMs > endMs) break;
         if (occMs < startMs) continue; // already past the window's start
         try {
@@ -93,7 +111,7 @@ export function parseIcs(text: string, windowStart: Date, windowEnd: Date): Pars
         }
       }
     } else {
-      const occMs = event.startDate.toJSDate().getTime();
+      const occMs = msOf(event.startDate);
       if (occMs >= startMs && occMs < endMs) push(event.startDate, event.endDate ?? null);
     }
   }
@@ -150,7 +168,10 @@ export async function refreshSource(env: Env, source: SourceRow): Promise<{ ok: 
   }
 }
 
-/** A joined calendar_event row (event + its source) as read for serialization. */
+/** A joined calendar_event row (event + its calendar) as read for serialization.
+ *  Covers both origins: `source_id`/`source_name`/`source_color` are COALESCEd
+ *  over the imported source and the managed calendar by the read query, so this
+ *  shape is identical either way. */
 export interface CalendarRow {
   id: string;
   title: string;
@@ -159,16 +180,26 @@ export interface CalendarRow {
   starts_at: string;
   ends_at: string | null;
   all_day: number;
+  /** The imported source id or the managed calendar id — the "feed id" the
+   *  per-calendar show/hide filter keys on. */
   source_id: string;
   source_name: string;
   source_color: string;
+  /** Set only for managed rows; identifies the durable authored event. */
+  managed_event_id: string | null;
 }
 
 /** Collapse the same event syndicated across multiple feeds into one. Events are
- *  matched on title + day + time-to-the-minute (tolerating sub-minute timestamp
- *  differences between feeds); the merged event keeps the richest copy (longest
- *  description, any location) and records every source it appears on, so the
- *  per-calendar filter can hide it only when all its sources are hidden.
+ *  matched on kind + title + day + time-to-the-minute (tolerating sub-minute
+ *  timestamp differences between feeds); the merged event keeps the richest copy
+ *  (longest description, any location) and records every calendar it appears on,
+ *  so the per-calendar filter can hide it only when all of them are hidden.
+ *
+ *  The key includes the kind so an imported event never merges into a managed one
+ *  that happens to share a title and start minute — merging across kinds would
+ *  make the surviving row's `seriesId` arbitrary, and a later volunteer signup
+ *  could resolve to the wrong event.
+ *
  *  `rows` must be ordered by start; output preserves that order, capped to `limit`. */
 export function dedupeEvents(rows: CalendarRow[], limit: number): CalendarEventDTO[] {
   interface Merged {
@@ -178,13 +209,21 @@ export function dedupeEvents(rows: CalendarRow[], limit: number): CalendarEventD
   const byKey = new Map<string, Merged>();
   const order: string[] = [];
   for (const r of rows) {
-    // Match on title + day + time to the minute (e.g. "2026-06-15T15:00").
-    const key = `${r.title.trim().toLowerCase()}|${r.starts_at.slice(0, 16)}`;
+    const kind: CalendarEventKind = r.managed_event_id ? "managed" : "imported";
+    // Match on kind + title + day + time to the minute (e.g. "2026-06-15T15:00").
+    const key = `${kind}|${r.title.trim().toLowerCase()}|${r.starts_at.slice(0, 16)}`;
     let m = byKey.get(key);
     if (!m) {
       m = {
         dto: {
           id: r.id,
+          kind,
+          // A managed occurrence is addressed by (series, occurrence start) —
+          // the ICS UID + RECURRENCE-ID pair — which survives re-materialization
+          // even though `id` does not.
+          ...(r.managed_event_id
+            ? { seriesId: r.managed_event_id, recurrenceId: r.starts_at }
+            : {}),
           title: r.title,
           location: r.location,
           description: r.description,

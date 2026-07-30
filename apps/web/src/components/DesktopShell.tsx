@@ -8,7 +8,7 @@ import { PersonSwitcherSheet, LanguageSheet, LanguageButton } from "./Sheets.js"
 import { MasqueradeBanner } from "./AppShell.js";
 import { capLabel, useI18n } from "../i18n/index.js";
 import { useSession } from "../lib/session.js";
-import { mediaUrl } from "../lib/api.js";
+import { mediaUrl, CALENDAR_APP_URL } from "../lib/api.js";
 
 type NavKey = "home" | "calendar" | "dir" | "groups" | "profile" | "admin";
 
@@ -16,9 +16,11 @@ function Sidebar({ active }: { active: NavKey }) {
   const { t } = useI18n();
   const navigate = useNavigate();
   const { activePerson, me } = useSession();
+  // Calendar is an absolute URL (its own site) — see the matching list in
+  // AppShell.tsx's BottomNav, which this duplicates.
   const items: [IconName, NavKey, string, string][] = [
     ["home", "home", t("navHome"), "/"],
-    ["calendar", "calendar", t("navCalendar"), "/calendar"],
+    ["calendar", "calendar", t("navCalendar"), CALENDAR_APP_URL],
     ["search", "dir", t("navDir"), "/directory"],
     ["users3", "groups", t("navGroups"), "/groups"],
     ["eye", "profile", t("yourProfile"), activePerson ? `/persons/${activePerson.id}` : "/"],
@@ -39,7 +41,11 @@ function Sidebar({ active }: { active: NavKey }) {
       </div>
       <nav style={{ display: "flex", flexDirection: "column", gap: 3 }}>
         {items.map(([icon, key, label, path]) => (
-          <button key={key} className={`sd-desknav-item${key === active ? " on" : ""}`} onClick={() => navigate(path)}>
+          <button
+            key={key}
+            className={`sd-desknav-item${key === active ? " on" : ""}`}
+            onClick={() => (path.startsWith("http") ? (window.location.href = path) : navigate(path))}
+          >
             <Icon name={icon} size={20} stroke={key === active ? 2.1 : 1.8} />{label}
           </button>
         ))}

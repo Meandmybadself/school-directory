@@ -3,7 +3,7 @@
 // Admin chrome is intentionally English-only (operator tooling).
 import { useEffect, useState } from "react";
 import { Navigate, useNavigate } from "react-router-dom";
-import type { AdminUserDTO, AuditEntryDTO, CalendarSourceDTO, NewUserNotify } from "@sd/shared";
+import type { AdminUserDTO, AuditEntryDTO, NewUserNotify } from "@sd/shared";
 import { Icon } from "../components/Icon.js";
 import { Avatar, Btn, Tag } from "../components/atoms.js";
 import { AppShell, BottomNav } from "../components/AppShell.js";
@@ -11,13 +11,17 @@ import { DesktopShell } from "../components/DesktopShell.js";
 import { ScreenHeader, SectLabel } from "../components/parts.js";
 import { useSession } from "../lib/session.js";
 import { useIsDesktop } from "../lib/useIsDesktop.js";
-import { api, ApiError } from "../lib/api.js";
+import { api, ApiError, CALENDAR_APP_URL } from "../lib/api.js";
 
+// The audit log is instance-wide, so the calendar actions stay filterable here
+// even though the UI that performs them now lives in the calendar app.
 const ACTION_FILTERS = [
   "", "auth.signin", "invite.sent", "invite.accepted", "control.granted",
   "masquerade.start", "masquerade.stop", "share.created", "share.revoked",
   "person.updated", "contact.created", "contact.updated", "registration.toggled", "notify.toggled", "admin.action",
   "calendar.source.created", "calendar.source.updated", "calendar.source.deleted", "calendar.refreshed",
+  "calendar.managed.created", "calendar.managed.updated", "calendar.managed.deleted",
+  "calendar.event.created", "calendar.event.updated", "calendar.event.deleted",
 ];
 
 function fmtTime(iso: string): string {
@@ -26,151 +30,6 @@ function fmtTime(iso: string): string {
   } catch {
     return iso;
   }
-}
-
-/** A single calendar feed row: read-only summary, or an inline edit form for
- *  its name / URL / color when the pencil is tapped. */
-function SourceRow({ source: s, onSave, onRemove }: {
-  source: CalendarSourceDTO;
-  onSave: (id: string, patch: { name: string; url: string; color: string }) => Promise<void>;
-  onRemove: (id: string) => void;
-}) {
-  const [editing, setEditing] = useState(false);
-  const [name, setName] = useState(s.name);
-  const [url, setUrl] = useState(s.url);
-  const [color, setColor] = useState(s.color);
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  const startEdit = () => {
-    setName(s.name);
-    setUrl(s.url);
-    setColor(s.color);
-    setError(null);
-    setEditing(true);
-  };
-  const submit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!name.trim() || !/^https?:\/\//i.test(url.trim())) {
-      setError("Enter a name and a valid http(s) URL.");
-      return;
-    }
-    setBusy(true);
-    setError(null);
-    try {
-      await onSave(s.id, { name: name.trim(), url: url.trim(), color });
-      setEditing(false);
-    } catch {
-      setError("Couldn't save — check the URL.");
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  if (editing) {
-    return (
-      <form onSubmit={submit} className="sd-crow" style={{ flexDirection: "column", alignItems: "stretch", gap: 8 }}>
-        <input className="sd-input" placeholder="Feed name" value={name} onChange={(e) => setName(e.target.value)} />
-        <input className="sd-input" placeholder="https://…/calendar.ics" value={url} onChange={(e) => setUrl(e.target.value)} />
-        <div className="sd-row" style={{ gap: 8 }}>
-          <input type="color" value={color} onChange={(e) => setColor(e.target.value)} aria-label="Tag color" style={{ width: 42, height: 38, padding: 0, border: "1px solid var(--line)", borderRadius: 8, background: "none", cursor: "pointer" }} />
-          <Btn type="submit" icon="check" disabled={busy || !name.trim() || !url.trim()} style={{ flex: 1 }}>Save</Btn>
-          <Btn type="button" kind="secondary" onClick={() => setEditing(false)} disabled={busy}>Cancel</Btn>
-        </div>
-        {error && <div className="sd-meta" style={{ color: "var(--warn)" }}>{error}</div>}
-      </form>
-    );
-  }
-  return (
-    <div className="sd-crow" style={{ alignItems: "center", gap: 10 }}>
-      <span style={{ width: 12, height: 12, borderRadius: 3, background: s.color, flex: "0 0 auto" }} />
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ fontWeight: 700, fontSize: 14 }}>{s.name}</div>
-        <div className="sd-meta" style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{s.url}</div>
-        <div className="sd-meta" style={{ color: s.lastStatus === "error" ? "var(--warn)" : undefined }}>
-          {s.lastStatus === "error" ? `⚠ ${s.lastError ?? "fetch failed"}` : `${s.eventCount} events`}
-          {s.lastFetchedAt ? ` · ${fmtTime(s.lastFetchedAt)}` : " · never fetched"}
-        </div>
-      </div>
-      <button aria-label="Edit" onClick={startEdit} style={{ background: "none", border: 0, color: "var(--ink-3)", cursor: "pointer" }}>
-        <Icon name="pencil" size={16} />
-      </button>
-      <button aria-label="Remove" onClick={() => onRemove(s.id)} style={{ background: "none", border: 0, color: "var(--ink-3)", cursor: "pointer" }}>
-        <Icon name="x" size={18} />
-      </button>
-    </div>
-  );
-}
-
-/** ICS calendar feeds — add/edit/remove sources and trigger a refresh. Events
- *  populate via the cron job; adding a source fetches it immediately. */
-function CalendarSourcesSection() {
-  const [sources, setSources] = useState<CalendarSourceDTO[]>([]);
-  const [url, setUrl] = useState("");
-  const [name, setName] = useState("");
-  const [color, setColor] = useState("#0068A8");
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  const load = () => void api.calendarSources().then((r) => setSources(r.sources)).catch(() => setSources([]));
-  useEffect(load, []);
-
-  const add = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!url.trim() || !name.trim()) return;
-    setBusy(true);
-    setError(null);
-    try {
-      await api.addCalendarSource({ url: url.trim(), name: name.trim(), color });
-      setUrl("");
-      setName("");
-      load();
-    } catch {
-      setError("Couldn't add that feed — check the URL.");
-    } finally {
-      setBusy(false);
-    }
-  };
-  const remove = async (id: string) => {
-    await api.deleteCalendarSource(id).catch(() => {});
-    load();
-  };
-  const save = async (id: string, patch: { name: string; url: string; color: string }) => {
-    await api.updateCalendarSource(id, patch);
-    load();
-  };
-  const refreshNow = async () => {
-    setBusy(true);
-    try {
-      await api.refreshCalendar();
-      load();
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  return (
-    <div>
-      <SectLabel action={<Btn sm kind="secondary" onClick={() => void refreshNow()} disabled={busy || sources.length === 0}>Refresh now</Btn>}>
-        Calendar sources (ICS)
-      </SectLabel>
-      <div className="sd-card sd-card-pad" style={{ marginTop: 9 }}>
-        {sources.map((s) => (
-          <SourceRow key={s.id} source={s} onSave={save} onRemove={remove} />
-        ))}
-        {sources.length === 0 && <div className="sd-meta" style={{ padding: "8px 0" }}>No calendar feeds yet.</div>}
-        <form onSubmit={add} style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 10, borderTop: "1px solid var(--line)", paddingTop: 12 }}>
-          <input className="sd-input" placeholder="Feed name (e.g. School Events)" value={name} onChange={(e) => setName(e.target.value)} />
-          <input className="sd-input" placeholder="https://…/calendar.ics" value={url} onChange={(e) => setUrl(e.target.value)} />
-          <div className="sd-row" style={{ gap: 8 }}>
-            <input type="color" value={color} onChange={(e) => setColor(e.target.value)} aria-label="Tag color" style={{ width: 42, height: 38, padding: 0, border: "1px solid var(--line)", borderRadius: 8, background: "none", cursor: "pointer" }} />
-            <Btn type="submit" icon="plus" disabled={busy || !url.trim() || !name.trim()} style={{ flex: 1 }}>Add source</Btn>
-          </div>
-          {error && <div className="sd-meta" style={{ color: "var(--warn)" }}>{error}</div>}
-        </form>
-      </div>
-    </div>
-  );
 }
 
 /** New-member notifications: a master switch plus, when on, the delivery mode.
@@ -312,7 +171,7 @@ export function Admin() {
   const [entries, setEntries] = useState<AuditEntryDTO[]>([]);
   const [filter, setFilter] = useState("");
   const [nextBefore, setNextBefore] = useState<string | null>(null);
-  const [tab, setTab] = useState<"users" | "calendar" | "audit">("users");
+  const [tab, setTab] = useState<"users" | "audit">("users");
 
   const loadUsers = () => void api.adminUsers().then((r) => setUsers(r.users)).catch(() => setUsers([]));
   useEffect(() => {
@@ -375,7 +234,7 @@ export function Admin() {
     setNextBefore(r.nextBefore);
   };
 
-  const tabs: [typeof tab, string][] = [["users", "Users"], ["calendar", "Calendar"], ["audit", "Audit log"]];
+  const tabs: [typeof tab, string][] = [["users", "Users"], ["audit", "Audit log"]];
   const tabBar = (
     <div className="sd-row" style={{ gap: 2, borderBottom: "1px solid var(--line)", marginBottom: 16 }}>
       {tabs.map(([key, label]) => (
@@ -435,6 +294,25 @@ export function Admin() {
           </div>
           <Icon name="chevright" size={18} style={{ color: "var(--ink-3)" }} />
         </div>
+      </div>
+
+      {/* Calendar admin — moved to the calendar app; linked so it stays findable. */}
+      <div style={{ marginTop: 18 }}>
+        <SectLabel>Calendar</SectLabel>
+        <a
+          className="sd-card"
+          href={`${CALENDAR_APP_URL}/admin`}
+          style={{ marginTop: 9, padding: 13, display: "flex", alignItems: "center", gap: 11, color: "inherit", textDecoration: "none" }}
+        >
+          <div style={{ width: 38, height: 38, borderRadius: 10, background: "var(--blue-tint)", color: "var(--blue)", display: "flex", alignItems: "center", justifyContent: "center", flex: "0 0 auto" }}>
+            <Icon name="calendar" size={20} />
+          </div>
+          <div style={{ flex: 1 }}>
+            <div style={{ fontSize: 14.5, fontWeight: 700 }}>Calendar admin</div>
+            <div className="sd-meta">Manage calendars, events &amp; imported ICS feeds on the calendar site.</div>
+          </div>
+          <Icon name="chevright" size={18} style={{ color: "var(--ink-3)" }} />
+        </a>
       </div>
 
       {/* Users + masquerade */}
@@ -525,7 +403,6 @@ export function Admin() {
     <>
       {tabBar}
       {tab === "users" && usersTab}
-      {tab === "calendar" && <CalendarSourcesSection />}
       {tab === "audit" && auditTab}
     </>
   );
