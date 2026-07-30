@@ -10,7 +10,7 @@ import { AppBar, IconBtn, SectLabel, GroupTile, NeighborCard, CTACard } from "..
 import { AppShell, BottomNav } from "../components/AppShell.js";
 import { DesktopShell } from "../components/DesktopShell.js";
 import { PersonSwitcherSheet, LanguageSheet, LanguageButton } from "../components/Sheets.js";
-import { showsDescription, showsAllDayLabel } from "../lib/calendar.js";
+import { showsDescription, showsAllDayLabel, formatEventDay } from "../lib/calendar.js";
 import { useSession } from "../lib/session.js";
 import { useIsDesktop } from "../lib/useIsDesktop.js";
 import { api, mediaUrl, CALENDAR_APP_URL } from "../lib/api.js";
@@ -88,7 +88,7 @@ function EventsSection({ events }: { events: CalendarEventDTO[] | null }) {
 
 function HomeEventRow({ e, locale, t, onClick }: { e: CalendarEventDTO; locale: string; t: I18nT; onClick: () => void }) {
   const d = new Date(e.start);
-  const dateLabel = d.toLocaleDateString(locale, { weekday: "short", month: "short", day: "numeric" });
+  const dateLabel = formatEventDay(e, locale, { weekday: "short", month: "short", day: "numeric" });
   const timeLabel = e.allDay ? t("allDay") : d.toLocaleTimeString(locale, { hour: "numeric", minute: "2-digit" });
   const showTime = e.allDay ? showsAllDayLabel(e) : true;
   const ellipsis = { overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } as const;
