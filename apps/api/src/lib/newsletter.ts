@@ -17,6 +17,7 @@ import {
   collectEventsBlocks,
   renderNewsletterEmailHtml,
   renderNewsletterEmailText,
+  sanitizeFooterHtml,
 } from "@sd/shared";
 import type { Env } from "../env.js";
 import { queryUpcomingEvents } from "./calendar.js";
@@ -67,6 +68,8 @@ export function defaultNewsletterSettings(env: Env): NewsletterSettingsDTO {
     senderEmail: "",
     replyTo: null,
     footerText: `You're receiving this because you're part of the ${school} community.`,
+    // Empty means "just render footerText". An admin opts into markup.
+    footerHtml: "",
     mailingAddress: "",
     unsubscribeWording: "Don't want these emails?",
     logoUrl: null,
@@ -103,6 +106,13 @@ export function coerceNewsletterSettings(
     senderEmail: senderEmail === "" || isEmail(senderEmail) ? senderEmail : base.senderEmail,
     replyTo: replyTo && isEmail(replyTo) ? replyTo : null,
     footerText: str(r.footerText, base.footerText),
+    // Sanitized on the way IN, not on the way out: the footer is interpolated
+    // into the email and into the public archive pages by several call sites,
+    // and only one of them can be the place that makes it safe. An admin who
+    // pastes a <script> gets it silently dropped, which the settings screen
+    // shows them by previewing what was actually stored.
+    footerHtml:
+      typeof r.footerHtml === "string" ? sanitizeFooterHtml(r.footerHtml) : base.footerHtml,
     mailingAddress: str(r.mailingAddress, base.mailingAddress),
     unsubscribeWording: str(r.unsubscribeWording, base.unsubscribeWording),
     logoUrl: typeof r.logoUrl === "string" && /^https?:\/\//i.test(r.logoUrl.trim())
@@ -147,6 +157,7 @@ export function brandingOf(settings: NewsletterSettingsDTO): NewsletterBrandingD
     accentColor: settings.accentColor,
     logoUrl: settings.logoUrl,
     footerText: settings.footerText,
+    footerHtml: settings.footerHtml,
   };
 }
 

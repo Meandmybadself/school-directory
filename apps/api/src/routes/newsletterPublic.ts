@@ -12,7 +12,9 @@
 
 import { Hono } from "hono";
 import type {
+  CalendarEventDTO,
   NewsletterNode,
+  PublicCalendarEventDTO,
   PublicNewsletterIssueSummaryDTO,
 } from "@sd/shared";
 import { newsletterExcerpt } from "@sd/shared";
@@ -20,6 +22,7 @@ import type { HonoEnv } from "../env.js";
 import { nowIso } from "../lib/time.js";
 import { normalizeEmail } from "../lib/db.js";
 import { ulid } from "../lib/ids.js";
+import { publicEventOf } from "../lib/calendar.js";
 import { brandingOf, getNewsletterSettings, isEmail } from "../lib/newsletter.js";
 
 export const newsletterPublic = new Hono<HonoEnv>();
@@ -33,6 +36,31 @@ interface PublicRow {
   content_json: string;
   events_snapshot_json: string | null;
   sent_at: string;
+}
+
+/** Narrow the frozen snapshot for public consumption.
+ *
+ *  The stored JSON is left exactly as it was written at send time — freezing is
+ *  what keeps the archive matching the email (invariant 10) — so the narrowing
+ *  happens here, on the way out, the same way the public agenda narrows. An
+ *  issue's URL is public and enumerable; without this the archive would be a
+ *  second, quieter route to seriesId/recurrenceId. */
+function publicEventsSnapshot(json: string | null): Record<string, PublicCalendarEventDTO[]> {
+  if (!json) return {};
+  let raw: unknown;
+  try {
+    raw = JSON.parse(json);
+  } catch {
+    return {};
+  }
+  if (!raw || typeof raw !== "object") return {};
+
+  const out: Record<string, PublicCalendarEventDTO[]> = {};
+  for (const [blockId, events] of Object.entries(raw as Record<string, unknown>)) {
+    if (!Array.isArray(events)) continue;
+    out[blockId] = (events as CalendarEventDTO[]).map(publicEventOf);
+  }
+  return out;
 }
 
 function parseDoc(json: string): NewsletterNode {
@@ -94,7 +122,7 @@ newsletterPublic.get("/issues/:slug", async (c) => {
   return c.json({
     ...summaryOf(row),
     content: parseDoc(row.content_json),
-    eventsSnapshot: row.events_snapshot_json ? JSON.parse(row.events_snapshot_json) : {},
+    eventsSnapshot: publicEventsSnapshot(row.events_snapshot_json),
     branding: brandingOf(settings),
   });
 });

@@ -18,6 +18,12 @@
 //      allowlist at write time, so a hand-crafted PATCH that bypasses the
 //      editor is rejected before it is ever stored.
 //
+// The ONE exception is the settings footer, where an admin may hand-write HTML.
+// It goes through `sanitizeFooterHtml` below, which is a tag-level allowlist
+// with the same "can't emit what it doesn't know" property, and it is applied at
+// write time so nothing unsanitized is ever stored. Do not add a second raw-HTML
+// seam without routing it through that function.
+//
 // Events are resolved, not stored: a caller supplies `resolveEvents`, which
 // looks up one block's events live (while drafting) or from the frozen snapshot
 // (at send time and forever after on the archive page). Data resolution is
@@ -30,6 +36,7 @@ import type {
   NewsletterNode,
 } from "./types.js";
 import { EVENTS_BLOCK_TYPE } from "./types.js";
+import { htmlToText } from "./text.js";
 
 /** Resolves one events block to the events it should render. */
 export type EventsResolver = (attrs: NewsletterEventsBlockAttrs) => CalendarEventDTO[];
@@ -207,6 +214,238 @@ export function sanitizeNewsletterDoc(raw: unknown): NewsletterNode | null {
   const doc = sanitizeNode(raw, "0");
   if (!doc || Array.isArray(doc) || doc.type !== "doc") return null;
   return doc;
+}
+
+// ── Footer HTML ─────────────────────────────────────────────────────────────
+//
+// The newsletter footer is the one place an admin writes HTML by hand (a PTO
+// board list, a sponsor logo row, a couple of styled links). Everything else in
+// an issue is TipTap JSON, so this needs its own sanitizer — and it has to be a
+// real one, because the footer is echoed onto the PUBLIC archive pages, where a
+// surviving `<script>` would be stored XSS on the newsletter origin.
+//
+// Design, mirroring the document sanitizer above:
+//   • Allowlisted tags only. An unknown-but-harmless tag (<section>, <font>) is
+//     dropped while its CONTENTS are kept — strip-tag-keep-content, same as
+//     sanitizeNode. An unknown-and-dangerous one (<script>, <iframe>, …) is
+//     dropped WITH its contents, since its text is code, not prose.
+//   • Allowlisted attributes only, re-emitted from parsed values rather than
+//     copied through, so nothing rides along inside a mangled quote.
+//   • Tags are balanced on the way out. An admin's unclosed <div> must not be
+//     able to swallow the rest of the archive page.
+
+/** Tags that carry no content and are emitted self-closed. */
+const FOOTER_VOID_TAGS = new Set(["br", "hr", "img"]);
+
+/** Tags dropped along with everything inside them: their content is script,
+ *  style or markup we can't vouch for, so keeping the text would be wrong. */
+const FOOTER_OPAQUE_TAGS = new Set([
+  "script", "style", "iframe", "frame", "frameset", "object", "embed", "applet",
+  "noscript", "template", "svg", "math", "head", "title", "textarea", "form",
+  "input", "button", "select", "option", "link", "meta", "base",
+]);
+
+/** Attributes allowed on every allowed tag. */
+const FOOTER_GLOBAL_ATTRS = new Set(["style", "title", "dir", "lang"]);
+
+/** Allowed tags → the attributes each may carry beyond the global set. Email
+ *  clients still lay out with presentational table attributes, so those stay. */
+const FOOTER_TAGS: Record<string, string[]> = {
+  p: ["align"],
+  div: ["align"],
+  span: [],
+  a: ["href"],
+  strong: [], b: [], em: [], i: [], u: [], s: [], small: [], sub: [], sup: [],
+  br: [], hr: [],
+  h3: [], h4: [], h5: [], h6: [],
+  ul: [], ol: ["start"], li: [],
+  blockquote: [],
+  img: ["src", "alt", "width", "height", "align"],
+  table: ["width", "align", "border", "cellpadding", "cellspacing", "bgcolor"],
+  thead: [], tbody: [], tfoot: [],
+  tr: ["align", "valign", "bgcolor"],
+  td: ["width", "height", "align", "valign", "colspan", "rowspan", "bgcolor"],
+  th: ["width", "height", "align", "valign", "colspan", "rowspan", "bgcolor"],
+};
+
+/** Longest footer we'll store. Well past any real footer; a bound on what one
+ *  setting can inject into every email and every archive page. */
+export const FOOTER_HTML_MAX = 20_000;
+
+/** Matches one markup construct: a comment, a declaration/PI, or a tag whose
+ *  attribute list may itself contain quoted `>` characters. */
+const FOOTER_CONSTRUCT =
+  /<!--[\s\S]*?(?:-->|$)|<![^>]*>?|<\?[\s\S]*?(?:\?>|$)|<(\/?)([a-zA-Z][a-zA-Z0-9]*)((?:"[^"]*"|'[^']*'|[^>"'])*)>/g;
+
+const FOOTER_ATTR =
+  /([a-zA-Z_:][-a-zA-Z0-9_:.]*)(?:\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'=<>`]+)))?/g;
+
+/** CSS we refuse outright rather than try to rewrite: anything that fetches
+ *  (`url()`, `@import` — a tracker or an exfil channel on a public page),
+ *  anything historically executable (`expression()`, `behavior:`), and any
+ *  attempt to escape the attribute. */
+const UNSAFE_CSS = /(^|[^a-z-])(url\s*\(|expression\s*\(|@import|behaviou?r\s*:|javascript\s*:|-moz-binding)/i;
+
+function safeStyle(raw: string): string | null {
+  const css = raw.trim();
+  if (!css || css.length > 500) return null;
+  if (UNSAFE_CSS.test(css)) return null;
+  // Real CSS in a footer needs none of these, and refusing them outright is a
+  // property worth having: whatever ends up inside style="…" is then plain CSS
+  // text, with no entity or quote left that could be re-parsed as markup.
+  if (/["&<>\\]/.test(css)) return null;
+  return css;
+}
+
+/** Presentational attributes are numbers, percentages or keywords — never
+ *  arbitrary strings. Anything else is dropped rather than escaped through. */
+function safePresentational(name: string, value: string): string | null {
+  const v = value.trim();
+  if (!v || v.length > 40) return null;
+  if (name === "bgcolor") return /^(#[0-9a-fA-F]{3,8}|[a-zA-Z]+)$/.test(v) ? v : null;
+  if (name === "align" || name === "valign" || name === "dir" || name === "lang") {
+    return /^[a-zA-Z-]+$/.test(v) ? v : null;
+  }
+  return /^\d+%?$/.test(v) ? v : null;
+}
+
+function footerAttrs(tag: string, rawAttrs: string): string {
+  const allowed = FOOTER_TAGS[tag];
+  if (!allowed) return "";
+  const out: string[] = [];
+  const seen = new Set<string>();
+  FOOTER_ATTR.lastIndex = 0;
+  let m: RegExpExecArray | null;
+  while ((m = FOOTER_ATTR.exec(rawAttrs)) !== null) {
+    const name = (m[1] ?? "").toLowerCase();
+    if (!name || seen.has(name)) continue;
+    if (!FOOTER_GLOBAL_ATTRS.has(name) && !allowed.includes(name)) continue;
+    const value = m[2] ?? m[3] ?? m[4] ?? "";
+    seen.add(name);
+
+    if (name === "href") {
+      const href = safeLinkHref(value);
+      if (href) out.push(`href="${escapeHtml(href)}" target="_blank" rel="noopener noreferrer"`);
+      continue;
+    }
+    if (name === "src") {
+      const src = safeImageSrc(value);
+      if (src) out.push(`src="${escapeHtml(src)}"`);
+      continue;
+    }
+    if (name === "style") {
+      const css = safeStyle(value);
+      if (css) out.push(`style="${escapeHtml(css)}"`);
+      continue;
+    }
+    if (name === "title" || name === "alt") {
+      out.push(`${name}="${escapeHtml(value)}"`);
+      continue;
+    }
+    const safe = safePresentational(name, value);
+    if (safe) out.push(`${name}="${escapeHtml(safe)}"`);
+  }
+  return out.length > 0 ? ` ${out.join(" ")}` : "";
+}
+
+/** Text between tags. Entities are left alone (this is authored HTML, so
+ *  `&amp;` means what it says), but a bare `<` that didn't parse as a tag is
+ *  escaped so it can't become one downstream. */
+function footerText(raw: string): string {
+  return raw.replace(/</g, "&lt;");
+}
+
+/** Sanitize a hand-written footer to the allowlist above. Applied at write
+ *  time, so what's stored is already safe to interpolate into the email and the
+ *  public archive pages. Returns "" for anything that isn't usable HTML. */
+export function sanitizeFooterHtml(raw: unknown): string {
+  if (typeof raw !== "string") return "";
+  const input = raw.trim().slice(0, FOOTER_HTML_MAX);
+  if (!input) return "";
+
+  const out: string[] = [];
+  const open: string[] = [];
+  /** Non-empty while inside an opaque element; everything is discarded until
+   *  its matching close tag. Nesting is counted so `<script><script>` can't end
+   *  the skip early. */
+  let opaque = "";
+  let opaqueDepth = 0;
+  let cursor = 0;
+
+  FOOTER_CONSTRUCT.lastIndex = 0;
+  let m: RegExpExecArray | null;
+  while ((m = FOOTER_CONSTRUCT.exec(input)) !== null) {
+    if (!opaque) out.push(footerText(input.slice(cursor, m.index)));
+    cursor = m.index + m[0].length;
+
+    const closing = m[1] === "/";
+    const tag = m[2]?.toLowerCase();
+    // A comment or declaration: no tag captured, nothing to emit.
+    if (!tag) continue;
+
+    if (opaque) {
+      if (tag !== opaque) continue;
+      if (closing) {
+        opaqueDepth--;
+        if (opaqueDepth === 0) opaque = "";
+      } else if (!FOOTER_VOID_TAGS.has(tag)) {
+        opaqueDepth++;
+      }
+      continue;
+    }
+
+    if (FOOTER_OPAQUE_TAGS.has(tag)) {
+      // A stray closing tag has nothing to skip to; just drop it.
+      if (!closing) {
+        opaque = tag;
+        opaqueDepth = 1;
+      }
+      continue;
+    }
+
+    // Unknown but harmless: drop the tag, keep what's inside it.
+    if (!(tag in FOOTER_TAGS)) continue;
+
+    if (FOOTER_VOID_TAGS.has(tag)) {
+      if (!closing) out.push(`<${tag}${footerAttrs(tag, m[3] ?? "")} />`);
+      continue;
+    }
+
+    if (closing) {
+      const at = open.lastIndexOf(tag);
+      // Unbalanced close: ignore it rather than closing something it didn't open.
+      if (at < 0) continue;
+      // Close everything the admin left open inside it, innermost first.
+      for (let i = open.length - 1; i >= at; i--) out.push(`</${open[i]}>`);
+      open.length = at;
+      continue;
+    }
+
+    out.push(`<${tag}${footerAttrs(tag, m[3] ?? "")}>`);
+    open.push(tag);
+  }
+
+  if (!opaque) out.push(footerText(input.slice(cursor)));
+  for (let i = open.length - 1; i >= 0; i--) out.push(`</${open[i]}>`);
+
+  return out.join("").trim();
+}
+
+/** The footer as HTML: the admin's markup when they wrote any, otherwise the
+ *  plain footer line escaped. One helper so the email and the archive pages
+ *  can't disagree about which one wins. */
+export function footerHtmlOf(branding: NewsletterBrandingDTO): string {
+  return branding.footerHtml
+    ? branding.footerHtml
+    : escapeHtml(branding.footerText);
+}
+
+/** The footer as plain text, for the email's text part. `footerText` is the
+ *  author's own wording and wins; flattening the HTML is only a fallback for an
+ *  admin who filled in the HTML field and nothing else, so that the text part
+ *  isn't simply missing a footer. */
+export function footerTextOf(branding: NewsletterBrandingDTO): string {
+  return branding.footerText || htmlToText(branding.footerHtml);
 }
 
 /** Every events block in the document, in order. Used to know what to resolve
@@ -583,7 +822,7 @@ ${subtitle}
 ${body}
 </td></tr>
 <tr><td style="padding:8px 28px 26px;border-top:1px solid ${RULE}">
-<p style="margin:16px 0 8px;font-size:12.5px;line-height:1.6;color:${MUTED};font-family:${FONT}">${escapeHtml(input.branding.footerText)}</p>
+<div style="margin:16px 0 8px;font-size:12.5px;line-height:1.6;color:${MUTED};font-family:${FONT}">${footerHtmlOf(input.branding)}</div>
 <p style="margin:0 0 8px;font-size:12.5px;line-height:1.6;color:${MUTED};font-family:${FONT}">${escapeHtml(input.mailingAddress)}</p>
 <p style="margin:0;font-size:12.5px;line-height:1.6;color:${MUTED};font-family:${FONT}">${escapeHtml(input.unsubscribeWording)} <a href="${escapeHtml(input.unsubscribeUrl)}" style="color:${accent}">Unsubscribe</a></p>
 </td></tr>
@@ -606,7 +845,7 @@ export function renderNewsletterEmailText(input: NewsletterEmailInput): string {
     "",
     "—".repeat(24),
     `View in your browser: ${input.webUrl}`,
-    input.branding.footerText,
+    footerTextOf(input.branding),
     input.mailingAddress,
     `${input.unsubscribeWording} ${input.unsubscribeUrl}`,
   ]

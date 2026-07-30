@@ -38,6 +38,7 @@ export function PreviewPane({
           accentColor: settings.accentColor,
           logoUrl: settings.logoUrl,
           footerText: settings.footerText,
+          footerHtml: settings.footerHtml,
         },
         title: title || "Untitled",
         subtitle,

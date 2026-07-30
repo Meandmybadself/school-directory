@@ -8,7 +8,10 @@
 //
 // Only issues whose status is 'sent' are served; a guessed draft slug 404s.
 
-import { NEWSLETTER_WEB_CSS, renderNewsletterBodyHtml } from "@sd/shared";
+// The footer is the one field an admin may write as HTML; it was sanitized on
+// write by @sd/shared's sanitizeFooterHtml, and footerHtmlOf decides whether it
+// or the plain footerText is what this page shows.
+import { footerHtmlOf, NEWSLETTER_WEB_CSS, renderNewsletterBodyHtml } from "@sd/shared";
 import type { PublicNewsletterIssueDTO } from "@sd/shared";
 import { apiJson, escapeHtml, formatSentAt, html, shell, type PagesEnv } from "../_lib/page.js";
 
@@ -63,7 +66,7 @@ export const onRequestGet: PagesFunction<PagesEnv> = async (context) => {
 ${content}
         </div>
         <div class="nl-foot">
-          ${escapeHtml(branding.footerText)}
+          ${footerHtmlOf(branding)}
           <p style="margin:8px 0 0"><a href="/">See all issues</a></p>
         </div>
       </article>

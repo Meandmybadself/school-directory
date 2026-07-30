@@ -4,8 +4,12 @@ import {
   NO_EVENTS,
   newsletterExcerpt,
   renderNewsletterBodyHtml,
+  renderNewsletterEmailHtml,
   renderNewsletterText,
   sanitizeNewsletterDoc,
+  sanitizeFooterHtml,
+  footerHtmlOf,
+  footerTextOf,
   collectEventsBlocks,
   type CalendarEventDTO,
   type NewsletterNode,
@@ -253,12 +257,129 @@ describe("audience", () => {
   });
 });
 
+describe("footer html sanitizer", () => {
+  // This is the only raw-HTML seam in the newsletter, and its output lands on
+  // the PUBLIC archive pages — so these assert what must never survive, not
+  // just what should.
+  it("keeps ordinary footer markup", () => {
+    const out = sanitizeFooterHtml(
+      '<p style="text-align:center">Sent by the <strong>PTO</strong> — <a href="https://x.test/board">the board</a></p>',
+    );
+    expect(out).toContain("<strong>PTO</strong>");
+    expect(out).toContain('style="text-align:center"');
+    expect(out).toContain('href="https://x.test/board"');
+  });
+
+  it("drops scripts along with their contents", () => {
+    expect(sanitizeFooterHtml('<p>hi</p><script>alert(1)</script>')).toBe("<p>hi</p>");
+    expect(sanitizeFooterHtml('<style>body{display:none}</style>ok')).toBe("ok");
+    expect(sanitizeFooterHtml('<iframe src="https://evil.test"><p>fallback</p></iframe>')).toBe("");
+  });
+
+  it("cannot be escaped by an unclosed opaque element", () => {
+    // An unterminated <script> must swallow the rest, not resume emitting.
+    expect(sanitizeFooterHtml("<p>a</p><script>alert(1)<p>b</p>")).toBe("<p>a</p>");
+    // …and a nested one must not end the skip early.
+    expect(sanitizeFooterHtml("<script><script></script>alert(1)</script>x")).toBe("x");
+  });
+
+  it("strips event handlers and unsafe urls", () => {
+    expect(sanitizeFooterHtml('<p onclick="steal()">hi</p>')).toBe("<p>hi</p>");
+    expect(sanitizeFooterHtml('<a href="javascript:alert(1)">x</a>')).toBe("<a>x</a>");
+    expect(sanitizeFooterHtml('<img src="javascript:alert(1)" />')).toBe("<img />");
+    expect(sanitizeFooterHtml('<a href="https://x.test" onmouseover="x">y</a>')).not.toContain(
+      "onmouseover",
+    );
+  });
+
+  it("refuses css that fetches or executes", () => {
+    expect(sanitizeFooterHtml('<div style="background:url(https://t.test/p.gif)">x</div>')).toBe(
+      "<div>x</div>",
+    );
+    expect(sanitizeFooterHtml('<div style="width:expression(alert(1))">x</div>')).toBe("<div>x</div>");
+    // A quote-escape attempt loses the attribute, never the surrounding tag.
+    expect(sanitizeFooterHtml('<div style="color:red&quot; onload=&quot;x">y</div>')).toBe(
+      "<div>y</div>",
+    );
+  });
+
+  it("forces external links to open safely", () => {
+    const out = sanitizeFooterHtml('<a href="https://x.test" target="_self">x</a>');
+    expect(out).toBe('<a href="https://x.test" target="_blank" rel="noopener noreferrer">x</a>');
+  });
+
+  it("keeps the contents of unknown-but-harmless tags", () => {
+    expect(sanitizeFooterHtml("<section><font size=7>PTO</font></section>")).toBe("PTO");
+  });
+
+  it("balances tags so a footer can't swallow the page", () => {
+    expect(sanitizeFooterHtml("<div><p>hi")).toBe("<div><p>hi</p></div>");
+    // A close tag that opened nothing is dropped rather than closing an ancestor.
+    expect(sanitizeFooterHtml("<div>a</span>b</div>")).toBe("<div>ab</div>");
+    // Crossed nesting closes the inner element rather than leaving it open.
+    expect(sanitizeFooterHtml("<em><strong>x</em></strong>")).toBe("<em><strong>x</strong></em>");
+  });
+
+  it("escapes a stray angle bracket that didn't parse as a tag", () => {
+    expect(sanitizeFooterHtml("5 < 6 & 7 > 2")).toBe("5 &lt; 6 & 7 > 2");
+    expect(sanitizeFooterHtml("<p>a<!-- comment -->b</p>")).toBe("<p>ab</p>");
+  });
+
+  it("returns an empty string for anything unusable", () => {
+    expect(sanitizeFooterHtml(null)).toBe("");
+    expect(sanitizeFooterHtml("   ")).toBe("");
+    expect(sanitizeFooterHtml(42)).toBe("");
+  });
+
+  it("caps how much markup one setting can inject", () => {
+    expect(sanitizeFooterHtml("x".repeat(50_000)).length).toBeLessThanOrEqual(20_000);
+  });
+});
+
+describe("footer selection", () => {
+  const branding = (footerText: string, footerHtml: string) => ({
+    newsletterTitle: "T",
+    accentColor: "#0068A8",
+    logoUrl: null,
+    footerText,
+    footerHtml,
+  });
+
+  it("prefers the HTML footer and escapes the plain one", () => {
+    expect(footerHtmlOf(branding("plain", "<p>rich</p>"))).toBe("<p>rich</p>");
+    expect(footerHtmlOf(branding("a & b", ""))).toBe("a &amp; b");
+  });
+
+  it("flattens the HTML footer for the text part only when there's no plain one", () => {
+    expect(footerTextOf(branding("plain", "<p>rich</p>"))).toBe("plain");
+    expect(footerTextOf(branding("", "<p>rich</p>"))).toBe("rich");
+  });
+
+  it("reaches the email as markup, not as escaped text", () => {
+    const html = renderNewsletterEmailHtml({
+      // What's stored is what the sanitizer produced, so that's what's rendered.
+      branding: branding("plain", sanitizeFooterHtml('<p><a href="https://x.test">Board</a></p>')),
+      title: "Issue",
+      subtitle: null,
+      doc: doc(para("hello")),
+      resolveEvents: NO_EVENTS,
+      unsubscribeUrl: "https://x.test/u/1",
+      unsubscribeWording: "Done with these?",
+      mailingAddress: "1 Main St",
+      webUrl: "https://x.test/n/issue",
+    });
+    expect(html).toContain('<a href="https://x.test" target="_blank" rel="noopener noreferrer">Board</a>');
+    expect(html).not.toContain("&lt;p&gt;");
+  });
+});
+
 describe("settings coercion", () => {
   const base = {
     senderName: "Base",
     senderEmail: "base@x.test",
     replyTo: null,
     footerText: "footer",
+    footerHtml: "",
     mailingAddress: "addr",
     unsubscribeWording: "wording",
     logoUrl: null,
@@ -285,6 +406,14 @@ describe("settings coercion", () => {
 
   it("ignores a non-https logo URL", () => {
     expect(coerceNewsletterSettings({ logoUrl: "javascript:x" }, base).logoUrl).toBeNull();
+  });
+
+  it("stores the footer HTML already sanitized", () => {
+    const out = coerceNewsletterSettings(
+      { footerHtml: '<p>Sent by the PTO</p><script>alert(1)</script>' },
+      base,
+    );
+    expect(out.footerHtml).toBe("<p>Sent by the PTO</p>");
   });
 });
 

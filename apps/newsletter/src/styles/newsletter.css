@@ -210,6 +210,22 @@
   line-height: 1.5;
 }
 
+/* Sanitized footer markup, shown roughly as the email renders it: small, muted
+   and on paper. Scoped tightly — the admin's own inline styles win inside. */
+.nlx-footer-preview {
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--paper);
+  color: var(--ink-2);
+  font-size: 12.5px;
+  line-height: 1.6;
+  overflow-x: auto;
+}
+.nlx-footer-preview :first-child { margin-top: 0; }
+.nlx-footer-preview :last-child { margin-bottom: 0; }
+.nlx-footer-preview img { max-width: 100%; height: auto; }
+
 .nlx-formgrid { display: flex; flex-direction: column; gap: 14px; }
 @media (min-width: 720px) {
   .nlx-formrow { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }

@@ -5,6 +5,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import type { NewsletterSettingsDTO } from "@sd/shared";
+import { sanitizeFooterHtml } from "@sd/shared";
 import { AppShell, BottomNav } from "../components/AppShell.js";
 import { DesktopShell } from "../components/DesktopShell.js";
 import { ScreenHeader, Field, SectLabel } from "../components/parts.js";
@@ -112,10 +113,48 @@ export function Settings() {
 
       <section className="nlx-formgrid">
         <SectLabel>Footer</SectLabel>
-        <Field label="Footer text">
+        <Field
+          label="Footer text"
+          hint="Plain wording. Always used in the text-only part of the email, and in the footer itself unless the HTML below is filled in."
+        >
           <textarea className="sd-input" rows={2} value={settings.footerText}
             onChange={(e) => edit({ footerText: e.target.value })} />
         </Field>
+        <Field
+          label="Footer HTML"
+          hint={
+            <>
+              Optional. Replaces the footer text in the email and on the public
+              archive pages. Formatting, links, lists, images and layout tables
+              are kept; scripts, styles, embeds and anything else are dropped
+              when you save. Style with inline <code>style</code> attributes —
+              email clients ignore stylesheets.
+            </>
+          }
+        >
+          <textarea
+            className="sd-input"
+            rows={6}
+            spellCheck={false}
+            value={settings.footerHtml}
+            style={{ fontFamily: "ui-monospace,SFMono-Regular,Menlo,monospace", fontSize: 13, lineHeight: 1.5 }}
+            onChange={(e) => edit({ footerHtml: e.target.value })}
+          />
+        </Field>
+        {settings.footerHtml.trim() !== "" && (
+          <Field
+            label="Footer preview"
+            hint="Rendered from the sanitized markup — this is what a reader gets, not what was typed."
+          >
+            {/* Safe by construction: the same sanitizer the server applies on
+                save runs here first, so nothing outside the tag allowlist can
+                reach the DOM. */}
+            <div
+              className="nlx-footer-preview"
+              dangerouslySetInnerHTML={{ __html: sanitizeFooterHtml(settings.footerHtml) }}
+            />
+          </Field>
+        )}
         <Field label="Mailing address" hint="Bulk email is expected to carry a physical address.">
           <textarea className="sd-input" rows={2} value={settings.mailingAddress}
             onChange={(e) => edit({ mailingAddress: e.target.value })} />
