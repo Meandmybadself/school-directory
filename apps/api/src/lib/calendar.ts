@@ -13,6 +13,7 @@ import type {
   PublicCalendarFeedDTO,
 } from "@sd/shared";
 import type { Env } from "../env.js";
+import { icsDate, renderCalendar, type IcsEventInput } from "./icsWriter.js";
 import { ulid } from "./ids.js";
 import { nowIso } from "./time.js";
 
@@ -26,6 +27,10 @@ const FUTURE_WINDOW_MS = 180 * 24 * 60 * 60 * 1000; // 180 days ahead
 const MAX_ITERATIONS = 5000;
 /** Cap on stored events per source, to bound a pathological feed. */
 const MAX_EVENTS_PER_SOURCE = 2000;
+/** Domain half of a mirrored feed's UIDs. Matches managedCalendar.ts's: the
+ *  ULID/start pair already makes the UID unique, the domain only makes it
+ *  well-formed for calendar clients. */
+const UID_DOMAIN = "eisenhower.school";
 /** Insert chunk size — D1 batches are kept modest rather than one huge batch. */
 const INSERT_CHUNK = 100;
 /** Abort a feed fetch that hangs, so one bad source can't stall the refresh. */
@@ -355,9 +360,12 @@ export async function listCalendarFeeds(env: Env, origin: string): Promise<Calen
 }
 
 /** THE public/private seam for calendars, the companion to `publicEventOf`.
- *  Anonymous callers get a managed calendar's URL (our own /ics route, already
- *  world-readable) but never an imported feed's — see PublicCalendarFeedDTO for
- *  why a pasted upstream URL is not ours to publish. */
+ *  Every calendar gets a subscribe URL, but an IMPORTED one is rewritten to our
+ *  own mirror (`renderImportedSourceIcs`) rather than passed through: a pasted
+ *  upstream URL is not ours to publish. See PublicCalendarFeedDTO.
+ *
+ *  The upstream URL must not survive into the return value — build each row
+ *  field by field, never by spreading `f`, which carries it. */
 export async function listPublicCalendarFeeds(
   env: Env,
   origin: string,
@@ -367,8 +375,83 @@ export async function listPublicCalendarFeeds(
     id: f.id,
     name: f.name,
     color: f.color,
-    url: f.kind === "managed" ? f.url : null,
+    url: f.kind === "managed" ? f.url : `${origin}/ics/source/${f.id}.ics`,
   }));
+}
+
+/** A calendar_event row as read for mirroring. */
+interface MirrorRow {
+  uid: string | null;
+  title: string;
+  location: string | null;
+  description: string | null;
+  starts_at: string;
+  ends_at: string | null;
+  all_day: number;
+}
+
+/** A stable, per-occurrence UID for a mirrored event.
+ *
+ *  The rows we mirror are already-expanded occurrences, so every occurrence of a
+ *  recurring upstream event carries the SAME upstream UID (see migration 0006);
+ *  emitting it verbatim would make a subscriber collapse the series into one
+ *  event. Appending the occurrence start disambiguates them the way upstream's
+ *  RECURRENCE-ID does. It must NOT be derived from `calendar_event.id`, which is
+ *  re-minted on every refresh (CLAUDE.md invariant 8) — that would make every
+ *  event look brand new to a subscriber each time the feed is refreshed. */
+function mirrorUid(sourceId: string, r: MirrorRow): string {
+  // Drop any upstream domain part so the result has exactly one `@`.
+  const upstream = (r.uid ?? "").split("@")[0]!.trim();
+  const base = upstream || `${sourceId}-${r.title.trim().toLowerCase().replace(/[^a-z0-9]+/g, "-")}`;
+  return `${base}-${icsDate(r.starts_at, r.all_day === 1)}@${UID_DOMAIN}`;
+}
+
+/** Render an imported calendar as a text/calendar document, or null if it is
+ *  unknown or disabled.
+ *
+ *  This is a MIRROR of what we already store, not a proxy of the upstream feed.
+ *  It re-serializes `calendar_event` rows, so a subscriber gets exactly what the
+ *  agenda shows and nothing the upstream ICS carried but we chose never to keep
+ *  (ORGANIZER/ATTENDEE addresses, alarms, attachments). That is the whole reason
+ *  it exists: the public agenda can offer a download for EVERY calendar without
+ *  publishing the admin-pasted upstream URL.
+ *
+ *  Two properties follow from mirroring rather than proxying, and both are
+ *  intended: occurrences are already expanded here, so the document lists them
+ *  flat instead of as an RRULE; and it covers only the materialized window
+ *  (PAST_WINDOW_MS…FUTURE_WINDOW_MS), so a subscriber sees ~180 days out and
+ *  re-polls for the rest rather than the full history upstream may hold. */
+export async function renderImportedSourceIcs(env: Env, sourceId: string): Promise<string | null> {
+  const source = await env.DB.prepare(
+    "SELECT id, name, last_fetched_at FROM calendar_source WHERE id = ? AND enabled = 1",
+  )
+    .bind(sourceId)
+    .first<{ id: string; name: string; last_fetched_at: string | null }>();
+  if (!source) return null;
+
+  const rows = await env.DB.prepare(
+    `SELECT uid, title, location, description, starts_at, ends_at, all_day
+     FROM calendar_event WHERE source_id = ? ORDER BY starts_at ASC`,
+  )
+    .bind(sourceId)
+    .all<MirrorRow>();
+
+  // One DTSTAMP for the whole document: the refresh is when this copy was last
+  // known to be current, and it's the only "modified" signal a mirror has.
+  const stamp = source.last_fetched_at ?? nowIso();
+  const events: IcsEventInput[] = rows.results.map((r) => ({
+    uid: mirrorUid(sourceId, r),
+    title: r.title,
+    location: r.location,
+    description: r.description,
+    start: r.starts_at,
+    end: r.ends_at,
+    allDay: r.all_day === 1,
+    recurrence: null, // occurrences are already expanded in this table
+    sequence: 0,
+    updatedAt: stamp,
+  }));
+  return renderCalendar(source.name, events);
 }
 
 /** THE public/private seam for calendar events. Builds the anonymous-facing

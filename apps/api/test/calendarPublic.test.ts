@@ -112,10 +112,12 @@ describe("listPublicCalendarFeeds", () => {
 
   it("never publishes an imported feed's upstream URL", async () => {
     const feeds = await listPublicCalendarFeeds(envWith(imported, managed), "https://api.example");
-    const src = feeds.find((f) => f.id === "01SRC");
-    expect(src?.url).toBeNull();
+    // Rewritten to our own mirror, so the calendar can offer a download for
+    // every calendar without the upstream link ever reaching a stranger.
+    expect(feeds.find((f) => f.id === "01SRC")?.url).toBe("https://api.example/ics/source/01SRC.ics");
     // The whole point: the secret must not survive anywhere in the response.
     expect(JSON.stringify(feeds)).not.toContain("secret-abc123");
+    expect(JSON.stringify(feeds)).not.toContain("example.org");
   });
 
   it("does publish a managed calendar's own /ics URL", async () => {

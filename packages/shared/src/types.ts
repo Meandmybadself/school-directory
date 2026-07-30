@@ -252,18 +252,20 @@ export interface CalendarFeedDTO {
 /** The subset of a calendar an ANONYMOUS caller may see. Hand-written for the
  *  same reason as PublicCalendarEventDTO.
  *
- *  `url` is nullable here and null for every IMPORTED feed. A managed calendar's
- *  URL is this API's own /ics/:id.ics, which is already world-readable — but an
- *  imported feed's URL is whatever an admin pasted, and providers like Google
- *  and Outlook hand out secret subscribe links that grant the raw upstream feed.
- *  That raw ICS carries ORGANIZER/ATTENDEE addresses this app deliberately never
- *  stores, and a URL served publicly can't be un-published. Members still get
- *  every URL from the authenticated /calendar/sources. */
+ *  `url` is ALWAYS a feed on this API's own origin — /ics/:id.ics for a managed
+ *  calendar, /ics/source/:id.ics for an imported one — and never the URL an
+ *  admin pasted. Providers like Google and Outlook hand out secret subscribe
+ *  links that grant the raw upstream feed, which carries ORGANIZER/ATTENDEE
+ *  addresses this app deliberately never stores, and a URL served publicly can't
+ *  be un-published. The imported form is therefore a mirror of what we store
+ *  (see renderImportedSourceIcs), which is exactly the data the agenda already
+ *  shows. Members still get the real upstream URLs from the authenticated
+ *  /calendar/sources. */
 export interface PublicCalendarFeedDTO {
   id: string;
   name: string;
   color: string;
-  url: string | null;
+  url: string;
 }
 
 // ── Managed calendars (authored here, rather than imported) ─────────────────

@@ -88,9 +88,11 @@ function EventRow({ e, locale, onOpen }: { e: PublicCalendarEventDTO; locale: st
   );
 }
 
-/** Per-calendar controls: a show/hide toggle (≥2 calendars) and an ICS link. For
- *  an imported feed that's the upstream URL; for a calendar authored here it's
- *  this API's own published feed, so members can subscribe to either. */
+/** Per-calendar controls: a show/hide toggle (≥2 calendars) and an ICS link.
+ *  Every calendar has one — a calendar authored here publishes /ics/:id.ics, and
+ *  an imported feed is served back from our own mirror of it rather than by
+ *  handing out the admin's upstream URL. Either way the link is on this API's
+ *  origin; see PublicCalendarFeedDTO. */
 function FilterBar({ feeds, hidden, onToggle }: { feeds: PublicCalendarFeedDTO[]; hidden: Set<string>; onToggle: (id: string) => void }) {
   const { t } = useI18n();
   if (feeds.length === 0) return null;
@@ -120,21 +122,16 @@ function FilterBar({ feeds, hidden, onToggle }: { feeds: PublicCalendarFeedDTO[]
                   {f.name}
                 </span>
               )}
-              {/* Null for imported feeds when nobody is signed in — an admin's
-                  pasted upstream URL isn't ours to publish. See
-                  PublicCalendarFeedDTO. */}
-              {f.url && (
-                <a
-                  href={f.url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  title={t("downloadIcs", { name: f.name })}
-                  aria-label={t("downloadIcs", { name: f.name })}
-                  style={{ display: "inline-flex", alignItems: "center", padding: "5px 9px", color: "var(--ink-3)", borderLeft: "1px solid var(--line)" }}
-                >
-                  <Icon name="download" size={14} />
-                </a>
-              )}
+              <a
+                href={f.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                title={t("downloadIcs", { name: f.name })}
+                aria-label={t("downloadIcs", { name: f.name })}
+                style={{ display: "inline-flex", alignItems: "center", padding: "5px 9px", color: "var(--ink-3)", borderLeft: "1px solid var(--line)" }}
+              >
+                <Icon name="download" size={14} />
+              </a>
             </div>
           );
         })}

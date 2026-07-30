@@ -7,8 +7,10 @@
 //
 // Every calendar is public by product decision — there is no per-calendar
 // visibility flag, and the underlying managed calendars were already
-// world-readable through /ics/:id.ics anyway. What is NOT automatic is the event
-// shape: responses go through `publicEventOf`, which hand-builds
+// world-readable through /ics/:id.ics anyway. The same holds for an imported
+// calendar's /ics/source/:id.ics mirror: it re-serves the events this route
+// already hands to anonymous callers, and never the upstream feed. What is NOT
+// automatic is the event shape: responses go through `publicEventOf`, which hand-builds
 // PublicCalendarEventDTO rather than returning CalendarEventDTO, so a field
 // added to the member-facing DTO can never ride along into this response by
 // itself. Volunteer signups (CLAUDE.md invariant 8) are the case that seam
@@ -25,8 +27,9 @@ import { upcomingEventsQuery } from "./calendar.js";
 
 export const calendarPublic = new Hono<HonoEnv>();
 
-/** GET /calendar-public/sources — calendars for the show/hide filter. Imported
- *  feeds come back with a null `url`; see PublicCalendarFeedDTO. */
+/** GET /calendar-public/sources — calendars for the show/hide filter, each with
+ *  a subscribe URL on THIS origin: an imported feed's is our own mirror, never
+ *  the upstream URL an admin pasted. See PublicCalendarFeedDTO. */
 calendarPublic.get("/sources", async (c) => {
   const sources = await listPublicCalendarFeeds(c.env, new URL(c.req.url).origin);
   return c.json({ sources });

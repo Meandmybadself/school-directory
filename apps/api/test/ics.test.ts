@@ -5,7 +5,8 @@
 
 import { describe, expect, it } from "vitest";
 import { icsDate, renderCalendar, rruleValue, weekdayOf, type IcsEventInput } from "../src/lib/icsWriter.js";
-import { parseIcs } from "../src/lib/calendar.js";
+import { parseIcs, renderImportedSourceIcs } from "../src/lib/calendar.js";
+import type { Env } from "../src/env.js";
 
 const base: IcsEventInput = {
   uid: "01J8ZK@eisenhower.school",
@@ -213,5 +214,116 @@ describe("write → parse round trip (occurrence materialization)", () => {
       "2026-06-29T00:00:00.000Z",
     ]);
     expect(out.every((o) => o.allDay)).toBe(true);
+  });
+});
+
+// ── The imported-calendar mirror ────────────────────────────────────────────
+//
+// /ics/source/:id.ics re-serves what we stored rather than proxying the upstream
+// feed, which is what lets the public agenda offer a download for EVERY calendar
+// without publishing an admin's pasted subscribe link. The UID rules below are
+// the load-bearing part: the rows are pre-expanded occurrences, so a naive
+// mirror would either collapse a series into one event or make every event look
+// new after each refresh.
+
+/** Minimal D1 stand-in: renderImportedSourceIcs makes exactly two queries,
+ *  distinguished by `.first()` (the source) vs `.all()` (its events). */
+function mirrorEnv(source: unknown | null, events: unknown[]): Env {
+  return {
+    DB: {
+      prepare() {
+        return {
+          bind: () => ({
+            first: async () => source,
+            all: async () => ({ results: events }),
+          }),
+        };
+      },
+    },
+  } as unknown as Env;
+}
+
+const source = { id: "01SRC", name: "Hopkins District", last_fetched_at: "2026-06-01T12:00:00.000Z" };
+
+function row(over: Record<string, unknown> = {}) {
+  return {
+    uid: "abc123@google.com",
+    title: "Early release",
+    location: "Eisenhower Elementary",
+    description: "Buses run two hours early.",
+    starts_at: "2026-06-15T15:00:00.000Z",
+    ends_at: "2026-06-15T16:00:00.000Z",
+    all_day: 0,
+    ...over,
+  };
+}
+
+describe("imported calendar mirror", () => {
+  it("renders the stored events under the calendar's name", async () => {
+    const out = (await renderImportedSourceIcs(mirrorEnv(source, [row()]), "01SRC"))!;
+    expect(out).toContain("X-WR-CALNAME:Hopkins District");
+    expect(out).toContain("SUMMARY:Early release");
+    expect(out).toContain("LOCATION:Eisenhower Elementary");
+    expect(out).toContain("DTSTART:20260615T150000Z");
+    expect(out).toContain("DTEND:20260615T160000Z");
+    // The refresh time is the only "modified" signal a mirror has.
+    expect(out).toContain("DTSTAMP:20260601T120000Z");
+  });
+
+  it("gives each occurrence of one upstream series a distinct UID", async () => {
+    // All three rows share the upstream UID; emitted verbatim, a subscriber
+    // would collapse the series into a single event.
+    const rows = ["2026-06-15T15:00:00.000Z", "2026-06-22T15:00:00.000Z", "2026-06-29T15:00:00.000Z"].map((s) =>
+      row({ starts_at: s, ends_at: null }),
+    );
+    const out = (await renderImportedSourceIcs(mirrorEnv(source, rows), "01SRC"))!;
+    const uids = [...out.matchAll(/^UID:(.+)$/gm)].map((m) => m[1]);
+    expect(uids).toEqual([
+      "abc123-20260615T150000Z@eisenhower.school",
+      "abc123-20260622T150000Z@eisenhower.school",
+      "abc123-20260629T150000Z@eisenhower.school",
+    ]);
+  });
+
+  it("derives UIDs only from data that survives a refresh", async () => {
+    // calendar_event.id is re-minted on every refresh (invariant 8). Two renders
+    // of the same upstream event must agree, or a subscriber sees every event as
+    // new each time the feed is pulled.
+    const a = (await renderImportedSourceIcs(mirrorEnv(source, [row({ id: "01AAA" })]), "01SRC"))!;
+    const b = (await renderImportedSourceIcs(mirrorEnv(source, [row({ id: "01BBB" })]), "01SRC"))!;
+    expect(a.match(/^UID:.+$/m)![0]).toBe(b.match(/^UID:.+$/m)![0]);
+  });
+
+  it("falls back to a title-derived UID when upstream sent none", async () => {
+    const out = (await renderImportedSourceIcs(mirrorEnv(source, [row({ uid: null })]), "01SRC"))!;
+    expect(out).toContain("UID:01SRC-early-release-20260615T150000Z@eisenhower.school");
+  });
+
+  it("keeps all-day events all-day", async () => {
+    const out = (await renderImportedSourceIcs(
+      mirrorEnv(source, [row({ all_day: 1, starts_at: "2026-06-15T00:00:00.000Z", ends_at: null })]),
+      "01SRC",
+    ))!;
+    expect(out).toContain("DTSTART;VALUE=DATE:20260615");
+    expect(out).toContain("UID:abc123-20260615@eisenhower.school");
+  });
+
+  it("round-trips back to the occurrences it was built from", async () => {
+    const out = (await renderImportedSourceIcs(mirrorEnv(source, [row()]), "01SRC"))!;
+    const parsed = parseIcs(out, new Date("2026-06-01T00:00:00.000Z"), new Date("2026-07-01T00:00:00.000Z"));
+    expect(parsed).toHaveLength(1);
+    expect(parsed[0]).toMatchObject({
+      title: "Early release",
+      location: "Eisenhower Elementary",
+      start: "2026-06-15T15:00:00.000Z",
+      end: "2026-06-15T16:00:00.000Z",
+      allDay: false,
+    });
+  });
+
+  it("is null for a source that is unknown or disabled", async () => {
+    // The SELECT filters on enabled = 1, so a disabled calendar reads as absent
+    // — the published surface stays equal to what the filter chips list.
+    expect(await renderImportedSourceIcs(mirrorEnv(null, []), "01SRC")).toBeNull();
   });
 });

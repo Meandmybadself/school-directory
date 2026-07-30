@@ -87,6 +87,14 @@ All three SPAs are separate Cloudflare Pages projects talking to the single
    all text, so it cannot emit a tag it doesn't know. Enabling a TipTap extension
    without adding its renderer case silently drops content. `sanitizeNewsletterDoc`
    applies the same allowlist on write.
+   The **settings footer is the one raw-HTML seam**: an admin may hand-write
+   `footerHtml`, which `sanitizeFooterHtml` (same file) reduces to a tag/attribute
+   allowlist — dropping `<script>`-class elements with their contents, refusing
+   `url()`/`expression()` CSS, and balancing tags so a footer can't swallow the
+   archive page. It runs on WRITE (`coerceNewsletterSettings`), so what's stored
+   is already safe, and `footerHtmlOf`/`footerTextOf` decide whether it or the
+   plain `footerText` is used. Don't add a second place that interpolates admin
+   HTML; route it through that function.
 10. **A sent newsletter is immutable, and its web page is public.** Events blocks
    resolve live while a draft is edited and are FROZEN into `events_snapshot_json`
    at send, so the archive keeps matching what was mailed. Issue URLs are
@@ -102,14 +110,18 @@ All three SPAs are separate Cloudflare Pages projects talking to the single
    not `Omit<>` of the member DTOs — so **a field added to `CalendarEventDTO`
    does NOT reach the public response until someone edits that projection on
    purpose.** Keep it that way: build the public shape field by field, never by
-   spreading. Two omissions are deliberate, not oversights: `seriesId`/
-   `recurrenceId` (the durable handle volunteer signups will key on — see
-   invariant 8, so withholding it means member signup data can never be
-   addressed from a public response) and an imported feed's upstream `url` (an
-   admin may have pasted a secret Google/Outlook subscribe link, and the raw
-   feed carries ORGANIZER/ATTENDEE addresses we never store). `test/
-   calendarPublic.test.ts` asserts the exact public key set and fails the build
-   if either leaks.
+   spreading. Two withholdings are deliberate, not oversights: `seriesId`/
+   `recurrenceId` are omitted entirely (the durable handle volunteer signups
+   will key on — see invariant 8, so withholding it means member signup data can
+   never be addressed from a public response), and an imported feed's upstream
+   `url` is **replaced, never passed through** — an admin may have pasted a
+   secret Google/Outlook subscribe link, and the raw feed carries
+   ORGANIZER/ATTENDEE addresses we never store. Every public feed URL is on our
+   own origin: `/ics/:id.ics` for a managed calendar, `/ics/source/:id.ics` for
+   an imported one, which `renderImportedSourceIcs` MIRRORS out of stored
+   `calendar_event` rows rather than proxying upstream. `test/
+   calendarPublic.test.ts` asserts the exact public key set and that no upstream
+   URL survives, and fails the build if either leaks.
 
 ## Conventions
 
