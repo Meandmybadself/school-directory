@@ -290,7 +290,7 @@ const en: Strings = {
   loadMore: "Load more",
   showingOf: "Showing {shown} of {total}",
 
-  navCalendar: "Calendar",
+  navCalendar: "Calendars",
   calendarTitle: "Calendar",
   upcomingEvents: "Upcoming events",
   noEvents: "No upcoming events",
@@ -299,7 +299,7 @@ const en: Strings = {
   downloadIcs: "Download {name} (.ics)",
 
   brandSubNewsletter: "PTO Newsletter",
-  navNewsletter: "Newsletter",
+  navNewsletter: "Newsletters",
   newsletterArchive: "Past issues",
   newsletterPrefsTitle: "Newsletter",
   newsletterPrefsLead: "Choose whether the school newsletter is sent to your email address.",
@@ -524,7 +524,7 @@ const es: Strings = {
   loadMore: "Cargar más",
   showingOf: "Mostrando {shown} de {total}",
 
-  navCalendar: "Calendario",
+  navCalendar: "Calendarios",
   calendarTitle: "Calendario",
   upcomingEvents: "Próximos eventos",
   noEvents: "No hay eventos próximos",
@@ -533,7 +533,7 @@ const es: Strings = {
   downloadIcs: "Descargar {name} (.ics)",
 
   brandSubNewsletter: "Boletín de la PTO",
-  navNewsletter: "Boletín",
+  navNewsletter: "Boletines",
   newsletterArchive: "Números anteriores",
   newsletterPrefsTitle: "Boletín",
   newsletterPrefsLead: "Elija si desea recibir el boletín escolar en su correo electrónico.",
