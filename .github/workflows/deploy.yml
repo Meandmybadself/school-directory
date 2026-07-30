@@ -13,7 +13,30 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  # Gate. `deploy` needs this, so a typecheck/test/build failure stops the ship
+  # instead of racing it. Before this existed, ci.yml ran on push to main in
+  # PARALLEL with the deploy — which meant a direct push to main could migrate
+  # the production database and publish both apps while its tests were still
+  # running, or after they had already failed.
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Typecheck
+        run: pnpm typecheck
+      - name: Test
+        run: pnpm test
+      - name: Build
+        run: pnpm build
+
   deploy:
+    needs: verify
     runs-on: ubuntu-latest
     env:
       CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}

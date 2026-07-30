@@ -1,9 +1,10 @@
 name: CI
 
+# Pull requests only. Pushes to main are checked by deploy.yml's `verify` job,
+# which the deploy depends on — running the same suite here too would just
+# duplicate it on every merge.
 on:
   pull_request:
-  push:
-    branches: [main]
 
 jobs:
   check:
