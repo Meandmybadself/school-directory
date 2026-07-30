@@ -66,7 +66,10 @@ export function GroupDetail() {
     return isDesktop ? (
       <DesktopShell active="groups" title="Groups"><Note text={msg} /></DesktopShell>
     ) : (
-      <AppShell bottomNav={<BottomNav active="groups" />}><ScreenHeader title="" onLeft={() => navigate("/groups")} /><Note text={msg} /></AppShell>
+      <AppShell bottomNav={<BottomNav active="groups" />}>
+        <ScreenHeader title="" onLeft={() => navigate("/groups")} />
+        <div className="sd-scroll"><Note text={msg} /></div>
+      </AppShell>
     );
   }
   if (!g) return null;

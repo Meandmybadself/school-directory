@@ -68,7 +68,14 @@ body {
   width: 100%;
   max-width: 480px;
   margin: 0 auto;
-  min-height: 100vh;
+  /* Exactly one viewport tall, never more: the .sd-scroll child absorbs the
+     content so the column can't grow past the screen and push the bottom nav
+     out of view. `dvh` tracks mobile browser chrome as it expands/retracts;
+     the `vh` line above it is the fallback for older engines — and note that on
+     mobile `100vh` resolves to the LARGE viewport (chrome retracted), which is
+     precisely why a nav sized with it hides behind the URL bar. */
+  height: 100vh;
+  height: 100dvh;
   background: var(--bg);
   position: relative;
   display: flex;
@@ -97,6 +104,15 @@ body {
 .sd-scroll {
   flex: 1 1 auto;
   overflow-y: auto;
+  /* Load-bearing. Flex items default to min-height:auto, which refuses to
+     shrink below their content height — so `overflow-y: auto` never engages and
+     this box grows the whole column instead of scrolling inside it. Every
+     AppShell screen puts its content in here for that reason. */
+  min-height: 0;
+  /* Keep a scroll gesture that reaches the end from chaining to the page
+     (the iOS rubber-band that drags the whole shell). */
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
 }
 .sd-body {
   padding: 16px 16px 26px;
@@ -475,14 +491,24 @@ body {
 }
 
 /* bottom nav */
+/* Pinned to the bottom of the viewport: it's the last child of a column that is
+   exactly one viewport tall, so it stays put while .sd-scroll moves under it.
+   (It used to say `position: sticky; bottom: 0`, which was a no-op — a sticky
+   box can't be pushed past the end of its containing block, and .sd-app ended
+   exactly where the nav already sat.) */
 .sd-bottomnav {
   flex: 0 0 auto;
   background: var(--paper);
   border-top: 1px solid var(--line);
   display: flex;
+  /* index.html sets viewport-fit=cover, so on a notched phone this bar extends
+     into the home-indicator area; pad by the inset so the labels clear it.
+     Split from the shorthand deliberately: an engine that can't parse `env()`
+     drops the whole declaration it appears in, so the shorthand below keeps a
+     sane 9px and only the override is lost. */
   padding: 7px 8px 9px;
-  position: sticky;
-  bottom: 0;
+  padding-bottom: calc(9px + env(safe-area-inset-bottom, 0px));
+  z-index: 10;
 }
 .sd-navitem {
   flex: 1;
