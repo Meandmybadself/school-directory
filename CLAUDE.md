@@ -80,6 +80,11 @@ Worker, and they share one session:
   the handoff exactly: `--blue #0068A8`, `--orange #FAAB1C`, etc.
 - Visibility chip states: `members` (blue) / `private` (slate) / `shared` (orange).
   There is **no public state** anywhere in the UI.
+- **Mobile shell layout is load-bearing.** `.sd-app` is exactly `100dvh`, so an
+  `AppShell` screen must put its scrolling content inside a `.sd-scroll` child —
+  that element carries the `min-height: 0` that lets it shrink and actually
+  scroll. Content placed directly in `AppShell` will be clipped instead, and the
+  bottom nav stays pinned only because the column can't outgrow the viewport.
 
 ## Local dev
 
