@@ -9,12 +9,12 @@ import {
   collectEventsBlocks,
   type CalendarEventDTO,
   type NewsletterNode,
+  issueSlug,
+  slugifyTitle,
 } from "@sd/shared";
 import {
   coerceNewsletterSettings,
-  issueSlug,
   mergeAudience,
-  slugifyTitle,
   isEmail,
 } from "../src/lib/newsletter.js";
 

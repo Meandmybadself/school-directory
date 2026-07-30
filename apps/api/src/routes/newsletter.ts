@@ -17,7 +17,7 @@ import type {
   NewsletterSubscriberDTO,
   NewsletterTestSendBody,
 } from "@sd/shared";
-import { sanitizeNewsletterDoc } from "@sd/shared";
+import { issueSlug, sanitizeNewsletterDoc, slugifyTitle } from "@sd/shared";
 import type { HonoEnv } from "../env.js";
 import { requireAuth } from "../middleware/session.js";
 import { ulid } from "../lib/ids.js";
@@ -29,11 +29,9 @@ import {
   getNewsletterSettings,
   isEmail,
   issueEmailArgs,
-  issueSlug,
   resolveAudience,
   resolveEventsSnapshot,
   setNewsletterSettings,
-  slugifyTitle,
   uniqueSlug,
 } from "../lib/newsletter.js";
 import {

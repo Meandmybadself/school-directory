@@ -38,32 +38,6 @@ export function isEmail(value: string): boolean {
   return EMAIL_RE.test(value.trim());
 }
 
-// ── Slugs ───────────────────────────────────────────────────────────────────
-
-/** Title → URL segment. ASCII-folded, lowercase, hyphenated, length-capped.
- *  Non-Latin titles can reduce to nothing; callers fall back to the date alone,
- *  which is still a valid, readable slug. */
-export function slugifyTitle(title: string): string {
-  return title
-    .normalize("NFKD")
-    // Strip combining marks so "Año" → "Ano" rather than losing the letter.
-    .replace(/[̀-ͯ]/g, "")
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "")
-    .slice(0, 60)
-    .replace(/-+$/g, "");
-}
-
-/** The public URL segment for an issue: a date the reader can parse plus the
- *  title. Deliberately human-readable and therefore enumerable — issues are
- *  public by design, and nothing member-private may go in one. */
-export function issueSlug(title: string, nowIso: string): string {
-  const date = nowIso.slice(0, 10);
-  const tail = slugifyTitle(title);
-  return tail ? `${date}-${tail}` : date;
-}
-
 /** Append -2, -3, … until the slug is free. Two issues drafted the same day
  *  with the same title is ordinary, not an error worth rejecting. */
 export async function uniqueSlug(env: Env, base: string, excludeId?: string): Promise<string> {

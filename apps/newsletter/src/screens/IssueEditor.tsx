@@ -15,6 +15,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import type { NewsletterIssueDTO, NewsletterNode, NewsletterSettingsDTO } from "@sd/shared";
+import { issueSlug } from "@sd/shared";
 import { AppShell } from "../components/AppShell.js";
 import { DesktopShell } from "../components/DesktopShell.js";
 import { ScreenHeader, Field, SheetOver } from "../components/parts.js";
@@ -379,8 +380,26 @@ export function IssueEditor() {
           </Field>
         </div>
         <Field label="Web address" hint={`Public page: /n/${draft.slug}`}>
-          <input className="sd-input" value={draft.slug} readOnly={readOnly}
-            onChange={(e) => edit({ slug: e.target.value })} />
+          {/* Dated from the issue's own createdAt, not today: re-deriving the
+              slug for a draft started last week shouldn't silently move it to
+              today's date. Same helper the server uses at create time, so the
+              button previews exactly what it would have minted. The server
+              still uniquifies on save (-2, -3, …) and flush() reflects that
+              back, so a collision here isn't the author's problem. */}
+          <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+            <input className="sd-input" style={{ flex: 1, minWidth: 0 }} value={draft.slug} readOnly={readOnly}
+              onChange={(e) => edit({ slug: e.target.value })} />
+            {!readOnly && (
+              <button
+                type="button"
+                className="sd-btn sd-btn-ghost sd-btn-sm"
+                style={{ flex: "0 0 auto" }}
+                onClick={() => edit({ slug: issueSlug(draft.title, issue.createdAt) })}
+              >
+                Generate
+              </button>
+            )}
+          </div>
         </Field>
       </div>
 
