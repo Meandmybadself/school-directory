@@ -60,7 +60,9 @@ export function navItems(t: ReturnType<typeof useI18n>["t"], isSystemAdmin: bool
     ["calendar", "calendar", t("navCalendar"), "/"],
   ];
   if (isSystemAdmin) items.push(["shield", "admin", "Admin", "/admin"]);
-  items.push(["mail", "newsletter", t("navNewsletter"), NEWSLETTER_URL]);
+  // `/app`, not the bare origin: the newsletter's `/` is its public reader
+  // archive (Pages Functions) with no way into the app. `/app` routes by role.
+  items.push(["mail", "newsletter", t("navNewsletter"), `${NEWSLETTER_URL}/app`]);
   items.push(["school", "directory", t("brandSub"), DIRECTORY_URL]);
   return items;
 }

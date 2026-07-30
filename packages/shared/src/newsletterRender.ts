@@ -650,5 +650,6 @@ a{color:var(--nl-accent,${DEFAULT_ACCENT})}
 .nl-archive-item p{margin:6px 0 0;font-size:14.5px;line-height:1.55;color:${MUTED}}
 .nl-archive-date{display:block;font-size:12.5px;color:${MUTED};margin-bottom:4px}
 .nl-empty{background:${PAPER};border-radius:12px;padding:40px 20px;text-align:center;color:${MUTED}}
+.nl-site-foot{max-width:680px;margin:0 auto;padding:0 16px 40px;text-align:center;font-size:13px;color:${MUTED}}
 @media (max-width:520px){.nl-card{padding:22px 18px 26px}.nl-title{font-size:25px}}
 `.trim();

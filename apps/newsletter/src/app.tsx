@@ -53,7 +53,13 @@ function RedirectIfAuthed({ children }: { children: React.ReactNode }) {
  *  In production `/` never reaches this router — the public archive at `/` and
  *  `/n/:slug` is served by Pages Functions, and _redirects only falls back to
  *  this bundle for the routes below. It matters in `vite dev`, where there are
- *  no Functions. */
+ *  no Functions.
+ *
+ *  Because `/` is unreachable in production, `/app` is mounted on this same
+ *  component as the app's real entry point: it is the ONE URL that sibling apps
+ *  and the public archive can link to without knowing whether the visitor is an
+ *  admin, a member, or signed out. Link there, not at the bare origin — the bare
+ *  origin is the reader-facing archive and has no way into the app. */
 function Home() {
   const { loading, me } = useSession();
   if (loading) return <Loading />;
@@ -79,8 +85,10 @@ export function App() {
       <Route path="/admin/settings" element={<RequireAdmin><Settings /></RequireAdmin>} />
       <Route path="/admin/subscribers" element={<RequireAdmin><Subscribers /></RequireAdmin>} />
 
+      {/* The production entry point — see Home. `/` only resolves here in dev. */}
+      <Route path="/app" element={<Home />} />
       <Route path="/" element={<Home />} />
-      <Route path="*" element={<Navigate to="/" replace />} />
+      <Route path="*" element={<Navigate to="/app" replace />} />
     </Routes>
   );
 }

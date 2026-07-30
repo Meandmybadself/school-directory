@@ -6,7 +6,7 @@ import { OfflineBanner, MasqBanner } from "./parts.js";
 import { useOnline } from "../lib/useOnline.js";
 import { useI18n } from "../i18n/index.js";
 import { useSession } from "../lib/session.js";
-import { CALENDAR_APP_URL } from "../lib/api.js";
+import { CALENDAR_APP_URL, NEWSLETTER_APP_URL } from "../lib/api.js";
 
 /** Persistent masquerade banner, shown app-wide whenever an admin is acting as another user. */
 export function MasqueradeBanner() {
@@ -41,7 +41,7 @@ export function AppShell({
   );
 }
 
-type NavKey = "home" | "calendar" | "dir" | "groups" | "me" | "admin";
+type NavKey = "home" | "calendar" | "dir" | "groups" | "me" | "news" | "admin";
 
 export function BottomNav({ active }: { active: NavKey }) {
   const { t } = useI18n();
@@ -56,6 +56,9 @@ export function BottomNav({ active }: { active: NavKey }) {
     ["search", "dir", t("navDir"), "/directory"],
     ["users3", "groups", t("navGroups"), "/groups"],
     ["eye", "me", t("yourProfile"), activePerson ? `/persons/${activePerson.id}` : "/"],
+    // `/app`, not the bare origin — the newsletter's `/` is its public reader
+    // archive and has no route into the app. `/app` routes by role.
+    ["mail", "news", t("navNewsletter"), `${NEWSLETTER_APP_URL}/app`],
   ];
   // System admins get an Admin tab, mirroring the desktop sidebar.
   if (me?.user.isSystemAdmin) items.push(["shield", "admin", "Admin", "/admin"]);

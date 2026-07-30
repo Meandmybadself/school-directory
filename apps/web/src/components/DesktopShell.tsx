@@ -8,9 +8,9 @@ import { PersonSwitcherSheet, LanguageSheet, LanguageButton } from "./Sheets.js"
 import { MasqueradeBanner } from "./AppShell.js";
 import { capLabel, useI18n } from "../i18n/index.js";
 import { useSession } from "../lib/session.js";
-import { mediaUrl, CALENDAR_APP_URL } from "../lib/api.js";
+import { mediaUrl, CALENDAR_APP_URL, NEWSLETTER_APP_URL } from "../lib/api.js";
 
-type NavKey = "home" | "calendar" | "dir" | "groups" | "profile" | "admin";
+type NavKey = "home" | "calendar" | "dir" | "groups" | "profile" | "news" | "admin";
 
 function Sidebar({ active }: { active: NavKey }) {
   const { t } = useI18n();
@@ -24,6 +24,9 @@ function Sidebar({ active }: { active: NavKey }) {
     ["search", "dir", t("navDir"), "/directory"],
     ["users3", "groups", t("navGroups"), "/groups"],
     ["eye", "profile", t("yourProfile"), activePerson ? `/persons/${activePerson.id}` : "/"],
+    // `/app`, not the bare origin — the newsletter's `/` is its public reader
+    // archive and has no route into the app. `/app` routes by role.
+    ["mail", "news", t("navNewsletter"), `${NEWSLETTER_APP_URL}/app`],
   ];
   if (me?.user.isSystemAdmin) items.push(["shield", "admin", "Admin", "/admin"]);
   return (

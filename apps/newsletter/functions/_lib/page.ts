@@ -9,7 +9,11 @@
 //
 // The session cookie is host-only to the API's hostname, so it is NEVER present
 // on a navigation to this origin. These pages therefore cannot be — and never
-// try to be — auth-aware.
+// try to be — auth-aware. That is also why the footer link below is an
+// unconditional, static "/app" rather than a "signed in as…" affordance: it
+// hands off to the SPA, which resolves who you are and routes accordingly. It
+// exists because these pages own `/`, so without it the bare origin is a dead
+// end with no way into the app at all.
 
 export interface PagesEnv {
   /** Origin of the API Worker, e.g. https://api-directory.eisenhower.school. */
@@ -67,6 +71,7 @@ export function shell(input: ShellInput): string {
   </head>
   <body>
 ${input.body}
+    <div class="nl-site-foot"><a href="/app">Members: sign in</a></div>
   </body>
 </html>`;
 }
