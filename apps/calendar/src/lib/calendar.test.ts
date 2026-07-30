@@ -7,10 +7,10 @@
 // Time. These assertions are written to hold in any host timezone.
 
 import { describe, expect, it } from "vitest";
-import type { CalendarEventDTO } from "@sd/shared";
+import type { PublicCalendarEventDTO } from "@sd/shared";
 import { eventDayKey, formatEventDay } from "./calendar.js";
 
-const ev = (over: Partial<CalendarEventDTO>): CalendarEventDTO => ({
+const ev = (over: Partial<PublicCalendarEventDTO>): PublicCalendarEventDTO => ({
   id: "e", kind: "imported", title: "Event", location: null, description: null,
   start: "2026-09-25T00:00:00.000Z", end: null, allDay: false,
   sourceIds: ["s"], source: { name: "School Events", color: "#000000" },

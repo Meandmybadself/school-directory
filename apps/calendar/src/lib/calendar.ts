@@ -1,4 +1,4 @@
-import type { CalendarEventDTO } from "@sd/shared";
+import type { PublicCalendarEventDTO } from "@sd/shared";
 
 /** The event description is only surfaced for the "Lunch Menu" calendar (the
  *  menu text itself); other calendars keep their descriptions hidden. This gate
@@ -8,24 +8,24 @@ export const DESCRIPTION_CALENDAR = "Lunch Menu";
 
 /** True for events on the special "Lunch Menu" calendar, which gets its own
  *  presentation (description surfaced, all-day label suppressed). */
-export function isMenuCalendar(e: CalendarEventDTO): boolean {
+export function isMenuCalendar(e: PublicCalendarEventDTO): boolean {
   return e.source.name === DESCRIPTION_CALENDAR;
 }
 
-export function showsDescription(e: CalendarEventDTO): boolean {
+export function showsDescription(e: PublicCalendarEventDTO): boolean {
   return !!e.description && isMenuCalendar(e);
 }
 
 /** The menu feed sets every event's title to the calendar name ("Lunch Menu"),
  *  with the real content in the description — so rendering the title just repeats
  *  the source chip. Hide it in that case; keep it for every other event. */
-export function showsTitle(e: CalendarEventDTO): boolean {
+export function showsTitle(e: PublicCalendarEventDTO): boolean {
   return !(isMenuCalendar(e) && e.title === e.source.name);
 }
 
 /** Menu items are inherently all-day, so the "All Day" label is redundant noise
  *  there — hide it. Non-menu all-day events still show it. */
-export function showsAllDayLabel(e: CalendarEventDTO): boolean {
+export function showsAllDayLabel(e: PublicCalendarEventDTO): boolean {
   return e.allDay && !isMenuCalendar(e);
 }
 
@@ -43,7 +43,7 @@ function pad(n: number): string {
 }
 
 /** Stable "YYYY-MM-DD" key for the day an event belongs on. */
-export function eventDayKey(e: CalendarEventDTO): string {
+export function eventDayKey(e: PublicCalendarEventDTO): string {
   const d = new Date(e.start);
   if (e.allDay) return d.toISOString().slice(0, 10);
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
@@ -51,7 +51,7 @@ export function eventDayKey(e: CalendarEventDTO): string {
 
 /** Locale-formatted day label for an event, read in the right zone for its kind. */
 export function formatEventDay(
-  e: CalendarEventDTO,
+  e: PublicCalendarEventDTO,
   locale: string,
   opts: Intl.DateTimeFormatOptions,
 ): string {

@@ -5,7 +5,13 @@
 // pattern) and hand the string to the parser.
 
 import ICAL from "ical.js";
-import type { CalendarEventDTO, CalendarEventKind } from "@sd/shared";
+import type {
+  CalendarEventDTO,
+  CalendarEventKind,
+  CalendarFeedDTO,
+  PublicCalendarEventDTO,
+  PublicCalendarFeedDTO,
+} from "@sd/shared";
 import type { Env } from "../env.js";
 import { ulid } from "./ids.js";
 import { nowIso } from "./time.js";
@@ -310,6 +316,82 @@ export async function queryUpcomingEvents(
     .all<CalendarRow>();
 
   return dedupeEvents(rows.results, limit);
+}
+
+/** Every calendar available to the show/hide filter, tagged with its origin so
+ *  a caller can decide what a given audience may see about it. Admin-only
+ *  status/error columns are excluded at the SELECT, so they can't reach either
+ *  the member or the public route. Shared by both so the two can't drift in what
+ *  "a calendar" means. */
+async function calendarFeedRows(
+  env: Env,
+  origin: string,
+): Promise<Array<CalendarFeedDTO & { kind: CalendarEventKind }>> {
+  const [imported, managed] = await Promise.all([
+    env.DB.prepare(
+      "SELECT id, name, color, url FROM calendar_source WHERE enabled = 1 ORDER BY name COLLATE NOCASE",
+    ).all<CalendarFeedDTO>(),
+    env.DB.prepare(
+      "SELECT id, name, color FROM managed_calendar ORDER BY name COLLATE NOCASE",
+    ).all<{ id: string; name: string; color: string }>(),
+  ]);
+
+  return [
+    ...imported.results.map((f) => ({ ...f, kind: "imported" as const })),
+    ...managed.results.map((m) => ({
+      id: m.id,
+      name: m.name,
+      color: m.color,
+      url: `${origin}/ics/${m.id}.ics`,
+      kind: "managed" as const,
+    })),
+  ];
+}
+
+/** Members see every calendar's real subscribe URL. */
+export async function listCalendarFeeds(env: Env, origin: string): Promise<CalendarFeedDTO[]> {
+  const rows = await calendarFeedRows(env, origin);
+  return rows.map((f) => ({ id: f.id, name: f.name, color: f.color, url: f.url }));
+}
+
+/** THE public/private seam for calendars, the companion to `publicEventOf`.
+ *  Anonymous callers get a managed calendar's URL (our own /ics route, already
+ *  world-readable) but never an imported feed's — see PublicCalendarFeedDTO for
+ *  why a pasted upstream URL is not ours to publish. */
+export async function listPublicCalendarFeeds(
+  env: Env,
+  origin: string,
+): Promise<PublicCalendarFeedDTO[]> {
+  const rows = await calendarFeedRows(env, origin);
+  return rows.map((f) => ({
+    id: f.id,
+    name: f.name,
+    color: f.color,
+    url: f.kind === "managed" ? f.url : null,
+  }));
+}
+
+/** THE public/private seam for calendar events. Builds the anonymous-facing
+ *  shape field by field — never by spreading `e` — so a field added to
+ *  CalendarEventDTO stays out of the public response until someone edits this
+ *  function on purpose. See PublicCalendarEventDTO for why `seriesId` and
+ *  `recurrenceId` are withheld rather than merely unused.
+ *
+ *  If you are here because you added a field to CalendarEventDTO: the default
+ *  answer is to leave this function alone. */
+export function publicEventOf(e: CalendarEventDTO): PublicCalendarEventDTO {
+  return {
+    id: e.id,
+    kind: e.kind,
+    title: e.title,
+    location: e.location,
+    description: e.description,
+    start: e.start,
+    end: e.end,
+    allDay: e.allDay,
+    sourceIds: e.sourceIds,
+    source: e.source,
+  };
 }
 
 /** Refresh every enabled source. Used by the cron handler and the admin button. */

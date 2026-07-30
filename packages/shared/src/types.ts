@@ -212,6 +212,32 @@ export interface CalendarEventDTO {
   source: { name: string; color: string };
 }
 
+/** The subset of an event an ANONYMOUS caller may see, served by
+ *  /calendar-public/events.
+ *
+ *  Hand-written rather than `Omit<CalendarEventDTO, …>` on purpose, exactly like
+ *  NewsletterBrandingDTO: a field added to CalendarEventDTO must be added HERE
+ *  and to `publicEventOf()` before it can reach the public agenda. Structural
+ *  typing would have made that a silent, automatic leak instead.
+ *
+ *  `seriesId`/`recurrenceId` are deliberately withheld even though they carry no
+ *  PII today. They are the durable handle a volunteer signup attaches to (see
+ *  CalendarEventDTO above and CLAUDE.md invariant 8), so withholding the join
+ *  key means that even a careless future edit to `publicEventOf` can't make
+ *  member signup data addressable from an unauthenticated response. */
+export interface PublicCalendarEventDTO {
+  id: string;
+  kind: CalendarEventKind;
+  title: string;
+  location: string | null;
+  description: string | null;
+  start: string;
+  end: string | null;
+  allDay: boolean;
+  sourceIds: string[];
+  source: { name: string; color: string };
+}
+
 /** Public-facing calendar feed — for the show/hide filter and ICS download link.
  *  The URL is exposed (these are public feeds); admin-only status stays private.
  *  Covers both imported sources (the upstream feed URL) and managed calendars
@@ -221,6 +247,23 @@ export interface CalendarFeedDTO {
   name: string;
   color: string;
   url: string;
+}
+
+/** The subset of a calendar an ANONYMOUS caller may see. Hand-written for the
+ *  same reason as PublicCalendarEventDTO.
+ *
+ *  `url` is nullable here and null for every IMPORTED feed. A managed calendar's
+ *  URL is this API's own /ics/:id.ics, which is already world-readable — but an
+ *  imported feed's URL is whatever an admin pasted, and providers like Google
+ *  and Outlook hand out secret subscribe links that grant the raw upstream feed.
+ *  That raw ICS carries ORGANIZER/ATTENDEE addresses this app deliberately never
+ *  stores, and a URL served publicly can't be un-published. Members still get
+ *  every URL from the authenticated /calendar/sources. */
+export interface PublicCalendarFeedDTO {
+  id: string;
+  name: string;
+  color: string;
+  url: string | null;
 }
 
 // ── Managed calendars (authored here, rather than imported) ─────────────────

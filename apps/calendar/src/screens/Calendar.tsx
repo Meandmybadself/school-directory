@@ -8,7 +8,8 @@
 // choices are not reset by the move (each origin keeps its own copy, but the
 // shape matches, and reusing the name keeps the two readable as one feature).
 import { useEffect, useMemo, useState } from "react";
-import { htmlToText, type CalendarEventDTO, type CalendarFeedDTO } from "@sd/shared";
+import { useNavigate } from "react-router-dom";
+import { htmlToText, type PublicCalendarEventDTO, type PublicCalendarFeedDTO } from "@sd/shared";
 import { Icon } from "../components/Icon.js";
 import { Btn } from "../components/atoms.js";
 import { AppShell, BottomNav } from "../components/AppShell.js";
@@ -17,6 +18,7 @@ import { ScreenHeader, SectLabel, SheetOver } from "../components/parts.js";
 import { useI18n } from "../i18n/index.js";
 import { useIsDesktop } from "../lib/useIsDesktop.js";
 import { api } from "../lib/api.js";
+import { useSession } from "../lib/session.js";
 import { showsDescription, showsAllDayLabel, showsTitle, eventDayKey, formatEventDay } from "../lib/calendar.js";
 
 const HIDDEN_KEY = "sd_cal_hidden";
@@ -34,14 +36,14 @@ interface DayGroup {
   key: string;
   /** The event whose day label represents the group — needed because an all-day
    *  event's label must be read in UTC and a timed one's locally. */
-  head: CalendarEventDTO;
-  events: CalendarEventDTO[];
+  head: PublicCalendarEventDTO;
+  events: PublicCalendarEventDTO[];
 }
 
 /** Group events into day buckets. Keys come from `eventDayKey`, which reads
  *  all-day events in UTC so they don't slide to the previous day. Sorts
  *  defensively so grouping is correct regardless of server ordering. */
-function groupByDay(events: CalendarEventDTO[]): DayGroup[] {
+function groupByDay(events: PublicCalendarEventDTO[]): DayGroup[] {
   const sorted = [...events].sort((a, b) => a.start.localeCompare(b.start));
   const groups: DayGroup[] = [];
   let current: DayGroup | null = null;
@@ -56,11 +58,11 @@ function groupByDay(events: CalendarEventDTO[]): DayGroup[] {
   return groups;
 }
 
-function timeOf(e: CalendarEventDTO, locale: string, t: ReturnType<typeof useI18n>["t"]): string {
+function timeOf(e: PublicCalendarEventDTO, locale: string, t: ReturnType<typeof useI18n>["t"]): string {
   return e.allDay ? t("allDay") : new Date(e.start).toLocaleTimeString(locale, { hour: "numeric", minute: "2-digit" });
 }
 
-function EventRow({ e, locale, onOpen }: { e: CalendarEventDTO; locale: string; onOpen: () => void }) {
+function EventRow({ e, locale, onOpen }: { e: PublicCalendarEventDTO; locale: string; onOpen: () => void }) {
   const { t } = useI18n();
   const showTime = e.allDay ? showsAllDayLabel(e) : true;
   const showTitle = showsTitle(e);
@@ -89,7 +91,7 @@ function EventRow({ e, locale, onOpen }: { e: CalendarEventDTO; locale: string; 
 /** Per-calendar controls: a show/hide toggle (≥2 calendars) and an ICS link. For
  *  an imported feed that's the upstream URL; for a calendar authored here it's
  *  this API's own published feed, so members can subscribe to either. */
-function FilterBar({ feeds, hidden, onToggle }: { feeds: CalendarFeedDTO[]; hidden: Set<string>; onToggle: (id: string) => void }) {
+function FilterBar({ feeds, hidden, onToggle }: { feeds: PublicCalendarFeedDTO[]; hidden: Set<string>; onToggle: (id: string) => void }) {
   const { t } = useI18n();
   if (feeds.length === 0) return null;
   const canFilter = feeds.length >= 2;
@@ -118,16 +120,21 @@ function FilterBar({ feeds, hidden, onToggle }: { feeds: CalendarFeedDTO[]; hidd
                   {f.name}
                 </span>
               )}
-              <a
-                href={f.url}
-                target="_blank"
-                rel="noopener noreferrer"
-                title={t("downloadIcs", { name: f.name })}
-                aria-label={t("downloadIcs", { name: f.name })}
-                style={{ display: "inline-flex", alignItems: "center", padding: "5px 9px", color: "var(--ink-3)", borderLeft: "1px solid var(--line)" }}
-              >
-                <Icon name="download" size={14} />
-              </a>
+              {/* Null for imported feeds when nobody is signed in — an admin's
+                  pasted upstream URL isn't ours to publish. See
+                  PublicCalendarFeedDTO. */}
+              {f.url && (
+                <a
+                  href={f.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  title={t("downloadIcs", { name: f.name })}
+                  aria-label={t("downloadIcs", { name: f.name })}
+                  style={{ display: "inline-flex", alignItems: "center", padding: "5px 9px", color: "var(--ink-3)", borderLeft: "1px solid var(--line)" }}
+                >
+                  <Icon name="download" size={14} />
+                </a>
+              )}
             </div>
           );
         })}
@@ -140,7 +147,7 @@ function googleMapsUrl(q: string): string {
   return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(q)}`;
 }
 
-function EventDetailSheet({ e, locale, onClose }: { e: CalendarEventDTO; locale: string; onClose: () => void }) {
+function EventDetailSheet({ e, locale, onClose }: { e: PublicCalendarEventDTO; locale: string; onClose: () => void }) {
   const { t } = useI18n();
   const start = new Date(e.start);
   const end = e.end ? new Date(e.end) : null;
@@ -182,10 +189,14 @@ function EventDetailSheet({ e, locale, onClose }: { e: CalendarEventDTO; locale:
 export function Calendar() {
   const { t, locale } = useI18n();
   const isDesktop = useIsDesktop();
-  const [events, setEvents] = useState<CalendarEventDTO[] | null>(null);
-  const [feeds, setFeeds] = useState<CalendarFeedDTO[]>([]);
+  // Only for the sign-in affordance — the agenda itself renders identically
+  // whether or not anyone is signed in.
+  const { me, loading } = useSession();
+  const navigate = useNavigate();
+  const [events, setEvents] = useState<PublicCalendarEventDTO[] | null>(null);
+  const [feeds, setFeeds] = useState<PublicCalendarFeedDTO[]>([]);
   const [hidden, setHidden] = useState<Set<string>>(loadHidden);
-  const [selected, setSelected] = useState<CalendarEventDTO | null>(null);
+  const [selected, setSelected] = useState<PublicCalendarEventDTO | null>(null);
 
   useEffect(() => {
     void api.calendarEvents({ limit: 200 }).then((r) => setEvents(r.events)).catch(() => setEvents([]));
@@ -248,7 +259,19 @@ export function Calendar() {
   }
   return (
     <AppShell bottomNav={<BottomNav active="calendar" />}>
-      <ScreenHeader title={t("calendarTitle")} left="calendar" />
+      {/* Mobile has no account menu, so the header's right slot is the only
+          way back in for a signed-out visitor reading the public agenda. */}
+      <ScreenHeader
+        title={t("calendarTitle")}
+        left="calendar"
+        right={
+          !me && !loading ? (
+            <button className="sd-btn sd-btn-ghost sd-btn-sm" onClick={() => navigate("/sign-in")}>
+              {t("signInCta")}
+            </button>
+          ) : undefined
+        }
+      />
       <div className="sd-scroll">
         <div className="sd-body" style={{ gap: 16 }}>{body}</div>
       </div>

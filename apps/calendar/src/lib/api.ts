@@ -3,8 +3,8 @@
 // eisenhower.school subdomains, so credentialed requests carry the cookie with no
 // cross-domain cookie tricks. The API must list this origin in ALLOWED_ORIGINS.
 import type {
-  CalendarEventDTO,
-  CalendarFeedDTO,
+  PublicCalendarEventDTO,
+  PublicCalendarFeedDTO,
   CalendarSourceDTO,
   CalendarSourceInput,
   Locale,
@@ -71,15 +71,23 @@ export const api = {
     request<{ ok: true }>("/me/locale", { method: "PUT", body: JSON.stringify({ locale }) }),
   stopMasquerade: () => request<{ ok: true }>("/admin/masquerade/stop", { method: "POST" }),
 
-  // Member calendar reads — imported feeds and managed calendars, unioned.
+  // Agenda reads — imported feeds and managed calendars, unioned.
+  //
+  // Deliberately the /calendar-public/* routes, not the session-gated
+  // /calendar/* ones: this app's home screen renders for anonymous visitors, so
+  // these two calls must succeed with no cookie. They return
+  // PublicCalendarEventDTO, which omits seriesId/recurrenceId — nothing in this
+  // app reads those, and the narrower type is what keeps it that way.
   calendarEvents: (opts: { limit?: number; from?: string } = {}) => {
     const q = new URLSearchParams();
     if (opts.limit != null) q.set("limit", String(opts.limit));
     if (opts.from) q.set("from", opts.from);
     const qs = q.toString();
-    return request<{ events: CalendarEventDTO[] }>(`/calendar/events${qs ? `?${qs}` : ""}`);
+    return request<{ events: PublicCalendarEventDTO[] }>(
+      `/calendar-public/events${qs ? `?${qs}` : ""}`,
+    );
   },
-  calendarFeeds: () => request<{ sources: CalendarFeedDTO[] }>("/calendar/sources"),
+  calendarFeeds: () => request<{ sources: PublicCalendarFeedDTO[] }>("/calendar-public/sources"),
 
   // Imported ICS sources (admin).
   calendarSources: () => request<{ sources: CalendarSourceDTO[] }>("/admin/calendar-sources"),

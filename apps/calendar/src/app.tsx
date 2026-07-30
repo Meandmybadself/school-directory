@@ -43,7 +43,11 @@ export function App() {
       <Route path="/sign-in" element={<RedirectIfAuthed><SignIn /></RedirectIfAuthed>} />
       <Route path="/check-email" element={<CheckEmail />} />
 
-      <Route path="/" element={<RequireAuth><Calendar /></RequireAuth>} />
+      {/* Ungated on purpose: the agenda is public read-only. It reads the
+          /calendar-public/* routes, which need no cookie, and the shell hides
+          every member affordance when `me` is null. Admin stays gated below —
+          both here and, authoritatively, on the server. */}
+      <Route path="/" element={<Calendar />} />
       <Route path="/admin" element={<RequireAuth><Admin /></RequireAuth>} />
       <Route path="/admin/calendars/:id" element={<RequireAuth><CalendarEvents /></RequireAuth>} />
 

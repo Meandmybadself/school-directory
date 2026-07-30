@@ -17,6 +17,8 @@ export interface Strings {
 
   // onboarding
   signInTitle: string;
+  /** Nav/header CTA for a signed-out visitor on a public screen. */
+  signInCta: string;
   signInLead: string;
   emailLabel: string;
   emailLink: string;
@@ -252,6 +254,7 @@ const en: Strings = {
   back: "Back to sign in",
 
   signInTitle: "Sign in to the directory",
+  signInCta: "Sign in",
   signInLead:
     "Enter your email and we'll send you a link to sign in. No password to remember.",
   emailLabel: "Email",
@@ -486,6 +489,7 @@ const es: Strings = {
   back: "Volver a iniciar sesión",
 
   signInTitle: "Inicia sesión en el directorio",
+  signInCta: "Iniciar sesión",
   signInLead:
     "Escribe tu correo y te enviaremos un enlace para entrar. Sin contraseña que recordar.",
   emailLabel: "Correo",
@@ -655,6 +659,7 @@ const zh: Strings = {
   back: "返回登录",
 
   signInTitle: "登录目录",
+  signInCta: "登录",
   signInLead: "输入你的邮箱，我们会发送登录链接。无需记住密码。",
   emailLabel: "邮箱",
   emailLink: "给我发送链接",

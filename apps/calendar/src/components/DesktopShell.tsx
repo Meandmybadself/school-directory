@@ -57,7 +57,8 @@ export function DesktopShell({
   children: ReactNode;
 }) {
   const { t, locale } = useI18n();
-  const { me, displayName } = useSession();
+  const { me, displayName, loading } = useSession();
+  const navigate = useNavigate();
   const [sheet, setSheet] = useState<"account" | "language" | null>(null);
 
   return (
@@ -77,6 +78,13 @@ export function DesktopShell({
                 <div style={{ fontSize: 11, color: "var(--ink-3)", fontWeight: 600 }}>{me.user.email}</div>
               </div>
               <Icon name="chevdown" size={15} stroke={2.2} style={{ color: "var(--ink-3)" }} />
+            </button>
+          )}
+          {/* The agenda is public, so this slot would otherwise be empty for a
+              signed-out visitor and leave a member no visible way back in. */}
+          {!me && !loading && (
+            <button className="sd-btn sd-btn-ghost sd-btn-sm" onClick={() => navigate("/sign-in")}>
+              {t("signInCta")}
             </button>
           )}
         </header>

@@ -22,6 +22,7 @@ import { shares } from "./routes/shares.js";
 import { admin } from "./routes/admin.js";
 import { settings } from "./routes/settings.js";
 import { calendar } from "./routes/calendar.js";
+import { calendarPublic } from "./routes/calendarPublic.js";
 import { managedCalendar } from "./routes/managedCalendar.js";
 import { ics } from "./routes/ics.js";
 import { newsletter } from "./routes/newsletter.js";
@@ -61,6 +62,7 @@ app.route("/admin", admin);
 app.route("/admin", managedCalendar); // managed-calendar CRUD, same /admin base
 app.route("/settings", settings);
 app.route("/calendar", calendar);
+app.route("/calendar-public", calendarPublic); // anonymous agenda reads — no auth by design
 app.route("/ics", ics); // public published feeds — no auth by design
 app.route("/newsletter", newsletter); // authoring — system admins only
 app.route("/newsletter-public", newsletterPublic); // archive + unsubscribe — no auth by design

@@ -52,6 +52,12 @@ All three SPAs are separate Cloudflare Pages projects talking to the single
 - The calendar owns all calendar admin. `apps/web`'s Admin has no calendar tab —
   just a link out. `apps/web` keeps only `api.calendarEvents` (for Home's
   upcoming-events block); `/calendar` there is a redirect to the calendar site.
+- **The calendar's home screen is public.** `/` in `apps/calendar` is ungated on
+  purpose: anyone can read the agenda without signing in. It reads
+  `/calendar-public/*` (no `requireAuth`, like `ics.ts` and `newsletterPublic.ts`),
+  NOT the members-only `/calendar/*` — which still exist, still require auth, and
+  are what `apps/web` uses. Admin routes stay gated on both sides. See invariant
+  12 before adding a field to any calendar DTO.
 
 ## Non-negotiable invariants
 
@@ -90,6 +96,20 @@ All three SPAs are separate Cloudflare Pages projects talking to the single
    `lib/icsWriter.ts` and parsing that text back through `parseIcs`
    (`lib/managedCalendar.ts`). Never hand-roll a second RRULE walker — the
    round-trip is what guarantees the published feed and the in-app agenda agree.
+12. **The calendar's public seam is `publicEventOf` / `listPublicCalendarFeeds`**
+   (`apps/api/src/lib/calendar.ts`). The anonymous agenda is served from
+   `PublicCalendarEventDTO` / `PublicCalendarFeedDTO`, which are hand-written —
+   not `Omit<>` of the member DTOs — so **a field added to `CalendarEventDTO`
+   does NOT reach the public response until someone edits that projection on
+   purpose.** Keep it that way: build the public shape field by field, never by
+   spreading. Two omissions are deliberate, not oversights: `seriesId`/
+   `recurrenceId` (the durable handle volunteer signups will key on — see
+   invariant 8, so withholding it means member signup data can never be
+   addressed from a public response) and an imported feed's upstream `url` (an
+   admin may have pasted a secret Google/Outlook subscribe link, and the raw
+   feed carries ORGANIZER/ATTENDEE addresses we never store). `test/
+   calendarPublic.test.ts` asserts the exact public key set and fails the build
+   if either leaks.
 
 ## Conventions
 
