@@ -42,7 +42,16 @@ export function describeEvent(e: ManagedEventDTO): string {
   const { freq, interval = 1, byDay, until } = e.recurrence;
   const every = interval > 1 ? `every ${interval} ${freq === "daily" ? "days" : freq === "weekly" ? "weeks" : "months"}` : freq;
   const days = freq === "weekly" && byDay?.length ? ` on ${byDay.join(", ")}` : "";
-  const untilLabel = new Date(until).toLocaleDateString(undefined, { timeZone: "UTC", month: "short", day: "numeric", year: "numeric" });
+  // UNTIL is stored to match its event's kind: midnight UTC for an all-day
+  // series, the local END of the chosen day for a timed one (so a late-evening
+  // occurrence still falls inside it). Reading a timed UNTIL in UTC therefore
+  // reports the following day — picking "Aug 29" rendered as "until Aug 30".
+  const untilLabel = new Date(until).toLocaleDateString(undefined, {
+    ...(e.allDay ? { timeZone: "UTC" } : {}),
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
   return `${date} · ${every}${days} until ${untilLabel}`;
 }
 

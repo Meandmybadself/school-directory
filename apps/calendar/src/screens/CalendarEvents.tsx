@@ -4,7 +4,7 @@
 //
 // Admin chrome is intentionally English-only (operator tooling), matching the
 // directory app's convention.
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Navigate, useNavigate, useParams } from "react-router-dom";
 import { WEEKDAYS, type ManagedCalendarDTO, type ManagedEventDTO, type Weekday } from "@sd/shared";
 import { Icon } from "../components/Icon.js";
@@ -34,6 +34,14 @@ function EventEditor({ initial, busy, onSubmit, onCancel }: {
 }) {
   const [f, setF] = useState<EventForm>(initial);
   const [error, setError] = useState<string | null>(null);
+  const formRef = useRef<HTMLFormElement>(null);
+
+  // The form renders below the event list, which on a calendar with more than a
+  // few events is well past the fold — so "Add event" just made the button
+  // vanish with no visible result. Bring it into view when it opens.
+  useEffect(() => {
+    formRef.current?.scrollIntoView({ block: "nearest", behavior: "smooth" });
+  }, []);
   const set = <K extends keyof EventForm>(key: K, value: EventForm[K]) => setF((cur) => ({ ...cur, [key]: value }));
 
   const toggleDay = (d: Weekday) =>
@@ -58,7 +66,7 @@ function EventEditor({ initial, busy, onSubmit, onCancel }: {
   };
 
   return (
-    <form onSubmit={submit} style={{ display: "flex", flexDirection: "column", gap: 10, borderTop: "1px solid var(--line)", paddingTop: 12, marginTop: 10 }}>
+    <form ref={formRef} onSubmit={submit} style={{ display: "flex", flexDirection: "column", gap: 10, borderTop: "1px solid var(--line)", paddingTop: 12, marginTop: 10 }}>
       <Field label="Title">
         <input className="sd-input" placeholder="Fall Carnival" value={f.title} onChange={(e) => set("title", e.target.value)} />
       </Field>
