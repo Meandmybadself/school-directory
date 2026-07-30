@@ -28,3 +28,35 @@ export function showsTitle(e: CalendarEventDTO): boolean {
 export function showsAllDayLabel(e: CalendarEventDTO): boolean {
   return e.allDay && !isMenuCalendar(e);
 }
+
+// ── Which day an event belongs to ────────────────────────────────────────────
+//
+// An all-day event denotes a calendar DATE, not an instant, and is stored at
+// midnight UTC by convention. Reading it with the local-time accessors — as
+// `new Date(start).getDate()` does — shifts it to the previous day for every
+// viewer west of UTC, so "No School" lands on the wrong day for a school in
+// Central Time. All-day values must therefore be read in UTC; timed events are
+// real instants and stay local.
+
+function pad(n: number): string {
+  return String(n).padStart(2, "0");
+}
+
+/** Stable "YYYY-MM-DD" key for the day an event belongs on. */
+export function eventDayKey(e: CalendarEventDTO): string {
+  const d = new Date(e.start);
+  if (e.allDay) return d.toISOString().slice(0, 10);
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+}
+
+/** Locale-formatted day label for an event, read in the right zone for its kind. */
+export function formatEventDay(
+  e: CalendarEventDTO,
+  locale: string,
+  opts: Intl.DateTimeFormatOptions,
+): string {
+  return new Date(e.start).toLocaleDateString(locale, {
+    ...opts,
+    ...(e.allDay ? { timeZone: "UTC" } : {}),
+  });
+}

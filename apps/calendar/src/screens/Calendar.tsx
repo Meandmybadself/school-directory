@@ -17,7 +17,7 @@ import { ScreenHeader, SectLabel, SheetOver } from "../components/parts.js";
 import { useI18n } from "../i18n/index.js";
 import { useIsDesktop } from "../lib/useIsDesktop.js";
 import { api } from "../lib/api.js";
-import { showsDescription, showsAllDayLabel, showsTitle } from "../lib/calendar.js";
+import { showsDescription, showsAllDayLabel, showsTitle, eventDayKey, formatEventDay } from "../lib/calendar.js";
 
 const HIDDEN_KEY = "sd_cal_hidden";
 
@@ -30,23 +30,25 @@ function loadHidden(): Set<string> {
   }
 }
 
-function startOfDay(d: Date): number {
-  const x = new Date(d);
-  x.setHours(0, 0, 0, 0);
-  return x.getTime();
+interface DayGroup {
+  key: string;
+  /** The event whose day label represents the group — needed because an all-day
+   *  event's label must be read in UTC and a timed one's locally. */
+  head: CalendarEventDTO;
+  events: CalendarEventDTO[];
 }
 
-/** Group events into day buckets keyed by local start-of-day. Sorts defensively
- *  so grouping is correct regardless of server ordering. */
-function groupByDay(events: CalendarEventDTO[]): { key: number; date: Date; events: CalendarEventDTO[] }[] {
+/** Group events into day buckets. Keys come from `eventDayKey`, which reads
+ *  all-day events in UTC so they don't slide to the previous day. Sorts
+ *  defensively so grouping is correct regardless of server ordering. */
+function groupByDay(events: CalendarEventDTO[]): DayGroup[] {
   const sorted = [...events].sort((a, b) => a.start.localeCompare(b.start));
-  const groups: { key: number; date: Date; events: CalendarEventDTO[] }[] = [];
-  let current: { key: number; date: Date; events: CalendarEventDTO[] } | null = null;
+  const groups: DayGroup[] = [];
+  let current: DayGroup | null = null;
   for (const e of sorted) {
-    const d = new Date(e.start);
-    const key = startOfDay(d);
+    const key = eventDayKey(e);
     if (!current || current.key !== key) {
-      current = { key, date: d, events: [] };
+      current = { key, head: e, events: [] };
       groups.push(current);
     }
     current.events.push(e);
@@ -142,7 +144,7 @@ function EventDetailSheet({ e, locale, onClose }: { e: CalendarEventDTO; locale:
   const { t } = useI18n();
   const start = new Date(e.start);
   const end = e.end ? new Date(e.end) : null;
-  const dateStr = start.toLocaleDateString(locale, { weekday: "long", month: "long", day: "numeric" });
+  const dateStr = formatEventDay(e, locale, { weekday: "long", month: "long", day: "numeric" });
   const showTime = e.allDay ? showsAllDayLabel(e) : true;
   let timeStr: string;
   if (e.allDay) {
@@ -220,7 +222,7 @@ export function Calendar() {
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(240px, 1fr))", gap: 16, alignItems: "start" }}>
         {groups.map((g) => (
           <div key={g.key}>
-            <SectLabel>{g.date.toLocaleDateString(locale, { weekday: "long", month: "long", day: "numeric" })}</SectLabel>
+            <SectLabel>{formatEventDay(g.head, locale, { weekday: "long", month: "long", day: "numeric" })}</SectLabel>
             <div style={{ marginTop: 9, display: "flex", flexDirection: "column", gap: 8 }}>
               {g.events.map((e) => <EventRow key={e.id} e={e} locale={locale} onOpen={() => setSelected(e)} />)}
             </div>

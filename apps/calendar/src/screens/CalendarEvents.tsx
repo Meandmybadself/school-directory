@@ -12,7 +12,7 @@ import { Btn, Tag } from "../components/atoms.js";
 import { AppShell, BottomNav } from "../components/AppShell.js";
 import { DesktopShell } from "../components/DesktopShell.js";
 import { ScreenHeader, SectLabel, Field } from "../components/parts.js";
-import { ErrorText, IcsLink, describeEvent, iconBtnStyle } from "../components/adminUi.js";
+import { ErrorText, IcsLink, colorInputStyle, describeEvent, iconBtnStyle } from "../components/adminUi.js";
 import { useSession } from "../lib/session.js";
 import { useIsDesktop } from "../lib/useIsDesktop.js";
 import { api, ApiError, errorMessage } from "../lib/api.js";
@@ -212,6 +212,95 @@ function EventRow({ event: e, onEdit, onRemove }: {
   );
 }
 
+/** The calendar's own details — name, description, colour — editable in place.
+ *  This is the page you land on to work on a calendar, so renaming it belongs
+ *  here rather than only in the list it was opened from. */
+function CalendarHeader({ calendar: c, onSaved }: {
+  calendar: ManagedCalendarDTO;
+  onSaved: (next: ManagedCalendarDTO) => void;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [name, setName] = useState(c.name);
+  const [description, setDescription] = useState(c.description ?? "");
+  const [color, setColor] = useState(c.color);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const startEdit = () => {
+    setName(c.name);
+    setDescription(c.description ?? "");
+    setColor(c.color);
+    setError(null);
+    setEditing(true);
+  };
+
+  const submit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!name.trim()) {
+      setError("Enter a name.");
+      return;
+    }
+    setBusy(true);
+    setError(null);
+    try {
+      const r = await api.updateManagedCalendar(c.id, {
+        name: name.trim(),
+        description: description.trim() || null,
+        color,
+      });
+      onSaved(r.calendar);
+      setEditing(false);
+    } catch (err) {
+      setError(errorMessage(err, "Couldn't save that calendar."));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  if (editing) {
+    return (
+      <form onSubmit={submit} className="sd-card sd-card-pad" style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+        <Field label="Calendar name">
+          <input
+            className="sd-input"
+            placeholder="Calendar name"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            autoFocus
+          />
+        </Field>
+        <Field label="Description" hint="Optional.">
+          <input className="sd-input" value={description} onChange={(e) => setDescription(e.target.value)} />
+        </Field>
+        <Field label="Colour">
+          <input type="color" value={color} onChange={(e) => setColor(e.target.value)} aria-label="Calendar colour" style={colorInputStyle} />
+        </Field>
+        {error && <ErrorText>{error}</ErrorText>}
+        <div className="sd-row" style={{ gap: 8 }}>
+          <Btn type="submit" icon="check" disabled={busy || !name.trim()} style={{ flex: 1 }}>Save calendar</Btn>
+          <Btn type="button" kind="secondary" onClick={() => setEditing(false)} disabled={busy}>Cancel</Btn>
+        </div>
+      </form>
+    );
+  }
+
+  return (
+    <div className="sd-card sd-card-pad">
+      <div className="sd-row" style={{ gap: 10, alignItems: "flex-start" }}>
+        <span style={{ width: 12, height: 12, borderRadius: 3, background: c.color, flex: "0 0 auto", marginTop: 5 }} />
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontWeight: 700, fontSize: 15 }}>{c.name}</div>
+          {c.description && <div className="sd-meta">{c.description}</div>}
+          <IcsLink url={c.icsUrl} />
+        </div>
+        <button aria-label="Rename calendar" title="Rename calendar" onClick={startEdit} style={iconBtnStyle}>
+          <Icon name="pencil" size={16} />
+        </button>
+      </div>
+    </div>
+  );
+}
+
 export function CalendarEvents() {
   const { id = "" } = useParams();
   const navigate = useNavigate();
@@ -265,16 +354,10 @@ export function CalendarEvents() {
   const title = calendar?.name ?? "Calendar";
 
   const header = calendar && (
-    <div className="sd-card sd-card-pad">
-      <div className="sd-row" style={{ gap: 10, alignItems: "flex-start" }}>
-        <span style={{ width: 12, height: 12, borderRadius: 3, background: calendar.color, flex: "0 0 auto", marginTop: 5 }} />
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontWeight: 700, fontSize: 15 }}>{calendar.name}</div>
-          {calendar.description && <div className="sd-meta">{calendar.description}</div>}
-          <IcsLink url={calendar.icsUrl} />
-        </div>
-      </div>
-    </div>
+    <CalendarHeader
+      calendar={calendar}
+      onSaved={(next) => setCalendar(next)}
+    />
   );
 
   const list = (
