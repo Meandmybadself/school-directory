@@ -7,7 +7,7 @@ import { App } from "./app.js";
 import { I18nProvider } from "./i18n/index.js";
 import { SessionProvider } from "./lib/session.js";
 
-const SCHOOL_NAME = import.meta.env.VITE_SCHOOL_NAME ?? "Eisenhower";
+const SCHOOL_NAME = import.meta.env.VITE_SCHOOL_NAME ?? "Eisenhower PTO";
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>

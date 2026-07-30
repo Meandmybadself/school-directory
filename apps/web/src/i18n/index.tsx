@@ -26,7 +26,7 @@ interface I18nValue {
 
 const I18nContext = createContext<I18nValue | null>(null);
 
-export function I18nProvider({ children, school = "Eisenhower" }: { children: ReactNode; school?: string }) {
+export function I18nProvider({ children, school = "Eisenhower PTO" }: { children: ReactNode; school?: string }) {
   const [locale, setLocaleState] = useState<Locale>(detectLocale);
 
   const setLocale = useCallback((l: Locale) => {

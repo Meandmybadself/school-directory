@@ -9,7 +9,7 @@
 
 import type { RecurrenceInput, Weekday } from "@sd/shared";
 
-const PRODID = "-//Eisenhower School Directory//Calendar//EN";
+const PRODID = "-//Eisenhower PTO Directory//Calendar//EN";
 /** RFC 5545 §3.1: content lines are folded at 75 octets. */
 const FOLD_AT = 75;
 

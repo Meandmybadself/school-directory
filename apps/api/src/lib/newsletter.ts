@@ -81,20 +81,23 @@ export async function uniqueSlug(env: Env, base: string, excludeId?: string): Pr
 
 // ── Settings ────────────────────────────────────────────────────────────────
 
+// SCHOOL_NAME already carries the org's full name ("Eisenhower PTO"), so these
+// templates append only the service word — never " School", which would read as
+// "Eisenhower PTO School Newsletter".
 export function defaultNewsletterSettings(env: Env): NewsletterSettingsDTO {
   const school = env.SCHOOL_NAME;
   return {
-    senderName: `${school} School`,
+    senderName: school,
     // Empty means "use the instance-wide EMAIL_FROM". An admin can override it,
     // but only with an address Resend has verified for this domain.
     senderEmail: "",
     replyTo: null,
-    footerText: `You're receiving this because you're part of the ${school} School community.`,
+    footerText: `You're receiving this because you're part of the ${school} community.`,
     mailingAddress: "",
     unsubscribeWording: "Don't want these emails?",
     logoUrl: null,
     accentColor: "#0068A8",
-    newsletterTitle: `${school} School Newsletter`,
+    newsletterTitle: `${school} Newsletter`,
     defaultCalendarIds: [],
     defaultLookaheadDays: 14,
   };

@@ -244,8 +244,8 @@ export interface Strings {
 
 const en: Strings = {
   brand: "Eisenhower",
-  brandSub: "School Directory",
-  brandSubCalendar: "School Calendar",
+  brandSub: "PTO Directory",
+  brandSubCalendar: "PTO Calendar",
   done: "Done",
   save: "Save",
   cancel: "Cancel",
@@ -298,7 +298,7 @@ const en: Strings = {
   calendars: "Calendars",
   downloadIcs: "Download {name} (.ics)",
 
-  brandSubNewsletter: "School Newsletter",
+  brandSubNewsletter: "PTO Newsletter",
   navNewsletter: "Newsletter",
   newsletterArchive: "Past issues",
   newsletterPrefsTitle: "Newsletter",
@@ -478,8 +478,8 @@ const en: Strings = {
 
 const es: Strings = {
   ...en,
-  brandSub: "Directorio escolar",
-  brandSubCalendar: "Calendario escolar",
+  brandSub: "Directorio de la PTO",
+  brandSubCalendar: "Calendario de la PTO",
   done: "Listo",
   save: "Guardar",
   cancel: "Cancelar",
@@ -532,7 +532,7 @@ const es: Strings = {
   calendars: "Calendarios",
   downloadIcs: "Descargar {name} (.ics)",
 
-  brandSubNewsletter: "Boletín escolar",
+  brandSubNewsletter: "Boletín de la PTO",
   navNewsletter: "Boletín",
   newsletterArchive: "Números anteriores",
   newsletterPrefsTitle: "Boletín",
@@ -647,8 +647,8 @@ const es: Strings = {
 
 const zh: Strings = {
   ...en,
-  brandSub: "学校名录",
-  brandSubCalendar: "学校日历",
+  brandSub: "PTO 名录",
+  brandSubCalendar: "PTO 日历",
   done: "完成",
   save: "保存",
   cancel: "取消",
@@ -698,7 +698,7 @@ const zh: Strings = {
   calendars: "日历",
   downloadIcs: "下载 {name}（.ics）",
 
-  brandSubNewsletter: "学校通讯",
+  brandSubNewsletter: "PTO 通讯",
   navNewsletter: "通讯",
   newsletterArchive: "往期通讯",
   newsletterPrefsTitle: "通讯",

@@ -6,7 +6,7 @@ account_id = "c3b373ae8a90a6494e520f962bdf462b"
 
 # Single-tenant config. SCHOOL_NAME is surfaced in UI copy via /me + i18n.
 [vars]
-SCHOOL_NAME = "Eisenhower"
+SCHOOL_NAME = "Eisenhower PTO"
 # Default SPA origin: where a magic link lands when the sign-in didn't name an
 # app (see routes/auth.ts's returnTo).
 APP_URL = "http://localhost:5173"
@@ -79,7 +79,7 @@ crons = ["0 */3 * * *", "0 13 * * *"]
 # host-only to this Worker and same-site across eisenhower.school subdomains.
 # The former host (directory.meandmybadself.com) 301s here via apps/redirect.
 [env.production.vars]
-SCHOOL_NAME = "Eisenhower"
+SCHOOL_NAME = "Eisenhower PTO"
 APP_URL = "https://directory.eisenhower.school"
 ALLOWED_ORIGINS = "https://directory.eisenhower.school,https://calendar.eisenhower.school,https://newsletter.eisenhower.school"
 NEWSLETTER_URL = "https://newsletter.eisenhower.school"
