@@ -61,6 +61,13 @@ body,
 #root {
   height: 100%;
 }
+/* The design tokens live on `.sd`, which is a DESCENDANT of body — so
+   `var(--bg)` is out of scope here and silently computed to transparent,
+   leaving a white canvas wherever a shell's own background didn't reach.
+   Declaring it on :root puts it in scope; keep the value in step with `.sd`. */
+:root {
+  --bg: #f3f5f7;
+}
 body {
   background: var(--bg);
 }
@@ -589,7 +596,9 @@ body {
 /* ── Desktop shell (≥900px): 244px sidebar + main column ───────────────────── */
 .sd-desktop {
   display: flex;
-  height: 100%;
+  /* min-height only — `height: 100%` resolved against #root (which is exactly
+     viewport-tall) and pinned this box to one screen, so on a long page its
+     background stopped at the fold while the content kept going. */
   min-height: 100vh;
   background: var(--bg);
 }

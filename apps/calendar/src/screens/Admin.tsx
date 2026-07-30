@@ -172,88 +172,32 @@ function CalendarSourcesSection() {
 
 // ── Managed calendars ───────────────────────────────────────────────────────
 
-function ManagedCalendarRow({ calendar: c, onSave, onRemove }: {
+/** A calendar in the list. The pencil opens the calendar's own page, which is
+ *  where both renaming and event management now live — this row no longer edits
+ *  anything in place. */
+function ManagedCalendarRow({ calendar: c, onRemove }: {
   calendar: ManagedCalendarDTO;
-  onSave: (id: string, patch: { name: string; color: string; description: string | null }) => Promise<void>;
   onRemove: (id: string) => void;
 }) {
   const navigate = useNavigate();
-  const [editing, setEditing] = useState(false);
-  const [name, setName] = useState(c.name);
-  const [color, setColor] = useState(c.color);
-  const [description, setDescription] = useState(c.description ?? "");
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  const startEdit = () => {
-    setName(c.name);
-    setColor(c.color);
-    setDescription(c.description ?? "");
-    setError(null);
-    setEditing(true);
-  };
-  const submit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!name.trim()) {
-      setError("Enter a name.");
-      return;
-    }
-    setBusy(true);
-    setError(null);
-    try {
-      await onSave(c.id, { name: name.trim(), color, description: description.trim() || null });
-      setEditing(false);
-    } catch (err) {
-      setError(errorMessage(err, "Couldn't save that calendar."));
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  if (editing) {
-    return (
-      <form onSubmit={submit} className="sd-crow" style={{ flexDirection: "column", alignItems: "stretch", gap: 8 }}>
-        <input className="sd-input" placeholder="Calendar name" value={name} onChange={(e) => setName(e.target.value)} />
-        <input className="sd-input" placeholder="Description (optional)" value={description} onChange={(e) => setDescription(e.target.value)} />
-        <div className="sd-row" style={{ gap: 8 }}>
-          <input type="color" value={color} onChange={(e) => setColor(e.target.value)} aria-label="Tag color" style={colorInputStyle} />
-          <Btn type="submit" icon="check" disabled={busy || !name.trim()} style={{ flex: 1 }}>Save</Btn>
-          <Btn type="button" kind="secondary" onClick={() => setEditing(false)} disabled={busy}>Cancel</Btn>
-        </div>
-        {error && <ErrorText>{error}</ErrorText>}
-      </form>
-    );
-  }
+  const open = () => navigate(`/admin/calendars/${c.id}`);
 
   return (
-    <div className="sd-crow" style={{ flexDirection: "column", alignItems: "stretch", gap: 0 }}>
-      <div className="sd-row" style={{ alignItems: "center", gap: 10 }}>
-        <span style={{ width: 12, height: 12, borderRadius: 3, background: c.color, flex: "0 0 auto" }} />
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div className="sd-row" style={{ gap: 8 }}>
-            <span style={{ fontWeight: 700, fontSize: 14 }}>{c.name}</span>
-            <Tag tone="blue">{c.eventCount} {c.eventCount === 1 ? "event" : "events"}</Tag>
-          </div>
-          {c.description && <div className="sd-meta">{c.description}</div>}
-          <IcsLink url={c.icsUrl} />
+    <div className="sd-crow sd-row" style={{ alignItems: "center", gap: 10 }}>
+      <span style={{ width: 12, height: 12, borderRadius: 3, background: c.color, flex: "0 0 auto" }} />
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div className="sd-row" style={{ gap: 8 }}>
+          <span style={{ fontWeight: 700, fontSize: 14 }}>{c.name}</span>
+          <Tag tone="blue">{c.eventCount} {c.eventCount === 1 ? "event" : "events"}</Tag>
         </div>
-        <button aria-label="Edit" onClick={startEdit} style={iconBtnStyle}>
-          <Icon name="pencil" size={16} />
-        </button>
-        <button aria-label="Remove" onClick={() => onRemove(c.id)} style={iconBtnStyle}>
-          <Icon name="x" size={18} />
-        </button>
+        {c.description && <div className="sd-meta">{c.description}</div>}
+        <IcsLink url={c.icsUrl} />
       </div>
-      {/* Events get their own page rather than expanding in place — a calendar
-          can accumulate a lot of them, and the editor needs the room. Kept
-          outside the row above so it doesn't nest inside IcsLink's controls. */}
-      <button
-        onClick={() => navigate(`/admin/calendars/${c.id}`)}
-        className="sd-row"
-        style={{ gap: 5, marginTop: 8, background: "none", border: 0, padding: 0, cursor: "pointer", color: "var(--blue-700)", font: "inherit", fontSize: 12.5, fontWeight: 700 }}
-      >
-        Manage events
-        <Icon name="chevright" size={15} stroke={2.2} />
+      <button aria-label={`Edit ${c.name}`} title="Edit calendar" onClick={open} style={iconBtnStyle}>
+        <Icon name="pencil" size={16} />
+      </button>
+      <button aria-label={`Remove ${c.name}`} title="Remove calendar" onClick={() => onRemove(c.id)} style={iconBtnStyle}>
+        <Icon name="x" size={18} />
       </button>
     </div>
   );
@@ -290,17 +234,13 @@ function ManagedCalendarsSection() {
     await api.deleteManagedCalendar(id).catch(() => {});
     load();
   };
-  const save = async (id: string, patch: { name: string; color: string; description: string | null }) => {
-    await api.updateManagedCalendar(id, patch);
-    load();
-  };
 
   return (
     <div>
       <SectLabel>Our calendars</SectLabel>
       <div className="sd-card sd-card-pad" style={{ marginTop: 9 }}>
         {calendars.map((c) => (
-          <ManagedCalendarRow key={c.id} calendar={c} onSave={save} onRemove={remove} />
+          <ManagedCalendarRow key={c.id} calendar={c} onRemove={remove} />
         ))}
         {calendars.length === 0 && <div className="sd-meta" style={{ padding: "8px 0" }}>No calendars yet. Create one to start adding events.</div>}
         <form onSubmit={add} style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 10, borderTop: "1px solid var(--line)", paddingTop: 12 }}>

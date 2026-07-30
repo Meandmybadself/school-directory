@@ -293,7 +293,7 @@ function CalendarHeader({ calendar: c, onSaved }: {
           {c.description && <div className="sd-meta">{c.description}</div>}
           <IcsLink url={c.icsUrl} />
         </div>
-        <button aria-label="Rename calendar" title="Rename calendar" onClick={startEdit} style={iconBtnStyle}>
+        <button aria-label="Edit calendar details" title="Edit calendar details" onClick={startEdit} style={iconBtnStyle}>
           <Icon name="pencil" size={16} />
         </button>
       </div>
