@@ -295,7 +295,8 @@ export async function listManagedCalendars(env: Env, apiOrigin: string): Promise
   return rows.results.map((r) => toCalendarDTO(r, apiOrigin));
 }
 
-async function loadCalendar(env: Env, id: string, apiOrigin: string): Promise<ManagedCalendarDTO | null> {
+/** One calendar, or null if it doesn't exist. Backs the calendar detail page. */
+export async function loadCalendar(env: Env, id: string, apiOrigin: string): Promise<ManagedCalendarDTO | null> {
   const row = await env.DB.prepare(`${CALENDAR_SELECT} WHERE c.id = ?`).bind(id).first<CalendarRow>();
   return row ? toCalendarDTO(row, apiOrigin) : null;
 }

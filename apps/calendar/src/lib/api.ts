@@ -92,6 +92,8 @@ export const api = {
 
   // Managed calendars (admin).
   managedCalendars: () => request<{ calendars: ManagedCalendarDTO[] }>("/admin/managed-calendars"),
+  managedCalendar: (id: string) =>
+    request<{ calendar: ManagedCalendarDTO }>(`/admin/managed-calendars/${id}`),
   addManagedCalendar: (body: ManagedCalendarInput) =>
     request<{ calendar: ManagedCalendarDTO }>("/admin/managed-calendars", { method: "POST", body: JSON.stringify(body) }),
   updateManagedCalendar: (id: string, body: Partial<ManagedCalendarInput>) =>

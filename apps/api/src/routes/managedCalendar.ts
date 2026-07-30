@@ -15,6 +15,7 @@ import {
   deleteManagedEvent,
   listManagedCalendars,
   listManagedEvents,
+  loadCalendar,
   ManagedEventError,
   updateManagedCalendar,
   updateManagedEvent,
@@ -40,6 +41,15 @@ managedCalendar.get("/managed-calendars", async (c) => {
   const auth = requireAuth(c);
   if (!auth.isSystemAdmin) return c.json({ error: "forbidden" }, 403);
   return c.json({ calendars: await listManagedCalendars(c.env, apiOrigin(c.req.url)) });
+});
+
+/** GET /admin/managed-calendars/:id — one calendar, for its detail page. */
+managedCalendar.get("/managed-calendars/:id", async (c) => {
+  const auth = requireAuth(c);
+  if (!auth.isSystemAdmin) return c.json({ error: "forbidden" }, 403);
+  const calendar = await loadCalendar(c.env, c.req.param("id"), apiOrigin(c.req.url));
+  if (!calendar) return c.json({ error: "not_found" }, 404);
+  return c.json({ calendar });
 });
 
 /** POST /admin/managed-calendars { name, color?, description? }. */

@@ -4,6 +4,7 @@ import { AppShell } from "./components/AppShell.js";
 import { SignIn, CheckEmail } from "./screens/Onboarding.js";
 import { Calendar } from "./screens/Calendar.js";
 import { Admin } from "./screens/Admin.js";
+import { CalendarEvents } from "./screens/CalendarEvents.js";
 
 function Loading() {
   return (
@@ -44,6 +45,7 @@ export function App() {
 
       <Route path="/" element={<RequireAuth><Calendar /></RequireAuth>} />
       <Route path="/admin" element={<RequireAuth><Admin /></RequireAuth>} />
+      <Route path="/admin/calendars/:id" element={<RequireAuth><CalendarEvents /></RequireAuth>} />
 
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
