@@ -5,9 +5,6 @@ import type {
   BulkImportResult,
   BulkImportRow,
   CalendarEventDTO,
-  CalendarFeedDTO,
-  CalendarSourceDTO,
-  CalendarSourceInput,
   ContactItemInput,
   PersonSummaryDTO,
   CreatePersonBody,
@@ -28,6 +25,9 @@ import type {
 } from "@sd/shared";
 
 export const API_BASE = import.meta.env.VITE_API_URL ?? "http://localhost:8787";
+/** The calendar app's origin. The calendar moved to its own site, so nav and the
+ *  Home events block link out here rather than to an in-app route. */
+export const CALENDAR_APP_URL = import.meta.env.VITE_CALENDAR_URL ?? "http://localhost:5174";
 
 /** Resolve an API-relative media path (e.g. "/photos/abc.jpg") to an absolute URL. */
 export function mediaUrl(path: string | null | undefined): string | null {
@@ -187,7 +187,8 @@ export const api = {
   setNotifications: (newUser: NewUserNotify) =>
     request<NotificationSettingsDTO>("/settings/notifications", { method: "PUT", body: JSON.stringify({ newUser }) }),
 
-  // Calendar
+  // Calendar. Only the read remains here — it feeds Home's upcoming-events
+  // block. Feed listing and all calendar admin moved to the calendar app.
   calendarEvents: (opts: { limit?: number; from?: string } = {}) => {
     const q = new URLSearchParams();
     if (opts.limit != null) q.set("limit", String(opts.limit));
@@ -195,14 +196,4 @@ export const api = {
     const qs = q.toString();
     return request<{ events: CalendarEventDTO[] }>(`/calendar/events${qs ? `?${qs}` : ""}`);
   },
-  calendarFeeds: () => request<{ sources: CalendarFeedDTO[] }>("/calendar/sources"),
-  calendarSources: () => request<{ sources: CalendarSourceDTO[] }>("/admin/calendar-sources"),
-  addCalendarSource: (body: CalendarSourceInput) =>
-    request<{ source: CalendarSourceDTO }>("/admin/calendar-sources", { method: "POST", body: JSON.stringify(body) }),
-  updateCalendarSource: (id: string, body: Partial<CalendarSourceInput>) =>
-    request<{ source: CalendarSourceDTO }>(`/admin/calendar-sources/${id}`, { method: "PATCH", body: JSON.stringify(body) }),
-  deleteCalendarSource: (id: string) =>
-    request<{ ok: true }>(`/admin/calendar-sources/${id}`, { method: "DELETE" }),
-  refreshCalendar: () =>
-    request<{ ok: true; sources: number; events: number }>("/admin/calendar-sources/refresh", { method: "POST" }),
 };

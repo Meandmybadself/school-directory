@@ -7,10 +7,13 @@ account_id = "c3b373ae8a90a6494e520f962bdf462b"
 # Single-tenant config. SCHOOL_NAME is surfaced in UI copy via /me + i18n.
 [vars]
 SCHOOL_NAME = "Eisenhower"
-# Where the SPA lives; magic links and CORS use this origin.
+# Default SPA origin: where a magic link lands when the sign-in didn't name an
+# app (see routes/auth.ts's returnTo).
 APP_URL = "http://localhost:5173"
-# Comma-separated origins allowed to call the API with credentials.
-ALLOWED_ORIGINS = "http://localhost:5173"
+# Comma-separated origins allowed to call the API with credentials. Doubles as
+# the allowlist of valid magic-link return targets — same trust boundary.
+# 5173 = directory (apps/web), 5174 = calendar (apps/calendar).
+ALLOWED_ORIGINS = "http://localhost:5173,http://localhost:5174"
 # Geocoding endpoint (OpenStreetMap Nominatim). Override to a self-hosted/paid
 # instance if address volume ever outgrows the public endpoint's 1 rps policy.
 NOMINATIM_URL = "https://nominatim.openstreetmap.org/search"
@@ -53,13 +56,16 @@ crons = ["0 */3 * * *", "0 13 * * *"]
 #   SESSION_SECRET   — random string reserved for HMAC needs
 
 # ── Production environment (deploy with `wrangler deploy --env production`) ──────
-# SPA: https://directory.eisenhower.school (Pages)
-# API: https://api-directory.eisenhower.school (this Worker, custom domain below)
+# SPA:      https://directory.eisenhower.school (Pages)
+# Calendar: https://calendar.eisenhower.school  (Pages, apps/calendar)
+# API:      https://api-directory.eisenhower.school (this Worker, custom domain below)
+# Both SPAs share this API, its D1, and its session cookie — the cookie is
+# host-only to this Worker and same-site across eisenhower.school subdomains.
 # The former host (directory.meandmybadself.com) 301s here via apps/redirect.
 [env.production.vars]
 SCHOOL_NAME = "Eisenhower"
 APP_URL = "https://directory.eisenhower.school"
-ALLOWED_ORIGINS = "https://directory.eisenhower.school"
+ALLOWED_ORIGINS = "https://directory.eisenhower.school,https://calendar.eisenhower.school"
 NOMINATIM_URL = "https://nominatim.openstreetmap.org/search"
 BOOTSTRAP_ADMIN_EMAILS = "meandmybadself@gmail.com"
 

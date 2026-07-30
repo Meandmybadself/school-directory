@@ -18,6 +18,24 @@ export function isBootstrapAdmin(env: Env, email: string): boolean {
   return bootstrapAdminEmails(env).has(normalizeEmail(email));
 }
 
+/** Origins from ALLOWED_ORIGINS. One list serves two purposes with the same trust
+ *  boundary: which origins may call the API with credentials (CORS), and which
+ *  are valid magic-link return targets. An origin trusted to hold a session is
+ *  equally trusted as a redirect destination, so there's no second env var. */
+export function allowedOrigins(env: Env): string[] {
+  return (env.ALLOWED_ORIGINS ?? "")
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean);
+}
+
+/** The origin to send a member back to after a magic link, given the origin the
+ *  sign-in was started from. Falls back to APP_URL for anything not
+ *  allow-listed, so this can never become an open redirect. */
+export function resolveReturnTo(env: Env, requested: string | null | undefined): string {
+  return requested && allowedOrigins(env).includes(requested) ? requested : env.APP_URL;
+}
+
 export async function getSetting(env: Env, key: string): Promise<string | null> {
   const row = await env.DB.prepare("SELECT value FROM setting WHERE key = ?")
     .bind(key)

@@ -1,9 +1,13 @@
-// Shared calendar — an agenda list of upcoming events aggregated from the
-// admin-configured ICS feeds, grouped by day. Times render in the viewer's
-// local timezone. Per-calendar show/hide is remembered in localStorage; tapping
-// an event opens its detail (location + description).
+// The calendar — an agenda list of upcoming events grouped by day, aggregated
+// from imported ICS feeds and calendars authored here. Times render in the
+// viewer's local timezone. Per-calendar show/hide is remembered in localStorage;
+// tapping an event opens its detail (location + description).
+//
+// Ported from the directory app's /calendar screen, which this replaces. The
+// localStorage key is intentionally the same so a member's hidden-calendar
+// choices are not reset by the move (each origin keeps its own copy, but the
+// shape matches, and reusing the name keeps the two readable as one feature).
 import { useEffect, useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
 import { htmlToText, type CalendarEventDTO, type CalendarFeedDTO } from "@sd/shared";
 import { Icon } from "../components/Icon.js";
 import { Btn } from "../components/atoms.js";
@@ -54,7 +58,6 @@ function timeOf(e: CalendarEventDTO, locale: string, t: ReturnType<typeof useI18
   return e.allDay ? t("allDay") : new Date(e.start).toLocaleTimeString(locale, { hour: "numeric", minute: "2-digit" });
 }
 
-
 function EventRow({ e, locale, onOpen }: { e: CalendarEventDTO; locale: string; onOpen: () => void }) {
   const { t } = useI18n();
   const showTime = e.allDay ? showsAllDayLabel(e) : true;
@@ -81,8 +84,9 @@ function EventRow({ e, locale, onOpen }: { e: CalendarEventDTO; locale: string; 
   );
 }
 
-/** Per-calendar controls: a show/hide toggle (≥2 feeds) and an ICS download
- *  link. Toggling persists to localStorage. */
+/** Per-calendar controls: a show/hide toggle (≥2 calendars) and an ICS link. For
+ *  an imported feed that's the upstream URL; for a calendar authored here it's
+ *  this API's own published feed, so members can subscribe to either. */
 function FilterBar({ feeds, hidden, onToggle }: { feeds: CalendarFeedDTO[]; hidden: Set<string>; onToggle: (id: string) => void }) {
   const { t } = useI18n();
   if (feeds.length === 0) return null;
@@ -175,7 +179,6 @@ function EventDetailSheet({ e, locale, onClose }: { e: CalendarEventDTO; locale:
 
 export function Calendar() {
   const { t, locale } = useI18n();
-  const navigate = useNavigate();
   const isDesktop = useIsDesktop();
   const [events, setEvents] = useState<CalendarEventDTO[] | null>(null);
   const [feeds, setFeeds] = useState<CalendarFeedDTO[]>([]);
@@ -215,14 +218,14 @@ export function Calendar() {
         <div className="sd-card sd-card-pad sd-meta" style={{ textAlign: "center", padding: "28px 16px" }}>{t("noEvents")}</div>
       )}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(240px, 1fr))", gap: 16, alignItems: "start" }}>
-      {groups.map((g) => (
-        <div key={g.key}>
-          <SectLabel>{g.date.toLocaleDateString(locale, { weekday: "long", month: "long", day: "numeric" })}</SectLabel>
-          <div style={{ marginTop: 9, display: "flex", flexDirection: "column", gap: 8 }}>
-            {g.events.map((e) => <EventRow key={e.id} e={e} locale={locale} onOpen={() => setSelected(e)} />)}
+        {groups.map((g) => (
+          <div key={g.key}>
+            <SectLabel>{g.date.toLocaleDateString(locale, { weekday: "long", month: "long", day: "numeric" })}</SectLabel>
+            <div style={{ marginTop: 9, display: "flex", flexDirection: "column", gap: 8 }}>
+              {g.events.map((e) => <EventRow key={e.id} e={e} locale={locale} onOpen={() => setSelected(e)} />)}
+            </div>
           </div>
-        </div>
-      ))}
+        ))}
       </div>
     </>
   );
@@ -243,7 +246,7 @@ export function Calendar() {
   }
   return (
     <AppShell bottomNav={<BottomNav active="calendar" />}>
-      <ScreenHeader title={t("calendarTitle")} onLeft={() => navigate("/")} />
+      <ScreenHeader title={t("calendarTitle")} left="calendar" />
       <div className="sd-scroll">
         <div className="sd-body" style={{ gap: 16 }}>{body}</div>
       </div>

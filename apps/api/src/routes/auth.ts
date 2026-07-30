@@ -10,7 +10,13 @@ import { randomToken, randomSessionId, sha256 } from "../lib/crypto.js";
 import { isoPlus, isExpired, nowIso, MAGIC_LINK_TTL, SESSION_TTL } from "../lib/time.js";
 import { magicLinkEmail, sendEmail } from "../lib/email.js";
 import { notifyNewUser } from "../lib/notify.js";
-import { findUserByEmail, isRegistrationOpen, normalizeEmail, isBootstrapAdmin } from "../lib/db.js";
+import {
+  findUserByEmail,
+  isRegistrationOpen,
+  normalizeEmail,
+  isBootstrapAdmin,
+  resolveReturnTo,
+} from "../lib/db.js";
 import { setSessionCookie, clearSessionCookie, SESSION_COOKIE } from "../lib/cookies.js";
 import { getCookie } from "hono/cookie";
 
@@ -36,11 +42,23 @@ auth.post("/start", async (c) => {
   if (user || regOpen || bootstrap) {
     const token = randomToken();
     const tokenHash = await sha256(token);
+    // Which app started this sign-in, so the callback returns the member there
+    // instead of always APP_URL. Anything not allow-listed collapses to APP_URL.
+    const returnTo = resolveReturnTo(c.env, body?.returnTo);
     await c.env.DB.prepare(
-      `INSERT INTO auth_token (id, email, kind, token_hash, reg_open_at_issue, expires_at, created_at)
-       VALUES (?,?,?,?,?,?,?)`,
+      `INSERT INTO auth_token (id, email, kind, token_hash, reg_open_at_issue, expires_at, created_at, return_to)
+       VALUES (?,?,?,?,?,?,?,?)`,
     )
-      .bind(ulid(), email, "signin", tokenHash, regOpen ? 1 : 0, isoPlus(MAGIC_LINK_TTL), nowIso())
+      .bind(
+        ulid(),
+        email,
+        "signin",
+        tokenHash,
+        regOpen ? 1 : 0,
+        isoPlus(MAGIC_LINK_TTL),
+        nowIso(),
+        returnTo,
+      )
       .run();
 
     const apiOrigin = new URL(c.req.url).origin;
@@ -57,12 +75,14 @@ auth.post("/start", async (c) => {
 /** GET /auth/callback?t=… — consume token, create session, redirect to the SPA. */
 auth.get("/callback", async (c) => {
   const token = c.req.query("t");
-  const fail = () => c.redirect(`${c.env.APP_URL}/sign-in?error=link`, 302);
+  // Before the token is loaded there's nothing to tell us which app started the
+  // sign-in, so a missing token falls back to APP_URL as it always has.
+  const fail = (origin: string = c.env.APP_URL) => c.redirect(`${origin}/sign-in?error=link`, 302);
   if (!token) return fail();
 
   const tokenHash = await sha256(token);
   const row = await c.env.DB.prepare(
-    `SELECT id, email, kind, person_id, invited_by, reg_open_at_issue, expires_at, consumed_at
+    `SELECT id, email, kind, person_id, invited_by, reg_open_at_issue, expires_at, consumed_at, return_to
      FROM auth_token WHERE token_hash = ?`,
   )
     .bind(tokenHash)
@@ -75,9 +95,13 @@ auth.get("/callback", async (c) => {
       reg_open_at_issue: number;
       expires_at: string;
       consumed_at: string | null;
+      return_to: string | null;
     }>();
 
-  if (!row || row.consumed_at || isExpired(row.expires_at)) return fail();
+  // Re-validate rather than trusting the stored value: ALLOWED_ORIGINS may have
+  // changed since the link was issued, and this is the value we actually redirect to.
+  const appOrigin = resolveReturnTo(c.env, row?.return_to);
+  if (!row || row.consumed_at || isExpired(row.expires_at)) return fail(appOrigin);
 
   // Single-use: mark consumed immediately.
   await c.env.DB.prepare("UPDATE auth_token SET consumed_at = ? WHERE id = ?")
@@ -91,7 +115,7 @@ auth.get("/callback", async (c) => {
   if (!user) {
     // signin tokens only create a user if registration was open at issue time.
     // invite tokens always create the user (they bypass the toggle).
-    if (row.kind === "signin" && row.reg_open_at_issue !== 1 && !bootstrap) return fail();
+    if (row.kind === "signin" && row.reg_open_at_issue !== 1 && !bootstrap) return fail(appOrigin);
     const userId = ulid();
     const joinedAt = nowIso();
     const via = row.kind === "invite" ? "invite" : "signup";
@@ -144,7 +168,7 @@ auth.get("/callback", async (c) => {
 
   c.var.audit.push({ action: "auth.signin", entityKind: "user", entityId: user.id });
 
-  return c.redirect(`${c.env.APP_URL}/`, 302);
+  return c.redirect(`${appOrigin}/`, 302);
 });
 
 async function bindInvite(

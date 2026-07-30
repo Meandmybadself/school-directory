@@ -8,6 +8,8 @@ export interface Strings {
   // brand / generic
   brand: string;
   brandSub: string;
+  /** Brand subtitle for the calendar app (apps/calendar), which shares `brand`. */
+  brandSubCalendar: string;
   done: string;
   save: string;
   cancel: string;
@@ -227,6 +229,7 @@ export interface Strings {
 const en: Strings = {
   brand: "Eisenhower",
   brandSub: "School Directory",
+  brandSubCalendar: "School Calendar",
   done: "Done",
   save: "Save",
   cancel: "Cancel",
@@ -445,6 +448,8 @@ const en: Strings = {
 
 const es: Strings = {
   ...en,
+  brandSub: "Directorio escolar",
+  brandSubCalendar: "Calendario escolar",
   done: "Listo",
   save: "Guardar",
   cancel: "Cancelar",
@@ -598,6 +603,8 @@ const es: Strings = {
 
 const zh: Strings = {
   ...en,
+  brandSub: "学校名录",
+  brandSubCalendar: "学校日历",
   done: "完成",
   save: "保存",
   cancel: "取消",

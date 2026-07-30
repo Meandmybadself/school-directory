@@ -180,9 +180,22 @@ export interface CalendarSourceInput {
   enabled?: boolean;
 }
 
+/** Where an event came from: an imported ICS feed, or a calendar authored here. */
+export type CalendarEventKind = "imported" | "managed";
+
 /** A single (possibly recurrence-expanded) event, already source-joined. */
 export interface CalendarEventDTO {
+  /** Render key only — NOT a durable handle. Materialized rows are recreated
+   *  (with fresh ULIDs) whenever their feed refreshes or their event is edited.
+   *  Use `seriesId` + `recurrenceId` to refer to a managed occurrence. */
   id: string;
+  kind: CalendarEventKind;
+  /** Managed only — the durable `managed_event` id this occurrence belongs to. */
+  seriesId?: string;
+  /** Managed only — ISO-8601 UTC start of this occurrence, the RECURRENCE-ID
+   *  equivalent. `(seriesId, recurrenceId)` is stable across re-materialization
+   *  and is what a future volunteer signup attaches to. */
+  recurrenceId?: string;
   title: string;
   location: string | null;
   description: string | null;
@@ -191,20 +204,95 @@ export interface CalendarEventDTO {
   /** ISO-8601 UTC, or null. */
   end: string | null;
   allDay: boolean;
-  /** Every source this (de-duplicated) event appears on — for the per-calendar
-   *  filter. The event is hidden only when all of its sources are hidden. */
+  /** Every calendar this (de-duplicated) event appears on — imported source ids
+   *  and/or managed calendar ids — for the per-calendar filter. The event is
+   *  hidden only when all of its calendars are hidden. */
   sourceIds: string[];
-  /** Representative source, for the event's color tag. */
+  /** Representative calendar, for the event's color tag. */
   source: { name: string; color: string };
 }
 
 /** Public-facing calendar feed — for the show/hide filter and ICS download link.
- *  The URL is exposed (these are public feeds); admin-only status stays private. */
+ *  The URL is exposed (these are public feeds); admin-only status stays private.
+ *  Covers both imported sources (the upstream feed URL) and managed calendars
+ *  (this API's own published /ics/:id.ics URL). */
 export interface CalendarFeedDTO {
   id: string;
   name: string;
   color: string;
   url: string;
+}
+
+// ── Managed calendars (authored here, rather than imported) ─────────────────
+
+export type RecurFreq = "daily" | "weekly" | "monthly";
+
+export const WEEKDAYS = ["MO", "TU", "WE", "TH", "FR", "SA", "SU"] as const;
+export type Weekday = (typeof WEEKDAYS)[number];
+
+/** A recurrence rule, stored structured. The RRULE line in a published feed is
+ *  derived from this — the string form is never the source of truth. */
+export interface RecurrenceInput {
+  freq: RecurFreq;
+  /** Every N days/weeks/months. Defaults to 1. */
+  interval?: number;
+  /** Weekly only — which weekdays the event lands on. */
+  byDay?: Weekday[];
+  /** ISO-8601 UTC. Required: bounding every rule keeps expansion finite. */
+  until: string;
+}
+
+/** A calendar created in this app. Analogous to CalendarSourceDTO, but instead
+ *  of fetching an external URL it publishes one. */
+export interface ManagedCalendarDTO {
+  id: string;
+  name: string;
+  color: string;
+  description: string | null;
+  /** Count of events (series, not expanded occurrences) on this calendar. */
+  eventCount: number;
+  /** Absolute, public, unauthenticated .ics URL for this calendar. */
+  icsUrl: string;
+  createdBy: string | null;
+  createdAt: string;
+}
+
+export interface ManagedCalendarInput {
+  name: string;
+  color?: string;
+  description?: string | null;
+}
+
+/** One authored event and its recurrence rule — the editable master row. */
+export interface ManagedEventDTO {
+  /** Durable series id: created once, never regenerated. */
+  id: string;
+  calendarId: string;
+  title: string;
+  location: string | null;
+  description: string | null;
+  /** ISO-8601 UTC start of the first occurrence. */
+  start: string;
+  /** ISO-8601 UTC end, or null. For all-day events this is the RFC5545-exclusive
+   *  day after the last day, not the inclusive last day. */
+  end: string | null;
+  allDay: boolean;
+  recurrence: RecurrenceInput | null;
+  /** Number of materialized occurrences currently visible in the agenda. */
+  occurrenceCount: number;
+  createdBy: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ManagedEventInput {
+  title: string;
+  location?: string | null;
+  description?: string | null;
+  start: string;
+  end?: string | null;
+  allDay?: boolean;
+  recurrence?: RecurrenceInput | null;
 }
 
 /** A current grantee of a share, for the visibility sheet's "Shared with" list. */
@@ -316,6 +404,10 @@ export type NeighborsResponse =
 
 export interface AuthStartBody {
   email: string;
+  /** Origin to return to after the magic link is clicked, so a sibling app
+   *  (calendar.eisenhower.school) can start a sign-in and get the member back.
+   *  Ignored unless it exactly matches an allowed origin; omit for the default. */
+  returnTo?: string;
 }
 
 export interface ContactItemInput {
@@ -385,6 +477,12 @@ export type AuditAction =
   | "calendar.source.updated"
   | "calendar.source.deleted"
   | "calendar.refreshed"
+  | "calendar.managed.created"
+  | "calendar.managed.updated"
+  | "calendar.managed.deleted"
+  | "calendar.event.created"
+  | "calendar.event.updated"
+  | "calendar.event.deleted"
   | "person.updated"
   | "contact.created"
   | "contact.updated"

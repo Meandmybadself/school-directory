@@ -21,10 +21,24 @@ is in [`design_handoff_school_directory/`](./design_handoff_school_directory)
 
 | Package | Stack | Role |
 |---|---|---|
-| `apps/web` | React + Vite → Cloudflare **Pages** | SPA: design system, screens, i18n, offline cache |
-| `apps/api` | Hono on Cloudflare **Workers** | Auth, authz, **server-side privacy resolution**, audit, geocoding |
-| `packages/shared` | TypeScript | Domain types + i18n dictionaries (en/es/zh) shared by web & api |
+| `apps/web` | React + Vite → Cloudflare **Pages** | Directory SPA (`directory.eisenhower.school`): design system, screens, i18n, offline cache |
+| `apps/calendar` | React + Vite → Cloudflare **Pages** | Calendar SPA (`calendar.eisenhower.school`): agenda view, calendar/event authoring, ICS feed admin |
+| `apps/api` | Hono on Cloudflare **Workers** | Serves **both** SPAs: auth, authz, **server-side privacy resolution**, audit, geocoding, calendars |
+| `packages/shared` | TypeScript | Domain types + i18n dictionaries (en/es/zh) shared by all apps |
 | `apps/api/migrations` | SQL | Cloudflare **D1** (SQLite) schema |
+
+Both front ends share one API, one D1, and one session cookie: the cookie is
+host-only to the API's hostname, and because every host is an `eisenhower.school`
+subdomain, credentialed requests from either SPA are same-site. Adding a front-end
+origin means adding it to `ALLOWED_ORIGINS` in `apps/api/wrangler.toml`, which
+doubles as the allowlist of valid magic-link return targets.
+
+**Calendars** come in two kinds. *Imported* calendars are public ICS feeds an admin
+registers; a cron job fetches and expands them every 3 hours. *Managed* calendars
+are authored in the calendar app and publish their own feed at
+`/ics/<calendarId>.ics` (public and unauthenticated, so Google/Apple Calendar can
+subscribe). Both materialize into the same `calendar_event` table, so the agenda
+is a single query.
 
 **Identity model:** `User` (credential) ─< `Control` >─ `Person` (directory entity)
 ─< `Membership` >─ `Group`. A Person can have several Controllers (two parents);
@@ -58,13 +72,16 @@ cp apps/api/.dev.vars.example apps/api/.dev.vars
 pnpm db:migrate:local
 pnpm db:seed:local
 
-# Run web (5173) + api (8787) together
+# Run web (5173) + calendar (5174) + api (8787) together
 pnpm dev
 ```
 
 Then open <http://localhost:5173>, enter `dana@eisenhower.edu`, and **read the
 API terminal** — the magic-link URL is printed there (no email is sent without a
 Resend key). Click it to land in the directory.
+
+The calendar app runs at <http://localhost:5174> and shares that session. Signing
+in from there returns you there (it sends its own origin as `returnTo`).
 
 ## Useful scripts
 
@@ -97,10 +114,18 @@ wrangler secret put EMAIL_FROM
 # 4. Set the bootstrap admin(s) in wrangler.toml [vars] BEFORE deploying:
 #    BOOTSTRAP_ADMIN_EMAILS = "office@school.edu"
 
-# 5. Deploy the Worker, then the Pages app
+# 5. Deploy the Worker, then both Pages apps
 wrangler deploy
 cd ../web && pnpm build && wrangler pages deploy dist --project-name school-directory
+cd ../calendar && pnpm build && wrangler pages deploy dist --project-name school-calendar
 ```
+
+The `school-calendar` Pages project and its `calendar.eisenhower.school` custom
+domain must be created once by hand (dashboard, or `wrangler pages project create
+school-calendar`) — Pages custom domains aren't managed from `wrangler.toml` the
+way the Worker's route is. The API Worker also needs
+`https://calendar.eisenhower.school` in `ALLOWED_ORIGINS` (already set in
+`wrangler.toml`) or the browser will reject its credentialed responses.
 
 CI (`.github/workflows/`) typechecks + tests on PRs and deploys on merge to
 `main` once the repository secrets (`CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID`)

@@ -5,6 +5,7 @@ import { Hono } from "hono";
 import { cors } from "hono/cors";
 import type { Env, HonoEnv } from "./env.js";
 import { refreshAllSources } from "./lib/calendar.js";
+import { allowedOrigins } from "./lib/db.js";
 import { sendNewUserDigest } from "./lib/notify.js";
 import { contextMiddleware } from "./middleware/context.js";
 import { sessionMiddleware, UnauthorizedError } from "./middleware/session.js";
@@ -21,6 +22,8 @@ import { shares } from "./routes/shares.js";
 import { admin } from "./routes/admin.js";
 import { settings } from "./routes/settings.js";
 import { calendar } from "./routes/calendar.js";
+import { managedCalendar } from "./routes/managedCalendar.js";
+import { ics } from "./routes/ics.js";
 
 const app = new Hono<HonoEnv>();
 
@@ -29,7 +32,7 @@ app.use("*", contextMiddleware);
 app.use("*", (c, next) =>
   cors({
     origin: (origin) => {
-      const allowed = (c.env.ALLOWED_ORIGINS ?? "").split(",").map((s) => s.trim());
+      const allowed = allowedOrigins(c.env);
       return origin && allowed.includes(origin) ? origin : allowed[0] ?? "";
     },
     credentials: true,
@@ -53,8 +56,10 @@ app.route("/directory", directory);
 app.route("/groups", groups);
 app.route("/shares", shares);
 app.route("/admin", admin);
+app.route("/admin", managedCalendar); // managed-calendar CRUD, same /admin base
 app.route("/settings", settings);
 app.route("/calendar", calendar);
+app.route("/ics", ics); // public published feeds — no auth by design
 // share-targets is exposed under /shares/targets via the shares router.
 app.route("/", contacts); // /persons/:id/contacts + /contacts/:id
 app.route("/", controllers); // /persons/:id/controllers + /control-invites
