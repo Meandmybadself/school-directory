@@ -1,3 +1,4 @@
 export * from "./types.js";
 export * from "./i18n.js";
 export * from "./text.js";
+export * from "./newsletterRender.js";

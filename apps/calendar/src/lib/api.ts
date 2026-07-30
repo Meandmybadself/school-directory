@@ -18,6 +18,8 @@ import type {
 export const API_BASE = import.meta.env.VITE_API_URL ?? "http://localhost:8787";
 /** The directory app — linked to from nav; not an API base. */
 export const DIRECTORY_URL = import.meta.env.VITE_DIRECTORY_URL ?? "http://localhost:5173";
+/** The newsletter app — linked to from nav; not an API base. */
+export const NEWSLETTER_URL = import.meta.env.VITE_NEWSLETTER_URL ?? "http://localhost:5175";
 
 export class ApiError extends Error {
   constructor(public status: number, public body: unknown) {

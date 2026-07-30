@@ -172,6 +172,36 @@ me.post("/active-person", async (c) => {
   return c.json({ ok: true, activePersonId: body.personId });
 });
 
+/** GET /me/newsletter → { subscribed } — the member's own newsletter preference.
+ *  Opting out is stored as a timestamp on the user row rather than a boolean, so
+ *  the audit trail carries when it happened. */
+me.get("/newsletter", async (c) => {
+  const auth = requireAuth(c);
+  const row = await c.env.DB.prepare("SELECT newsletter_opt_out_at FROM user WHERE id = ?")
+    .bind(auth.userId)
+    .first<{ newsletter_opt_out_at: string | null }>();
+  return c.json({ subscribed: row?.newsletter_opt_out_at == null });
+});
+
+/** PUT /me/newsletter { subscribed } — subscribe or unsubscribe yourself. */
+me.put("/newsletter", async (c) => {
+  const auth = requireAuth(c);
+  const body = await c.req.json<{ subscribed: boolean }>().catch(() => null);
+  if (typeof body?.subscribed !== "boolean") return c.json({ error: "invalid_body" }, 400);
+
+  await c.env.DB.prepare("UPDATE user SET newsletter_opt_out_at = ? WHERE id = ?")
+    .bind(body.subscribed ? null : nowIso(), auth.userId)
+    .run();
+
+  c.var.audit.push({
+    action: "newsletter.subscription.toggled",
+    entityKind: "user",
+    entityId: auth.userId,
+    detail: { subscribed: body.subscribed },
+  });
+  return c.json({ subscribed: body.subscribed });
+});
+
 /** PUT /me/locale { locale } — set the user's preferred UI locale. */
 me.put("/locale", async (c) => {
   const auth = requireAuth(c);

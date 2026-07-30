@@ -1,0 +1,224 @@
+/* Newsletter-only chrome: the composer, its toolbar, the events-block node view
+   and the preview pane. Everything else comes from tokens.css, which is copied
+   from apps/web and shared in spirit with the calendar app.
+
+   The rendered newsletter itself is NOT styled here — the email inlines its own
+   styles and the public archive pages use NEWSLETTER_WEB_CSS from @sd/shared, so
+   that what an author previews and what a reader receives come from one place. */
+
+.nlx-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 18px;
+}
+@media (min-width: 1100px) {
+  /* Two columns only when there's genuinely room; below that the preview stacks
+     under the editor rather than squeezing both. */
+  .nlx-layout { grid-template-columns: minmax(0, 1fr) 420px; align-items: start; }
+  .nlx-preview-col { position: sticky; top: 16px; }
+}
+
+/* ── Editor ─────────────────────────────────────────────────────────────── */
+
+.nlx-editor {
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--paper);
+  overflow: hidden;
+}
+.nlx-editor.ro { background: var(--bg-2); }
+
+.nlx-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 3px;
+  padding: 7px 8px;
+  border-bottom: 1px solid var(--line);
+  background: var(--bg-2);
+  position: sticky;
+  top: 0;
+  z-index: 2;
+}
+.nlx-tool {
+  min-width: 30px;
+  height: 30px;
+  padding: 0 7px;
+  border-radius: 7px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--ink-2);
+  font: inherit;
+  font-size: 12.5px;
+  font-weight: 700;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.nlx-tool:hover { background: var(--paper); border-color: var(--line); }
+.nlx-tool.on { background: var(--blue-tint); border-color: var(--blue); color: var(--blue-700); }
+.nlx-tool-sep { width: 1px; height: 20px; background: var(--line); margin: 0 4px; }
+
+.nlx-editor .ProseMirror {
+  padding: 20px 22px 40px;
+  min-height: 320px;
+  outline: none;
+  font-size: 16px;
+  line-height: 1.65;
+  color: var(--ink);
+}
+.nlx-editor .ProseMirror > * + * { margin-top: 14px; }
+.nlx-editor .ProseMirror h1 { font-size: 26px; line-height: 1.25; font-weight: 800; margin-top: 22px; }
+.nlx-editor .ProseMirror h2 { font-size: 21px; line-height: 1.3; font-weight: 750; margin-top: 20px; }
+.nlx-editor .ProseMirror h3 { font-size: 17px; line-height: 1.35; font-weight: 700; margin-top: 18px; }
+.nlx-editor .ProseMirror ul,
+.nlx-editor .ProseMirror ol { padding-left: 24px; }
+.nlx-editor .ProseMirror li > p { margin: 0; }
+.nlx-editor .ProseMirror blockquote {
+  padding-left: 14px;
+  border-left: 3px solid var(--blue);
+  color: var(--ink-2);
+  font-style: italic;
+}
+.nlx-editor .ProseMirror hr {
+  border: 0;
+  border-top: 1px solid var(--line);
+  margin: 22px 0;
+}
+.nlx-editor .ProseMirror img { max-width: 100%; height: auto; border-radius: 8px; }
+.nlx-editor .ProseMirror a { color: var(--blue-700); text-decoration: underline; }
+/* Placeholder, courtesy of @tiptap/extension-placeholder. */
+.nlx-editor .ProseMirror p.is-editor-empty:first-child::before {
+  content: attr(data-placeholder);
+  float: left;
+  height: 0;
+  pointer-events: none;
+  color: var(--ink-3);
+}
+.nlx-editor-loading { padding: 40px; text-align: center; color: var(--ink-3); }
+
+/* ── Events block node view ─────────────────────────────────────────────── */
+
+.nlx-block {
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--bg-2);
+  overflow: hidden;
+  margin: 4px 0;
+}
+.nlx-block.sel { border-color: var(--blue); box-shadow: 0 0 0 2px var(--blue-tint); }
+.nlx-block-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--line);
+  background: var(--paper);
+  font-size: 12.5px;
+}
+.nlx-block-kind { font-weight: 800; letter-spacing: -0.1px; }
+.nlx-block-note { color: var(--ink-3); font-weight: 600; }
+.nlx-mini {
+  height: 26px;
+  padding: 0 9px;
+  border-radius: 7px;
+  border: 1px solid var(--line);
+  background: var(--paper);
+  color: var(--ink-2);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.nlx-mini:hover { background: var(--bg-2); }
+.nlx-mini.danger { color: var(--warn); }
+
+.nlx-block-config { padding: 12px 12px 14px; border-bottom: 1px solid var(--line); background: var(--paper); }
+.nlx-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+.nlx-chip {
+  height: 30px;
+  padding: 0 11px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: var(--paper);
+  color: var(--ink-2);
+  font: inherit;
+  font-size: 12.5px;
+  font-weight: 700;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.nlx-chip.on { background: var(--blue-tint); border-color: var(--blue); color: var(--blue-700); }
+.nlx-dot { width: 8px; height: 8px; border-radius: 4px; flex: 0 0 auto; }
+
+.nlx-block-body { padding: 6px 12px 12px; }
+.nlx-block-empty { padding: 12px 2px; color: var(--ink-3); font-size: 13px; }
+.nlx-event {
+  padding: 8px 0 8px 11px;
+  border-left: 3px solid var(--blue);
+  border-bottom: 1px solid var(--line);
+}
+.nlx-event:last-child { border-bottom: 0; }
+.nlx-event-title { font-size: 14px; font-weight: 700; line-height: 1.35; }
+.nlx-event-meta { font-size: 12.5px; color: var(--ink-3); margin-top: 1px; }
+
+/* ── Preview ────────────────────────────────────────────────────────────── */
+
+.nlx-preview {
+  width: 100%;
+  height: 640px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--bg-2);
+  display: block;
+}
+
+/* ── Screens ────────────────────────────────────────────────────────────── */
+
+.nlx-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 22px;
+  padding: 0 9px;
+  border-radius: 999px;
+  font-size: 11.5px;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+.nlx-status.draft { background: var(--bg-2); color: var(--ink-3); border: 1px solid var(--line); }
+.nlx-status.sending { background: #fff5e0; color: #8a5a00; border: 1px solid #f0d79a; }
+.nlx-status.sent { background: var(--blue-tint); color: var(--blue-700); border: 1px solid var(--blue); }
+
+.nlx-warn {
+  display: flex;
+  gap: 9px;
+  align-items: flex-start;
+  padding: 11px 13px;
+  border-radius: 10px;
+  background: #fff8e6;
+  border: 1px solid #f0d79a;
+  color: #7a5200;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.nlx-formgrid { display: flex; flex-direction: column; gap: 14px; }
+@media (min-width: 720px) {
+  .nlx-formrow { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+}
+
+.nlx-progress {
+  height: 6px;
+  border-radius: 3px;
+  background: var(--bg-2);
+  overflow: hidden;
+}
+.nlx-progress > span { display: block; height: 100%; background: var(--blue); transition: width .3s ease; }

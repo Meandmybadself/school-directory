@@ -3,10 +3,21 @@
 export interface Env {
   DB: D1Database;
   PHOTOS: R2Bucket;
+  /** Newsletter images and logos. A SEPARATE bucket from PHOTOS, not a prefix
+   *  inside it: these objects are served by a fully public route, and a bucket
+   *  with no private data co-resident cannot leak a member's profile photo
+   *  through a forgotten prefix check. */
+  NEWSLETTER_MEDIA: R2Bucket;
   // vars
   SCHOOL_NAME: string;
   APP_URL: string;
   ALLOWED_ORIGINS: string;
+  /** Public origin of the newsletter app — where "view in browser" and
+   *  unsubscribe links in a sent email point. */
+  NEWSLETTER_URL: string;
+  /** IANA zone used to name the day/time of events rendered server-side (email
+   *  and public archive), which have no viewer to infer a zone from. */
+  SCHOOL_TIMEZONE?: string;
   /** Override the Nominatim search endpoint (e.g. a self-hosted instance). */
   NOMINATIM_URL?: string;
   /** Comma-separated emails granted system_admin on sign-in (bootstrap). They

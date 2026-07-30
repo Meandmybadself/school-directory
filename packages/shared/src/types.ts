@@ -456,6 +456,156 @@ export interface NotificationSettingsDTO {
   newUser: NewUserNotify;
 }
 
+// ── Newsletter ─────────────────────────────────────────────────────────────
+
+/** `draft` is the only mutable state. `sending` is entered by an atomic
+ *  compare-and-swap so a double-clicked Send can't queue a second fan-out, and
+ *  it is never left except by the fan-out finishing. */
+export type NewsletterIssueStatus = "draft" | "sending" | "sent";
+
+export const NEWSLETTER_ISSUE_STATUSES = ["draft", "sending", "sent"] as const;
+
+/** One recipient's delivery outcome for one issue. */
+export type NewsletterRecipientStatus = "pending" | "sent" | "failed";
+
+/** A ProseMirror/TipTap document node, described structurally rather than
+ *  imported from @tiptap/core — `@sd/shared` stays framework-free, and the
+ *  editor and this type independently describe the same stored wire shape. */
+export interface NewsletterNode {
+  type: string;
+  attrs?: Record<string, unknown>;
+  content?: NewsletterNode[];
+  marks?: { type: string; attrs?: Record<string, unknown> }[];
+  text?: string;
+}
+
+/** The one newsletter-specific node type. It is an atom: it has no children,
+ *  and its event list is resolved (live while drafting, frozen at send) rather
+ *  than stored in the document. */
+export const EVENTS_BLOCK_TYPE = "eventsBlock";
+
+/** Attributes on an `eventsBlock` node. Several may appear in one issue, each
+ *  with its own calendars and window, so `blockId` keys the frozen snapshot. */
+export interface NewsletterEventsBlockAttrs {
+  /** Assigned when the block is inserted; stable for the issue's lifetime. */
+  blockId: string;
+  /** calendar_source / managed_calendar ids (see CalendarFeedDTO). Empty means
+   *  "every calendar", matching the settings default. */
+  calendarIds: string[];
+  /** Days ahead of the render moment to include. */
+  lookaheadDays: number;
+  /** Optional heading rendered above the list; null renders no heading. */
+  heading: string | null;
+}
+
+/** Instance-wide newsletter configuration. Stored as one JSON blob under a
+ *  single `setting` key rather than its own table. */
+export interface NewsletterSettingsDTO {
+  /** Display name on the From header. */
+  senderName: string;
+  /** From address. Must be a Resend-verified sender or delivery fails. */
+  senderEmail: string;
+  replyTo: string | null;
+  footerText: string;
+  /** Physical mailing address, expected in bulk mail. */
+  mailingAddress: string;
+  unsubscribeWording: string;
+  /** Absolute URL of an uploaded logo, or null. */
+  logoUrl: string | null;
+  /** Hex, e.g. "#0068A8". Applied to the email and the public page. */
+  accentColor: string;
+  /** Masthead title, distinct from any single issue's title. */
+  newsletterTitle: string;
+  /** Pre-fills a newly inserted events block. */
+  defaultCalendarIds: string[];
+  defaultLookaheadDays: number;
+}
+
+export interface NewsletterIssueSummaryDTO {
+  id: string;
+  slug: string;
+  title: string;
+  subtitle: string | null;
+  status: NewsletterIssueStatus;
+  createdAt: string;
+  updatedAt: string;
+  sentAt: string | null;
+  /** Audience size measured when the send began; 0 while still a draft. */
+  recipientTotal: number;
+}
+
+export interface NewsletterIssueDTO extends NewsletterIssueSummaryDTO {
+  subject: string;
+  content: NewsletterNode;
+  /** Frozen per-block event lists, keyed by `blockId`. Absent while `draft`. */
+  eventsSnapshot: Record<string, CalendarEventDTO[]> | null;
+  /** Present once sending has begun, for the admin's progress display. */
+  recipientCounts: { pending: number; sent: number; failed: number } | null;
+}
+
+export interface NewsletterIssueInput {
+  title: string;
+  subtitle?: string | null;
+  /** Email subject. Defaults to `title` when omitted. */
+  subject?: string;
+  /** Defaults to `<today>-<slugified title>` when omitted. */
+  slug?: string;
+  content: NewsletterNode;
+}
+
+/** Body for POST …/test-send. Capped server-side. */
+export interface NewsletterTestSendBody {
+  to: string[];
+}
+
+export interface NewsletterSendResultDTO {
+  status: NewsletterIssueStatus;
+  recipientTotal: number;
+}
+
+export interface NewsletterSubscriberDTO {
+  id: string;
+  email: string;
+  subscribed: boolean;
+  createdAt: string;
+}
+
+/** A member's own newsletter preference (GET/PUT /me/newsletter). */
+export interface NewsletterSubscriptionDTO {
+  subscribed: boolean;
+}
+
+/** Branding needed to render a public page, without exposing sender identity. */
+export interface NewsletterBrandingDTO {
+  newsletterTitle: string;
+  accentColor: string;
+  logoUrl: string | null;
+  footerText: string;
+}
+
+export interface PublicNewsletterIssueSummaryDTO {
+  slug: string;
+  title: string;
+  subtitle: string | null;
+  /** ISO-8601. Only sent issues are ever public, so this is never null. */
+  sentAt: string;
+  /** First few lines of body text, for the archive card and OG description. */
+  excerpt: string;
+}
+
+/** Carries data, not pre-rendered HTML: the public page runs the same shared
+ *  renderer the email did, over the same frozen content and snapshot. */
+export interface PublicNewsletterIssueDTO extends PublicNewsletterIssueSummaryDTO {
+  content: NewsletterNode;
+  eventsSnapshot: Record<string, CalendarEventDTO[]>;
+  branding: NewsletterBrandingDTO;
+}
+
+export interface PublicNewsletterArchiveDTO {
+  issues: PublicNewsletterIssueSummaryDTO[];
+  branding: NewsletterBrandingDTO;
+}
+
 // ── Audit ─────────────────────────────────────────────────────────────────
 
 /** Actions captured in the append-only audit log (FR-31). */
@@ -483,6 +633,17 @@ export type AuditAction =
   | "calendar.event.created"
   | "calendar.event.updated"
   | "calendar.event.deleted"
+  | "newsletter.issue.created"
+  | "newsletter.issue.updated"
+  | "newsletter.issue.deleted"
+  | "newsletter.issue.sent"
+  | "newsletter.issue.retried"
+  | "newsletter.media.uploaded"
+  | "newsletter.test_sent"
+  | "newsletter.settings.updated"
+  | "newsletter.subscriber.added"
+  | "newsletter.subscriber.removed"
+  | "newsletter.subscription.toggled"
   | "person.updated"
   | "contact.created"
   | "contact.updated"

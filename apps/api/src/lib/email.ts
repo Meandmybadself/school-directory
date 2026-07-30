@@ -3,40 +3,70 @@
 
 import type { Env } from "../env.js";
 
-interface SendArgs {
+export interface SendArgs {
   to: string;
   subject: string;
   html: string;
   text: string;
+  /** Override the instance From header. Only the newsletter uses this, so an
+   *  admin-configured sender identity doesn't change transactional mail. */
+  from?: string;
+  replyTo?: string;
 }
 
-export async function sendEmail(env: Env, msg: SendArgs): Promise<void> {
+export interface SendResult {
+  ok: boolean;
+  error?: string;
+}
+
+/** Send one message and report whether it was accepted.
+ *
+ *  `sendEmail` below keeps the never-throw, never-report contract that the auth
+ *  paths depend on. This variant exists for the newsletter, which mails hundreds
+ *  of recipients at once and has to record per-recipient outcomes — "we tried
+ *  and Resend rejected it" and "we tried and it went through" are different
+ *  facts there, and collapsing them would make a partial send unrecoverable. */
+export async function sendEmailResult(env: Env, msg: SendArgs): Promise<SendResult> {
   if (!env.RESEND_API_KEY) {
     // Local/dev fallback — surface the content (incl. magic link) in logs.
     console.log(
       `\n[email:dev] to=${msg.to} subject="${msg.subject}"\n${msg.text}\n`,
     );
-    return;
+    return { ok: true };
   }
-  const res = await fetch("https://api.resend.com/emails", {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${env.RESEND_API_KEY}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      from: env.EMAIL_FROM ?? `${env.SCHOOL_NAME} Directory <onboarding@resend.dev>`,
-      to: msg.to,
-      subject: msg.subject,
-      html: msg.html,
-      text: msg.text,
-    }),
-  });
-  if (!res.ok) {
-    const body = await res.text();
-    console.error(`[email] Resend error ${res.status}: ${body}`);
-    // Do not throw to the caller in a way that reveals delivery state to the client.
+  try {
+    const res = await fetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${env.RESEND_API_KEY}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        from: msg.from ?? env.EMAIL_FROM ?? `${env.SCHOOL_NAME} Directory <onboarding@resend.dev>`,
+        to: msg.to,
+        subject: msg.subject,
+        html: msg.html,
+        text: msg.text,
+        ...(msg.replyTo ? { reply_to: msg.replyTo } : {}),
+      }),
+    });
+    if (!res.ok) {
+      const body = await res.text();
+      console.error(`[email] Resend error ${res.status}: ${body}`);
+      return { ok: false, error: `${res.status}: ${body.slice(0, 200)}` };
+    }
+    return { ok: true };
+  } catch (err) {
+    const error = err instanceof Error ? err.message : String(err);
+    console.error(`[email] send failed: ${error}`);
+    return { ok: false, error: error.slice(0, 200) };
   }
+}
+
+export async function sendEmail(env: Env, msg: SendArgs): Promise<void> {
+  // Deliberately discards the result: callers on the auth path must not learn
+  // delivery state, since that would reveal whether an account exists.
+  await sendEmailResult(env, msg);
 }
 
 /** Member-entered values (emails, names) land in admin notifications — escape

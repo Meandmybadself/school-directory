@@ -2,7 +2,7 @@
 // 4-up Neighbors row and the groups list.
 import { useEffect, useState, type ReactNode } from "react";
 import { useNavigate } from "react-router-dom";
-import { htmlToText, type CalendarEventDTO, type GroupSummaryDTO, type NeighborsResponse, type PersonProfileDTO } from "@sd/shared";
+import { htmlToText, type CalendarEventDTO, type GroupSummaryDTO, type NeighborsResponse, type PersonProfileDTO, type PublicNewsletterIssueSummaryDTO } from "@sd/shared";
 import { Icon } from "../components/Icon.js";
 import { Btn } from "../components/atoms.js";
 import type { I18nT } from "../i18n/index.js";
@@ -13,7 +13,7 @@ import { PersonSwitcherSheet, LanguageSheet, LanguageButton } from "../component
 import { showsDescription, showsAllDayLabel, formatEventDay } from "../lib/calendar.js";
 import { useSession } from "../lib/session.js";
 import { useIsDesktop } from "../lib/useIsDesktop.js";
-import { api, mediaUrl, CALENDAR_APP_URL } from "../lib/api.js";
+import { api, mediaUrl, CALENDAR_APP_URL, NEWSLETTER_APP_URL } from "../lib/api.js";
 import { capLabel, useI18n } from "../i18n/index.js";
 
 export function Home() {
@@ -22,6 +22,7 @@ export function Home() {
   const [profile, setProfile] = useState<PersonProfileDTO | null>(null);
   const [neighbors, setNeighbors] = useState<NeighborsResponse | null>(null);
   const [events, setEvents] = useState<CalendarEventDTO[] | null>(null);
+  const [latestIssue, setLatestIssue] = useState<PublicNewsletterIssueSummaryDTO | null>(null);
 
   const activeId = activePerson?.id;
   useEffect(() => {
@@ -33,6 +34,7 @@ export function Home() {
   // The calendar is shared (not per-Person), so fetch once.
   useEffect(() => {
     void api.calendarEvents({ limit: 5 }).then((r) => setEvents(r.events)).catch(() => setEvents([]));
+    void api.newsletterLatest().then((r) => setLatestIssue(r.issues[0] ?? null)).catch(() => setLatestIssue(null));
   }, []);
 
   if (!me || !activePerson) return null;
@@ -44,7 +46,7 @@ export function Home() {
   // `list` with no addCta means: has an address, just no neighbors nearby.
   const noAddress = !!neighbors && "addCta" in neighbors;
 
-  const shared = { activePerson, groups, list, hasNeighbors, noAddress, events };
+  const shared = { activePerson, groups, list, hasNeighbors, noAddress, events, latestIssue };
   return isDesktop ? <DesktopHome {...shared} /> : <MobileHome {...shared} />;
 }
 
@@ -56,6 +58,35 @@ interface ViewProps {
   /** True only when the Person has no address at all (show the add-address CTA). */
   noAddress: boolean;
   events: CalendarEventDTO[] | null;
+  /** Most recent published newsletter, or null when none has been sent. */
+  latestIssue: PublicNewsletterIssueSummaryDTO | null;
+}
+
+/** Latest newsletter, linking out to its public archive page. Hidden entirely
+ *  until something has actually been sent, so a fresh instance shows nothing. */
+function LatestIssueSection({ issue }: { issue: PublicNewsletterIssueSummaryDTO | null }) {
+  const { t, locale } = useI18n();
+  if (!issue) return null;
+  const sent = new Date(issue.sentAt).toLocaleDateString(locale, { month: "short", day: "numeric" });
+  return (
+    <div>
+      <SectLabel>{t("latestIssue")}</SectLabel>
+      <a
+        className="sd-card"
+        href={`${NEWSLETTER_APP_URL}/n/${issue.slug}`}
+        style={{ marginTop: 9, padding: 12, display: "flex", alignItems: "center", gap: 11, color: "inherit", textDecoration: "none" }}
+      >
+        <div style={{ width: 38, height: 38, borderRadius: 10, background: "var(--blue-tint)", color: "var(--blue)", display: "flex", alignItems: "center", justifyContent: "center", flex: "0 0 auto" }}>
+          <Icon name="mail" size={20} />
+        </div>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontSize: 14, fontWeight: 700, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{issue.title}</div>
+          <div className="sd-meta" style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{sent} · {issue.subtitle ?? issue.excerpt}</div>
+        </div>
+        <Icon name="chevright" size={18} style={{ color: "var(--ink-3)", flex: "0 0 auto" }} />
+      </a>
+    </div>
+  );
 }
 
 /** Height of a single event card. Rows are uniform so the 2-row clip lands on a
@@ -173,13 +204,14 @@ function GroupsContent({ groups, columns }: { groups: GroupSummaryDTO[]; columns
 
 // ── Desktop ──────────────────────────────────────────────────────────────────
 
-function DesktopHome({ activePerson, groups, hasNeighbors, noAddress, list, events }: ViewProps) {
+function DesktopHome({ activePerson, groups, hasNeighbors, noAddress, list, events, latestIssue }: ViewProps) {
   const { t } = useI18n();
   const navigate = useNavigate();
   const cards = useNeighborCards(list);
   return (
     <DesktopShell active="home" title={t("navHome")}>
       <EventsSection events={events} />
+      <LatestIssueSection issue={latestIssue} />
       <div>
         <SectLabel action={hasNeighbors ? <button className="sd-btn sd-btn-ghost sd-btn-sm">{t("seeAll")}</button> : undefined}>
           {t("neighbors")}
@@ -209,7 +241,7 @@ function DesktopHome({ activePerson, groups, hasNeighbors, noAddress, list, even
 
 // ── Mobile ─────────────────────────────────────────────────────────────────
 
-function MobileHome({ activePerson, groups, hasNeighbors, noAddress, list, events }: ViewProps) {
+function MobileHome({ activePerson, groups, hasNeighbors, noAddress, list, events, latestIssue }: ViewProps) {
   const { t } = useI18n();
   const navigate = useNavigate();
   const cards = useNeighborCards(list);
@@ -251,6 +283,7 @@ function MobileHome({ activePerson, groups, hasNeighbors, noAddress, list, event
       <div className="sd-scroll">
         <div className="sd-body">
           <EventsSection events={events} />
+          <LatestIssueSection issue={latestIssue} />
           <div>
             <SectLabel action={hasNeighbors ? <button className="sd-btn sd-btn-ghost sd-btn-sm" style={{ height: 24, padding: "0 4px" }}>{t("seeAll")}</button> : undefined}>
               {t("neighbors")}

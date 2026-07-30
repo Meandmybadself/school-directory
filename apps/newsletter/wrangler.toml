@@ -1,0 +1,19 @@
+# Cloudflare Pages project for the newsletter app.
+#
+# apps/web and apps/calendar are pure static Pages deploys and have no
+# wrangler.toml at all. This one does, because it ships Pages Functions (the
+# public archive at / and /n/:slug) and those need to know where the API is at
+# request time — a Vite build-time variable can't reach them.
+#
+# Pages has exactly two environments: production (the main branch) and preview
+# (every other branch). There is only one API, so both point at it.
+
+name = "school-newsletter"
+compatibility_date = "2025-01-01"
+pages_build_output_dir = "dist"
+
+[vars]
+API_BASE = "https://api-directory.eisenhower.school"
+
+[env.preview.vars]
+API_BASE = "https://api-directory.eisenhower.school"

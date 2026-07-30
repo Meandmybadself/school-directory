@@ -250,6 +250,68 @@ export function dedupeEvents(rows: CalendarRow[], limit: number): CalendarEventD
   return order.slice(0, limit).map((k) => byKey.get(k)!.dto);
 }
 
+export interface UpcomingEventsQuery {
+  /** ISO-8601. An event counts as in-window if it ends at/after this. */
+  from: string;
+  /** ISO-8601 upper bound on the start, or omitted for "no end". */
+  to?: string;
+  /** Restrict to these calendars — imported source ids and/or managed calendar
+   *  ids, i.e. CalendarFeedDTO.id. Empty/omitted means every calendar. */
+  calendarIds?: string[];
+  limit: number;
+}
+
+/** Read upcoming events, optionally bounded above and restricted to a set of
+ *  calendars. The route-level GET /calendar/events is a thin wrapper over this;
+ *  the newsletter calls it directly at send time to freeze an events block,
+ *  with no HTTP hop.
+ *
+ *  Filtering happens before de-duplication, so an event syndicated to both a
+ *  selected and an unselected calendar still appears (it genuinely is on a
+ *  selected calendar) but carries only the selected calendar in `sourceIds`. */
+export async function queryUpcomingEvents(
+  env: Env,
+  q: UpcomingEventsQuery,
+): Promise<CalendarEventDTO[]> {
+  const limit = Math.min(Math.max(q.limit, 1), 500);
+  // Over-fetch so de-duplicating across feeds still yields up to `limit`.
+  const fetchCap = Math.min(limit * 5, 2000);
+
+  const where: string[] = ["(e.ends_at >= ? OR e.ends_at IS NULL OR e.starts_at >= ?)"];
+  const binds: unknown[] = [q.from, q.from];
+  if (q.to) {
+    where.push("e.starts_at < ?");
+    binds.push(q.to);
+  }
+  const ids = (q.calendarIds ?? []).filter(Boolean);
+  if (ids.length > 0) {
+    const holes = ids.map(() => "?").join(",");
+    where.push(`COALESCE(e.source_id, e.managed_calendar_id) IN (${holes})`);
+    binds.push(...ids);
+  }
+  binds.push(fetchCap);
+
+  // One query over both origins: a row's calendar is whichever of the two joins
+  // matched, which the CHECK constraint in migration 0009 guarantees is exactly one.
+  const rows = await env.DB.prepare(
+    `SELECT e.id, e.title, e.location, e.description, e.starts_at, e.ends_at, e.all_day,
+            e.managed_event_id,
+            COALESCE(e.source_id, e.managed_calendar_id) AS source_id,
+            COALESCE(s.name, mc.name) AS source_name,
+            COALESCE(s.color, mc.color) AS source_color
+     FROM calendar_event e
+     LEFT JOIN calendar_source s ON s.id = e.source_id
+     LEFT JOIN managed_calendar mc ON mc.id = e.managed_calendar_id
+     WHERE ${where.join(" AND ")}
+     ORDER BY e.starts_at ASC
+     LIMIT ?`,
+  )
+    .bind(...binds)
+    .all<CalendarRow>();
+
+  return dedupeEvents(rows.results, limit);
+}
+
 /** Refresh every enabled source. Used by the cron handler and the admin button. */
 export async function refreshAllSources(env: Env): Promise<{ sources: number; events: number }> {
   const rows = await env.DB.prepare("SELECT id, url FROM calendar_source WHERE enabled = 1").all<SourceRow>();

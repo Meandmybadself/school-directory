@@ -24,6 +24,8 @@ import { settings } from "./routes/settings.js";
 import { calendar } from "./routes/calendar.js";
 import { managedCalendar } from "./routes/managedCalendar.js";
 import { ics } from "./routes/ics.js";
+import { newsletter } from "./routes/newsletter.js";
+import { newsletterPublic } from "./routes/newsletterPublic.js";
 
 const app = new Hono<HonoEnv>();
 
@@ -60,6 +62,8 @@ app.route("/admin", managedCalendar); // managed-calendar CRUD, same /admin base
 app.route("/settings", settings);
 app.route("/calendar", calendar);
 app.route("/ics", ics); // public published feeds — no auth by design
+app.route("/newsletter", newsletter); // authoring — system admins only
+app.route("/newsletter-public", newsletterPublic); // archive + unsubscribe — no auth by design
 // share-targets is exposed under /shares/targets via the shares router.
 app.route("/", contacts); // /persons/:id/contacts + /contacts/:id
 app.route("/", controllers); // /persons/:id/controllers + /control-invites
@@ -78,6 +82,21 @@ app.get("/photos/:key", async (c) => {
   obj.writeHttpMetadata(headers);
   headers.set("etag", obj.httpEtag);
   headers.set("cache-control", "private, max-age=3600");
+  return new Response(obj.body, { headers });
+});
+
+// Newsletter images (R2). Fully public and long-cached: these have to load
+// inside an email client that sends no cookies, and on a public archive page.
+// They live in their own bucket precisely so that being public here can never
+// expose a member's profile photo. Keys are ULID-random, hence immutable.
+app.get("/newsletter-media/:key", async (c) => {
+  const obj = await c.env.NEWSLETTER_MEDIA.get(c.req.param("key"));
+  if (!obj) return c.notFound();
+  const headers = new Headers();
+  obj.writeHttpMetadata(headers);
+  headers.set("etag", obj.httpEtag);
+  headers.set("cache-control", "public, max-age=31536000, immutable");
+  headers.set("access-control-allow-origin", "*");
   return new Response(obj.body, { headers });
 });
 

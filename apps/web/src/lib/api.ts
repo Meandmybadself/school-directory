@@ -18,6 +18,7 @@ import type {
   NeighborsResponse,
   NewUserNotify,
   NotificationSettingsDTO,
+  PublicNewsletterArchiveDTO,
   PersonPatchBody,
   PersonProfileDTO,
   ShareGranteeDTO,
@@ -28,6 +29,9 @@ export const API_BASE = import.meta.env.VITE_API_URL ?? "http://localhost:8787";
 /** The calendar app's origin. The calendar moved to its own site, so nav and the
  *  Home events block link out here rather than to an in-app route. */
 export const CALENDAR_APP_URL = import.meta.env.VITE_CALENDAR_URL ?? "http://localhost:5174";
+/** The newsletter app's origin. Its archive pages are public, so the Home card
+ *  links straight to an issue rather than through a members-only route. */
+export const NEWSLETTER_APP_URL = import.meta.env.VITE_NEWSLETTER_URL ?? "http://localhost:5175";
 
 /** Resolve an API-relative media path (e.g. "/photos/abc.jpg") to an absolute URL. */
 export function mediaUrl(path: string | null | undefined): string | null {
@@ -189,6 +193,11 @@ export const api = {
 
   // Calendar. Only the read remains here — it feeds Home's upcoming-events
   // block. Feed listing and all calendar admin moved to the calendar app.
+  /** Most recent published newsletter, for the Home card. Deliberately the
+   *  PUBLIC endpoint — the archive needs no session, and using the same one the
+   *  archive site uses means there's no second surface to keep in step. */
+  newsletterLatest: () => request<PublicNewsletterArchiveDTO>("/newsletter-public/issues?limit=1"),
+
   calendarEvents: (opts: { limit?: number; from?: string } = {}) => {
     const q = new URLSearchParams();
     if (opts.limit != null) q.set("limit", String(opts.limit));

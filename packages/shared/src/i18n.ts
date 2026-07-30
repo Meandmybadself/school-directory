@@ -60,6 +60,22 @@ export interface Strings {
   calendars: string;
   downloadIcs: string; // uses {name}
 
+  // newsletter (member- and public-facing only; the authoring UI is admin
+  // tooling and stays English, as the calendar's admin screens do)
+  brandSubNewsletter: string;
+  navNewsletter: string;
+  newsletterArchive: string;
+  newsletterPrefsTitle: string;
+  newsletterPrefsLead: string;
+  newsletterSubscribeLabel: string;
+  newsletterSubscribed: string;
+  newsletterUnsubscribed: string;
+  unsubscribeTitle: string;
+  unsubscribeLead: string; // uses {email}
+  unsubscribeConfirm: string;
+  unsubscribeDone: string;
+  latestIssue: string;
+
   // home
   neighbors: string;
   noNeighbors: string;
@@ -282,6 +298,20 @@ const en: Strings = {
   calendars: "Calendars",
   downloadIcs: "Download {name} (.ics)",
 
+  brandSubNewsletter: "School Newsletter",
+  navNewsletter: "Newsletter",
+  newsletterArchive: "Past issues",
+  newsletterPrefsTitle: "Newsletter",
+  newsletterPrefsLead: "Choose whether the school newsletter is sent to your email address.",
+  newsletterSubscribeLabel: "Email me the newsletter",
+  newsletterSubscribed: "You're subscribed.",
+  newsletterUnsubscribed: "You won't receive the newsletter.",
+  unsubscribeTitle: "Unsubscribe",
+  unsubscribeLead: "Stop sending the newsletter to {email}?",
+  unsubscribeConfirm: "Yes, unsubscribe me",
+  unsubscribeDone: "You've been unsubscribed.",
+  latestIssue: "Latest newsletter",
+
   neighbors: "Neighbors",
   noNeighbors: "No neighbors nearby yet.",
   noNeighborsBody:
@@ -502,6 +532,20 @@ const es: Strings = {
   calendars: "Calendarios",
   downloadIcs: "Descargar {name} (.ics)",
 
+  brandSubNewsletter: "Boletín escolar",
+  navNewsletter: "Boletín",
+  newsletterArchive: "Números anteriores",
+  newsletterPrefsTitle: "Boletín",
+  newsletterPrefsLead: "Elija si desea recibir el boletín escolar en su correo electrónico.",
+  newsletterSubscribeLabel: "Enviarme el boletín por correo",
+  newsletterSubscribed: "Está suscrito.",
+  newsletterUnsubscribed: "No recibirá el boletín.",
+  unsubscribeTitle: "Cancelar la suscripción",
+  unsubscribeLead: "¿Dejar de enviar el boletín a {email}?",
+  unsubscribeConfirm: "Sí, cancelar mi suscripción",
+  unsubscribeDone: "Se ha cancelado su suscripción.",
+  latestIssue: "Último boletín",
+
   neighbors: "Vecinos",
   noNeighbors: "Aún no hay vecinos cerca.",
   noNeighborsBody:
@@ -653,6 +697,20 @@ const zh: Strings = {
   allDay: "全天",
   calendars: "日历",
   downloadIcs: "下载 {name}（.ics）",
+
+  brandSubNewsletter: "学校通讯",
+  navNewsletter: "通讯",
+  newsletterArchive: "往期通讯",
+  newsletterPrefsTitle: "通讯",
+  newsletterPrefsLead: "选择是否将学校通讯发送到您的电子邮箱。",
+  newsletterSubscribeLabel: "通过电子邮件接收通讯",
+  newsletterSubscribed: "您已订阅。",
+  newsletterUnsubscribed: "您将不会收到通讯。",
+  unsubscribeTitle: "退订",
+  unsubscribeLead: "停止向 {email} 发送通讯？",
+  unsubscribeConfirm: "是的，为我退订",
+  unsubscribeDone: "您已退订。",
+  latestIssue: "最新通讯",
 
   neighbors: "邻居",
   noNeighbors: "附近暂无邻居。",

@@ -14,7 +14,8 @@ Resend email, Nominatim geocoding.
 ```
 apps/web            Directory SPA (Vite) → directory.eisenhower.school. Design system in src/components, screens in src/screens.
 apps/calendar       Calendar SPA (Vite) → calendar.eisenhower.school. Shares the API, D1 and session; design system is COPIED, not imported.
-apps/api            Hono Worker → api-directory.eisenhower.school. Serves BOTH SPAs. Routes in src/routes, logic in src/lib, middleware in src/middleware.
+apps/newsletter     Newsletter SPA (Vite) → newsletter.eisenhower.school. Admin authoring (TipTap) + a member preferences screen, PLUS Pages Functions serving the public archive. Design system COPIED.
+apps/api            Hono Worker → api-directory.eisenhower.school. Serves ALL THREE SPAs. Routes in src/routes, logic in src/lib, middleware in src/middleware.
 apps/redirect       One-file Worker owning the retired directory.meandmybadself.com; 301s to the live host.
 apps/api/migrations Ordered D1 SQL migrations (NNNN_name.sql). Never edit an applied migration — add a new one.
 packages/shared     Domain types (types.ts) + i18n dictionaries (i18n.ts). Imported as `@sd/shared`.
@@ -22,23 +23,32 @@ docs/               Product spec (PLAN/SRD/SDD). Source of truth for requirement
 design_handoff_*/   Hi-fi design reference. NOT a build target — port, don't ship.
 ```
 
-## Two front ends, one API
+## Three front ends, one API
 
-Both SPAs are separate Cloudflare Pages projects talking to the single `apps/api`
-Worker, and they share one session:
+All three SPAs are separate Cloudflare Pages projects talking to the single
+`apps/api` Worker, and they share one session:
 
 - The `sd_session` cookie has **no `Domain`** — it's host-only to the API's own
-  hostname. Both SPAs are on `eisenhower.school` subdomains, so a credentialed
+  hostname. All three SPAs are on `eisenhower.school` subdomains, so a credentialed
   `fetch` to the API is same-site and the cookie rides along. Don't "fix" this by
   adding a `Domain` attribute.
 - **Every new front-end origin must be added to `ALLOWED_ORIGINS`** in
   `apps/api/wrangler.toml` (both `[vars]` and `[env.production.vars]`). That one
   list is also the allowlist of valid magic-link `returnTo` targets — same trust
   boundary, deliberately one variable.
-- `apps/calendar` **copies** `tokens.css`, `Icon.tsx`, `atoms.tsx` and the generic
-  half of `parts.tsx` from `apps/web` rather than importing them. They're expected
-  to drift. If you change a shared-looking component, decide whether both copies
-  need it. The nav item list is duplicated in each app's `AppShell`/`DesktopShell`.
+- `apps/calendar` and `apps/newsletter` **copy** `tokens.css`, `Icon.tsx`,
+  `atoms.tsx` and the generic half of `parts.tsx` from `apps/web` rather than
+  importing them. They're expected to drift. If you change a shared-looking
+  component, decide which copies need it. The nav item list is duplicated in each
+  app's `AppShell`/`DesktopShell`.
+- `apps/newsletter` is the only app with a `wrangler.toml` among the Pages
+  projects, because it's the only one with `functions/`. Those Pages Functions
+  server-render the public archive (`/` and `/n/:slug`) so a link pasted into a
+  text message gets a real preview and a reader never downloads the authoring
+  bundle. **Do not add a `_redirects` file there** — Pages 308s `/index.html` to
+  `/`, so an SPA-fallback rewrite sends `/admin` to the public archive instead of
+  the app. Functions already take precedence over assets, and every other path
+  falls through to `index.html` on its own. See `apps/newsletter/ROUTING.md`.
 - The calendar owns all calendar admin. `apps/web`'s Admin has no calendar tab —
   just a link out. `apps/web` keeps only `api.calendarEvents` (for Home's
   upcoming-events block); `/calendar` there is a redirect to the calendar site.
@@ -64,7 +74,19 @@ Worker, and they share one session:
    signups) must use a managed event's `(managed_event_id, starts_at)` pair — the
    ICS `UID` + `RECURRENCE-ID` convention, surfaced as `seriesId`/`recurrenceId`
    on `CalendarEventDTO`.
-9. **One recurrence engine.** Managed events are expanded by rendering them with
+9. **One newsletter renderer.** A newsletter issue is stored as TipTap JSON and
+   turned into HTML solely by `packages/shared/src/newsletterRender.ts` — used by
+   the email, the composer's live preview, and the public archive page. It is
+   also the sanitizer: it switches over a fixed node/mark allowlist and escapes
+   all text, so it cannot emit a tag it doesn't know. Enabling a TipTap extension
+   without adding its renderer case silently drops content. `sanitizeNewsletterDoc`
+   applies the same allowlist on write.
+10. **A sent newsletter is immutable, and its web page is public.** Events blocks
+   resolve live while a draft is edited and are FROZEN into `events_snapshot_json`
+   at send, so the archive keeps matching what was mailed. Issue URLs are
+   human-readable and therefore enumerable by design — nothing member-private may
+   ever go in one.
+11. **One recurrence engine.** Managed events are expanded by rendering them with
    `lib/icsWriter.ts` and parsing that text back through `parseIcs`
    (`lib/managedCalendar.ts`). Never hand-roll a second RRULE walker — the
    round-trip is what guarantees the published feed and the in-app agenda agree.
@@ -92,11 +114,16 @@ Worker, and they share one session:
 pnpm install
 cp apps/api/.dev.vars.example apps/api/.dev.vars
 pnpm db:migrate:local && pnpm db:seed:local
-pnpm dev          # web :5173, calendar :5174, api :8787
+pnpm dev          # web :5173, calendar :5174, newsletter :5175, api :8787
 ```
 
-Magic links print to the **API console** when `RESEND_API_KEY` is empty. Demo
-login: `dana@eisenhower.edu`.
+Magic links print to the **API console** when `RESEND_API_KEY` is empty — which
+also means newsletter sends print there instead of mailing anyone. Demo login:
+`dana@eisenhower.edu`.
+
+`vite dev` serves the newsletter SPA only; the public archive at `/` and
+`/n/:slug` is Pages Functions, so it exists in `wrangler pages dev` and in
+production, not in `pnpm dev`.
 
 ## When adding a migration
 

@@ -11,7 +11,7 @@ import { DesktopShell } from "../components/DesktopShell.js";
 import { ScreenHeader, SectLabel } from "../components/parts.js";
 import { useSession } from "../lib/session.js";
 import { useIsDesktop } from "../lib/useIsDesktop.js";
-import { api, ApiError, CALENDAR_APP_URL } from "../lib/api.js";
+import { api, ApiError, CALENDAR_APP_URL, NEWSLETTER_APP_URL } from "../lib/api.js";
 
 // The audit log is instance-wide, so the calendar actions stay filterable here
 // even though the UI that performs them now lives in the calendar app.
@@ -310,6 +310,25 @@ export function Admin() {
           <div style={{ flex: 1 }}>
             <div style={{ fontSize: 14.5, fontWeight: 700 }}>Calendar admin</div>
             <div className="sd-meta">Manage calendars, events &amp; imported ICS feeds on the calendar site.</div>
+          </div>
+          <Icon name="chevright" size={18} style={{ color: "var(--ink-3)" }} />
+        </a>
+      </div>
+
+      {/* Newsletter admin — its own site, like the calendar. */}
+      <div style={{ marginTop: 18 }}>
+        <SectLabel>Newsletter</SectLabel>
+        <a
+          className="sd-card"
+          href={`${NEWSLETTER_APP_URL}/admin`}
+          style={{ marginTop: 9, padding: 13, display: "flex", alignItems: "center", gap: 11, color: "inherit", textDecoration: "none" }}
+        >
+          <div style={{ width: 38, height: 38, borderRadius: 10, background: "var(--blue-tint)", color: "var(--blue)", display: "flex", alignItems: "center", justifyContent: "center", flex: "0 0 auto" }}>
+            <Icon name="mail" size={20} />
+          </div>
+          <div style={{ flex: 1 }}>
+            <div style={{ fontSize: 14.5, fontWeight: 700 }}>Newsletter</div>
+            <div className="sd-meta">Write and send newsletters, and manage subscribers, on the newsletter site.</div>
           </div>
           <Icon name="chevright" size={18} style={{ color: "var(--ink-3)" }} />
         </a>

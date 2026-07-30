@@ -8,7 +8,7 @@ import { OfflineBanner, MasqBanner } from "./parts.js";
 import { useOnline } from "../lib/useOnline.js";
 import { useI18n } from "../i18n/index.js";
 import { useSession } from "../lib/session.js";
-import { DIRECTORY_URL } from "../lib/api.js";
+import { DIRECTORY_URL, NEWSLETTER_URL } from "../lib/api.js";
 
 /** Persistent masquerade banner. The session is shared with the directory, so an
  *  admin who started masquerading there is still masquerading here. */
@@ -50,7 +50,7 @@ export function AppShell({
   );
 }
 
-export type NavKey = "calendar" | "admin" | "directory";
+export type NavKey = "calendar" | "admin" | "directory" | "newsletter";
 
 /** Nav items. Absolute paths point at the directory app (a different origin), so
  *  they navigate the browser rather than the router. Kept in step with the
@@ -60,6 +60,7 @@ export function navItems(t: ReturnType<typeof useI18n>["t"], isSystemAdmin: bool
     ["calendar", "calendar", t("navCalendar"), "/"],
   ];
   if (isSystemAdmin) items.push(["shield", "admin", "Admin", "/admin"]);
+  items.push(["mail", "newsletter", t("navNewsletter"), NEWSLETTER_URL]);
   items.push(["school", "directory", t("brandSub"), DIRECTORY_URL]);
   return items;
 }

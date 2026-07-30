@@ -85,6 +85,7 @@ jobs:
         env:
           VITE_API_URL: https://api-directory.eisenhower.school
           VITE_CALENDAR_URL: https://calendar.eisenhower.school
+          VITE_NEWSLETTER_URL: https://newsletter.eisenhower.school
         run: |
           pnpm build
           pnpm exec wrangler pages deploy dist --project-name school-directory --branch main
@@ -95,6 +96,22 @@ jobs:
         env:
           VITE_API_URL: https://api-directory.eisenhower.school
           VITE_DIRECTORY_URL: https://directory.eisenhower.school
+          VITE_NEWSLETTER_URL: https://newsletter.eisenhower.school
         run: |
           pnpm build
           pnpm exec wrangler pages deploy dist --project-name school-calendar --branch main
+
+      # Unlike the other two Pages projects this one ships Pages Functions (the
+      # public archive at / and /n/:slug), so it deploys from its own
+      # wrangler.toml — which is where the Functions get API_BASE — rather than
+      # naming the output directory and project on the command line.
+      - name: Build & deploy newsletter (Pages)
+        if: steps.guard.outputs.enabled == 'true'
+        working-directory: apps/newsletter
+        env:
+          VITE_API_URL: https://api-directory.eisenhower.school
+          VITE_DIRECTORY_URL: https://directory.eisenhower.school
+          VITE_CALENDAR_URL: https://calendar.eisenhower.school
+        run: |
+          pnpm build
+          pnpm exec wrangler pages deploy --branch main
