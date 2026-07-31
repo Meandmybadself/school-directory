@@ -226,6 +226,30 @@
 .nlx-footer-preview :last-child { margin-bottom: 0; }
 .nlx-footer-preview img { max-width: 100%; height: auto; }
 
+/* Footer authoring: the composer's editor at settings-field scale, plus the
+   rich/HTML switch. A footer is a few lines, so it doesn't get the composer's
+   full-page min-height. */
+.nlx-footer-editor { display: flex; flex-direction: column; gap: 8px; }
+.nlx-editor-sm .ProseMirror { min-height: 120px; padding: 12px 14px; font-size: 14px; }
+.nlx-editor-sm .ProseMirror > * + * { margin-top: 10px; }
+.nlx-editor-sm .ProseMirror h3 { font-size: 15px; margin-top: 14px; }
+.nlx-editor-sm .ProseMirror h4 { font-size: 14px; margin-top: 12px; }
+
+.nlx-modeswitch { display: inline-flex; align-self: flex-start; gap: 2px; padding: 2px;
+  border: 1px solid var(--line); border-radius: 8px; background: var(--bg-2); }
+.nlx-modebtn {
+  appearance: none; border: 0; background: transparent; cursor: pointer;
+  padding: 4px 12px; border-radius: 6px;
+  font: inherit; font-size: 12.5px; font-weight: 600; color: var(--ink-3);
+}
+.nlx-modebtn:hover { color: var(--ink-2); }
+.nlx-modebtn.on { background: var(--paper); color: var(--blue-700); box-shadow: 0 1px 2px rgb(0 0 0 / 0.06); }
+
+.nlx-modewarn {
+  margin: 0; font-size: 12.5px; line-height: 1.5; color: var(--warn);
+}
+.nlx-modewarn code { font-size: 12px; }
+
 .nlx-formgrid { display: flex; flex-direction: column; gap: 14px; }
 @media (min-width: 720px) {
   .nlx-formrow { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }

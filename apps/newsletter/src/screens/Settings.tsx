@@ -11,6 +11,7 @@ import { DesktopShell } from "../components/DesktopShell.js";
 import { ScreenHeader, Field, SectLabel } from "../components/parts.js";
 import { Btn } from "../components/atoms.js";
 import { Icon } from "../components/Icon.js";
+import { FooterEditor } from "../components/editor/FooterEditor.js";
 import { useIsDesktop } from "../lib/useIsDesktop.js";
 import { useCalendarFeeds } from "../lib/useCalendarFeeds.js";
 import { api, errorMessage } from "../lib/api.js";
@@ -114,25 +115,20 @@ export function Settings() {
       <section className="nlx-formgrid">
         <SectLabel>Footer</SectLabel>
         <Field
-          label="Footer HTML"
+          label="Footer"
           hint={
             <>
               Appears at the foot of the email and of every public archive page.
               The text-only part of the email gets this same markup flattened.
-              Formatting, links, lists, images and layout tables are kept;
-              scripts, styles, embeds and anything else are dropped when you
-              save. Style with inline <code>style</code> attributes — email
-              clients ignore stylesheets.
+              Format it here, or switch to HTML for layout tables and inline{" "}
+              <code>style</code> attributes — email clients ignore stylesheets.
+              Scripts, styles and embeds are dropped when you save.
             </>
           }
         >
-          <textarea
-            className="sd-input"
-            rows={6}
-            spellCheck={false}
+          <FooterEditor
             value={settings.footerHtml ?? ""}
-            style={{ fontFamily: "ui-monospace,SFMono-Regular,Menlo,monospace", fontSize: 13, lineHeight: 1.5 }}
-            onChange={(e) => edit({ footerHtml: e.target.value })}
+            onChange={(footerHtml) => edit({ footerHtml })}
           />
         </Field>
         {(settings.footerHtml ?? "").trim() !== "" && (
