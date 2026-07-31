@@ -21,6 +21,7 @@ import {
   coerceNewsletterSettings,
   mergeAudience,
   isEmail,
+  parseSubscriberList,
 } from "../src/lib/newsletter.js";
 
 const doc = (...content: NewsletterNode[]): NewsletterNode => ({ type: "doc", content });
@@ -566,5 +567,44 @@ describe("email validation", () => {
     expect(isEmail("a@x")).toBe(false);
     expect(isEmail("a b@x.test")).toBe(false);
     expect(isEmail("")).toBe(false);
+  });
+});
+
+describe("parseSubscriberList", () => {
+  it("splits on newlines, commas, semicolons and spaces", () => {
+    const out = parseSubscriberList("a@x.test\nb@x.test, c@x.test; d@x.test e@x.test");
+    expect(out.valid).toEqual(["a@x.test", "b@x.test", "c@x.test", "d@x.test", "e@x.test"]);
+    expect(out.invalid).toEqual([]);
+    expect(out.duplicates).toBe(0);
+  });
+
+  it("normalizes case/whitespace and dedupes, counting the duplicates", () => {
+    const out = parseSubscriberList("  Jane@X.Test \n jane@x.test \n JANE@x.test");
+    expect(out.valid).toEqual(["jane@x.test"]);
+    expect(out.duplicates).toBe(2);
+  });
+
+  it("ignores a name column and reads only the address", () => {
+    const out = parseSubscriberList("Jane Doe,jane@x.test\nBob Roe,bob@x.test");
+    expect(out.valid).toEqual(["jane@x.test", "bob@x.test"]);
+    // "Jane", "Doe", "Bob", "Roe" have no @ and must not be reported as invalid.
+    expect(out.invalid).toEqual([]);
+  });
+
+  it("strips mailto:, wrapping quotes and angle brackets", () => {
+    const out = parseSubscriberList('mailto:a@x.test\n"b@x.test"\nJane <c@x.test>');
+    expect(out.valid).toEqual(["a@x.test", "b@x.test", "c@x.test"]);
+  });
+
+  it("reports @-bearing tokens that fail validation as invalid, once each", () => {
+    const out = parseSubscriberList("good@x.test\nbad@nope\nbad@nope\nalso@bad");
+    expect(out.valid).toEqual(["good@x.test"]);
+    expect(out.invalid).toEqual(["bad@nope", "also@bad"]);
+  });
+
+  it("returns nothing for blank or address-free input", () => {
+    expect(parseSubscriberList("").valid).toEqual([]);
+    expect(parseSubscriberList("Jane Doe\nBob Roe").valid).toEqual([]);
+    expect(parseSubscriberList("Jane Doe\nBob Roe").invalid).toEqual([]);
   });
 });

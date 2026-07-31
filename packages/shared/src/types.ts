@@ -815,6 +815,23 @@ export interface NewsletterSubscriberDTO {
   createdAt: string;
 }
 
+/** Summary returned by POST /newsletter/subscribers/import. Counts are over the
+ *  unique, valid addresses found in the pasted/uploaded list. */
+export interface NewsletterSubscriberImportResultDTO {
+  /** Addresses that had no row before — brand-new subscribers. */
+  added: number;
+  /** Addresses whose row existed but was unsubscribed, now re-subscribed. */
+  resubscribed: number;
+  /** Addresses that were already active subscribers — no change. */
+  alreadyActive: number;
+  /** Count of duplicate addresses collapsed within the input itself. */
+  duplicates: number;
+  /** Tokens that looked like an address but failed validation (capped). */
+  invalid: string[];
+  /** Total unique, valid addresses processed (added + resubscribed + alreadyActive). */
+  total: number;
+}
+
 /** A member's own newsletter preference (GET/PUT /me/newsletter). */
 export interface NewsletterSubscriptionDTO {
   subscribed: boolean;
@@ -899,6 +916,7 @@ export type AuditAction =
   | "newsletter.test_sent"
   | "newsletter.settings.updated"
   | "newsletter.subscriber.added"
+  | "newsletter.subscriber.imported"
   | "newsletter.subscriber.removed"
   | "newsletter.subscription.toggled"
   | "volunteer.sheet.created"

@@ -13,6 +13,7 @@ import type {
   NewsletterIssueSummaryDTO,
   NewsletterSettingsDTO,
   NewsletterSubscriberDTO,
+  NewsletterSubscriberImportResultDTO,
   NewsletterSubscriptionDTO,
 } from "@sd/shared";
 
@@ -133,6 +134,11 @@ export const api = {
     request<{ subscriber: NewsletterSubscriberDTO }>("/newsletter/subscribers", {
       method: "POST",
       body: JSON.stringify({ email }),
+    }),
+  importSubscribers: (text: string) =>
+    request<{ result: NewsletterSubscriberImportResultDTO }>("/newsletter/subscribers/import", {
+      method: "POST",
+      body: JSON.stringify({ text }),
     }),
   removeSubscriber: (id: string) =>
     request<{ ok: true }>(`/newsletter/subscribers/${id}`, { method: "DELETE" }),
