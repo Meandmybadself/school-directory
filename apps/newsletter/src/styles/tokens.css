@@ -95,6 +95,26 @@ body {
   }
 }
 
+/* Boot screen — the spinner shown while the session resolves, before we know
+   which shell the user gets. Deliberately NOT `.sd-app`: that column is the
+   mobile phone-frame (480px wide, drop-shadowed above 481px), and rendering it
+   here framed a lone spinner in a floating card and then snapped to the
+   full-width desktop layout a moment later. A boot state has no chrome to
+   place, so it just centres on the page background. */
+.sd-boot {
+  width: 100%;
+  min-height: 100vh;
+  min-height: 100dvh;
+  background: var(--bg);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 22px;
+  padding: 24px;
+  text-align: center;
+}
+
 /* app bar */
 .sd-appbar {
   flex: 0 0 auto;
