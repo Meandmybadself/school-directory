@@ -56,6 +56,10 @@ export interface NewsletterRenderOptions {
    *  this has to be stated rather than inferred. */
   timeZone?: string;
   locale?: string;
+  /** Public calendar site. When set, every events block gets a "See all events"
+   *  link out to it. Omitted → no link, so a deployment without a calendar host
+   *  configured renders exactly as it did before. */
+  calendarUrl?: string;
 }
 
 const DEFAULT_ACCENT = "#0068A8";
@@ -522,6 +526,8 @@ interface Ctx {
   timeZone: string;
   locale: string;
   resolve: EventsResolver;
+  /** Public calendar site, or "" to omit the "See all" link. */
+  calendarUrl: string;
 }
 
 /** Emit either an inline `style` attribute (email) or a class (web), so one set
@@ -583,6 +589,9 @@ function renderEventsBlock(node: NewsletterNode, ctx: Ctx): string {
     parts.push(
       `<p${attr(ctx, "nl-events-empty", `margin:0 0 18px;font-size:15px;color:${MUTED};font-family:${FONT}`)}>No upcoming events.</p>`,
     );
+    // Still worth offering: a block that came up empty is exactly when a reader
+    // wants somewhere else to look.
+    parts.push(seeAllLink(ctx));
     return parts.join("");
   }
 
@@ -605,7 +614,24 @@ function renderEventsBlock(node: NewsletterNode, ctx: Ctx): string {
   parts.push(
     `<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%"${attr(ctx, "nl-events", "width:100%;border-collapse:collapse;margin:0 0 20px")}>${rows}</table>`,
   );
+  parts.push(seeAllLink(ctx));
   return parts.join("");
+}
+
+/** "See all" out to the public calendar site. Omitted entirely when no calendar
+ *  URL was supplied, so a deployment that hasn't set one renders as before
+ *  rather than emitting a dead link.
+ *
+ *  Safe on the public archive page as well as in the email: the calendar's home
+ *  screen is deliberately ungated (it reads /calendar-public/*), so this points
+ *  a reader at something they can actually open without signing in. */
+function seeAllLink(ctx: Ctx): string {
+  const href = safeLinkHref(ctx.calendarUrl);
+  if (!href) return "";
+  // Negative top margin tucks it under whatever it follows — the table and the
+  // empty-state paragraph both carry their own bottom margin, and this reads as
+  // part of the block rather than a new paragraph after it.
+  return `<p${attr(ctx, "nl-events-more", `margin:-12px 0 20px;font-size:13.5px;font-family:${FONT}`)}><a href="${escapeHtml(href)}"${attr(ctx, "nl-events-more-link", `color:${ctx.accent};text-decoration:none;font-weight:600`)}>See all events →</a></p>`;
 }
 
 function renderNode(node: NewsletterNode, ctx: Ctx): string {
@@ -672,6 +698,7 @@ export function renderNewsletterBodyHtml(
     timeZone: opts.timeZone || DEFAULT_TIME_ZONE,
     locale: opts.locale || DEFAULT_LOCALE,
     resolve: resolveEvents,
+    calendarUrl: opts.calendarUrl ?? "",
   });
 }
 
@@ -682,10 +709,11 @@ export function renderNewsletterBodyHtml(
 export function renderNewsletterText(
   doc: NewsletterNode,
   resolveEvents: EventsResolver,
-  opts: Pick<NewsletterRenderOptions, "timeZone" | "locale"> = {},
+  opts: Pick<NewsletterRenderOptions, "timeZone" | "locale" | "calendarUrl"> = {},
 ): string {
   const timeZone = opts.timeZone || DEFAULT_TIME_ZONE;
   const locale = opts.locale || DEFAULT_LOCALE;
+  const calendarUrl = safeLinkHref(opts.calendarUrl);
   const out: string[] = [];
 
   const inline = (n: NewsletterNode): string => {
@@ -729,6 +757,9 @@ export function renderNewsletterText(
         const events = visibleEvents(attrs, resolveEvents(attrs));
         if (events.length === 0) {
           out.push("No upcoming events.");
+          // Plain text can't hyperlink, so the destination is spelled out — the
+          // same convention link marks use above.
+          if (calendarUrl) out.push(`See all events: ${calendarUrl}`);
           break;
         }
         for (const e of events) {
@@ -737,6 +768,7 @@ export function renderNewsletterText(
             .join(" · ");
           out.push(`• ${e.title} — ${[when, e.location].filter(Boolean).join(" — ")}`);
         }
+        if (calendarUrl) out.push(`See all events: ${calendarUrl}`);
         break;
       }
       default:
@@ -813,6 +845,9 @@ export function renderNewsletterEmailHtml(input: NewsletterEmailInput): string {
     accentColor: accent,
     timeZone: input.timeZone,
     locale: input.locale,
+    // Carried on branding rather than as its own email input: the archive page
+    // renders from the same DTO, so both surfaces link to the same place.
+    calendarUrl: input.branding.calendarUrl,
   });
   const subtitle = input.subtitle
     ? `<div style="font-size:15px;color:${MUTED};font-family:${FONT};margin-top:4px">${escapeHtml(input.subtitle)}</div>`
@@ -850,6 +885,7 @@ export function renderNewsletterEmailText(input: NewsletterEmailInput): string {
   const body = renderNewsletterText(input.doc, input.resolveEvents, {
     timeZone: input.timeZone,
     locale: input.locale,
+    calendarUrl: input.branding.calendarUrl,
   });
   return [
     input.title,
@@ -894,6 +930,9 @@ a{color:var(--nl-accent,${DEFAULT_ACCENT})}
 .nl-events{width:100%;border-collapse:collapse;margin:0 0 20px}
 .nl-events-heading{margin:28px 0 10px;font-size:19px;line-height:1.3;font-weight:700}
 .nl-events-empty{margin:0 0 18px;font-size:15px;color:${MUTED}}
+.nl-events-more{margin:-12px 0 20px;font-size:13.5px}
+.nl-events-more-link{color:var(--nl-accent,${DEFAULT_ACCENT});text-decoration:none;font-weight:600}
+.nl-events-more-link:hover{text-decoration:underline}
 .nl-event{padding:10px 0 10px 12px;border-left:3px solid var(--nl-accent,${DEFAULT_ACCENT});border-bottom:1px solid ${RULE}}
 .nl-event-title{font-size:15px;font-weight:600;line-height:1.4}
 .nl-event-meta{font-size:13px;color:${MUTED};margin-top:2px}

@@ -585,6 +585,9 @@ export interface NewsletterSettingsDTO {
    *  ignored on write) purely so the composer can resolve an events block's
    *  fixed date range to the same instants the server will at send time. */
   timeZone: string;
+  /** Public calendar site, from the Worker's CALENDAR_URL var. Env-derived and
+   *  ignored on write, like `timeZone`. Events blocks link out to it. */
+  calendarUrl: string;
 }
 
 export interface NewsletterIssueSummaryDTO {
@@ -649,6 +652,10 @@ export interface NewsletterBrandingDTO {
   /** Sanitized HTML footer. Public, like the rest of this DTO — nothing
    *  member-private may be put in a footer. */
   footerHtml: string;
+  /** Public calendar site, e.g. "https://calendar.eisenhower.school", or "" to
+   *  render no link. Every events block links out to it. Safe to expose on the
+   *  public archive: the calendar's home screen is deliberately ungated. */
+  calendarUrl: string;
 }
 
 export interface PublicNewsletterIssueSummaryDTO {

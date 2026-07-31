@@ -410,6 +410,7 @@ export function IssueEditor() {
             editable={!readOnly}
             accentColor={settings.accentColor}
             timeZone={settings.timeZone}
+            calendarUrl={settings.calendarUrl}
             onChange={(content) => edit({ content })}
           />
         </div>

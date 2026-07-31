@@ -49,7 +49,7 @@ export const onRequestGet: PagesFunction<PagesEnv> = async (context) => {
   const content = renderNewsletterBodyHtml(
     issue.content,
     (attrs) => issue.eventsSnapshot[attrs.blockId] ?? [],
-    { mode: "web", accentColor: branding.accentColor },
+    { mode: "web", accentColor: branding.accentColor, calendarUrl: branding.calendarUrl },
   );
 
   const masthead = branding.logoUrl

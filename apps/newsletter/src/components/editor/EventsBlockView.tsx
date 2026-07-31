@@ -51,6 +51,7 @@ export function EventsBlockView({
   // zone rather than the renderer's defaults.
   const accentColor = (extension.options.accentColor as string | undefined) ?? "#0068A8";
   const timeZone = (extension.options.timeZone as string | undefined) ?? "America/Chicago";
+  const calendarUrl = (extension.options.calendarUrl as string | undefined) ?? "";
 
   const query = { calendarIds, lookaheadDays, rangeStart, rangeEnd };
   const fixed = hasFixedRange(query);
@@ -223,6 +224,7 @@ export function EventsBlockView({
               events={events}
               accentColor={accentColor}
               timeZone={timeZone}
+              calendarUrl={calendarUrl}
             />
           ) : (
             <>

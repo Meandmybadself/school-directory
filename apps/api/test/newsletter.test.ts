@@ -217,6 +217,80 @@ describe("newsletter renderer", () => {
     expect(html).toContain("No upcoming events");
   });
 
+  it("links out to the calendar site from an events block", () => {
+    const e: CalendarEventDTO = {
+      id: "e6", kind: "imported", title: "Book Fair", location: null, description: null,
+      start: "2026-08-10T14:00:00.000Z", end: null, allDay: false,
+      sourceIds: ["s1"], source: { name: "Events", color: "#0068A8" },
+    };
+    const block = {
+      type: EVENTS_BLOCK_TYPE,
+      attrs: {
+        blockId: "b", calendarIds: [], lookaheadDays: 30,
+        rangeStart: null, rangeEnd: null, excluded: [], heading: null,
+      },
+    };
+    const opts = { calendarUrl: "https://calendar.x.test" };
+
+    const email = renderNewsletterBodyHtml(doc(block), () => [e], { mode: "email", ...opts });
+    expect(email).toContain('href="https://calendar.x.test"');
+    expect(email).toContain("See all events");
+
+    // The archive page renders the same block in web mode.
+    const web = renderNewsletterBodyHtml(doc(block), () => [e], { mode: "web", ...opts });
+    expect(web).toContain('href="https://calendar.x.test"');
+    expect(web).toContain("nl-events-more");
+
+    // Plain text can't hyperlink, so it spells the destination out.
+    const text = renderNewsletterText(doc(block), () => [e], opts);
+    expect(text).toContain("See all events: https://calendar.x.test");
+  });
+
+  it("still offers the link when the block came up empty", () => {
+    const block = {
+      type: EVENTS_BLOCK_TYPE,
+      attrs: {
+        blockId: "b", calendarIds: [], lookaheadDays: 30,
+        rangeStart: null, rangeEnd: null, excluded: [], heading: null,
+      },
+    };
+    const html = renderNewsletterBodyHtml(doc(block), NO_EVENTS, {
+      mode: "email",
+      calendarUrl: "https://calendar.x.test",
+    });
+    expect(html).toContain("No upcoming events");
+    expect(html).toContain("See all events");
+  });
+
+  it("emits no link at all when no calendar URL is configured", () => {
+    const block = {
+      type: EVENTS_BLOCK_TYPE,
+      attrs: {
+        blockId: "b", calendarIds: [], lookaheadDays: 30,
+        rangeStart: null, rangeEnd: null, excluded: [], heading: null,
+      },
+    };
+    const html = renderNewsletterBodyHtml(doc(block), NO_EVENTS, { mode: "email" });
+    expect(html).not.toContain("See all events");
+    expect(renderNewsletterText(doc(block), NO_EVENTS)).not.toContain("See all events");
+  });
+
+  it("refuses a calendar URL that isn't a safe http(s) link", () => {
+    const block = {
+      type: EVENTS_BLOCK_TYPE,
+      attrs: {
+        blockId: "b", calendarIds: [], lookaheadDays: 30,
+        rangeStart: null, rangeEnd: null, excluded: [], heading: null,
+      },
+    };
+    const html = renderNewsletterBodyHtml(doc(block), NO_EVENTS, {
+      mode: "email",
+      calendarUrl: "javascript:alert(1)",
+    });
+    expect(html).not.toContain("javascript:");
+    expect(html).not.toContain("See all events");
+  });
+
   it("spells out link destinations in the plain-text part", () => {
     const text = renderNewsletterText(
       doc({
@@ -391,6 +465,7 @@ describe("footer selection", () => {
     accentColor: "#0068A8",
     logoUrl: null,
     footerHtml,
+    calendarUrl: "",
   });
 
   it("passes the stored markup through untouched", () => {
@@ -435,6 +510,7 @@ describe("settings coercion", () => {
     defaultCalendarIds: [],
     defaultLookaheadDays: 14,
     timeZone: "America/Chicago",
+    calendarUrl: "https://calendar.x.test",
   };
 
   it("keeps the previous value for a malformed field", () => {

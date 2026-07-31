@@ -126,6 +126,7 @@ export function Editor({
   editable,
   accentColor,
   timeZone,
+  calendarUrl,
   onChange,
 }: {
   content: NewsletterNode;
@@ -135,6 +136,8 @@ export function Editor({
   /** The school's zone, so a block's fixed date range resolves the same way here
    *  as it will on the server at send time. */
   timeZone: string;
+  /** Public calendar site, for the events block's "See all events" link. */
+  calendarUrl: string;
   onChange: (doc: NewsletterNode) => void;
 }) {
   const editor = useEditor(
@@ -149,7 +152,7 @@ export function Editor({
         Link.configure({ openOnClick: false, autolink: true }),
         Image,
         Placeholder.configure({ placeholder: "Write the newsletter…" }),
-        EventsBlock.configure({ accentColor, timeZone }),
+        EventsBlock.configure({ accentColor, timeZone, calendarUrl }),
       ],
       content,
       onUpdate: ({ editor: e }) => onChange(e.getJSON() as NewsletterNode),
@@ -157,7 +160,7 @@ export function Editor({
     // Only rebuild when the mode flips, or when something the events preview
     // draws with changes. Re-creating on every content change would reset the
     // cursor on each keystroke.
-    [editable, accentColor, timeZone],
+    [editable, accentColor, timeZone, calendarUrl],
   );
 
   if (!editor) return <div className="nlx-editor-loading">Loading editor…</div>;

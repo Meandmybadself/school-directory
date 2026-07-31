@@ -34,7 +34,7 @@ function newBlockId(): string {
   return `blk_${Math.random().toString(36).slice(2, 10)}`;
 }
 
-export const EventsBlock = Node.create<{ accentColor: string; timeZone: string }>({
+export const EventsBlock = Node.create<{ accentColor: string; timeZone: string; calendarUrl: string }>({
   name: EVENTS_BLOCK_TYPE,
   group: "block",
   atom: true,
@@ -47,7 +47,7 @@ export const EventsBlock = Node.create<{ accentColor: string; timeZone: string }
   // server will. Passed as extension options because a node view can't reach the
   // screen's loaded settings any other way.
   addOptions() {
-    return { accentColor: "#0068A8", timeZone: "America/Chicago" };
+    return { accentColor: "#0068A8", timeZone: "America/Chicago", calendarUrl: "" };
   },
 
   addAttributes() {

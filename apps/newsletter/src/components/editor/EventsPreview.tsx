@@ -41,6 +41,7 @@ export function EventsPreview({
   events,
   accentColor,
   timeZone,
+  calendarUrl,
 }: {
   blockId: string;
   calendarIds: string[];
@@ -53,6 +54,7 @@ export function EventsPreview({
   events: CalendarEventDTO[] | null;
   accentColor: string;
   timeZone: string;
+  calendarUrl: string;
 }) {
   // `excluded` rides in the attrs rather than being filtered out of `events`
   // first: the renderer is what applies removals for the email and the archive,
@@ -72,11 +74,12 @@ export function EventsPreview({
         mode: "email",
         accentColor,
         timeZone,
+        calendarUrl,
       }),
     );
   }, [
     blockId, calendarIds, lookaheadDays, rangeStart, rangeEnd, excluded,
-    heading, events, accentColor, timeZone,
+    heading, events, accentColor, timeZone, calendarUrl,
   ]);
 
   const ref = useRef<HTMLIFrameElement>(null);

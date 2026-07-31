@@ -80,6 +80,7 @@ export function defaultNewsletterSettings(env: Env): NewsletterSettingsDTO {
     defaultCalendarIds: [],
     defaultLookaheadDays: 14,
     timeZone: env.SCHOOL_TIMEZONE || DEFAULT_TIME_ZONE,
+    calendarUrl: env.CALENDAR_URL ?? "",
   };
 }
 
@@ -149,6 +150,7 @@ export function coerceNewsletterSettings(
     // benefit, but it is configuration, not a setting — whatever a client sends
     // is discarded.
     timeZone: base.timeZone,
+    calendarUrl: base.calendarUrl,
   };
 }
 
@@ -178,6 +180,7 @@ export function brandingOf(settings: NewsletterSettingsDTO): NewsletterBrandingD
     accentColor: settings.accentColor,
     logoUrl: settings.logoUrl,
     footerHtml: settings.footerHtml,
+    calendarUrl: settings.calendarUrl,
   };
 }
 

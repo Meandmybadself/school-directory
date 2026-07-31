@@ -15,6 +15,8 @@ export interface Env {
   /** Public origin of the newsletter app — where "view in browser" and
    *  unsubscribe links in a sent email point. */
   NEWSLETTER_URL: string;
+  /** Public calendar site. Events blocks in a newsletter link out to it. */
+  CALENDAR_URL?: string;
   /** IANA zone used to name the day/time of events rendered server-side (email
    *  and public archive), which have no viewer to infer a zone from. */
   SCHOOL_TIMEZONE?: string;

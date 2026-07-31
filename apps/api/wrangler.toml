@@ -17,6 +17,9 @@ APP_URL = "http://localhost:5173"
 ALLOWED_ORIGINS = "http://localhost:5173,http://localhost:5174,http://localhost:5175"
 # Public origin of the newsletter app. Sent emails link here for "view in
 # browser" and unsubscribe, so it must be the reader-facing host, not the API.
+# Public calendar site. Newsletter events blocks link out to it ("See all
+# events"), in the email and on the public archive alike.
+CALENDAR_URL = "http://localhost:5174"
 NEWSLETTER_URL = "http://localhost:5175"
 # Zone for naming event days/times in server-rendered output (newsletter email
 # and public archive), which has no viewer whose zone could be used instead.
@@ -82,6 +85,7 @@ crons = ["0 */3 * * *", "0 13 * * *"]
 SCHOOL_NAME = "Eisenhower PTO"
 APP_URL = "https://directory.eisenhower.school"
 ALLOWED_ORIGINS = "https://directory.eisenhower.school,https://calendar.eisenhower.school,https://newsletter.eisenhower.school"
+CALENDAR_URL = "https://calendar.eisenhower.school"
 NEWSLETTER_URL = "https://newsletter.eisenhower.school"
 SCHOOL_TIMEZONE = "America/Chicago"
 NOMINATIM_URL = "https://nominatim.openstreetmap.org/search"

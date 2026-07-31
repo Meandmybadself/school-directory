@@ -20,6 +20,7 @@ export const onRequestGet: PagesFunction<PagesEnv> = async (context) => {
     accentColor: "#0068A8",
     logoUrl: null,
     footerHtml: "",
+    calendarUrl: "",
   };
 
   const masthead = branding.logoUrl
