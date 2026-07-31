@@ -6,6 +6,18 @@
    styles and the public archive pages use NEWSLETTER_WEB_CSS from @sd/shared, so
    that what an author previews and what a reader receives come from one place. */
 
+/* "← All issues" at the top of the issue editor. It's a navigational label, not
+   a section of the page, so it shrinks to its text and tucks into the top-left
+   corner instead of taking a full-width 46px row: .sd-deskbody is a flex column,
+   which would otherwise stretch it edge to edge and centre the label. The
+   negative margins give back most of the body's 24px top padding and 22px row
+   gap; the left one cancels the button's own padding so the arrow lines up with
+   the content below it. */
+.nlx-backlink {
+  align-self: flex-start;
+  margin: -10px 0 -14px -13px;
+}
+
 .nlx-layout {
   display: grid;
   grid-template-columns: minmax(0, 1fr);

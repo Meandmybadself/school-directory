@@ -444,8 +444,8 @@ export function IssueEditor() {
   if (desktop) {
     return (
       <DesktopShell active="newsletter" title={draft.title || "Untitled newsletter"}>
-        <button className="sd-btn sd-btn-ghost" style={{ marginBottom: 14 }} onClick={() => navigate("/admin")}>
-          <Icon name="arrowleft" size={16} /> All issues
+        <button className="sd-btn sd-btn-ghost sd-btn-sm nlx-backlink" onClick={() => navigate("/admin")}>
+          <Icon name="arrowleft" size={15} /> All issues
         </button>
         {body}
       </DesktopShell>
