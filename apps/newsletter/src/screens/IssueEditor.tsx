@@ -408,6 +408,7 @@ export function IssueEditor() {
           <Editor
             content={issue.content}
             editable={!readOnly}
+            accentColor={settings.accentColor}
             onChange={(content) => edit({ content })}
           />
         </div>

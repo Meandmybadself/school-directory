@@ -34,12 +34,20 @@ function newBlockId(): string {
   return `blk_${Math.random().toString(36).slice(2, 10)}`;
 }
 
-export const EventsBlock = Node.create({
+export const EventsBlock = Node.create<{ accentColor: string }>({
   name: EVENTS_BLOCK_TYPE,
   group: "block",
   atom: true,
   draggable: true,
   selectable: true,
+
+  // The node view's email preview renders through the real renderer, which wants
+  // the issue's accent for an event whose calendar has no colour of its own.
+  // Passed as an extension option because a node view can't reach the screen's
+  // loaded settings any other way.
+  addOptions() {
+    return { accentColor: "#0068A8" };
+  },
 
   addAttributes() {
     return {

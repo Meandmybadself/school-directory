@@ -159,6 +159,19 @@
 
 .nlx-block-body { padding: 6px 12px 12px; }
 .nlx-block-empty { padding: 12px 2px; color: var(--ink-3); font-size: 13px; }
+
+/* The email-faithful view. Paper, not the block's own tint, because that's the
+   background the events table actually lands on. Height is set from the frame's
+   own content, so no inner scrollbar. */
+.nlx-block-body.pv { padding: 0; }
+.nlx-block-preview {
+  display: block;
+  width: 100%;
+  border: 0;
+  border-top: 1px solid var(--line);
+  border-radius: 0 0 10px 10px;
+  background: #fff;
+}
 .nlx-event {
   padding: 8px 0 8px 11px;
   border-left: 3px solid var(--blue);
@@ -244,6 +257,10 @@
 }
 .nlx-modebtn:hover { color: var(--ink-2); }
 .nlx-modebtn.on { background: var(--paper); color: var(--blue-700); box-shadow: 0 1px 2px rgb(0 0 0 / 0.06); }
+
+/* Compact variant, for the events block's bar where space is tight. */
+.nlx-modeswitch.sm { padding: 1px; }
+.nlx-modeswitch.sm .nlx-modebtn { padding: 2px 8px; font-size: 11.5px; }
 
 .nlx-modewarn {
   margin: 0; font-size: 12.5px; line-height: 1.5; color: var(--warn);

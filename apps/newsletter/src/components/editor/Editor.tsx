@@ -124,10 +124,13 @@ function Toolbar({ editor }: { editor: TipTapEditor }) {
 export function Editor({
   content,
   editable,
+  accentColor,
   onChange,
 }: {
   content: NewsletterNode;
   editable: boolean;
+  /** The issue's accent, forwarded to the events block's email preview. */
+  accentColor: string;
   onChange: (doc: NewsletterNode) => void;
 }) {
   const editor = useEditor(
@@ -142,14 +145,15 @@ export function Editor({
         Link.configure({ openOnClick: false, autolink: true }),
         Image,
         Placeholder.configure({ placeholder: "Write the newsletter…" }),
-        EventsBlock,
+        EventsBlock.configure({ accentColor }),
       ],
       content,
       onUpdate: ({ editor: e }) => onChange(e.getJSON() as NewsletterNode),
     },
-    // Only rebuild when the mode flips. Re-creating on every content change
-    // would reset the cursor on each keystroke.
-    [editable],
+    // Only rebuild when the mode flips, or when the accent the preview draws
+    // with changes. Re-creating on every content change would reset the cursor
+    // on each keystroke.
+    [editable, accentColor],
   );
 
   if (!editor) return <div className="nlx-editor-loading">Loading editor…</div>;

@@ -4,12 +4,19 @@
 // Showing real events (rather than a "[events go here]" placeholder) is the
 // point — an admin choosing calendars and a window needs to see what that
 // actually produces before mailing it to the whole school.
+//
+// Two views of the same resolved list, because they answer different questions.
+// "Preview" runs the real renderer and shows what the reader gets; it's the
+// default, since that's the question an author is usually asking. "List" is the
+// compact app-styled version, easier to scan while picking calendars and a
+// window. Note they disagree about time zones on purpose — see the TZ comment.
 
 import { useState } from "react";
 import { NodeViewWrapper, type NodeViewProps } from "@tiptap/react";
 import { formatEventDay, formatEventTime } from "@sd/shared";
 import { Icon } from "../Icon.js";
 import { useCalendarFeeds, useLiveEvents } from "../../lib/useCalendarFeeds.js";
+import { EventsPreview } from "./EventsPreview.js";
 
 const LOOKAHEAD_CHOICES = [7, 14, 30, 60];
 
@@ -19,14 +26,25 @@ const LOOKAHEAD_CHOICES = [7, 14, 30, 60];
 const TZ = Intl.DateTimeFormat().resolvedOptions().timeZone;
 const LOCALE = "en-US";
 
-export function EventsBlockView({ node, updateAttributes, deleteNode, selected }: NodeViewProps) {
+export function EventsBlockView({
+  node,
+  updateAttributes,
+  deleteNode,
+  selected,
+  extension,
+}: NodeViewProps) {
+  const blockId = (node.attrs.blockId as string) ?? "blk_preview";
   const calendarIds = (node.attrs.calendarIds as string[]) ?? [];
   const lookaheadDays = (node.attrs.lookaheadDays as number) ?? 14;
   const heading = (node.attrs.heading as string | null) ?? null;
+  // Supplied by Editor.tsx from the loaded settings, so the preview's fallback
+  // bar colour matches the issue's accent rather than the renderer's default.
+  const accentColor = (extension.options.accentColor as string | undefined) ?? "#0068A8";
 
   const feeds = useCalendarFeeds();
   const events = useLiveEvents(calendarIds, lookaheadDays);
   const [open, setOpen] = useState(false);
+  const [view, setView] = useState<"preview" | "list">("preview");
 
   const toggleCalendar = (id: string) => {
     const next = calendarIds.includes(id)
@@ -52,6 +70,12 @@ export function EventsBlockView({ node, updateAttributes, deleteNode, selected }
           <span className="nlx-block-kind">Upcoming events</span>
           <span className="nlx-block-note">{calendarLabel} · next {lookaheadDays} days</span>
           <div style={{ flex: 1 }} />
+          <div className="nlx-modeswitch sm" role="group" aria-label="Events block view">
+            <button type="button" className={`nlx-modebtn${view === "preview" ? " on" : ""}`}
+              onClick={() => setView("preview")}>Preview</button>
+            <button type="button" className={`nlx-modebtn${view === "list" ? " on" : ""}`}
+              onClick={() => setView("list")}>List</button>
+          </div>
           <button type="button" className="nlx-mini" onClick={() => setOpen((v) => !v)}>
             {open ? "Done" : "Configure"}
           </button>
@@ -108,24 +132,37 @@ export function EventsBlockView({ node, updateAttributes, deleteNode, selected }
           </div>
         )}
 
-        <div className="nlx-block-body">
-          {events === null && <div className="nlx-block-empty">Loading events…</div>}
-          {events?.length === 0 && (
-            <div className="nlx-block-empty">
-              No events in this window. The block will say so in the sent issue.
-            </div>
+        <div className={`nlx-block-body${view === "preview" ? " pv" : ""}`}>
+          {view === "preview" ? (
+            <EventsPreview
+              blockId={blockId}
+              calendarIds={calendarIds}
+              lookaheadDays={lookaheadDays}
+              heading={heading}
+              events={events}
+              accentColor={accentColor}
+            />
+          ) : (
+            <>
+              {events === null && <div className="nlx-block-empty">Loading events…</div>}
+              {events?.length === 0 && (
+                <div className="nlx-block-empty">
+                  No events in this window. The block will say so in the sent issue.
+                </div>
+              )}
+              {events?.map((e) => (
+                <div key={e.id} className="nlx-event" style={{ borderLeftColor: e.source.color }}>
+                  <div className="nlx-event-title">{e.title}</div>
+                  <div className="nlx-event-meta">
+                    {[formatEventDay(e, LOCALE, TZ), formatEventTime(e, LOCALE, TZ)]
+                      .filter(Boolean)
+                      .join(" · ")}
+                    {e.location ? ` — ${e.location}` : ""}
+                  </div>
+                </div>
+              ))}
+            </>
           )}
-          {events?.map((e) => (
-            <div key={e.id} className="nlx-event" style={{ borderLeftColor: e.source.color }}>
-              <div className="nlx-event-title">{e.title}</div>
-              <div className="nlx-event-meta">
-                {[formatEventDay(e, LOCALE, TZ), formatEventTime(e, LOCALE, TZ)]
-                  .filter(Boolean)
-                  .join(" · ")}
-                {e.location ? ` — ${e.location}` : ""}
-              </div>
-            </div>
-          ))}
         </div>
       </div>
     </NodeViewWrapper>
