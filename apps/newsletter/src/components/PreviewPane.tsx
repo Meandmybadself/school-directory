@@ -28,7 +28,7 @@ export function PreviewPane({
    *  was mailed, rather than a live list its readers never saw. */
   frozenEvents: Record<string, CalendarEventDTO[]> | null;
 }) {
-  const events = useDocumentEvents(doc, frozenEvents);
+  const events = useDocumentEvents(doc, frozenEvents, settings.timeZone);
 
   const html = useMemo(
     () =>
@@ -48,6 +48,9 @@ export function PreviewPane({
         unsubscribeWording: settings.unsubscribeWording,
         mailingAddress: settings.mailingAddress,
         webUrl: `/n/${slug}`,
+        // The school's zone, not the author's — the same one the send uses, so
+        // an event near midnight doesn't preview on the wrong day.
+        timeZone: settings.timeZone,
       }),
     [doc, events, settings, title, subtitle, slug],
   );

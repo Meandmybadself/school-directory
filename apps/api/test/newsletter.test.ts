@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import {
   EVENTS_BLOCK_TYPE,
   NO_EVENTS,
+  eventKey,
   newsletterExcerpt,
   renderNewsletterBodyHtml,
   renderNewsletterEmailHtml,
@@ -166,6 +167,54 @@ describe("newsletter renderer", () => {
     );
     expect(html).toContain("Sep 15");
     expect(html).not.toContain("Sep 14");
+  });
+
+  it("drops an event the author removed, from both the HTML and the text part", () => {
+    const keep: CalendarEventDTO = {
+      id: "e3", kind: "imported", title: "Book Fair", location: null, description: null,
+      start: "2026-08-10T14:00:00.000Z", end: null, allDay: false,
+      sourceIds: ["s1"], source: { name: "Events", color: "#0068A8" },
+    };
+    // Same shape the composer's ✕ writes: an eventKey, not the row id.
+    const drop: CalendarEventDTO = { ...keep, id: "e4", title: "Chess Club", start: "2026-08-11T17:00:00.000Z" };
+    const block = {
+      type: EVENTS_BLOCK_TYPE,
+      attrs: {
+        blockId: "b", calendarIds: [], lookaheadDays: 30,
+        rangeStart: null, rangeEnd: null,
+        excluded: [eventKey(drop)],
+        heading: null,
+      },
+    };
+    const resolve = () => [keep, drop];
+
+    const html = renderNewsletterBodyHtml(doc(block), resolve, { mode: "email" });
+    expect(html).toContain("Book Fair");
+    expect(html).not.toContain("Chess Club");
+
+    const text = renderNewsletterText(doc(block), resolve);
+    expect(text).toContain("Book Fair");
+    expect(text).not.toContain("Chess Club");
+  });
+
+  it("says there are no events when every one was removed", () => {
+    const only: CalendarEventDTO = {
+      id: "e5", kind: "imported", title: "Only Thing", location: null, description: null,
+      start: "2026-08-10T14:00:00.000Z", end: null, allDay: false,
+      sourceIds: ["s1"], source: { name: "Events", color: "#0068A8" },
+    };
+    const html = renderNewsletterBodyHtml(
+      doc({
+        type: EVENTS_BLOCK_TYPE,
+        attrs: {
+          blockId: "b", calendarIds: [], lookaheadDays: 30,
+          rangeStart: null, rangeEnd: null, excluded: [eventKey(only)], heading: null,
+        },
+      }),
+      () => [only],
+      { mode: "email" },
+    );
+    expect(html).toContain("No upcoming events");
   });
 
   it("spells out link destinations in the plain-text part", () => {
@@ -385,6 +434,7 @@ describe("settings coercion", () => {
     newsletterTitle: "Title",
     defaultCalendarIds: [],
     defaultLookaheadDays: 14,
+    timeZone: "America/Chicago",
   };
 
   it("keeps the previous value for a malformed field", () => {

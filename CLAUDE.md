@@ -79,7 +79,13 @@ All three SPAs are separate Cloudflare Pages projects talking to the single
    ULIDs. Anything that needs a durable handle on an event (the coming volunteer
    signups) must use a managed event's `(managed_event_id, starts_at)` pair — the
    ICS `UID` + `RECURRENCE-ID` convention, surfaced as `seriesId`/`recurrenceId`
-   on `CalendarEventDTO`.
+   on `CalendarEventDTO`. The first consumer is already here: `eventKey`
+   (`packages/shared/src/newsletterEvents.ts`) is how a newsletter remembers that
+   an author removed one event from an events block. An imported event has no
+   durable id at all, so it falls back to the content identity `dedupeEvents`
+   already uses (kind + title + start-to-the-minute) — weaker, since retitling
+   upstream drops the exclusion, but the strongest thing an ICS feed offers.
+   Never key such a thing on `CalendarEventDTO.id`.
 9. **One newsletter renderer.** A newsletter issue is stored as TipTap JSON and
    turned into HTML solely by `packages/shared/src/newsletterRender.ts` — used by
    the email, the composer's live preview, and the public archive page. It is

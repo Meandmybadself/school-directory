@@ -537,8 +537,20 @@ export interface NewsletterEventsBlockAttrs {
   /** calendar_source / managed_calendar ids (see CalendarFeedDTO). Empty means
    *  "every calendar", matching the settings default. */
   calendarIds: string[];
-  /** Days ahead of the render moment to include. */
+  /** Days ahead of the render moment to include. Used only when the block has
+   *  no fixed range — see `rangeStart`. */
   lookaheadDays: number;
+  /** Start of an explicit window, as a YYYY-MM-DD calendar date read in the
+   *  school's zone. Set together with `rangeEnd`; when BOTH are present the
+   *  block is pinned to those dates and `lookaheadDays` is ignored. Null means
+   *  the rolling "next N days" window. */
+  rangeStart: string | null;
+  /** Inclusive end of the explicit window; see `rangeStart`. */
+  rangeEnd: string | null;
+  /** Events the author removed from the block, as `eventKey` handles. Applied
+   *  at render time, so the frozen snapshot keeps the whole queried window and
+   *  the removal travels with the (immutable) document instead. */
+  excluded: string[];
   /** Optional heading rendered above the list; null renders no heading. */
   heading: string | null;
 }
@@ -568,6 +580,11 @@ export interface NewsletterSettingsDTO {
   /** Pre-fills a newly inserted events block. */
   defaultCalendarIds: string[];
   defaultLookaheadDays: number;
+  /** The school's IANA zone, e.g. "America/Chicago". Comes from the Worker's
+   *  SCHOOL_TIMEZONE var, NOT from the settings blob — it is echoed here (and
+   *  ignored on write) purely so the composer can resolve an events block's
+   *  fixed date range to the same instants the server will at send time. */
+  timeZone: string;
 }
 
 export interface NewsletterIssueSummaryDTO {

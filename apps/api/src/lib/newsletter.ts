@@ -14,7 +14,9 @@ import type {
   NewsletterSettingsDTO,
 } from "@sd/shared";
 import {
+  blockWindow,
   collectEventsBlocks,
+  DEFAULT_TIME_ZONE,
   escapeHtml,
   renderNewsletterEmailHtml,
   renderNewsletterEmailText,
@@ -30,8 +32,6 @@ const SETTINGS_KEY = "newsletter_settings";
 /** Cap on events materialized into one block. A newsletter that lists 200
  *  events isn't a newsletter; this also bounds the frozen snapshot's size. */
 const MAX_EVENTS_PER_BLOCK = 50;
-
-const DAY_MS = 24 * 60 * 60 * 1000;
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const HEX_COLOR = /^#[0-9a-fA-F]{6}$/;
@@ -79,6 +79,7 @@ export function defaultNewsletterSettings(env: Env): NewsletterSettingsDTO {
     newsletterTitle: `${school} Newsletter`,
     defaultCalendarIds: [],
     defaultLookaheadDays: 14,
+    timeZone: env.SCHOOL_TIMEZONE || DEFAULT_TIME_ZONE,
   };
 }
 
@@ -144,6 +145,10 @@ export function coerceNewsletterSettings(
       ? r.defaultCalendarIds.filter((v): v is string => typeof v === "string")
       : base.defaultCalendarIds,
     defaultLookaheadDays: lookahead,
+    // Always the deployment's own zone. It rides on this DTO for the composer's
+    // benefit, but it is configuration, not a setting — whatever a client sends
+    // is discarded.
+    timeZone: base.timeZone,
   };
 }
 
@@ -269,18 +274,23 @@ export async function resolveEventsSnapshot(
 ): Promise<Record<string, CalendarEventDTO[]>> {
   const blocks = collectEventsBlocks(doc);
   const snapshot: Record<string, CalendarEventDTO[]> = {};
-  const fromMs = new Date(fromIso).getTime();
+  const timeZone = env.SCHOOL_TIMEZONE || DEFAULT_TIME_ZONE;
 
   for (const block of blocks) {
     if (!block.blockId) continue;
-    const to = new Date(fromMs + block.lookaheadDays * DAY_MS).toISOString();
+    // The same window helper the composer uses, so a fixed range resolves to
+    // the same instants here as it did in the preview.
+    const { from, to } = blockWindow(block, fromIso, timeZone);
     snapshot[block.blockId] = await queryUpcomingEvents(env, {
-      from: fromIso,
+      from,
       to,
       calendarIds: block.calendarIds,
       limit: MAX_EVENTS_PER_BLOCK,
     });
   }
+  // Deliberately NOT filtered by `block.excluded`: the snapshot records the
+  // window that was queried, and the renderer drops the author's removals. That
+  // keeps the removal in the document, which is what a sent issue freezes.
   return snapshot;
 }
 

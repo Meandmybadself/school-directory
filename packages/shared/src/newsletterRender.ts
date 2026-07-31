@@ -36,6 +36,7 @@ import type {
   NewsletterNode,
 } from "./types.js";
 import { EVENTS_BLOCK_TYPE } from "./types.js";
+import { visibleEvents } from "./newsletterEvents.js";
 import { htmlToText } from "./text.js";
 
 /** Resolves one events block to the events it should render. */
@@ -58,7 +59,9 @@ export interface NewsletterRenderOptions {
 }
 
 const DEFAULT_ACCENT = "#0068A8";
-const DEFAULT_TIME_ZONE = "America/Chicago";
+/** Used whenever a caller has no zone to offer. Exported because the API and the
+ *  composer both need to fall back to the same one the renderer would. */
+export const DEFAULT_TIME_ZONE = "America/Chicago";
 const DEFAULT_LOCALE = "en-US";
 
 const INK = "#1F2933";
@@ -465,8 +468,19 @@ function eventsAttrs(n: NewsletterNode): NewsletterEventsBlockAttrs {
       ? a.calendarIds.filter((v): v is string => typeof v === "string")
       : [],
     lookaheadDays: clampLookahead(a.lookaheadDays),
+    rangeStart: isoDateOrNull(a.rangeStart),
+    rangeEnd: isoDateOrNull(a.rangeEnd),
+    excluded: Array.isArray(a.excluded)
+      ? a.excluded.filter((v): v is string => typeof v === "string")
+      : [],
     heading: typeof a.heading === "string" && a.heading ? a.heading : null,
   };
+}
+
+/** A calendar date, or null for anything that isn't one. Shape-checked rather
+ *  than trusted: these attrs come out of a stored document. */
+function isoDateOrNull(raw: unknown): string | null {
+  return typeof raw === "string" && /^\d{4}-\d{2}-\d{2}$/.test(raw) ? raw : null;
 }
 
 // ── Event formatting ────────────────────────────────────────────────────────
@@ -553,7 +567,10 @@ function renderChildren(nodes: NewsletterNode[] | undefined, ctx: Ctx): string {
 
 function renderEventsBlock(node: NewsletterNode, ctx: Ctx): string {
   const attrs = eventsAttrs(node);
-  const events = ctx.resolve(attrs);
+  // The resolver hands back the whole queried window; the author's removals are
+  // applied here so the email, the archive page and both previews drop the same
+  // events.
+  const events = visibleEvents(attrs, ctx.resolve(attrs));
   const parts: string[] = [];
 
   if (attrs.heading) {
@@ -709,7 +726,7 @@ export function renderNewsletterText(
       case EVENTS_BLOCK_TYPE: {
         const attrs = eventsAttrs(n);
         if (attrs.heading) out.push(attrs.heading.toUpperCase());
-        const events = resolveEvents(attrs);
+        const events = visibleEvents(attrs, resolveEvents(attrs));
         if (events.length === 0) {
           out.push("No upcoming events.");
           break;

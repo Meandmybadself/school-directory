@@ -6,8 +6,13 @@
 // scope: the feed list once, and event queries by their (calendars, window) key.
 
 import { useEffect, useState } from "react";
-import type { CalendarEventDTO, CalendarFeedDTO, NewsletterNode } from "@sd/shared";
-import { collectEventsBlocks } from "@sd/shared";
+import type {
+  CalendarEventDTO,
+  CalendarFeedDTO,
+  NewsletterEventsBlockAttrs,
+  NewsletterNode,
+} from "@sd/shared";
+import { blockWindow, collectEventsBlocks, hasFixedRange } from "@sd/shared";
 import { api } from "./api.js";
 
 let feedsPromise: Promise<CalendarFeedDTO[]> | null = null;
@@ -36,25 +41,33 @@ export function useCalendarFeeds(): CalendarFeedDTO[] {
   return feeds;
 }
 
-const DAY_MS = 24 * 60 * 60 * 1000;
 const eventCache = new Map<string, Promise<CalendarEventDTO[]>>();
 
-function queryKey(calendarIds: string[], lookaheadDays: number): string {
-  return `${[...calendarIds].sort().join(",")}|${lookaheadDays}`;
+/** What a block asks the calendar for. `excluded` is deliberately absent: it
+ *  changes what's DRAWN, not what's fetched, so removing an event must not
+ *  invalidate the cache or re-query. */
+type BlockQuery = Pick<
+  NewsletterEventsBlockAttrs,
+  "calendarIds" | "lookaheadDays" | "rangeStart" | "rangeEnd"
+>;
+
+/** A rolling window is keyed by its length rather than by the resolved instants,
+ *  so two blocks asking for "next 14 days" a second apart still share one fetch.
+ *  A fixed range is keyed by its dates, which are already stable. */
+function queryKey(q: BlockQuery): string {
+  const window = hasFixedRange(q) ? `${q.rangeStart}..${q.rangeEnd}` : `d${q.lookaheadDays}`;
+  return `${[...q.calendarIds].sort().join(",")}|${window}`;
 }
 
-function fetchEvents(calendarIds: string[], lookaheadDays: number): Promise<CalendarEventDTO[]> {
-  const key = queryKey(calendarIds, lookaheadDays);
+function fetchEvents(q: BlockQuery, timeZone: string): Promise<CalendarEventDTO[]> {
+  const key = queryKey(q);
   let promise = eventCache.get(key);
   if (!promise) {
-    const from = new Date();
+    // The same helper the server calls, against the school's zone rather than
+    // the author's, so the preview and the sent issue select the same events.
+    const { from, to } = blockWindow(q, new Date().toISOString(), timeZone);
     promise = api
-      .calendarEvents({
-        from: from.toISOString(),
-        to: new Date(from.getTime() + lookaheadDays * DAY_MS).toISOString(),
-        calendars: calendarIds,
-        limit: 50,
-      })
+      .calendarEvents({ from, to, calendars: q.calendarIds, limit: 50 })
       .then((r) => r.events)
       .catch(() => []);
     eventCache.set(key, promise);
@@ -69,17 +82,18 @@ function fetchEvents(calendarIds: string[], lookaheadDays: number): Promise<Cale
 export function useDocumentEvents(
   doc: NewsletterNode,
   frozen: Record<string, CalendarEventDTO[]> | null,
+  timeZone: string,
 ): Record<string, CalendarEventDTO[]> {
   const [resolved, setResolved] = useState<Record<string, CalendarEventDTO[]>>({});
   const blocks = frozen ? [] : collectEventsBlocks(doc);
   // Re-resolve only when a block's query actually changes, not on every keystroke.
-  const signature = blocks.map((b) => `${b.blockId}:${queryKey(b.calendarIds, b.lookaheadDays)}`).join(";");
+  const signature = blocks.map((b) => `${b.blockId}:${queryKey(b)}`).join(";");
 
   useEffect(() => {
     if (frozen) return;
     let alive = true;
     void Promise.all(
-      blocks.map(async (b) => [b.blockId, await fetchEvents(b.calendarIds, b.lookaheadDays)] as const),
+      blocks.map(async (b) => [b.blockId, await fetchEvents(b, timeZone)] as const),
     ).then((entries) => {
       if (alive) setResolved(Object.fromEntries(entries));
     });
@@ -87,7 +101,7 @@ export function useDocumentEvents(
       alive = false;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [signature, frozen]);
+  }, [signature, frozen, timeZone]);
 
   return frozen ?? resolved;
 }
@@ -95,23 +109,24 @@ export function useDocumentEvents(
 /** Live events for one block's query. Results are cached for the page's
  *  lifetime; the composer is a short-lived editing session, and an admin who
  *  needs today's freshest list can reload. */
-export function useLiveEvents(calendarIds: string[], lookaheadDays: number) {
-  const key = queryKey(calendarIds, lookaheadDays);
+export function useLiveEvents(q: BlockQuery, timeZone: string) {
+  const key = queryKey(q);
   const [events, setEvents] = useState<CalendarEventDTO[] | null>(null);
 
   useEffect(() => {
     let alive = true;
     setEvents(null);
-    void fetchEvents(calendarIds, lookaheadDays).then((e) => {
+    void fetchEvents(q, timeZone).then((e) => {
       if (alive) setEvents(e);
     });
     return () => {
       alive = false;
     };
-    // `key` already encodes both inputs; depending on the array itself would
-    // re-fire on every render, since it's a fresh reference each time.
+    // `key` already encodes every input that changes the query; depending on the
+    // attrs object itself would re-fire on every render, since it's a fresh
+    // reference each time.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [key]);
+  }, [key, timeZone]);
 
   return events;
 }

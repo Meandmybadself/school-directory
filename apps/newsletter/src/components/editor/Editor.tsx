@@ -125,12 +125,16 @@ export function Editor({
   content,
   editable,
   accentColor,
+  timeZone,
   onChange,
 }: {
   content: NewsletterNode;
   editable: boolean;
   /** The issue's accent, forwarded to the events block's email preview. */
   accentColor: string;
+  /** The school's zone, so a block's fixed date range resolves the same way here
+   *  as it will on the server at send time. */
+  timeZone: string;
   onChange: (doc: NewsletterNode) => void;
 }) {
   const editor = useEditor(
@@ -145,15 +149,15 @@ export function Editor({
         Link.configure({ openOnClick: false, autolink: true }),
         Image,
         Placeholder.configure({ placeholder: "Write the newsletter…" }),
-        EventsBlock.configure({ accentColor }),
+        EventsBlock.configure({ accentColor, timeZone }),
       ],
       content,
       onUpdate: ({ editor: e }) => onChange(e.getJSON() as NewsletterNode),
     },
-    // Only rebuild when the mode flips, or when the accent the preview draws
-    // with changes. Re-creating on every content change would reset the cursor
-    // on each keystroke.
-    [editable, accentColor],
+    // Only rebuild when the mode flips, or when something the events preview
+    // draws with changes. Re-creating on every content change would reset the
+    // cursor on each keystroke.
+    [editable, accentColor, timeZone],
   );
 
   if (!editor) return <div className="nlx-editor-loading">Loading editor…</div>;

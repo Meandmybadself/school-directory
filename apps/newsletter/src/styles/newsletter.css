@@ -160,6 +160,17 @@
 .nlx-block-body { padding: 6px 12px 12px; }
 .nlx-block-empty { padding: 12px 2px; color: var(--ink-3); font-size: 13px; }
 
+/* Curation row: the event, then its remove/undo control pinned right. */
+.nlx-event { display: flex; align-items: center; gap: 10px; }
+.nlx-event-main { flex: 1; min-width: 0; }
+/* A removed event stays in the list, muted and struck through, so the gap in
+   the preview is legible as the author's own doing. */
+.nlx-event.off { opacity: 0.55; }
+.nlx-event.off .nlx-event-title { text-decoration: line-through; }
+
+.nlx-daterow { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 10px; }
+.nlx-block-hint { margin: 8px 0 0; font-size: 12px; line-height: 1.5; color: var(--ink-3); }
+
 /* The email-faithful view. Paper, not the block's own tint, because that's the
    background the events table actually lands on. Height is set from the frame's
    own content, so no inner scrollbar. */

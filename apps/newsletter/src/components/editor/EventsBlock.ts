@@ -34,7 +34,7 @@ function newBlockId(): string {
   return `blk_${Math.random().toString(36).slice(2, 10)}`;
 }
 
-export const EventsBlock = Node.create<{ accentColor: string }>({
+export const EventsBlock = Node.create<{ accentColor: string; timeZone: string }>({
   name: EVENTS_BLOCK_TYPE,
   group: "block",
   atom: true,
@@ -42,11 +42,12 @@ export const EventsBlock = Node.create<{ accentColor: string }>({
   selectable: true,
 
   // The node view's email preview renders through the real renderer, which wants
-  // the issue's accent for an event whose calendar has no colour of its own.
-  // Passed as an extension option because a node view can't reach the screen's
-  // loaded settings any other way.
+  // the issue's accent for an event whose calendar has no colour of its own, and
+  // the school's zone to resolve a fixed date range to the same instants the
+  // server will. Passed as extension options because a node view can't reach the
+  // screen's loaded settings any other way.
   addOptions() {
-    return { accentColor: "#0068A8" };
+    return { accentColor: "#0068A8", timeZone: "America/Chicago" };
   },
 
   addAttributes() {
@@ -72,6 +73,33 @@ export const EventsBlock = Node.create<{ accentColor: string }>({
         default: 14,
         parseHTML: (el) => Number(el.getAttribute("data-lookahead")) || 14,
         renderHTML: (attrs) => ({ "data-lookahead": String(attrs.lookaheadDays) }),
+      },
+      // Both ends together pin the block to fixed dates; either one missing
+      // leaves it on the rolling lookaheadDays window. See blockWindow().
+      rangeStart: {
+        default: null,
+        parseHTML: (el) => el.getAttribute("data-range-start"),
+        renderHTML: (attrs) =>
+          attrs.rangeStart ? { "data-range-start": attrs.rangeStart as string } : {},
+      },
+      rangeEnd: {
+        default: null,
+        parseHTML: (el) => el.getAttribute("data-range-end"),
+        renderHTML: (attrs) =>
+          attrs.rangeEnd ? { "data-range-end": attrs.rangeEnd as string } : {},
+      },
+      // eventKey handles for events the author removed. Kept in the document so
+      // the removal is frozen with the issue and re-applied by the renderer.
+      excluded: {
+        default: [] as string[],
+        parseHTML: (el) => {
+          const raw = el.getAttribute("data-excluded");
+          return raw ? raw.split("\n").filter(Boolean) : [];
+        },
+        renderHTML: (attrs) => {
+          const list = attrs.excluded as string[];
+          return list?.length ? { "data-excluded": list.join("\n") } : {};
+        },
       },
       heading: {
         default: "Upcoming events",
@@ -107,6 +135,11 @@ export const EventsBlock = Node.create<{ accentColor: string }>({
               blockId: newBlockId(),
               calendarIds: attrs.calendarIds ?? [],
               lookaheadDays: attrs.lookaheadDays ?? 14,
+              // A new block starts on the rolling window; the author opts into
+              // fixed dates.
+              rangeStart: null,
+              rangeEnd: null,
+              excluded: [],
               heading: attrs.heading ?? "Upcoming events",
             },
           }),

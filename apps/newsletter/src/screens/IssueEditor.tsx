@@ -409,6 +409,7 @@ export function IssueEditor() {
             content={issue.content}
             editable={!readOnly}
             accentColor={settings.accentColor}
+            timeZone={settings.timeZone}
             onChange={(content) => edit({ content })}
           />
         </div>

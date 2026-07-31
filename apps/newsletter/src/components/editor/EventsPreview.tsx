@@ -34,32 +34,50 @@ export function EventsPreview({
   blockId,
   calendarIds,
   lookaheadDays,
+  rangeStart,
+  rangeEnd,
+  excluded,
   heading,
   events,
   accentColor,
+  timeZone,
 }: {
   blockId: string;
   calendarIds: string[];
   lookaheadDays: number;
+  rangeStart: string | null;
+  rangeEnd: string | null;
+  excluded: string[];
   heading: string | null;
   /** null while the query is still resolving. */
   events: CalendarEventDTO[] | null;
   accentColor: string;
+  timeZone: string;
 }) {
+  // `excluded` rides in the attrs rather than being filtered out of `events`
+  // first: the renderer is what applies removals for the email and the archive,
+  // so letting it do the same here is what keeps this preview honest.
   const html = useMemo(() => {
     const doc: NewsletterNode = {
       type: "doc",
       content: [
         {
           type: EVENTS_BLOCK_TYPE,
-          attrs: { blockId, calendarIds, lookaheadDays, heading },
+          attrs: { blockId, calendarIds, lookaheadDays, rangeStart, rangeEnd, excluded, heading },
         },
       ],
     };
     return frameDoc(
-      renderNewsletterBodyHtml(doc, () => events ?? [], { mode: "email", accentColor }),
+      renderNewsletterBodyHtml(doc, () => events ?? [], {
+        mode: "email",
+        accentColor,
+        timeZone,
+      }),
     );
-  }, [blockId, calendarIds, lookaheadDays, heading, events, accentColor]);
+  }, [
+    blockId, calendarIds, lookaheadDays, rangeStart, rangeEnd, excluded,
+    heading, events, accentColor, timeZone,
+  ]);
 
   const ref = useRef<HTMLIFrameElement>(null);
   const [height, setHeight] = useState(96);
