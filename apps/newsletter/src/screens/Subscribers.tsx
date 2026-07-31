@@ -6,9 +6,12 @@
 // needs to see instead is the combined audience size, which is what actually
 // determines how many emails a send produces.
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState, type ChangeEvent } from "react";
 import { useNavigate } from "react-router-dom";
-import type { NewsletterSubscriberDTO } from "@sd/shared";
+import type {
+  NewsletterSubscriberDTO,
+  NewsletterSubscriberImportResultDTO,
+} from "@sd/shared";
 import { AppShell, BottomNav } from "../components/AppShell.js";
 import { DesktopShell } from "../components/DesktopShell.js";
 import { ScreenHeader, Field } from "../components/parts.js";
@@ -27,6 +30,11 @@ export function Subscribers() {
   const [email, setEmail] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const [importText, setImportText] = useState("");
+  const [importing, setImporting] = useState(false);
+  const [importResult, setImportResult] = useState<NewsletterSubscriberImportResultDTO | null>(null);
+  const fileInput = useRef<HTMLInputElement>(null);
 
   const load = () =>
     api
@@ -55,6 +63,33 @@ export function Subscribers() {
       setError(errorMessage(err, "Couldn't add that address."));
     } finally {
       setBusy(false);
+    }
+  };
+
+  const onFile = async (e: ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    // Reset the input so choosing the same file again still fires onChange.
+    if (fileInput.current) fileInput.current.value = "";
+    if (!file) return;
+    const text = await file.text();
+    // Append to whatever's already pasted rather than clobbering it.
+    setImportText((prev) => (prev.trim() ? `${prev.trim()}\n${text}` : text));
+  };
+
+  const importList = async () => {
+    if (!importText.trim()) return;
+    setImporting(true);
+    setError(null);
+    setImportResult(null);
+    try {
+      const { result } = await api.importSubscribers(importText);
+      setImportResult(result);
+      setImportText("");
+      await load();
+    } catch (err) {
+      setError(errorMessage(err, "Couldn't import that list."));
+    } finally {
+      setImporting(false);
     }
   };
 
@@ -99,6 +134,68 @@ export function Subscribers() {
             <Btn icon="plus" onClick={() => void add()} disabled={busy || !email.trim()}>Add</Btn>
           </div>
         </Field>
+      </div>
+
+      <div className="sd-card" style={{ padding: "14px 16px", display: "flex", flexDirection: "column", gap: 10 }}>
+        <div style={{ fontWeight: 700 }}>Import a list</div>
+        <p className="sd-meta" style={{ margin: 0 }}>
+          Paste addresses — one per line or comma-separated — or upload a .csv/.txt
+          file. A name column is fine; only the email addresses are read. Existing
+          and previously-removed addresses are handled automatically.
+        </p>
+        <textarea
+          className="sd-input"
+          rows={5}
+          value={importText}
+          placeholder={"grandparent@example.com\nroom.parent@example.com"}
+          onChange={(e) => setImportText(e.target.value)}
+          style={{ resize: "vertical", fontFamily: "inherit", lineHeight: 1.5 }}
+        />
+        <div className="sd-row" style={{ gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+          <button className="nlx-mini" onClick={() => fileInput.current?.click()}>
+            Choose file…
+          </button>
+          <input
+            ref={fileInput}
+            type="file"
+            accept=".csv,.txt,text/csv,text/plain"
+            style={{ display: "none" }}
+            onChange={(e) => void onFile(e)}
+          />
+          <div style={{ flex: 1 }} />
+          <Btn
+            icon="upload"
+            onClick={() => void importList()}
+            disabled={importing || !importText.trim()}
+          >
+            {importing ? "Importing…" : "Import"}
+          </Btn>
+        </div>
+
+        {importResult && (
+          <div className="sd-meta" style={{ margin: 0, lineHeight: 1.6 }}>
+            <strong style={{ color: "var(--ink)" }}>
+              {importResult.added} added
+            </strong>
+            {" · "}
+            {importResult.resubscribed} resubscribed
+            {" · "}
+            {importResult.alreadyActive} already subscribed
+            {importResult.duplicates > 0 && <> · {importResult.duplicates} duplicate{importResult.duplicates === 1 ? "" : "s"} in list</>}
+            {importResult.invalid.length > 0 && (
+              <details style={{ marginTop: 6 }}>
+                <summary style={{ cursor: "pointer", color: "var(--warn)" }}>
+                  {importResult.invalid.length} skipped as invalid
+                </summary>
+                <div style={{ marginTop: 4 }}>
+                  {importResult.invalid.map((v, i) => (
+                    <div key={i} style={{ overflowWrap: "anywhere" }}>{v}</div>
+                  ))}
+                </div>
+              </details>
+            )}
+          </div>
+        )}
       </div>
 
       {loading && <div className="sd-spinner" style={{ margin: "24px auto" }} />}

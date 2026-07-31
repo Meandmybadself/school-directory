@@ -15,6 +15,7 @@ import type {
   NewsletterIssueSummaryDTO,
   NewsletterNode,
   NewsletterSubscriberDTO,
+  NewsletterSubscriberImportResultDTO,
   NewsletterTestSendBody,
 } from "@sd/shared";
 import { issueSlug, sanitizeNewsletterDoc, slugifyTitle } from "@sd/shared";
@@ -27,8 +28,10 @@ import { sendEmailResult } from "../lib/email.js";
 import {
   coerceNewsletterSettings,
   getNewsletterSettings,
+  importSubscribers,
   isEmail,
   issueEmailArgs,
+  parseSubscriberList,
   resolveAudience,
   resolveEventsSnapshot,
   setNewsletterSettings,
@@ -56,6 +59,11 @@ const IMAGE_TYPES: Record<string, string> = {
 
 /** Test sends are for proofreading, not for distribution. */
 const MAX_TEST_RECIPIENTS = 10;
+
+/** Upper bound on a single import. A list this large is almost certainly a
+ *  mistake (or belongs in the member CSV pipeline); it also bounds the work one
+ *  request does. */
+const MAX_IMPORT_SUBSCRIBERS = 5000;
 
 function summaryOf(row: IssueRow): NewsletterIssueSummaryDTO {
   return {
@@ -483,6 +491,75 @@ newsletter.post("/subscribers", async (c) => {
     },
     201,
   );
+});
+
+/** POST /newsletter/subscribers/import — bulk-add a pasted or uploaded list.
+ *
+ *  Accepts either raw `text` (a pasted list or the contents of a .csv/.txt file)
+ *  or an `emails` array; both are parsed with the same forgiving splitter. New
+ *  addresses are added and previously-removed ones resubscribed, exactly like
+ *  the single-add route — importing is just that operation done in bulk. */
+newsletter.post("/subscribers/import", async (c) => {
+  const auth = requireAuth(c);
+  if (!auth.isSystemAdmin) return c.json({ error: "forbidden" }, 403);
+
+  const body = await c.req.json<{ text?: string; emails?: string[] }>().catch(() => null);
+  const text =
+    typeof body?.text === "string"
+      ? body.text
+      : Array.isArray(body?.emails)
+        ? body.emails.join("\n")
+        : "";
+  if (!text.trim()) {
+    return c.json({ error: "invalid_body", message: "Paste or upload a list of addresses." }, 400);
+  }
+
+  const parsed = parseSubscriberList(text);
+  if (parsed.valid.length === 0) {
+    return c.json(
+      {
+        error: "no_valid_emails",
+        message: "No valid email addresses were found in that list.",
+        invalid: parsed.invalid,
+      },
+      400,
+    );
+  }
+  if (parsed.valid.length > MAX_IMPORT_SUBSCRIBERS) {
+    return c.json(
+      {
+        error: "too_many",
+        message: `That list has more than ${MAX_IMPORT_SUBSCRIBERS} addresses. Import it in smaller batches.`,
+      },
+      400,
+    );
+  }
+
+  const { added, resubscribed, alreadyActive } = await importSubscribers(c.env, parsed.valid);
+
+  c.var.audit.push({
+    action: "newsletter.subscriber.imported",
+    entityKind: "newsletter_subscriber",
+    entityId: null,
+    detail: {
+      added,
+      resubscribed,
+      alreadyActive,
+      duplicates: parsed.duplicates,
+      invalid: parsed.invalid.length,
+      total: parsed.valid.length,
+    },
+  });
+
+  const result: NewsletterSubscriberImportResultDTO = {
+    added,
+    resubscribed,
+    alreadyActive,
+    duplicates: parsed.duplicates,
+    invalid: parsed.invalid,
+    total: parsed.valid.length,
+  };
+  return c.json({ result });
 });
 
 /** DELETE /newsletter/subscribers/:id — remove a standalone address. Sent-issue

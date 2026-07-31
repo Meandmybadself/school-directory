@@ -22,6 +22,8 @@ import {
 import type { Env } from "../env.js";
 import { queryUpcomingEvents } from "./calendar.js";
 import { getSetting, normalizeEmail, setSetting } from "./db.js";
+import { ulid } from "./ids.js";
+import { nowIso } from "./time.js";
 import type { SendArgs } from "./email.js";
 
 const SETTINGS_KEY = "newsletter_settings";
@@ -37,6 +39,111 @@ const HEX_COLOR = /^#[0-9a-fA-F]{6}$/;
 
 export function isEmail(value: string): boolean {
   return EMAIL_RE.test(value.trim());
+}
+
+/** Cap on how many invalid tokens we echo back — enough for an admin to spot the
+ *  typo, not so many that a garbage paste bloats the response. */
+const MAX_INVALID_REPORTED = 50;
+
+/** Parse a pasted or uploaded list of addresses into unique, normalized emails.
+ *
+ *  Deliberately forgiving about shape: it splits on newlines, commas, semicolons
+ *  and whitespace, so a one-per-line list, a comma-separated line and a CSV all
+ *  work. Only tokens containing "@" are judged — a name column ("Jane Doe,
+ *  jane@x.com") contributes name tokens that are simply ignored rather than
+ *  reported as errors. A token IS reported as invalid when it looks like an
+ *  address (has "@") but fails validation, so a real typo surfaces.
+ *
+ *  Pure and unit-tested; the route layer handles the DB writes. */
+export function parseSubscriberList(input: string): {
+  valid: string[];
+  invalid: string[];
+  duplicates: number;
+} {
+  const seen = new Set<string>();
+  const invalidSeen = new Set<string>();
+  const valid: string[] = [];
+  const invalid: string[] = [];
+  let duplicates = 0;
+
+  for (const rawToken of input.split(/[\s,;]+/)) {
+    // Strip a mailto: prefix and any wrapping quotes / angle brackets, e.g.
+    // `"Jane" <jane@x.com>` -> `jane@x.com`.
+    const token = rawToken
+      .trim()
+      .replace(/^mailto:/i, "")
+      .replace(/^[<"']+/, "")
+      .replace(/[>"']+$/, "");
+    if (!token.includes("@")) continue; // not an address candidate (e.g. a name)
+
+    const email = normalizeEmail(token);
+    if (!isEmail(email)) {
+      if (!invalidSeen.has(email) && invalid.length < MAX_INVALID_REPORTED) {
+        invalidSeen.add(email);
+        invalid.push(token);
+      }
+      continue;
+    }
+    if (seen.has(email)) {
+      duplicates++;
+      continue;
+    }
+    seen.add(email);
+    valid.push(email);
+  }
+
+  return { valid, invalid, duplicates };
+}
+
+/** Upsert a batch of already-validated, normalized addresses, categorizing each
+ *  against its prior state so the admin gets an honest "added / resubscribed /
+ *  already subscribed" breakdown. Idempotent: re-importing the same list is a
+ *  no-op that reports everyone as already active. */
+export async function importSubscribers(
+  env: Env,
+  emails: string[],
+): Promise<{ added: number; resubscribed: number; alreadyActive: number }> {
+  // Categorize first: read the current state of every candidate. `true` = row
+  // exists and is active, `false` = row exists but unsubscribed, absent = new.
+  const state = new Map<string, boolean>();
+  const QUERY_CHUNK = 100; // stay well under SQLite's bound-parameter ceiling
+  for (let i = 0; i < emails.length; i += QUERY_CHUNK) {
+    const chunk = emails.slice(i, i + QUERY_CHUNK);
+    const placeholders = chunk.map(() => "?").join(",");
+    const rows = await env.DB.prepare(
+      `SELECT email, unsubscribed_at FROM newsletter_subscriber WHERE email IN (${placeholders})`,
+    )
+      .bind(...chunk)
+      .all<{ email: string; unsubscribed_at: string | null }>();
+    for (const r of rows.results) state.set(r.email, r.unsubscribed_at === null);
+  }
+
+  let added = 0;
+  let resubscribed = 0;
+  let alreadyActive = 0;
+  for (const email of emails) {
+    if (!state.has(email)) added++;
+    else if (state.get(email) === false) resubscribed++;
+    else alreadyActive++;
+  }
+
+  // Upsert everyone with the same statement the single-add route uses. Already
+  // active rows just re-set unsubscribed_at to NULL (a no-op), which keeps this
+  // one code path rather than branching writes on the categorization above.
+  const now = nowIso();
+  const stmts = emails.map((email) =>
+    env.DB.prepare(
+      `INSERT INTO newsletter_subscriber (id, email, created_at, unsubscribed_at)
+       VALUES (?,?,?,NULL)
+       ON CONFLICT (email) DO UPDATE SET unsubscribed_at = NULL`,
+    ).bind(ulid(), email, now),
+  );
+  const INSERT_CHUNK = 50;
+  for (let i = 0; i < stmts.length; i += INSERT_CHUNK) {
+    await env.DB.batch(stmts.slice(i, i + INSERT_CHUNK));
+  }
+
+  return { added, resubscribed, alreadyActive };
 }
 
 /** Append -2, -3, … until the slug is free. Two issues drafted the same day
