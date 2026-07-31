@@ -25,6 +25,10 @@ const PUBLIC_KEYS = [
   "allDay",
   "sourceIds",
   "source",
+  // Added deliberately with volunteer signups. It addresses the public sheet
+  // page — which publishes counts and never names — and is NOT the durable
+  // (seriesId, recurrenceId) pair, which is still withheld below.
+  "volunteerSlug",
 ].sort();
 
 function managedEvent(): CalendarEventDTO {
@@ -41,6 +45,7 @@ function managedEvent(): CalendarEventDTO {
     allDay: false,
     sourceIds: ["01CAL"],
     source: { name: "PTO events", color: "#0068A8" },
+    volunteerSlug: "general-meeting-2026-09-10",
   };
 }
 
@@ -71,6 +76,15 @@ describe("publicEventOf", () => {
     expect(pub).not.toHaveProperty("signups");
     expect(Object.keys(pub).sort()).toEqual(PUBLIC_KEYS);
     expect(JSON.stringify(pub)).not.toContain("parent@example.com");
+  });
+
+  it("carries the volunteer slug but not the pair it stands in for", () => {
+    // The slug is an opaque handle on the PUBLIC sheet page (counts, no names).
+    // Publishing it is what lets an anonymous reader find the signup page at
+    // all; the durable pair stays withheld by the assertion above.
+    const pub = publicEventOf(managedEvent());
+    expect(pub.volunteerSlug).toBe("general-meeting-2026-09-10");
+    expect(JSON.stringify(pub)).not.toContain("01SERIES");
   });
 
   it("passes through the fields the agenda actually renders", () => {

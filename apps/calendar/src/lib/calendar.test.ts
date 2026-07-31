@@ -14,6 +14,7 @@ const ev = (over: Partial<PublicCalendarEventDTO>): PublicCalendarEventDTO => ({
   id: "e", kind: "imported", title: "Event", location: null, description: null,
   start: "2026-09-25T00:00:00.000Z", end: null, allDay: false,
   sourceIds: ["s"], source: { name: "School Events", color: "#000000" },
+  volunteerSlug: null,
   ...over,
 });
 

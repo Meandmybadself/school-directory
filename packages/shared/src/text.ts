@@ -64,3 +64,17 @@ export function issueSlug(title: string, nowIso: string): string {
   const tail = slugifyTitle(title);
   return tail ? `${date}-${tail}` : date;
 }
+
+/** The public URL segment for a volunteer sheet: the event's title followed by
+ *  the occurrence's date, e.g. "fall-carnival-2026-10-17". Title-first rather
+ *  than date-first (the inverse of `issueSlug`) because this link is pasted into
+ *  a message asking people to sign up, where the event name is what identifies
+ *  it — an archived newsletter is identified by when it went out.
+ *
+ *  Enumerable by design, on the same terms as an issue slug: the page it
+ *  addresses publishes counts, never volunteer names. */
+export function volunteerSheetSlug(title: string, occurrenceStartIso: string): string {
+  const date = occurrenceStartIso.slice(0, 10);
+  const head = slugifyTitle(title);
+  return head ? `${head}-${date}` : date;
+}

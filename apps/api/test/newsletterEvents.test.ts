@@ -30,6 +30,7 @@ function ev(over: Partial<CalendarEventDTO> = {}): CalendarEventDTO {
     allDay: false,
     sourceIds: ["src_1"],
     source: { name: "PTA", color: "#0068A8" },
+    volunteerSlug: null,
     ...over,
   };
 }

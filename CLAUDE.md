@@ -58,6 +58,10 @@ All three SPAs are separate Cloudflare Pages projects talking to the single
   NOT the members-only `/calendar/*` — which still exist, still require auth, and
   are what `apps/web` uses. Admin routes stay gated on both sides. See invariant
   12 before adding a field to any calendar DTO.
+- **So is a volunteer sheet at `/v/:slug`.** Same pattern, one wrinkle: that
+  screen picks its endpoint by whether there's a session — the anonymous one when
+  signed out (counts, no names), the member one when signed in. Signing up is a
+  write and always needs an account. See invariant 13.
 
 ## Non-negotiable invariants
 
@@ -76,10 +80,13 @@ All three SPAs are separate Cloudflare Pages projects talking to the single
 7. **IDs are ULIDs** (`lib/ids.ts`); timestamps are ISO-8601 UTC strings.
 8. **`calendar_event` is a derived cache, and its row ids are NOT stable.** Both
    imported feeds and managed events delete-then-insert into it, minting fresh
-   ULIDs. Anything that needs a durable handle on an event (the coming volunteer
-   signups) must use a managed event's `(managed_event_id, starts_at)` pair — the
+   ULIDs. Anything that needs a durable handle on an event must use a managed
+   event's `(managed_event_id, starts_at)` pair — the
    ICS `UID` + `RECURRENCE-ID` convention, surfaced as `seriesId`/`recurrenceId`
-   on `CalendarEventDTO`. The first consumer is already here: `eventKey`
+   on `CalendarEventDTO`. `volunteer_sheet` is the load-bearing consumer: it
+   stores exactly that pair (`managed_event_id` + `occurrence_start`) and
+   reads its event from `managed_event`, never from `calendar_event` — see
+   invariant 13. `eventKey`
    (`packages/shared/src/newsletterEvents.ts`) is how a newsletter remembers that
    an author removed one event from an events block. An imported event has no
    durable id at all, so it falls back to the content identity `dedupeEvents`
@@ -122,7 +129,7 @@ All three SPAs are separate Cloudflare Pages projects talking to the single
    purpose.** Keep it that way: build the public shape field by field, never by
    spreading. Two withholdings are deliberate, not oversights: `seriesId`/
    `recurrenceId` are omitted entirely (the durable handle volunteer signups
-   will key on — see invariant 8, so withholding it means member signup data can
+   key on — see invariant 8, so withholding it means member signup data can
    never be addressed from a public response), and an imported feed's upstream
    `url` is **replaced, never passed through** — an admin may have pasted a
    secret Google/Outlook subscribe link, and the raw feed carries
@@ -132,6 +139,33 @@ All three SPAs are separate Cloudflare Pages projects talking to the single
    `calendar_event` rows rather than proxying upstream. `test/
    calendarPublic.test.ts` asserts the exact public key set and that no upstream
    URL survives, and fails the build if either leaks.
+   **One field has been added to that public shape since**: `volunteerSlug`. It
+   is an opaque handle on a volunteer sheet's own public page (invariant 13), not
+   the durable pair — a sheet has a slug of its own precisely so the public link
+   needn't carry `(seriesId, recurrenceId)`. That is the bar for adding another
+   one.
+13. **Volunteer counts are public; volunteer NAMES are members-only.** A sheet
+   (`volunteer_sheet` → `volunteer_position` → `volunteer_signup`, migration
+   0012) hangs off ONE occurrence of a managed event and is read by three
+   audiences through two routes: `/volunteers-public/sheets/:slug` (no auth, like
+   `calendarPublic.ts`) returns positions and a `filled` count, and
+   `/volunteers/sheets/:slug` (auth) returns the same plus who took each spot.
+   The seam is **`publicSheetOf`** in `apps/api/src/lib/volunteers.ts`, the
+   companion to `publicEventOf` and built the same way — field by field, never by
+   spreading. A sheet URL is human-readable and enumerable by design (it has to
+   open from a text message), so a name reaching that response is a member's name
+   on the open internet; `test/volunteersPublic.test.ts` asserts the exact key
+   sets at all three levels AND that no name, note or person id survives.
+   Three further rules follow from the design rather than from policy:
+   **only managed events can carry a sheet** (an imported ICS event has no
+   durable handle — invariant 8); **a sheet resolves its event from
+   `managed_event`, never `calendar_event`**, so it survives re-materialization
+   (an occurrence edited away is reported as `orphaned`, not deleted); and
+   **writes always require a session** — there is no anonymous claim path, and
+   claiming for a Person requires controlling them (`isController`) or being a
+   system admin. Overfill is prevented by a guarded `INSERT … SELECT … WHERE
+   (count < slots)` whose `meta.changes` is checked, because D1 has no
+   transaction around a read-then-write.
 
 ## Conventions
 

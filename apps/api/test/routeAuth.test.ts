@@ -155,3 +155,111 @@ describe("member calendar routes refuse without a session", () => {
     expect(res.status).toBe(401);
   });
 });
+
+// ── Volunteer signups ───────────────────────────────────────────────────────
+//
+// Same two facts as the calendar pair above, for the sheet routes: the public
+// one genuinely answers with no cookie, and the member one genuinely refuses.
+// The extra thing proven here is that the anonymous 200 carries no NAMES — the
+// narrowing tested in isolation by volunteersPublic.test.ts, asserted on a real
+// response so a route that forgot to call `publicSheetOf` would be caught.
+
+/** D1 stand-in for one published sheet with one filled position. */
+function volunteerEnv(): HonoEnv["Bindings"] {
+  const sheetRow = {
+    id: "01SHEET",
+    managed_event_id: "01SERIES",
+    occurrence_start: "2099-10-17T22:00:00.000Z",
+    slug: "fall-carnival-2099-10-17",
+    intro: "Help us run the carnival.",
+    published_at: "2099-09-01T12:00:00.000Z",
+    closes_at: null,
+    created_at: "2099-09-01T12:00:00.000Z",
+    title: "Fall Carnival",
+    location: "Gym",
+    description: null,
+    event_starts_at: "2099-10-17T22:00:00.000Z",
+    event_ends_at: "2099-10-18T02:00:00.000Z",
+    all_day: 0,
+  };
+  const positionRow = {
+    id: "01POS", sheet_id: "01SHEET", title: "Snack table", description: null,
+    slots: 4, starts_at: null, ends_at: null, sort_order: 0,
+  };
+  const signupRow = {
+    id: "01SIGNUP", position_id: "01POS", person_id: "01PERSON",
+    note: "I'll bring the cooler", created_at: "2099-09-02T12:00:00.000Z",
+    first_name: "Dana", last_name: "Rivera", last_name_visibility: "full",
+  };
+  return {
+    DB: {
+      prepare(sql: string) {
+        const results = sql.includes("FROM volunteer_position")
+          ? [positionRow]
+          : sql.includes("FROM volunteer_signup")
+            ? [signupRow]
+            : [];
+        return {
+          bind: () => ({
+            first: async () => (sql.includes("FROM volunteer_sheet") ? sheetRow : null),
+            all: async () => ({ results }),
+          }),
+        };
+      },
+    },
+  } as unknown as HonoEnv["Bindings"];
+}
+
+describe("the public volunteer sheet answers without a session, and without names", () => {
+  it("GET /volunteers-public/sheets/:slug → 200 carrying counts but no volunteer", async () => {
+    const { volunteersPublic } = await import("../src/routes/volunteersPublic.js");
+    const app = appWith("/volunteers-public", volunteersPublic);
+    const res = await app.request(
+      "/volunteers-public/sheets/fall-carnival-2099-10-17",
+      {},
+      volunteerEnv(),
+    );
+    expect(res.status).toBe(200);
+
+    const text = await res.text();
+    // The count is the whole public story about a position…
+    expect(text).toContain('"filled":1');
+    expect(text).toContain('"slots":4');
+    // …and none of the person behind it may appear, in any field.
+    expect(text).not.toContain("Dana");
+    expect(text).not.toContain("Rivera");
+    expect(text).not.toContain("01PERSON");
+    expect(text).not.toContain("cooler");
+    // Nor the durable handle that would address them (invariant 12).
+    expect(text).not.toContain("01SERIES");
+    expect(text).not.toContain("seriesId");
+  });
+});
+
+describe("member volunteer routes refuse without a session", () => {
+  it("GET /volunteers/sheets/:slug → 401", async () => {
+    const { volunteers } = await import("../src/routes/volunteers.js");
+    const app = appWith("/volunteers", volunteers);
+    const res = await app.request("/volunteers/sheets/fall-carnival-2099-10-17", {}, volunteerEnv());
+    expect(res.status).toBe(401);
+    expect(await res.json()).toEqual({ error: "unauthorized" });
+  });
+
+  it("POST /volunteers/positions/:id/signups → 401 (no anonymous claim path)", async () => {
+    const { volunteers } = await import("../src/routes/volunteers.js");
+    const app = appWith("/volunteers", volunteers);
+    const res = await app.request(
+      "/volunteers/positions/01POS/signups",
+      { method: "POST", body: JSON.stringify({ personId: "01PERSON" }), headers: { "Content-Type": "application/json" } },
+      volunteerEnv(),
+    );
+    expect(res.status).toBe(401);
+  });
+
+  it("DELETE /volunteers/signups/:id → 401", async () => {
+    const { volunteers } = await import("../src/routes/volunteers.js");
+    const app = appWith("/volunteers", volunteers);
+    const res = await app.request("/volunteers/signups/01SIGNUP", { method: "DELETE" }, volunteerEnv());
+    expect(res.status).toBe(401);
+  });
+});

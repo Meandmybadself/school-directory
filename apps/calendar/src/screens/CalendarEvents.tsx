@@ -194,10 +194,11 @@ export function partition(
   return { upcoming, past };
 }
 
-function EventRow({ event: e, onEdit, onRemove }: {
+function EventRow({ event: e, onEdit, onRemove, onVolunteers }: {
   event: ManagedEventDTO;
   onEdit: () => void;
   onRemove: () => void;
+  onVolunteers: () => void;
 }) {
   return (
     <div className="sd-crow" style={{ alignItems: "center", gap: 10 }}>
@@ -210,6 +211,11 @@ function EventRow({ event: e, onEdit, onRemove }: {
         <div className="sd-meta">{describeEvent(e)}</div>
         {e.location && <div className="sd-meta">{e.location}</div>}
       </div>
+      {/* Volunteer sheets are per-DATE, so this opens a screen rather than a
+          form: a recurring event has one sheet per occurrence to choose from. */}
+      <button aria-label={`Volunteers for ${e.title}`} title="Volunteer signups" onClick={onVolunteers} style={iconBtnStyle}>
+        <Icon name="members" size={17} />
+      </button>
       <button aria-label={`Edit ${e.title}`} onClick={onEdit} style={iconBtnStyle}>
         <Icon name="pencil" size={16} />
       </button>
@@ -392,6 +398,7 @@ export function CalendarEvents() {
             event={e}
             onEdit={() => setEditing({ id: e.id, form: formFromEvent(e) })}
             onRemove={() => void remove(e.id)}
+            onVolunteers={() => navigate(`/admin/events/${e.id}/volunteers`)}
           />
         ))}
 
@@ -412,6 +419,7 @@ export function CalendarEvents() {
                   event={e}
                   onEdit={() => setEditing({ id: e.id, form: formFromEvent(e) })}
                   onRemove={() => void remove(e.id)}
+                  onVolunteers={() => navigate(`/admin/events/${e.id}/volunteers`)}
                 />
               ))}
           </>

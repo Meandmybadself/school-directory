@@ -198,6 +198,9 @@ export interface CalendarRow {
   source_color: string;
   /** Set only for managed rows; identifies the durable authored event. */
   managed_event_id: string | null;
+  /** Slug of the PUBLISHED volunteer sheet on this occurrence, or null. Joined
+   *  on (managed_event_id, starts_at) — the durable pair, never the row id. */
+  volunteer_slug: string | null;
 }
 
 /** Collapse the same event syndicated across multiple feeds into one. Events are
@@ -243,6 +246,7 @@ export function dedupeEvents(rows: CalendarRow[], limit: number): CalendarEventD
           allDay: r.all_day === 1,
           sourceIds: [r.source_id],
           source: { name: r.source_name, color: r.source_color },
+          volunteerSlug: r.volunteer_slug,
         },
         descLen: (r.description ?? "").length,
       };
@@ -252,6 +256,11 @@ export function dedupeEvents(rows: CalendarRow[], limit: number): CalendarEventD
     }
     if (!m.dto.sourceIds.includes(r.source_id)) m.dto.sourceIds.push(r.source_id);
     if (!m.dto.location && r.location) m.dto.location = r.location;
+    // A merged duplicate can only be a second COPY of the same managed
+    // occurrence (the key includes the kind), so it carries the same sheet —
+    // but an imported row merged in first would have brought null. Keep the
+    // first non-null so syndication order can't drop the volunteer link.
+    if (!m.dto.volunteerSlug && r.volunteer_slug) m.dto.volunteerSlug = r.volunteer_slug;
     const dlen = (r.description ?? "").length;
     if (dlen > m.descLen) {
       m.dto.description = r.description;
@@ -304,15 +313,24 @@ export async function queryUpcomingEvents(
 
   // One query over both origins: a row's calendar is whichever of the two joins
   // matched, which the CHECK constraint in migration 0009 guarantees is exactly one.
+  //
+  // The volunteer join is on the DURABLE pair (managed_event_id, starts_at), not
+  // on e.id, because e.id is re-minted on every refresh (invariant 8). Only a
+  // published sheet joins — a draft must not put a link on anyone's calendar.
   const rows = await env.DB.prepare(
     `SELECT e.id, e.title, e.location, e.description, e.starts_at, e.ends_at, e.all_day,
             e.managed_event_id,
             COALESCE(e.source_id, e.managed_calendar_id) AS source_id,
             COALESCE(s.name, mc.name) AS source_name,
-            COALESCE(s.color, mc.color) AS source_color
+            COALESCE(s.color, mc.color) AS source_color,
+            vs.slug AS volunteer_slug
      FROM calendar_event e
      LEFT JOIN calendar_source s ON s.id = e.source_id
      LEFT JOIN managed_calendar mc ON mc.id = e.managed_calendar_id
+     LEFT JOIN volunteer_sheet vs
+            ON vs.managed_event_id = e.managed_event_id
+           AND vs.occurrence_start = e.starts_at
+           AND vs.published_at IS NOT NULL
      WHERE ${where.join(" AND ")}
      ORDER BY e.starts_at ASC
      LIMIT ?`,
@@ -460,6 +478,11 @@ export async function renderImportedSourceIcs(env: Env, sourceId: string): Promi
  *  function on purpose. See PublicCalendarEventDTO for why `seriesId` and
  *  `recurrenceId` are withheld rather than merely unused.
  *
+ *  `volunteerSlug` is the one field ever added here after the fact, and it was a
+ *  deliberate act: it addresses the public volunteer page (counts, never names)
+ *  and is NOT the durable pair, which is exactly why a sheet has a slug of its
+ *  own. See PublicCalendarEventDTO and lib/volunteers.ts's `publicSheetOf`.
+ *
  *  If you are here because you added a field to CalendarEventDTO: the default
  *  answer is to leave this function alone. */
 export function publicEventOf(e: CalendarEventDTO): PublicCalendarEventDTO {
@@ -474,6 +497,7 @@ export function publicEventOf(e: CalendarEventDTO): PublicCalendarEventDTO {
     allDay: e.allDay,
     sourceIds: e.sourceIds,
     source: e.source,
+    volunteerSlug: e.volunteerSlug,
   };
 }
 

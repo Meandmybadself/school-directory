@@ -78,6 +78,28 @@ export interface Strings {
   unsubscribeDone: string;
   latestIssue: string;
 
+  // volunteer signups (member- and public-facing only; the authoring UI is admin
+  // tooling and stays English, as the calendar's other admin screens do)
+  volunteersTitle: string;
+  volunteersNeeded: string;
+  volunteerSpotsFilled: string; // uses {filled} {slots}
+  volunteerSpotsLeft: string; // uses {left}
+  volunteerFull: string;
+  takeASpot: string;
+  signInToVolunteer: string;
+  volunteerWithdraw: string;
+  volunteerWhoFor: string;
+  volunteerNote: string;
+  volunteerNotePlaceholder: string;
+  volunteerSignupsClosed: string;
+  volunteerNoPositions: string;
+  volunteerNamesMembersOnly: string;
+  volunteerAlready: string;
+  volunteerTookLastSpot: string;
+  volunteerError: string;
+  volunteerNotFound: string;
+  volunteerNotFoundBody: string;
+
   // home
   neighbors: string;
   noNeighbors: string;
@@ -315,6 +337,26 @@ const en: Strings = {
   unsubscribeDone: "You've been unsubscribed.",
   latestIssue: "Latest newsletter",
 
+  volunteersTitle: "Volunteers",
+  volunteersNeeded: "Volunteers needed",
+  volunteerSpotsFilled: "{filled} of {slots} filled",
+  volunteerSpotsLeft: "{left} still needed",
+  volunteerFull: "All filled",
+  takeASpot: "Take a spot",
+  signInToVolunteer: "Sign in to volunteer",
+  volunteerWithdraw: "Give up spot",
+  volunteerWhoFor: "Who is signing up?",
+  volunteerNote: "Note (optional)",
+  volunteerNotePlaceholder: "Anything the organizer should know",
+  volunteerSignupsClosed: "Signups are closed.",
+  volunteerNoPositions: "No positions have been posted yet.",
+  volunteerNamesMembersOnly: "Sign in to see who has signed up.",
+  volunteerAlready: "Already signed up for this.",
+  volunteerTookLastSpot: "Someone just took the last spot.",
+  volunteerError: "That didn't work. Please try again.",
+  volunteerNotFound: "Signup sheet not found",
+  volunteerNotFoundBody: "This link may have expired, or signups were taken down.",
+
   neighbors: "Neighbors",
   noNeighbors: "No neighbors nearby yet.",
   noNeighborsBody:
@@ -550,6 +592,26 @@ const es: Strings = {
   unsubscribeDone: "Se ha cancelado su suscripción.",
   latestIssue: "Último boletín",
 
+  volunteersTitle: "Voluntarios",
+  volunteersNeeded: "Se necesitan voluntarios",
+  volunteerSpotsFilled: "{filled} de {slots} cubiertos",
+  volunteerSpotsLeft: "Faltan {left}",
+  volunteerFull: "Completo",
+  takeASpot: "Apuntarme",
+  signInToVolunteer: "Inicia sesión para ser voluntario",
+  volunteerWithdraw: "Ceder mi lugar",
+  volunteerWhoFor: "¿Quién se apunta?",
+  volunteerNote: "Nota (opcional)",
+  volunteerNotePlaceholder: "Algo que deba saber quien organiza",
+  volunteerSignupsClosed: "Las inscripciones están cerradas.",
+  volunteerNoPositions: "Todavía no se han publicado puestos.",
+  volunteerNamesMembersOnly: "Inicia sesión para ver quién se ha apuntado.",
+  volunteerAlready: "Ya está apuntado en este puesto.",
+  volunteerTookLastSpot: "Alguien acaba de tomar el último lugar.",
+  volunteerError: "No se pudo completar. Inténtalo de nuevo.",
+  volunteerNotFound: "No se encontró la hoja de inscripción",
+  volunteerNotFoundBody: "Puede que el enlace haya caducado o que se hayan retirado las inscripciones.",
+
   neighbors: "Vecinos",
   noNeighbors: "Aún no hay vecinos cerca.",
   noNeighborsBody:
@@ -716,6 +778,26 @@ const zh: Strings = {
   unsubscribeConfirm: "是的，为我退订",
   unsubscribeDone: "您已退订。",
   latestIssue: "最新通讯",
+
+  volunteersTitle: "志愿者",
+  volunteersNeeded: "招募志愿者",
+  volunteerSpotsFilled: "已报名 {filled}/{slots}",
+  volunteerSpotsLeft: "还需 {left} 人",
+  volunteerFull: "已满",
+  takeASpot: "我要报名",
+  signInToVolunteer: "登录后即可报名",
+  volunteerWithdraw: "取消报名",
+  volunteerWhoFor: "为谁报名？",
+  volunteerNote: "备注（可选）",
+  volunteerNotePlaceholder: "有什么需要组织者知道的",
+  volunteerSignupsClosed: "报名已截止。",
+  volunteerNoPositions: "尚未发布任何岗位。",
+  volunteerNamesMembersOnly: "登录后可查看报名名单。",
+  volunteerAlready: "该岗位已报名。",
+  volunteerTookLastSpot: "最后一个名额刚被别人报走了。",
+  volunteerError: "操作未成功，请重试。",
+  volunteerNotFound: "未找到报名表",
+  volunteerNotFoundBody: "链接可能已失效，或报名已被撤下。",
 
   neighbors: "邻居",
   noNeighbors: "附近暂无邻居。",

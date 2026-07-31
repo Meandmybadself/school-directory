@@ -4,7 +4,7 @@ import { renderLastName, displayName, canSeeItem, type ContactItemRow } from "..
 import { ulid } from "../src/lib/ids.js";
 import { buildGraph, ancestors, subtree, effectiveGroups, wouldCycle } from "../src/lib/groupTree.js";
 import { parseIcs, dedupeEvents, type CalendarRow } from "../src/lib/calendar.js";
-import { htmlToText } from "@sd/shared";
+import { htmlToText, volunteerSheetSlug } from "@sd/shared";
 
 describe("geo", () => {
   it("computes great-circle distance in miles", () => {
@@ -227,7 +227,7 @@ describe("calendar de-duplication", () => {
     id: "e1", title: "Assembly", location: null, description: null,
     starts_at: "2026-06-15T15:00:00.000Z", ends_at: null, all_day: 0,
     source_id: "s1", source_name: "A", source_color: "#111111",
-    managed_event_id: null, ...over,
+    managed_event_id: null, volunteer_slug: null, ...over,
   });
 
   it("merges the same event across feeds into one, collecting all sources", () => {
@@ -263,6 +263,69 @@ describe("calendar de-duplication", () => {
     const out = dedupeEvents(rows, 100);
     expect(out.length).toBe(1);
     expect(out[0]!.sourceIds.sort()).toEqual(["s1", "s2"]);
+  });
+});
+
+describe("volunteerSheetSlug", () => {
+  it("reads as the event followed by its date", () => {
+    // Title-first, unlike an issue slug: this link is pasted into a message
+    // asking people to sign up, where the event name is what identifies it.
+    expect(volunteerSheetSlug("Fall Carnival", "2026-10-17T22:00:00.000Z")).toBe(
+      "fall-carnival-2026-10-17",
+    );
+  });
+
+  it("distinguishes two occurrences of the same recurring event", () => {
+    // The reason a sheet is per-date: a weekly event's sheets must not collide
+    // into one URL.
+    const a = volunteerSheetSlug("Lunch Duty", "2026-10-05T17:00:00.000Z");
+    const b = volunteerSheetSlug("Lunch Duty", "2026-10-12T17:00:00.000Z");
+    expect(a).not.toBe(b);
+  });
+
+  it("takes the date in UTC, matching how occurrences are stored", () => {
+    // Occurrence starts are ISO-8601 UTC everywhere in this codebase; slicing
+    // the string keeps the slug agreeing with the stored value regardless of
+    // where the admin who created it was sitting.
+    expect(volunteerSheetSlug("Book Fair", "2026-01-02T03:00:00.000Z")).toBe("book-fair-2026-01-02");
+  });
+
+  it("falls back to the bare date when a title reduces to nothing", () => {
+    expect(volunteerSheetSlug("春季音乐会", "2026-04-02T18:00:00.000Z")).toBe("2026-04-02");
+  });
+
+  it("folds accents and punctuation rather than dropping letters", () => {
+    expect(volunteerSheetSlug("Año Nuevo Party!", "2026-01-05T18:00:00.000Z")).toBe(
+      "ano-nuevo-party-2026-01-05",
+    );
+  });
+});
+
+describe("dedupeEvents and volunteer sheets", () => {
+  const row = (over: Partial<CalendarRow>): CalendarRow => ({
+    id: "e1", title: "Carnival", location: null, description: null,
+    starts_at: "2026-10-17T22:00:00.000Z", ends_at: null, all_day: 0,
+    source_id: "s1", source_name: "A", source_color: "#111111",
+    managed_event_id: null, volunteer_slug: null, ...over,
+  });
+
+  it("keeps the slug when the same occurrence arrives on two calendars", () => {
+    // A managed event syndicated to two feeds merges into one DTO. Whichever
+    // copy carried the sheet, the surviving row must keep the link — otherwise
+    // the volunteer affordance would blink in and out with row ordering.
+    const out = dedupeEvents(
+      [
+        row({ id: "a", managed_event_id: "m1", source_id: "s1", volunteer_slug: null }),
+        row({ id: "b", managed_event_id: "m1", source_id: "s2", volunteer_slug: "carnival-2026-10-17" }),
+      ],
+      10,
+    );
+    expect(out).toHaveLength(1);
+    expect(out[0]!.volunteerSlug).toBe("carnival-2026-10-17");
+  });
+
+  it("leaves an event with no sheet at null", () => {
+    expect(dedupeEvents([row({})], 10)[0]!.volunteerSlug).toBeNull();
   });
 });
 

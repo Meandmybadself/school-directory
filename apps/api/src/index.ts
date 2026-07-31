@@ -27,6 +27,8 @@ import { managedCalendar } from "./routes/managedCalendar.js";
 import { ics } from "./routes/ics.js";
 import { newsletter } from "./routes/newsletter.js";
 import { newsletterPublic } from "./routes/newsletterPublic.js";
+import { volunteers } from "./routes/volunteers.js";
+import { volunteersPublic } from "./routes/volunteersPublic.js";
 
 const app = new Hono<HonoEnv>();
 
@@ -66,6 +68,8 @@ app.route("/calendar-public", calendarPublic); // anonymous agenda reads — no 
 app.route("/ics", ics); // public published feeds — no auth by design
 app.route("/newsletter", newsletter); // authoring — system admins only
 app.route("/newsletter-public", newsletterPublic); // archive + unsubscribe — no auth by design
+app.route("/volunteers", volunteers); // signup reads with names + claims — members only
+app.route("/volunteers-public", volunteersPublic); // signup counts, no names — no auth by design
 // share-targets is exposed under /shares/targets via the shares router.
 app.route("/", contacts); // /persons/:id/contacts + /contacts/:id
 app.route("/", controllers); // /persons/:id/controllers + /control-invites

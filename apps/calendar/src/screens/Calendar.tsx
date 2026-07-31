@@ -82,6 +82,14 @@ function EventRow({ e, locale, onOpen }: { e: PublicCalendarEventDTO; locale: st
         <div className="sd-row" style={{ gap: 8, flexWrap: "wrap", marginTop: 2 }}>
           {e.location && <span className="sd-meta">{e.location}</span>}
           <span className="sd-meta" style={{ color: e.source.color, fontWeight: 600 }}>{e.source.name}</span>
+          {/* Visible without opening the event, so someone scanning the agenda
+              can see where help is wanted. */}
+          {e.volunteerSlug && (
+            <span className="sd-meta" style={{ display: "inline-flex", alignItems: "center", gap: 4, color: "var(--orange-700, #a06a00)", fontWeight: 700 }}>
+              <Icon name="members" size={12} stroke={2} />
+              {t("volunteersNeeded")}
+            </span>
+          )}
         </div>
       </div>
     </button>
@@ -144,7 +152,12 @@ function googleMapsUrl(q: string): string {
   return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(q)}`;
 }
 
-function EventDetailSheet({ e, locale, onClose }: { e: PublicCalendarEventDTO; locale: string; onClose: () => void }) {
+function EventDetailSheet({ e, locale, onClose, onVolunteers }: {
+  e: PublicCalendarEventDTO;
+  locale: string;
+  onClose: () => void;
+  onVolunteers: (slug: string) => void;
+}) {
   const { t } = useI18n();
   const start = new Date(e.start);
   const end = e.end ? new Date(e.end) : null;
@@ -178,7 +191,16 @@ function EventDetailSheet({ e, locale, onClose }: { e: PublicCalendarEventDTO; l
       {showsDescription(e) && (
         <div style={{ fontSize: 13.5, lineHeight: 1.5, color: "var(--ink-2)", whiteSpace: "pre-wrap", wordBreak: "break-word", borderTop: "1px solid var(--line)", paddingTop: 12 }}>{htmlToText(e.description!)}</div>
       )}
-      <Btn block kind="secondary" style={{ marginTop: 16 }} onClick={onClose}>{t("done")}</Btn>
+      {/* Only present when this occurrence has a PUBLISHED volunteer sheet — the
+          server joins it in, so a draft never surfaces here. The slug is an
+          opaque public handle, not the durable (seriesId, recurrenceId) pair;
+          see PublicCalendarEventDTO. */}
+      {e.volunteerSlug && (
+        <Btn block icon="members" style={{ marginTop: 16 }} onClick={() => onVolunteers(e.volunteerSlug!)}>
+          {t("volunteersNeeded")}
+        </Btn>
+      )}
+      <Btn block kind="secondary" style={{ marginTop: e.volunteerSlug ? 8 : 16 }} onClick={onClose}>{t("done")}</Btn>
     </SheetOver>
   );
 }
@@ -242,7 +264,12 @@ export function Calendar() {
 
   const sheet = selected && (
     <div className="sd">
-      <EventDetailSheet e={selected} locale={locale} onClose={() => setSelected(null)} />
+      <EventDetailSheet
+        e={selected}
+        locale={locale}
+        onClose={() => setSelected(null)}
+        onVolunteers={(slug) => navigate(`/v/${slug}`)}
+      />
     </div>
   );
 

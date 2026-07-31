@@ -12,7 +12,12 @@ import type {
   ManagedCalendarInput,
   ManagedEventDTO,
   ManagedEventInput,
+  ManagedOccurrenceDTO,
   MeDTO,
+  PublicVolunteerSheetDTO,
+  VolunteerPositionInput,
+  VolunteerSheetDTO,
+  VolunteerSheetInput,
 } from "@sd/shared";
 
 export const API_BASE = import.meta.env.VITE_API_URL ?? "http://localhost:8787";
@@ -123,4 +128,59 @@ export const api = {
     request<{ event: ManagedEventDTO }>(`/admin/managed-events/${eventId}`, { method: "PATCH", body: JSON.stringify(body) }),
   deleteManagedEvent: (eventId: string) =>
     request<{ ok: true }>(`/admin/managed-events/${eventId}`, { method: "DELETE" }),
+
+  // Volunteer sheets — reads.
+  //
+  // TWO endpoints for one screen, deliberately. `publicVolunteerSheet` returns
+  // counts and no names and needs no cookie; `volunteerSheet` returns the roster
+  // and requires one. The screen picks by whether there's a session, so an
+  // anonymous reader never issues a request that would 401, and a member never
+  // renders a page missing the names they're entitled to. The narrower
+  // PublicVolunteerSheetDTO is what keeps the signed-out branch honest.
+  publicVolunteerSheet: (slug: string) =>
+    request<{ sheet: PublicVolunteerSheetDTO }>(`/volunteers-public/sheets/${slug}`),
+  volunteerSheet: (slug: string) =>
+    request<{ sheet: VolunteerSheetDTO }>(`/volunteers/sheets/${slug}`),
+
+  // Volunteer sheets — member writes. Both return the refreshed sheet, so the
+  // screen never has to guess what the server decided about counts.
+  claimVolunteerSpot: (positionId: string, personId: string, note: string | null) =>
+    request<{ sheet: VolunteerSheetDTO }>(`/volunteers/positions/${positionId}/signups`, {
+      method: "POST",
+      body: JSON.stringify({ personId, note }),
+    }),
+  releaseVolunteerSpot: (signupId: string) =>
+    request<{ sheet: VolunteerSheetDTO }>(`/volunteers/signups/${signupId}`, { method: "DELETE" }),
+
+  // Volunteer sheets — authoring (admin).
+  eventOccurrences: (eventId: string) =>
+    request<{ occurrences: ManagedOccurrenceDTO[] }>(`/admin/managed-events/${eventId}/occurrences`),
+  adminVolunteerSheet: (sheetId: string) =>
+    request<{ sheet: VolunteerSheetDTO }>(`/admin/volunteer-sheets/${sheetId}`),
+  addVolunteerSheet: (eventId: string, body: VolunteerSheetInput) =>
+    request<{ sheet: VolunteerSheetDTO }>(`/admin/managed-events/${eventId}/sheets`, {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
+  updateVolunteerSheet: (sheetId: string, body: VolunteerSheetInput) =>
+    request<{ sheet: VolunteerSheetDTO }>(`/admin/volunteer-sheets/${sheetId}`, {
+      method: "PATCH",
+      body: JSON.stringify(body),
+    }),
+  deleteVolunteerSheet: (sheetId: string) =>
+    request<{ ok: true }>(`/admin/volunteer-sheets/${sheetId}`, { method: "DELETE" }),
+  addVolunteerPosition: (sheetId: string, body: VolunteerPositionInput) =>
+    request<{ sheet: VolunteerSheetDTO }>(`/admin/volunteer-sheets/${sheetId}/positions`, {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
+  updateVolunteerPosition: (positionId: string, body: Partial<VolunteerPositionInput>) =>
+    request<{ sheet: VolunteerSheetDTO }>(`/admin/volunteer-positions/${positionId}`, {
+      method: "PATCH",
+      body: JSON.stringify(body),
+    }),
+  deleteVolunteerPosition: (positionId: string) =>
+    request<{ sheet: VolunteerSheetDTO }>(`/admin/volunteer-positions/${positionId}`, {
+      method: "DELETE",
+    }),
 };

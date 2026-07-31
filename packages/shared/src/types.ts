@@ -194,7 +194,7 @@ export interface CalendarEventDTO {
   seriesId?: string;
   /** Managed only — ISO-8601 UTC start of this occurrence, the RECURRENCE-ID
    *  equivalent. `(seriesId, recurrenceId)` is stable across re-materialization
-   *  and is what a future volunteer signup attaches to. */
+   *  and is what a volunteer sheet attaches to. */
   recurrenceId?: string;
   title: string;
   location: string | null;
@@ -210,6 +210,11 @@ export interface CalendarEventDTO {
   sourceIds: string[];
   /** Representative calendar, for the event's color tag. */
   source: { name: string; color: string };
+  /** Slug of this occurrence's PUBLISHED volunteer sheet, or null when it has
+   *  none. Managed events only — an imported event has no durable handle to hang
+   *  a sheet off (invariant 8). Drives the "volunteers needed" affordance in the
+   *  agenda; the sheet itself lives at /v/{slug} on the calendar site. */
+  volunteerSlug: string | null;
 }
 
 /** The subset of an event an ANONYMOUS caller may see, served by
@@ -224,7 +229,14 @@ export interface CalendarEventDTO {
  *  PII today. They are the durable handle a volunteer signup attaches to (see
  *  CalendarEventDTO above and CLAUDE.md invariant 8), so withholding the join
  *  key means that even a careless future edit to `publicEventOf` can't make
- *  member signup data addressable from an unauthenticated response. */
+ *  member signup data addressable from an unauthenticated response.
+ *
+ *  `volunteerSlug` IS carried, and is the one considered exception. It is an
+ *  opaque per-sheet handle, not the durable join key: it addresses the public
+ *  volunteer page — which itself publishes counts and never names — and it
+ *  cannot be used to reach the member-only sheet, which is gated on the session
+ *  rather than on knowing an id. The whole point of the sheet having its own
+ *  slug is that the public link needn't reveal (seriesId, recurrenceId). */
 export interface PublicCalendarEventDTO {
   id: string;
   kind: CalendarEventKind;
@@ -236,6 +248,7 @@ export interface PublicCalendarEventDTO {
   allDay: boolean;
   sourceIds: string[];
   source: { name: string; color: string };
+  volunteerSlug: string | null;
 }
 
 /** Public-facing calendar feed — for the show/hide filter and ICS download link.
@@ -338,6 +351,169 @@ export interface ManagedEventInput {
   end?: string | null;
   allDay?: boolean;
   recurrence?: RecurrenceInput | null;
+}
+
+// ── Volunteer signups ───────────────────────────────────────────────────────
+//
+// A volunteer SHEET hangs off one occurrence of a managed event and holds
+// POSITIONS ("snack table, 4 people, 5–7pm"); members claim a SIGNUP on a
+// position as one of the Persons they control. Three audiences read this data
+// and they see three different things:
+//
+//   anonymous  → PublicVolunteerSheetDTO: positions and filled COUNTS, no names
+//   member     → VolunteerSheetDTO: the same plus who took each spot
+//   admin      → VolunteerSheetDTO with `manage` set
+//
+// The first split is the one that matters and it is enforced server-side in
+// lib/volunteers.ts's `publicSheetOf`, the companion to `publicEventOf`.
+
+/** One person's claim on a position. Member-visible only — this shape never
+ *  appears in an anonymous response. */
+export interface VolunteerSignupDTO {
+  id: string;
+  personId: string;
+  /** Last-name-rule-applied, like every other name that crosses the wire. */
+  displayName: string;
+  note: string | null;
+  /** True when this signup is for one of the viewing User's controlled Persons —
+   *  i.e. when the viewer may withdraw it. */
+  isYou: boolean;
+  createdAt: string;
+}
+
+/** A job on a sheet: what it is, how many people it takes, and optionally the
+ *  slice of the event they're needed for. */
+export interface VolunteerPositionDTO {
+  id: string;
+  title: string;
+  description: string | null;
+  /** How many people are needed. */
+  slots: number;
+  /** How many are signed up. Always present, for both audiences. */
+  filled: number;
+  /** Optional shift window, ISO-8601 UTC. Display-only; independent of the
+   *  event's own start/end, since a shift may cover part of an event. */
+  startsAt: string | null;
+  endsAt: string | null;
+  /** Who took the spots. Member-only — absent from the public projection. */
+  signups: VolunteerSignupDTO[];
+}
+
+/** The occurrence a sheet belongs to, resolved from `managed_event` plus the
+ *  sheet's own `occurrence_start` — never from `calendar_event`, whose ids and
+ *  rows are disposable (invariant 8). */
+export interface VolunteerEventDTO {
+  /** The durable `managed_event` id. Member-only; see PublicVolunteerSheetDTO. */
+  seriesId: string;
+  /** ISO-8601 UTC start of this occurrence. Member-only, as the RECURRENCE-ID
+   *  half of the durable pair — the same instant reaches anonymous callers as
+   *  the plain `start` below, which is what the public agenda already shows. */
+  recurrenceId: string;
+  title: string;
+  location: string | null;
+  description: string | null;
+  start: string;
+  end: string | null;
+  allDay: boolean;
+}
+
+/** A sheet as a signed-in member sees it. */
+export interface VolunteerSheetDTO {
+  id: string;
+  /** The public URL segment: /v/{slug} on the calendar site. */
+  slug: string;
+  intro: string | null;
+  /** ISO-8601 UTC after which claims are refused, or null for "until it fills". */
+  closesAt: string | null;
+  /** Server's verdict on whether claims are currently accepted — resolved here
+   *  rather than in the client so a stale clock can't invite a doomed request. */
+  closed: boolean;
+  /** False while the sheet is a draft; the public route 404s on those. */
+  published: boolean;
+  event: VolunteerEventDTO;
+  positions: VolunteerPositionDTO[];
+  /** True when the viewer may edit the sheet (system admins today). */
+  canManage: boolean;
+  /** Admin-facing: the occurrence this sheet names no longer exists in the
+   *  materialized agenda, because the series was edited after it was created.
+   *  The sheet and its signups are intact — it just isn't on the calendar. */
+  orphaned?: boolean;
+}
+
+/** The subset of a sheet an ANONYMOUS caller may see, served by
+ *  /volunteers-public/sheets/:slug.
+ *
+ *  Hand-written rather than `Omit<VolunteerSheetDTO, …>` for the same reason as
+ *  PublicCalendarEventDTO: structural typing would let a field added upstream
+ *  ride along into a public response by itself. Build it field by field in
+ *  `publicSheetOf`, never by spreading.
+ *
+ *  Two withholdings are the point of this type. **Names never appear** — a
+ *  volunteer's identity is member-only (invariant 1), so positions carry a
+ *  `filled` count and nothing else about who filled them; `VolunteerSignupDTO`
+ *  must never be reachable from here. And `seriesId`/`recurrenceId` are withheld
+ *  exactly as PublicCalendarEventDTO withholds them, so the durable handle that
+ *  addresses member signup data stays out of unauthenticated responses. The
+ *  occurrence's instant still reaches the reader as `event.start`, which the
+ *  public agenda publishes anyway; it is the durable PAIR that is withheld. */
+export interface PublicVolunteerSheetDTO {
+  slug: string;
+  intro: string | null;
+  closesAt: string | null;
+  closed: boolean;
+  event: {
+    title: string;
+    location: string | null;
+    description: string | null;
+    start: string;
+    end: string | null;
+    allDay: boolean;
+  };
+  positions: Array<{
+    id: string;
+    title: string;
+    description: string | null;
+    slots: number;
+    filled: number;
+    startsAt: string | null;
+    endsAt: string | null;
+  }>;
+}
+
+export interface VolunteerSheetInput {
+  /** ISO-8601 UTC start of the occurrence to open. Create-only — moving a sheet
+   *  to another date would silently relocate everyone who already signed up. */
+  occurrenceStart?: string;
+  intro?: string | null;
+  closesAt?: string | null;
+  published?: boolean;
+}
+
+export interface VolunteerPositionInput {
+  title: string;
+  description?: string | null;
+  slots?: number;
+  startsAt?: string | null;
+  endsAt?: string | null;
+  sortOrder?: number;
+}
+
+export interface VolunteerSignupInput {
+  /** A Person the requesting User controls. */
+  personId: string;
+  note?: string | null;
+}
+
+/** One occurrence of an authored event, for the admin's "which date?" picker.
+ *  Read from the materialized agenda, so it lists exactly the dates a member
+ *  can currently see. */
+export interface ManagedOccurrenceDTO {
+  /** ISO-8601 UTC start — the value that becomes a sheet's `occurrenceStart`. */
+  start: string;
+  end: string | null;
+  allDay: boolean;
+  /** The sheet already open on this date, if any. */
+  sheet: { id: string; slug: string; published: boolean; positionCount: number } | null;
 }
 
 /** A current grantee of a share, for the visibility sheet's "Shared with" list. */
@@ -725,6 +901,17 @@ export type AuditAction =
   | "newsletter.subscriber.added"
   | "newsletter.subscriber.removed"
   | "newsletter.subscription.toggled"
+  | "volunteer.sheet.created"
+  | "volunteer.sheet.updated"
+  | "volunteer.sheet.deleted"
+  | "volunteer.position.created"
+  | "volunteer.position.updated"
+  | "volunteer.position.deleted"
+  // Signup create/delete are member actions, not admin ones — the only entries
+  // in this log an ordinary member generates. They are recorded because a spot
+  // changing hands is exactly the kind of thing someone later asks about.
+  | "volunteer.signup.created"
+  | "volunteer.signup.deleted"
   | "person.updated"
   | "contact.created"
   | "contact.updated"

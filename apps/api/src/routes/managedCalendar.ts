@@ -5,7 +5,12 @@
 // row so per-calendar editor delegation can be added later without a migration.
 
 import { Hono } from "hono";
-import type { ManagedCalendarInput, ManagedEventInput } from "@sd/shared";
+import type {
+  ManagedCalendarInput,
+  ManagedEventInput,
+  VolunteerPositionInput,
+  VolunteerSheetInput,
+} from "@sd/shared";
 import type { HonoEnv } from "../env.js";
 import { requireAuth } from "../middleware/session.js";
 import {
@@ -20,6 +25,17 @@ import {
   updateManagedCalendar,
   updateManagedEvent,
 } from "../lib/managedCalendar.js";
+import {
+  createPosition,
+  createSheet,
+  deletePosition,
+  deleteSheet,
+  listOccurrences,
+  loadSheetForAdmin,
+  updatePosition,
+  updateSheet,
+  VolunteerError,
+} from "../lib/volunteers.js";
 
 export const managedCalendar = new Hono<HonoEnv>();
 
@@ -29,9 +45,12 @@ function apiOrigin(url: string): string {
 }
 
 /** Authored-input failures become a 400 carrying the message, so the admin UI can
- *  show why a recurrence was rejected. Anything else propagates to app.onError. */
+ *  show why a recurrence (or a volunteer position) was rejected. Anything else
+ *  propagates to app.onError. */
 function invalid(err: unknown): { error: string; message: string } | null {
-  return err instanceof ManagedEventError ? { error: "invalid_body", message: err.message } : null;
+  return err instanceof ManagedEventError || err instanceof VolunteerError
+    ? { error: "invalid_body", message: err.message }
+    : null;
 }
 
 // ── Calendars ───────────────────────────────────────────────────────────────
@@ -183,4 +202,159 @@ managedCalendar.delete("/managed-events/:id", async (c) => {
     entityId: id,
   });
   return c.json({ ok: true });
+});
+
+// ── Volunteer sheets ────────────────────────────────────────────────────────
+//
+// The authoring half of volunteer signups; the reading halves are
+// routes/volunteers.ts (members, with names) and routes/volunteersPublic.ts
+// (anonymous, counts only). These live here rather than in their own router
+// because they are managed-event administration — same base, same system-admin
+// gate, same audit discipline.
+//
+// Only authored events can carry a sheet: an imported ICS event has no durable
+// id to attach one to (invariant 8). That is why there is no imported-feed
+// counterpart to any of these routes.
+
+/** GET /admin/managed-events/:id/occurrences — the dates this event lands on,
+ *  each with the sheet already open on it. Backs the admin's date picker. */
+managedCalendar.get("/managed-events/:id/occurrences", async (c) => {
+  const auth = requireAuth(c);
+  if (!auth.isSystemAdmin) return c.json({ error: "forbidden" }, 403);
+  return c.json({ occurrences: await listOccurrences(c.env, c.req.param("id")) });
+});
+
+/** POST /admin/managed-events/:id/sheets { occurrenceStart, intro?, closesAt?, published? } */
+managedCalendar.post("/managed-events/:id/sheets", async (c) => {
+  const auth = requireAuth(c);
+  if (!auth.isSystemAdmin) return c.json({ error: "forbidden" }, 403);
+  const body = await c.req.json<VolunteerSheetInput>().catch(() => null);
+  if (!body) return c.json({ error: "invalid_body" }, 400);
+
+  try {
+    const sheet = await createSheet(c.env, c.req.param("id"), body, auth.userId);
+    if (!sheet) return c.json({ error: "not_found" }, 404);
+    c.var.audit.push({
+      action: "volunteer.sheet.created",
+      entityKind: "volunteer_sheet",
+      entityId: sheet.id,
+      detail: { seriesId: sheet.event.seriesId, occurrenceStart: sheet.event.recurrenceId },
+    });
+    return c.json({ sheet }, 201);
+  } catch (err) {
+    const bad = invalid(err);
+    if (bad) return c.json(bad, 400);
+    throw err;
+  }
+});
+
+/** GET /admin/volunteer-sheets/:id — one sheet with its roster and orphan flag. */
+managedCalendar.get("/volunteer-sheets/:id", async (c) => {
+  const auth = requireAuth(c);
+  if (!auth.isSystemAdmin) return c.json({ error: "forbidden" }, 403);
+  const sheet = await loadSheetForAdmin(c.env, c.req.param("id"));
+  if (!sheet) return c.json({ error: "not_found" }, 404);
+  return c.json({ sheet });
+});
+
+/** PATCH /admin/volunteer-sheets/:id { intro?, closesAt?, published? }.
+ *  Publishing is what puts the link on the public calendar; the date itself is
+ *  create-only (see VolunteerSheetInput). */
+managedCalendar.patch("/volunteer-sheets/:id", async (c) => {
+  const auth = requireAuth(c);
+  if (!auth.isSystemAdmin) return c.json({ error: "forbidden" }, 403);
+  const body = await c.req.json<VolunteerSheetInput>().catch(() => null);
+  if (!body) return c.json({ error: "invalid_body" }, 400);
+
+  try {
+    const sheet = await updateSheet(c.env, c.req.param("id"), body);
+    if (!sheet) return c.json({ error: "not_found" }, 404);
+    c.var.audit.push({
+      action: "volunteer.sheet.updated",
+      entityKind: "volunteer_sheet",
+      entityId: sheet.id,
+      detail: { published: sheet.published },
+    });
+    return c.json({ sheet });
+  } catch (err) {
+    const bad = invalid(err);
+    if (bad) return c.json(bad, 400);
+    throw err;
+  }
+});
+
+/** DELETE /admin/volunteer-sheets/:id — removes its positions and signups too. */
+managedCalendar.delete("/volunteer-sheets/:id", async (c) => {
+  const auth = requireAuth(c);
+  if (!auth.isSystemAdmin) return c.json({ error: "forbidden" }, 403);
+  const id = c.req.param("id");
+  if (!(await deleteSheet(c.env, id))) return c.json({ error: "not_found" }, 404);
+  c.var.audit.push({
+    action: "volunteer.sheet.deleted",
+    entityKind: "volunteer_sheet",
+    entityId: id,
+  });
+  return c.json({ ok: true });
+});
+
+/** POST /admin/volunteer-sheets/:id/positions { title, description?, slots?, startsAt?, endsAt? } */
+managedCalendar.post("/volunteer-sheets/:id/positions", async (c) => {
+  const auth = requireAuth(c);
+  if (!auth.isSystemAdmin) return c.json({ error: "forbidden" }, 403);
+  const body = await c.req.json<VolunteerPositionInput>().catch(() => null);
+  if (!body) return c.json({ error: "invalid_body" }, 400);
+
+  try {
+    const sheet = await createPosition(c.env, c.req.param("id"), body);
+    if (!sheet) return c.json({ error: "not_found" }, 404);
+    c.var.audit.push({
+      action: "volunteer.position.created",
+      entityKind: "volunteer_sheet",
+      entityId: sheet.id,
+      detail: { title: body.title },
+    });
+    return c.json({ sheet }, 201);
+  } catch (err) {
+    const bad = invalid(err);
+    if (bad) return c.json(bad, 400);
+    throw err;
+  }
+});
+
+/** PATCH /admin/volunteer-positions/:id. */
+managedCalendar.patch("/volunteer-positions/:id", async (c) => {
+  const auth = requireAuth(c);
+  if (!auth.isSystemAdmin) return c.json({ error: "forbidden" }, 403);
+  const body = await c.req.json<Partial<VolunteerPositionInput>>().catch(() => null);
+  if (!body) return c.json({ error: "invalid_body" }, 400);
+
+  try {
+    const sheet = await updatePosition(c.env, c.req.param("id"), body);
+    if (!sheet) return c.json({ error: "not_found" }, 404);
+    c.var.audit.push({
+      action: "volunteer.position.updated",
+      entityKind: "volunteer_position",
+      entityId: c.req.param("id"),
+    });
+    return c.json({ sheet });
+  } catch (err) {
+    const bad = invalid(err);
+    if (bad) return c.json(bad, 400);
+    throw err;
+  }
+});
+
+/** DELETE /admin/volunteer-positions/:id — takes its signups with it. */
+managedCalendar.delete("/volunteer-positions/:id", async (c) => {
+  const auth = requireAuth(c);
+  if (!auth.isSystemAdmin) return c.json({ error: "forbidden" }, 403);
+  const sheetId = await deletePosition(c.env, c.req.param("id"));
+  if (!sheetId) return c.json({ error: "not_found" }, 404);
+  c.var.audit.push({
+    action: "volunteer.position.deleted",
+    entityKind: "volunteer_position",
+    entityId: c.req.param("id"),
+  });
+  const sheet = await loadSheetForAdmin(c.env, sheetId);
+  return c.json({ sheet });
 });

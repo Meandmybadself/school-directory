@@ -132,6 +132,7 @@ describe("newsletter renderer", () => {
       allDay: false,
       sourceIds: ["s1"],
       source: { name: "Events", color: "#0068A8" },
+      volunteerSlug: null,
     };
 
     const withEvents = renderNewsletterBodyHtml(doc(block), () => [event], {
@@ -159,6 +160,7 @@ describe("newsletter renderer", () => {
       allDay: true,
       sourceIds: ["s1"],
       source: { name: "Events", color: "#0068A8" },
+      volunteerSlug: null,
     };
     const html = renderNewsletterBodyHtml(
       doc({ type: EVENTS_BLOCK_TYPE, attrs: { blockId: "b", calendarIds: [], lookaheadDays: 7, heading: null } }),
@@ -173,7 +175,7 @@ describe("newsletter renderer", () => {
     const keep: CalendarEventDTO = {
       id: "e3", kind: "imported", title: "Book Fair", location: null, description: null,
       start: "2026-08-10T14:00:00.000Z", end: null, allDay: false,
-      sourceIds: ["s1"], source: { name: "Events", color: "#0068A8" },
+      sourceIds: ["s1"], source: { name: "Events", color: "#0068A8" }, volunteerSlug: null,
     };
     // Same shape the composer's ✕ writes: an eventKey, not the row id.
     const drop: CalendarEventDTO = { ...keep, id: "e4", title: "Chess Club", start: "2026-08-11T17:00:00.000Z" };
@@ -201,7 +203,7 @@ describe("newsletter renderer", () => {
     const only: CalendarEventDTO = {
       id: "e5", kind: "imported", title: "Only Thing", location: null, description: null,
       start: "2026-08-10T14:00:00.000Z", end: null, allDay: false,
-      sourceIds: ["s1"], source: { name: "Events", color: "#0068A8" },
+      sourceIds: ["s1"], source: { name: "Events", color: "#0068A8" }, volunteerSlug: null,
     };
     const html = renderNewsletterBodyHtml(
       doc({
@@ -221,7 +223,7 @@ describe("newsletter renderer", () => {
     const e: CalendarEventDTO = {
       id: "e6", kind: "imported", title: "Book Fair", location: null, description: null,
       start: "2026-08-10T14:00:00.000Z", end: null, allDay: false,
-      sourceIds: ["s1"], source: { name: "Events", color: "#0068A8" },
+      sourceIds: ["s1"], source: { name: "Events", color: "#0068A8" }, volunteerSlug: null,
     };
     const block = {
       type: EVENTS_BLOCK_TYPE,
