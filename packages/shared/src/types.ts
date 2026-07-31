@@ -551,12 +551,10 @@ export interface NewsletterSettingsDTO {
   /** From address. Must be a Resend-verified sender or delivery fails. */
   senderEmail: string;
   replyTo: string | null;
-  /** Plain footer copy. Always the text-only email's footer; also the HTML
-   *  footer whenever `footerHtml` is empty. */
-  footerText: string;
-  /** Optional hand-written HTML footer. When non-empty it replaces `footerText`
-   *  in the email's HTML part and on the public archive pages. Stored already
-   *  sanitized by `sanitizeFooterHtml` — see invariant 9 in CLAUDE.md. */
+  /** The footer, as hand-written HTML. Used in the email's HTML part and on the
+   *  public archive pages; the text-only part gets it flattened by
+   *  `footerTextOf`. Stored already sanitized by `sanitizeFooterHtml` — see
+   *  invariant 9 in CLAUDE.md. */
   footerHtml: string;
   /** Physical mailing address, expected in bulk mail. */
   mailingAddress: string;
@@ -631,9 +629,8 @@ export interface NewsletterBrandingDTO {
   newsletterTitle: string;
   accentColor: string;
   logoUrl: string | null;
-  footerText: string;
-  /** Sanitized HTML footer, or "" to use `footerText`. Public, like the rest of
-   *  this DTO — nothing member-private may be put in a footer. */
+  /** Sanitized HTML footer. Public, like the rest of this DTO — nothing
+   *  member-private may be put in a footer. */
   footerHtml: string;
 }
 

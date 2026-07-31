@@ -37,7 +37,6 @@ export function PreviewPane({
           newsletterTitle: settings.newsletterTitle,
           accentColor: settings.accentColor,
           logoUrl: settings.logoUrl,
-          footerText: settings.footerText,
           footerHtml: settings.footerHtml,
         },
         title: title || "Untitled",

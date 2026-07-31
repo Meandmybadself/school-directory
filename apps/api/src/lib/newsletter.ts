@@ -15,6 +15,7 @@ import type {
 } from "@sd/shared";
 import {
   collectEventsBlocks,
+  escapeHtml,
   renderNewsletterEmailHtml,
   renderNewsletterEmailText,
   sanitizeFooterHtml,
@@ -67,9 +68,10 @@ export function defaultNewsletterSettings(env: Env): NewsletterSettingsDTO {
     // but only with an address Resend has verified for this domain.
     senderEmail: "",
     replyTo: null,
-    footerText: `You're receiving this because you're part of the ${school} community.`,
-    // Empty means "just render footerText". An admin opts into markup.
-    footerHtml: "",
+    // The footer is authored as HTML, so even the stock wording is markup. The
+    // school name is escaped because it comes from config, not from the
+    // sanitizer — everything stored later goes through sanitizeFooterHtml.
+    footerHtml: `<p>You're receiving this because you're part of the ${escapeHtml(school)} community.</p>`,
     mailingAddress: "",
     unsubscribeWording: "Don't want these emails?",
     logoUrl: null,
@@ -82,6 +84,22 @@ export function defaultNewsletterSettings(env: Env): NewsletterSettingsDTO {
 
 function str(raw: unknown, fallback: string): string {
   return typeof raw === "string" ? raw.trim() : fallback;
+}
+
+/** The footer used to be a pair of fields: plain `footerText` plus an optional
+ *  `footerHtml` that overrode it. It is now HTML only, so a settings blob
+ *  written before that change still carries the admin's wording in a field
+ *  nothing reads. Promote it — escaped, since it was authored as plain text —
+ *  rather than silently blanking a live newsletter's footer. Writing settings
+ *  once drops the stale key, so this is a read-side migration with no backfill. */
+function footerHtmlFrom(r: Record<string, unknown>, fallback: string): string {
+  if (typeof r.footerHtml === "string") {
+    const html = sanitizeFooterHtml(r.footerHtml);
+    if (html) return html;
+  }
+  const legacy = typeof r.footerText === "string" ? r.footerText.trim() : "";
+  if (legacy) return `<p>${escapeHtml(legacy)}</p>`;
+  return typeof r.footerHtml === "string" ? "" : fallback;
 }
 
 /** Coerce arbitrary input onto the settings shape, field by field, falling back
@@ -105,14 +123,12 @@ export function coerceNewsletterSettings(
     // to "use EMAIL_FROM" rather than stored and silently failing later.
     senderEmail: senderEmail === "" || isEmail(senderEmail) ? senderEmail : base.senderEmail,
     replyTo: replyTo && isEmail(replyTo) ? replyTo : null,
-    footerText: str(r.footerText, base.footerText),
     // Sanitized on the way IN, not on the way out: the footer is interpolated
     // into the email and into the public archive pages by several call sites,
     // and only one of them can be the place that makes it safe. An admin who
     // pastes a <script> gets it silently dropped, which the settings screen
     // shows them by previewing what was actually stored.
-    footerHtml:
-      typeof r.footerHtml === "string" ? sanitizeFooterHtml(r.footerHtml) : base.footerHtml,
+    footerHtml: footerHtmlFrom(r, base.footerHtml),
     mailingAddress: str(r.mailingAddress, base.mailingAddress),
     unsubscribeWording: str(r.unsubscribeWording, base.unsubscribeWording),
     logoUrl: typeof r.logoUrl === "string" && /^https?:\/\//i.test(r.logoUrl.trim())
@@ -156,7 +172,6 @@ export function brandingOf(settings: NewsletterSettingsDTO): NewsletterBrandingD
     newsletterTitle: settings.newsletterTitle,
     accentColor: settings.accentColor,
     logoUrl: settings.logoUrl,
-    footerText: settings.footerText,
     footerHtml: settings.footerHtml,
   };
 }

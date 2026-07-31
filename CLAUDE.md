@@ -92,9 +92,13 @@ All three SPAs are separate Cloudflare Pages projects talking to the single
    allowlist — dropping `<script>`-class elements with their contents, refusing
    `url()`/`expression()` CSS, and balancing tags so a footer can't swallow the
    archive page. It runs on WRITE (`coerceNewsletterSettings`), so what's stored
-   is already safe, and `footerHtmlOf`/`footerTextOf` decide whether it or the
-   plain `footerText` is used. Don't add a second place that interpolates admin
-   HTML; route it through that function.
+   is already safe. The footer is **HTML only** — there is no plain-text twin;
+   `footerHtmlOf` hands the stored markup to the email and the archive, and
+   `footerTextOf` flattens that same markup for the email's text part. Don't add
+   a second place that interpolates admin HTML; route it through that function.
+   `coerceNewsletterSettings` still promotes a legacy `footerText` into
+   `footerHtml` on read, for settings blobs written before the fields merged;
+   that fallback can go once every instance has saved settings again.
 10. **A sent newsletter is immutable, and its web page is public.** Events blocks
    resolve live while a draft is edited and are FROZEN into `events_snapshot_json`
    at send, so the archive keeps matching what was mailed. Issue URLs are

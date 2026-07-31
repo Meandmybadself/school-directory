@@ -337,28 +337,27 @@ describe("footer html sanitizer", () => {
 });
 
 describe("footer selection", () => {
-  const branding = (footerText: string, footerHtml: string) => ({
+  const branding = (footerHtml: string) => ({
     newsletterTitle: "T",
     accentColor: "#0068A8",
     logoUrl: null,
-    footerText,
     footerHtml,
   });
 
-  it("prefers the HTML footer and escapes the plain one", () => {
-    expect(footerHtmlOf(branding("plain", "<p>rich</p>"))).toBe("<p>rich</p>");
-    expect(footerHtmlOf(branding("a & b", ""))).toBe("a &amp; b");
+  it("passes the stored markup through untouched", () => {
+    expect(footerHtmlOf(branding("<p>rich</p>"))).toBe("<p>rich</p>");
+    expect(footerHtmlOf(branding(""))).toBe("");
   });
 
-  it("flattens the HTML footer for the text part only when there's no plain one", () => {
-    expect(footerTextOf(branding("plain", "<p>rich</p>"))).toBe("plain");
-    expect(footerTextOf(branding("", "<p>rich</p>"))).toBe("rich");
+  it("flattens the HTML footer for the text part", () => {
+    expect(footerTextOf(branding("<p>rich</p>"))).toBe("rich");
+    expect(footerTextOf(branding(""))).toBe("");
   });
 
   it("reaches the email as markup, not as escaped text", () => {
     const html = renderNewsletterEmailHtml({
       // What's stored is what the sanitizer produced, so that's what's rendered.
-      branding: branding("plain", sanitizeFooterHtml('<p><a href="https://x.test">Board</a></p>')),
+      branding: branding(sanitizeFooterHtml('<p><a href="https://x.test">Board</a></p>')),
       title: "Issue",
       subtitle: null,
       doc: doc(para("hello")),
@@ -378,8 +377,7 @@ describe("settings coercion", () => {
     senderName: "Base",
     senderEmail: "base@x.test",
     replyTo: null,
-    footerText: "footer",
-    footerHtml: "",
+    footerHtml: "<p>footer</p>",
     mailingAddress: "addr",
     unsubscribeWording: "wording",
     logoUrl: null,
@@ -414,6 +412,23 @@ describe("settings coercion", () => {
       base,
     );
     expect(out.footerHtml).toBe("<p>Sent by the PTO</p>");
+  });
+
+  it("promotes a pre-HTML footerText so an existing footer isn't blanked", () => {
+    const out = coerceNewsletterSettings({ footerText: "Sent by the PTO & friends" }, base);
+    expect(out.footerHtml).toBe("<p>Sent by the PTO &amp; friends</p>");
+  });
+
+  it("prefers stored HTML over a leftover footerText", () => {
+    const out = coerceNewsletterSettings(
+      { footerText: "old wording", footerHtml: "<p>new</p>" },
+      base,
+    );
+    expect(out.footerHtml).toBe("<p>new</p>");
+  });
+
+  it("lets an admin clear the footer instead of resurrecting the default", () => {
+    expect(coerceNewsletterSettings({ footerHtml: "" }, base).footerHtml).toBe("");
   });
 });
 

@@ -431,21 +431,18 @@ export function sanitizeFooterHtml(raw: unknown): string {
   return out.join("").trim();
 }
 
-/** The footer as HTML: the admin's markup when they wrote any, otherwise the
- *  plain footer line escaped. One helper so the email and the archive pages
- *  can't disagree about which one wins. */
+/** The footer as HTML: the admin's markup, already sanitized on write. Kept as
+ *  a helper rather than inlined so the email and the archive pages can't drift
+ *  apart about what a footer is. */
 export function footerHtmlOf(branding: NewsletterBrandingDTO): string {
-  return branding.footerHtml
-    ? branding.footerHtml
-    : escapeHtml(branding.footerText);
+  return branding.footerHtml;
 }
 
-/** The footer as plain text, for the email's text part. `footerText` is the
- *  author's own wording and wins; flattening the HTML is only a fallback for an
- *  admin who filled in the HTML field and nothing else, so that the text part
- *  isn't simply missing a footer. */
+/** The footer as plain text, for the email's text part. The footer is authored
+ *  once, as HTML, so the text part is that markup flattened — there is no
+ *  separate plain-text wording to prefer. */
 export function footerTextOf(branding: NewsletterBrandingDTO): string {
-  return branding.footerText || htmlToText(branding.footerHtml);
+  return htmlToText(branding.footerHtml);
 }
 
 /** Every events block in the document, in order. Used to know what to resolve

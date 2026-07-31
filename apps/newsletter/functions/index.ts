@@ -19,7 +19,6 @@ export const onRequestGet: PagesFunction<PagesEnv> = async (context) => {
     newsletterTitle: "Newsletter",
     accentColor: "#0068A8",
     logoUrl: null,
-    footerText: "",
     footerHtml: "",
   };
 

@@ -114,21 +114,15 @@ export function Settings() {
       <section className="nlx-formgrid">
         <SectLabel>Footer</SectLabel>
         <Field
-          label="Footer text"
-          hint="Plain wording. Always used in the text-only part of the email, and in the footer itself unless the HTML below is filled in."
-        >
-          <textarea className="sd-input" rows={2} value={settings.footerText}
-            onChange={(e) => edit({ footerText: e.target.value })} />
-        </Field>
-        <Field
           label="Footer HTML"
           hint={
             <>
-              Optional. Replaces the footer text in the email and on the public
-              archive pages. Formatting, links, lists, images and layout tables
-              are kept; scripts, styles, embeds and anything else are dropped
-              when you save. Style with inline <code>style</code> attributes —
-              email clients ignore stylesheets.
+              Appears at the foot of the email and of every public archive page.
+              The text-only part of the email gets this same markup flattened.
+              Formatting, links, lists, images and layout tables are kept;
+              scripts, styles, embeds and anything else are dropped when you
+              save. Style with inline <code>style</code> attributes — email
+              clients ignore stylesheets.
             </>
           }
         >
@@ -136,12 +130,12 @@ export function Settings() {
             className="sd-input"
             rows={6}
             spellCheck={false}
-            value={settings.footerHtml}
+            value={settings.footerHtml ?? ""}
             style={{ fontFamily: "ui-monospace,SFMono-Regular,Menlo,monospace", fontSize: 13, lineHeight: 1.5 }}
             onChange={(e) => edit({ footerHtml: e.target.value })}
           />
         </Field>
-        {settings.footerHtml.trim() !== "" && (
+        {(settings.footerHtml ?? "").trim() !== "" && (
           <Field
             label="Footer preview"
             hint="Rendered from the sanitized markup — this is what a reader gets, not what was typed."
@@ -151,7 +145,7 @@ export function Settings() {
                 reach the DOM. */}
             <div
               className="nlx-footer-preview"
-              dangerouslySetInnerHTML={{ __html: sanitizeFooterHtml(settings.footerHtml) }}
+              dangerouslySetInnerHTML={{ __html: sanitizeFooterHtml(settings.footerHtml ?? "") }}
             />
           </Field>
         )}

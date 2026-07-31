@@ -8,9 +8,9 @@
 //
 // Only issues whose status is 'sent' are served; a guessed draft slug 404s.
 
-// The footer is the one field an admin may write as HTML; it was sanitized on
-// write by @sd/shared's sanitizeFooterHtml, and footerHtmlOf decides whether it
-// or the plain footerText is what this page shows.
+// The footer is the one field an admin writes as HTML; it was sanitized on
+// write by @sd/shared's sanitizeFooterHtml, and footerHtmlOf is the single seam
+// this page and the email both read it through.
 import { footerHtmlOf, NEWSLETTER_WEB_CSS, renderNewsletterBodyHtml } from "@sd/shared";
 import type { PublicNewsletterIssueDTO } from "@sd/shared";
 import { apiJson, escapeHtml, formatSentAt, html, shell, type PagesEnv } from "../_lib/page.js";
