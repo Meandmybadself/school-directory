@@ -65,7 +65,7 @@ export function navItems(t: ReturnType<typeof useI18n>["t"], isSystemAdmin: bool
   ];
   if (isSystemAdmin) items.push(["gear", "admin", "Settings", "/admin/settings"]);
   items.push(["calendar", "calendar", t("navCalendar"), CALENDAR_URL]);
-  items.push(["school", "directory", t("brandSub"), DIRECTORY_URL]);
+  items.push(["school", "directory", t("navDir"), DIRECTORY_URL]);
   return items;
 }
 
