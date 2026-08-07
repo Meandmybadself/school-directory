@@ -93,6 +93,33 @@ export async function apiJson<T>(env: PagesEnv, path: string): Promise<T | null>
   }
 }
 
+/** POST JSON to the API and report only whether it was accepted.
+ *
+ *  Server-to-server from the Function, so these calls never touch CORS and
+ *  never carry a cookie — which is the point on the subscribe path: the API's
+ *  public routes are the trust boundary, and this is just a browser-friendly
+ *  front for them. Returns null on transport failure so a page can say "that
+ *  didn't work" rather than 500. */
+export async function apiPost<T>(
+  env: PagesEnv,
+  path: string,
+  body: unknown,
+): Promise<{ status: number; data: T | null } | null> {
+  try {
+    const res = await fetch(`${env.API_BASE}${path}`, {
+      method: "POST",
+      headers: { "content-type": "application/json", accept: "application/json" },
+      body: JSON.stringify(body ?? {}),
+    });
+    const data = res.headers.get("content-type")?.includes("application/json")
+      ? ((await res.json()) as T)
+      : null;
+    return { status: res.status, data };
+  } catch {
+    return null;
+  }
+}
+
 export function formatSentAt(iso: string): string {
   return new Date(iso).toLocaleDateString("en-US", {
     month: "long",
@@ -110,6 +137,23 @@ export function html(body: string, status = 200): Response {
       // Short public cache: an issue is immutable once sent, but the archive
       // index changes whenever one is, and a minute of staleness is invisible.
       "cache-control": "public, max-age=60, s-maxage=300",
+    },
+  });
+}
+
+/** Same, but never stored anywhere. For pages whose URL contains a token or
+ *  whose body names an address: the shared cache above is keyed on the URL, so
+ *  caching a confirmation page would hand the next reader of that URL somebody
+ *  else's email address — and would let an already-consumed link keep rendering
+ *  as if it were live. */
+export function htmlPrivate(body: string, status = 200): Response {
+  return new Response(body, {
+    status,
+    headers: {
+      "content-type": "text/html; charset=utf-8",
+      "cache-control": "no-store, private",
+      "referrer-policy": "no-referrer",
+      "x-robots-tag": "noindex, nofollow",
     },
   });
 }

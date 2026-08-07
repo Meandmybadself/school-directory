@@ -943,5 +943,19 @@ a{color:var(--nl-accent,${DEFAULT_ACCENT})}
 .nl-archive-date{display:block;font-size:12.5px;color:${MUTED};margin-bottom:4px}
 .nl-empty{background:${PAPER};border-radius:12px;padding:40px 20px;text-align:center;color:${MUTED}}
 .nl-site-foot{max-width:680px;margin:0 auto;padding:0 16px 40px;text-align:center;font-size:13px;color:${MUTED}}
+.nl-subscribe-cta{display:block;background:${PAPER};border-radius:12px;padding:16px 20px;margin-bottom:18px;text-decoration:none;color:inherit;box-shadow:0 1px 3px rgba(16,24,40,.06);border-left:3px solid var(--nl-accent,${DEFAULT_ACCENT})}
+.nl-subscribe-cta strong{color:var(--nl-accent,${DEFAULT_ACCENT})}
+.nl-subscribe-cta span{display:block;margin-top:3px;font-size:14px;color:${MUTED}}
+.nl-form{margin:22px 0 0}
+.nl-label{display:block;font-size:14px;font-weight:600;margin-bottom:6px}
+.nl-input{width:100%;font:inherit;font-size:16px;padding:11px 13px;border:1px solid ${RULE};border-radius:9px;background:${PAPER};color:inherit}
+.nl-input:focus{outline:2px solid var(--nl-accent,${DEFAULT_ACCENT});outline-offset:1px;border-color:transparent}
+.nl-btn{display:inline-block;margin-top:14px;font:inherit;font-size:16px;font-weight:600;padding:11px 20px;border:0;border-radius:9px;background:var(--nl-accent,${DEFAULT_ACCENT});color:#fff;cursor:pointer;text-decoration:none}
+.nl-btn:hover{filter:brightness(.93)}
+.nl-hint{margin:12px 0 0;font-size:13.5px;line-height:1.6;color:${MUTED}}
+.nl-error{margin:0 0 14px;padding:11px 14px;border-radius:9px;background:#fdecec;color:#8a1c1c;font-size:14.5px}
+/* Off-screen rather than display:none — a bot reading the DOM sees a normal
+   field, while a screen reader is told to skip it. */
+.nl-hp{position:absolute;left:-9999px;width:1px;height:1px;overflow:hidden}
 @media (max-width:520px){.nl-card{padding:22px 18px 26px}.nl-title{font-size:25px}}
 `.trim();

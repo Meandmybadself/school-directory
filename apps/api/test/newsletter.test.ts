@@ -514,6 +514,7 @@ describe("settings coercion", () => {
     defaultLookaheadDays: 14,
     timeZone: "America/Chicago",
     calendarUrl: "https://calendar.x.test",
+    newSubscriberNotify: "off" as const,
   };
 
   it("keeps the previous value for a malformed field", () => {
@@ -558,6 +559,24 @@ describe("settings coercion", () => {
 
   it("lets an admin clear the footer instead of resurrecting the default", () => {
     expect(coerceNewsletterSettings({ footerHtml: "" }, base).footerHtml).toBe("");
+  });
+
+  it("accepts each valid new-subscriber notification mode", () => {
+    for (const mode of ["off", "instant", "daily"] as const) {
+      expect(coerceNewsletterSettings({ newSubscriberNotify: mode }, base).newSubscriberNotify)
+        .toBe(mode);
+    }
+  });
+
+  it("refuses to start emailing on an unrecognized notification mode", () => {
+    // This field decides whether mail gets sent, so anything unrecognized has
+    // to fall back rather than be stored.
+    const on = { ...base, newSubscriberNotify: "instant" as const };
+    expect(coerceNewsletterSettings({ newSubscriberNotify: "hourly" }, on).newSubscriberNotify)
+      .toBe("instant");
+    expect(coerceNewsletterSettings({ newSubscriberNotify: true }, base).newSubscriberNotify)
+      .toBe("off");
+    expect(coerceNewsletterSettings({}, base).newSubscriberNotify).toBe("off");
   });
 });
 

@@ -4,7 +4,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import type { NewsletterSettingsDTO } from "@sd/shared";
+import type { NewsletterSettingsDTO, NotifyMode } from "@sd/shared";
 import { sanitizeFooterHtml } from "@sd/shared";
 import { AppShell, BottomNav } from "../components/AppShell.js";
 import { DesktopShell } from "../components/DesktopShell.js";
@@ -17,6 +17,24 @@ import { useCalendarFeeds } from "../lib/useCalendarFeeds.js";
 import { api, errorMessage } from "../lib/api.js";
 
 const LOOKAHEAD_CHOICES = [7, 14, 30, 60];
+
+/** Admin-facing copy, hardcoded like the rest of this screen. The authoring
+ *  side is English-only by convention (see lib/email.ts) — invariant 6's i18n
+ *  rule governs member-facing UI, which this isn't. */
+const NOTIFY_CHOICES: { mode: NotifyMode; label: string; detail: string }[] = [
+  { mode: "off", label: "Off", detail: "Nobody is emailed when someone subscribes." },
+  {
+    mode: "instant",
+    label: "Instant",
+    detail: "Every system admin gets one email per confirmed subscriber, as it happens.",
+  },
+  {
+    mode: "daily",
+    label: "Daily digest",
+    detail:
+      "One email each morning listing everyone who confirmed since the last digest. Turning this on starts counting now — subscribers from before today aren't replayed.",
+  },
+];
 
 export function Settings() {
   const desktop = useIsDesktop();
@@ -228,6 +246,27 @@ export function Settings() {
             ))}
           </div>
         </Field>
+      </section>
+
+      <section className="nlx-formgrid">
+        <SectLabel>Notifications</SectLabel>
+        <Field
+          label="New subscribers"
+          hint="Emails every system admin when someone confirms a subscription on the public sign-up page. Addresses you add yourself, here or by import, never notify."
+        >
+          <div className="nlx-chips">
+            {NOTIFY_CHOICES.map((choice) => (
+              <button key={choice.mode} type="button"
+                className={`nlx-chip${settings.newSubscriberNotify === choice.mode ? " on" : ""}`}
+                onClick={() => edit({ newSubscriberNotify: choice.mode })}>
+                {choice.label}
+              </button>
+            ))}
+          </div>
+        </Field>
+        <p className="sd-meta" style={{ margin: 0 }}>
+          {NOTIFY_CHOICES.find((c) => c.mode === settings.newSubscriberNotify)?.detail}
+        </p>
       </section>
 
       <div className="sd-row" style={{ gap: 12 }}>

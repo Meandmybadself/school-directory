@@ -6,7 +6,11 @@ import { cors } from "hono/cors";
 import type { Env, HonoEnv } from "./env.js";
 import { refreshAllSources } from "./lib/calendar.js";
 import { allowedOrigins } from "./lib/db.js";
-import { sendNewUserDigest } from "./lib/notify.js";
+import {
+  sendNewSubscriberDigest,
+  sendNewUserDigest,
+  sweepExpiredConfirmations,
+} from "./lib/notify.js";
 import { contextMiddleware } from "./middleware/context.js";
 import { sessionMiddleware, UnauthorizedError } from "./middleware/session.js";
 import { auditMiddleware } from "./middleware/audit.js";
@@ -67,7 +71,7 @@ app.route("/calendar", calendar);
 app.route("/calendar-public", calendarPublic); // anonymous agenda reads — no auth by design
 app.route("/ics", ics); // public published feeds — no auth by design
 app.route("/newsletter", newsletter); // authoring — system admins only
-app.route("/newsletter-public", newsletterPublic); // archive + unsubscribe — no auth by design
+app.route("/newsletter-public", newsletterPublic); // archive + subscribe/unsubscribe — no auth by design
 app.route("/volunteers", volunteers); // signup reads with names + claims — members only
 app.route("/volunteers-public", volunteersPublic); // signup counts, no names — no auth by design
 // share-targets is exposed under /shares/targets via the shares router.
@@ -119,14 +123,21 @@ app.notFound((c) => c.json({ error: "not_found" }, 404));
 // Cron (see wrangler.toml [triggers]). Two schedules share this handler:
 //   0 */3 * * *  — refresh the shared calendar from its ICS feeds. Errors are
 //                  recorded per-source and never throw.
-//   0 13 * * *   — send the new-member digest (~8am Central). No-op unless an
-//                  admin has set notifications to "daily".
+//   0 13 * * *   — send the admin digests (~8am Central): new members and new
+//                  newsletter subscribers. Each is a no-op unless an admin has
+//                  set that notification to "daily", and they are independent
+//                  settings, so one may fire while the other doesn't.
 // The two never collide: */3 fires on even hours only.
 const DIGEST_CRON = "0 13 * * *";
 
 const scheduled: ExportedHandlerScheduledHandler<Env> = (event, env, ctx) => {
   if (event.cron === DIGEST_CRON) {
+    // Separately awaited inside their own try/catch, so one failing digest
+    // can't swallow the other.
     ctx.waitUntil(sendNewUserDigest(env));
+    ctx.waitUntil(sendNewSubscriberDigest(env));
+    // Housekeeping for the one table an anonymous route can grow.
+    ctx.waitUntil(sweepExpiredConfirmations(env));
     return;
   }
   ctx.waitUntil(refreshAllSources(env));

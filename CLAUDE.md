@@ -166,6 +166,35 @@ All three SPAs are separate Cloudflare Pages projects talking to the single
    system admin. Overfill is prevented by a guarded `INSERT … SELECT … WHERE
    (count < slots)` whose `meta.changes` is checked, because D1 has no
    transaction around a read-then-write.
+14. **Public sign-up is double opt-in, and `POST /newsletter-public/subscribe`
+   writes no subscription.** The form at `/subscribe` is anonymous, so the
+   address it carries is an unproven claim by whoever typed it. That route only
+   mints a `newsletter_confirmation` (migration 0013) and mails the link;
+   `POST /newsletter-public/subscribe/confirm/:token` is the ONLY path that
+   touches `newsletter_subscriber` from the public side. Three rules hold it
+   together. **The GET on that token must stay read-only** — mail scanners and
+   "safe links" rewriters follow every GET in an email, so a confirming GET
+   would verify the recipient's mail server rather than the recipient; the same
+   reasoning as the unsubscribe pair, and `test/newsletterSubscribe.test.ts`
+   asserts nothing is written by the GET. **The token is not an `auth_token`**:
+   `/auth/callback` matches on `token_hash` without filtering `kind` and creates
+   a user for any non-`signin` kind, so a newsletter token in that table would
+   make a public form into an account-creation and sign-in vector. **The
+   response never varies** — malformed, brand new, already subscribed and
+   rate-limited all answer `{ ok: true }` (invariant 4), so the daily send cap
+   can't be used as an existence oracle either.
+   Admin-side adds (`/newsletter/subscribers`, bulk import) remain single
+   opt-in on purpose: an admin entering the school roster is asserting a
+   relationship the form can't. That split is also what
+   `newsletter_subscriber.confirmed_at` (migration 0014) records, and why admin
+   notifications key on it rather than on `created_at`: only the public confirm
+   route stamps it, so an address an admin added can't email them about itself.
+   `created_at` could not do the job — the upsert deliberately doesn't bump it,
+   so a re-subscription is invisible to any window query over it.
+   The notification setting itself is `newSubscriberNotify` on the newsletter
+   settings blob, edited on the newsletter's own Settings screen — NOT with the
+   new-member toggle in `apps/web`'s Admin, because each app owns its own admin.
+   `lib/notify.ts` holds both, and the daily digests share one cron.
 
 ## Conventions
 

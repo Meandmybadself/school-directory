@@ -665,13 +665,22 @@ export interface MyHouseholdDTO {
 
 // ── Instance settings ──────────────────────────────────────────────────────
 
-/** How system admins hear about new sign-ups. `off` by default (NFR-1): the
- *  instance sends nothing until an admin opts in.
- *  - `instant` — one email per join, as it happens.
- *  - `daily`   — a single digest of everyone who joined since the last one. */
-export type NewUserNotify = "off" | "instant" | "daily";
+/** How system admins hear about something that happened without them. `off` by
+ *  default (NFR-1): the instance sends nothing until an admin opts in.
+ *  - `instant` — one email per event, as it happens.
+ *  - `daily`   — a single digest of everything since the last one.
+ *
+ *  Shared by new-member notifications and new-subscriber notifications; the two
+ *  are separate settings on separate screens, but the shape and the machinery
+ *  behind them (lib/notify.ts) are one. */
+export type NotifyMode = "off" | "instant" | "daily";
 
-export const NEW_USER_NOTIFY_MODES = ["off", "instant", "daily"] as const;
+export const NOTIFY_MODES = ["off", "instant", "daily"] as const;
+
+/** How system admins hear about new sign-ups specifically. */
+export type NewUserNotify = NotifyMode;
+
+export const NEW_USER_NOTIFY_MODES = NOTIFY_MODES;
 
 export interface NotificationSettingsDTO {
   newUser: NewUserNotify;
@@ -764,6 +773,14 @@ export interface NewsletterSettingsDTO {
   /** Public calendar site, from the Worker's CALENDAR_URL var. Env-derived and
    *  ignored on write, like `timeZone`. Events blocks link out to it. */
   calendarUrl: string;
+  /** How system admins hear about someone confirming a subscription through the
+   *  PUBLIC form. `off` by default, like every other notification (NFR-1).
+   *
+   *  Only the public double opt-in fires this. Addresses an admin adds on the
+   *  subscribers screen or via bulk import never notify — the admin who added
+   *  them already knows — which is the same rule notify.ts applies to
+   *  admin-provisioned member accounts. */
+  newSubscriberNotify: NotifyMode;
 }
 
 export interface NewsletterIssueSummaryDTO {
@@ -880,6 +897,23 @@ export interface PublicNewsletterArchiveDTO {
   branding: NewsletterBrandingDTO;
 }
 
+/** Branding on its own, for a public page that isn't showing an issue — the
+ *  subscribe form. Same narrowing as everywhere else: `brandingOf` is the only
+ *  thing that builds a NewsletterBrandingDTO, so sender identity can't leak
+ *  into a page just because a new page needed a masthead. */
+export interface PublicNewsletterBrandingDTO {
+  branding: NewsletterBrandingDTO;
+}
+
+/** What a pending double opt-in confirmation reveals: the address it was mailed
+ *  to, so the confirm page can show whose subscription is about to start.
+ *
+ *  Holding the token is what authorizes seeing this, exactly as with the
+ *  unsubscribe token — the token went to that address and nowhere else. */
+export interface PublicNewsletterConfirmationDTO {
+  email: string;
+}
+
 // ── Audit ─────────────────────────────────────────────────────────────────
 
 /** Actions captured in the append-only audit log (FR-31). */
@@ -913,6 +947,10 @@ export type AuditAction =
   | "newsletter.issue.sent"
   | "newsletter.issue.retried"
   | "newsletter.media.uploaded"
+  /** Someone completed double opt-in from the public form. Anonymous — there is
+   *  no session on that route — so the actor column is null and the confirmed
+   *  address is the only identity the row carries. */
+  | "newsletter.subscribed"
   | "newsletter.test_sent"
   | "newsletter.settings.updated"
   | "newsletter.subscriber.added"

@@ -12,12 +12,14 @@ import type {
   NewsletterBrandingDTO,
   NewsletterNode,
   NewsletterSettingsDTO,
+  NotifyMode,
 } from "@sd/shared";
 import {
   blockWindow,
   collectEventsBlocks,
   DEFAULT_TIME_ZONE,
   escapeHtml,
+  NOTIFY_MODES,
   renderNewsletterEmailHtml,
   renderNewsletterEmailText,
   sanitizeFooterHtml,
@@ -188,6 +190,8 @@ export function defaultNewsletterSettings(env: Env): NewsletterSettingsDTO {
     defaultLookaheadDays: 14,
     timeZone: env.SCHOOL_TIMEZONE || DEFAULT_TIME_ZONE,
     calendarUrl: env.CALENDAR_URL ?? "",
+    // Off until an admin asks for it, like every other notification (NFR-1).
+    newSubscriberNotify: "off",
   };
 }
 
@@ -258,6 +262,12 @@ export function coerceNewsletterSettings(
     // is discarded.
     timeZone: base.timeZone,
     calendarUrl: base.calendarUrl,
+    // An unrecognized mode falls back rather than being stored: this value
+    // decides whether mail gets sent, and "whatever the client said" is not a
+    // good enough reason to start emailing people.
+    newSubscriberNotify: NOTIFY_MODES.includes(r.newSubscriberNotify as NotifyMode)
+      ? (r.newSubscriberNotify as NotifyMode)
+      : base.newSubscriberNotify,
   };
 }
 
@@ -433,6 +443,46 @@ export interface IssueEmailInput {
 
 export function issueWebUrl(env: Env, slug: string): string {
   return `${env.NEWSLETTER_URL}/n/${slug}`;
+}
+
+export function confirmSubscriptionUrl(env: Env, token: string): string {
+  return `${env.NEWSLETTER_URL}/subscribe/confirm/${token}`;
+}
+
+/** The double opt-in email: the only thing standing between "a stranger typed
+ *  your address into a public form" and "you are on a mailing list".
+ *
+ *  Sent under the newsletter's own sender identity rather than the instance
+ *  EMAIL_FROM that lib/email.ts's transactional builders use. It is newsletter
+ *  mail — the recipient is being asked to recognise the sender and decide, so
+ *  the From line has to be the name they'll see on every issue afterwards, not
+ *  "Directory".
+ *
+ *  Deliberately makes no claim about whether the address is already subscribed.
+ *  The route answers identically in every case (no enumeration), and the copy
+ *  has to hold for a first-time signup and a duplicate alike. */
+export function subscribeConfirmEmailArgs(
+  env: Env,
+  settings: NewsletterSettingsDTO,
+  link: string,
+): SendArgs {
+  const title = settings.newsletterTitle;
+  const accent = settings.accentColor || "#0068A8";
+  return {
+    to: "",
+    subject: `Confirm your subscription to the ${title}`,
+    text: `Someone asked to subscribe this address to the ${title}.
+
+Confirm your subscription:
+${link}
+
+If that wasn't you, ignore this email — nothing happens until the link above is used, and we won't email you again.`,
+    html: `<p>Someone asked to subscribe this address to the <strong>${escapeHtml(title)}</strong>.</p>
+<p><a href="${escapeHtml(link)}" style="color:${escapeHtml(accent)}">Confirm your subscription</a></p>
+<p style="color:#56636f;font-size:13px">If that wasn't you, ignore this email — nothing happens until the link above is used, and we won't email you again.</p>`,
+    from: settings.senderEmail ? `${settings.senderName} <${settings.senderEmail}>` : undefined,
+    replyTo: settings.replyTo ?? undefined,
+  };
 }
 
 export function unsubscribeUrl(env: Env, token: string | null): string {

@@ -138,6 +138,56 @@ export function newUserDigestEmail(env: Env, users: NewUserSummary[]): SendArgs 
   };
 }
 
+export interface NewSubscriberSummary {
+  email: string;
+  confirmedAt: string;
+}
+
+/** Sent to system admins when someone completes double opt-in on the public
+ *  newsletter form (notifications = "instant").
+ *
+ *  Under the instance's own From identity, not the newsletter's configured
+ *  sender — this is transactional mail to staff about the newsletter, not an
+ *  issue of it, and it should look like the rest of the admin notifications in
+ *  their inbox. */
+export function newSubscriberEmail(env: Env, s: NewSubscriberSummary): SendArgs {
+  const school = env.SCHOOL_NAME;
+  const admin = `${env.NEWSLETTER_URL}/admin/subscribers`;
+  return {
+    to: "",
+    subject: `New newsletter subscriber: ${s.email}`,
+    text: `${s.email} confirmed a subscription to the ${school} Newsletter.\n\n${fmtWhen(s.confirmedAt)}\n\nManage subscribers: ${admin}\n\nYou're getting this because new-subscriber notifications are on. Change them in Newsletter → Settings → Notifications.`,
+    html: `<p><strong>${esc(s.email)}</strong> confirmed a subscription to the <strong>${esc(school)} Newsletter</strong>.</p>
+<p style="color:#56636f;font-size:13px">${fmtWhen(s.confirmedAt)}</p>
+<p><a href="${admin}">Manage subscribers</a></p>
+<p style="color:#56636f;font-size:13px">You're getting this because new-subscriber notifications are on. Change them in Newsletter → Settings → Notifications.</p>`,
+  };
+}
+
+/** Daily roll-up of everyone who confirmed since the last digest (= "daily"). */
+export function newSubscriberDigestEmail(env: Env, subs: NewSubscriberSummary[]): SendArgs {
+  const school = env.SCHOOL_NAME;
+  const admin = `${env.NEWSLETTER_URL}/admin/subscribers`;
+  const n = subs.length;
+  const heading = `${n} new ${n === 1 ? "subscriber" : "subscribers"} joined the ${school} Newsletter`;
+  const lines = subs.map((s) => `• ${s.email} — ${fmtWhen(s.confirmedAt)}`);
+  const rows = subs
+    .map(
+      (s) =>
+        `<li><strong>${esc(s.email)}</strong> <span style="color:#56636f">— ${fmtWhen(s.confirmedAt)}</span></li>`,
+    )
+    .join("\n");
+  return {
+    to: "",
+    subject: `${n} new newsletter ${n === 1 ? "subscriber" : "subscribers"} — ${school}`,
+    text: `${heading}\n\n${lines.join("\n")}\n\nManage subscribers: ${admin}\n\nYou're getting this because the daily new-subscriber digest is on. Change it in Newsletter → Settings → Notifications.`,
+    html: `<p>${esc(heading)}.</p>
+<ul>${rows}</ul>
+<p><a href="${admin}">Manage subscribers</a></p>
+<p style="color:#56636f;font-size:13px">You're getting this because the daily new-subscriber digest is on. Change it in Newsletter → Settings → Notifications.</p>`,
+  };
+}
+
 export function magicLinkEmail(env: Env, link: string): SendArgs {
   const school = env.SCHOOL_NAME;
   return {

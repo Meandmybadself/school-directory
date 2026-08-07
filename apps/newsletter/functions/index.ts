@@ -37,8 +37,19 @@ export const onRequestGet: PagesFunction<PagesEnv> = async (context) => {
     )
     .join("\n");
 
+  // Above the issue list, not below it: the archive can run to dozens of cards,
+  // and a reader who has decided they want this shouldn't have to scroll past
+  // everything they haven't read yet to act on it. Shown even when the archive
+  // is empty — a school that hasn't sent its first issue is exactly when
+  // collecting addresses matters most.
+  const subscribe = `      <a class="nl-subscribe-cta" href="/subscribe">
+        <strong>Get this by email &rarr;</strong>
+        <span>Free, open to anyone, and you can unsubscribe from any issue.</span>
+      </a>`;
+
   const body = `    <div class="nl-wrap">
       <div class="nl-masthead">${masthead}</div>
+${subscribe}
 ${issues.length === 0 ? '      <div class="nl-empty">No issues have been published yet.</div>' : items}
     </div>`;
 

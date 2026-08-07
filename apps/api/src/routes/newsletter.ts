@@ -25,6 +25,7 @@ import { ulid } from "../lib/ids.js";
 import { nowIso } from "../lib/time.js";
 import { normalizeEmail } from "../lib/db.js";
 import { sendEmailResult } from "../lib/email.js";
+import { startSubscriberDigestWindow } from "../lib/notify.js";
 import {
   coerceNewsletterSettings,
   getNewsletterSettings,
@@ -420,11 +421,29 @@ newsletter.put("/settings", async (c) => {
   const next = coerceNewsletterSettings(body, current);
   await setNewsletterSettings(c.env, next);
 
+  // Switching INTO digest mode starts the window now, so turning it on doesn't
+  // mail an admin every subscriber who joined while it was off. Only on the
+  // transition — re-saving the settings screen while already on "daily" must
+  // not silently drop the subscribers accumulated since the last digest.
+  if (next.newSubscriberNotify === "daily" && current.newSubscriberNotify !== "daily") {
+    await startSubscriberDigestWindow(c.env);
+  }
+
   c.var.audit.push({
     action: "newsletter.settings.updated",
     entityKind: "setting",
     entityId: "newsletter_settings",
   });
+  if (next.newSubscriberNotify !== current.newSubscriberNotify) {
+    // Its own row: "who turned on subscriber emails, and when" is a question
+    // that gets asked, and a generic settings-updated entry can't answer it.
+    c.var.audit.push({
+      action: "notify.toggled",
+      entityKind: "setting",
+      entityId: "new_subscriber_notify",
+      detail: { mode: next.newSubscriberNotify },
+    });
+  }
   return c.json({ settings: next });
 });
 
