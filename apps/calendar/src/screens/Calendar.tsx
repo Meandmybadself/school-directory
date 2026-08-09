@@ -15,6 +15,7 @@ import { Btn } from "../components/atoms.js";
 import { AppShell, BottomNav } from "../components/AppShell.js";
 import { DesktopShell } from "../components/DesktopShell.js";
 import { ScreenHeader, SectLabel, SheetOver } from "../components/parts.js";
+import { SubscribeSheet } from "../components/Sheets.js";
 import { useI18n } from "../i18n/index.js";
 import { useIsDesktop } from "../lib/useIsDesktop.js";
 import { api } from "../lib/api.js";
@@ -22,6 +23,14 @@ import { useSession } from "../lib/session.js";
 import { showsDescription, showsAllDayLabel, showsTitle, eventDayKey, formatEventDay } from "../lib/calendar.js";
 
 const HIDDEN_KEY = "sd_cal_hidden";
+
+/** The two actions hanging off a calendar chip. Shared so subscribe and
+ *  download keep matching each other as the chip is restyled — they read as one
+ *  segmented control, and one drifting is immediately visible. */
+const feedActionStyle = {
+  display: "inline-flex", alignItems: "center", padding: "5px 9px",
+  color: "var(--ink-3)", border: 0, borderLeft: "1px solid var(--line)",
+} as const;
 
 function loadHidden(): Set<string> {
   try {
@@ -103,6 +112,7 @@ function EventRow({ e, locale, onOpen }: { e: PublicCalendarEventDTO; locale: st
  *  origin; see PublicCalendarFeedDTO. */
 function FilterBar({ feeds, hidden, onToggle }: { feeds: PublicCalendarFeedDTO[]; hidden: Set<string>; onToggle: (id: string) => void }) {
   const { t } = useI18n();
+  const [subscribing, setSubscribing] = useState<PublicCalendarFeedDTO | null>(null);
   if (feeds.length === 0) return null;
   const canFilter = feeds.length >= 2;
   return (
@@ -130,13 +140,25 @@ function FilterBar({ feeds, hidden, onToggle }: { feeds: PublicCalendarFeedDTO[]
                   {f.name}
                 </span>
               )}
+              {/* Subscribe sits before download deliberately: keeping up with
+                  the school is what a family actually wants, and a downloaded
+                  .ics is a snapshot that silently goes stale. */}
+              <button
+                type="button"
+                onClick={() => setSubscribing(f)}
+                title={t("subscribeIcs", { name: f.name })}
+                aria-label={t("subscribeIcs", { name: f.name })}
+                style={{ ...feedActionStyle, background: "transparent", font: "inherit", cursor: "pointer" }}
+              >
+                <Icon name="plus" size={14} />
+              </button>
               <a
                 href={f.url}
                 target="_blank"
                 rel="noopener noreferrer"
                 title={t("downloadIcs", { name: f.name })}
                 aria-label={t("downloadIcs", { name: f.name })}
-                style={{ display: "inline-flex", alignItems: "center", padding: "5px 9px", color: "var(--ink-3)", borderLeft: "1px solid var(--line)" }}
+                style={feedActionStyle}
               >
                 <Icon name="download" size={14} />
               </a>
@@ -144,6 +166,13 @@ function FilterBar({ feeds, hidden, onToggle }: { feeds: PublicCalendarFeedDTO[]
           );
         })}
       </div>
+      {subscribing && (
+        <SubscribeSheet
+          name={subscribing.name}
+          url={subscribing.url}
+          onClose={() => setSubscribing(null)}
+        />
+      )}
     </div>
   );
 }

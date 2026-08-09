@@ -60,3 +60,29 @@ export function formatEventDay(
     ...(e.allDay ? { timeZone: "UTC" } : {}),
   });
 }
+
+/** Turn a published feed URL into the `webcal:` form.
+ *
+ *  Purely a scheme swap on OUR OWN origin — `PublicCalendarFeedDTO.url` is
+ *  always a feed on this API (invariant 12), never an admin's upstream URL, so
+ *  nothing private can be reflected into one of these links.
+ *
+ *  `webcal:` is what makes this a subscription rather than a download: an https
+ *  link hands the calendar app a one-time file, while the same URL under
+ *  `webcal:` is registered by Apple Calendar, Outlook and most mobile calendar
+ *  apps as "subscribe and keep checking". */
+export function webcalUrl(url: string): string {
+  return url.replace(/^https?:\/\//i, "webcal://");
+}
+
+/** Google Calendar's add-by-URL entry point.
+ *
+ *  Google is the one that needs a special case: it does not register a handler
+ *  for `webcal:` in the browser, so a bare webcal link does nothing for the many
+ *  families on Google Calendar. `cid` must itself carry the `webcal:` form —
+ *  passing https there silently fails to subscribe — and Google's servers fetch
+ *  the feed themselves, which is why it only works because /ics/* is public and
+ *  unauthenticated by design. */
+export function googleSubscribeUrl(url: string): string {
+  return `https://calendar.google.com/calendar/r?cid=${encodeURIComponent(webcalUrl(url))}`;
+}

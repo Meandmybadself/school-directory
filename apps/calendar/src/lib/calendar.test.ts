@@ -8,7 +8,7 @@
 
 import { describe, expect, it } from "vitest";
 import type { PublicCalendarEventDTO } from "@sd/shared";
-import { eventDayKey, formatEventDay } from "./calendar.js";
+import { eventDayKey, formatEventDay, googleSubscribeUrl, webcalUrl } from "./calendar.js";
 
 const ev = (over: Partial<PublicCalendarEventDTO>): PublicCalendarEventDTO => ({
   id: "e", kind: "imported", title: "Event", location: null, description: null,
@@ -67,5 +67,34 @@ describe("formatEventDay", () => {
     const start = "2026-09-14T23:30:00.000Z";
     const expected = new Date(start).toLocaleDateString("en-US", { month: "long", day: "numeric" });
     expect(formatEventDay(ev({ allDay: false, start }), "en-US", { month: "long", day: "numeric" })).toBe(expected);
+  });
+});
+
+describe("subscription links", () => {
+  // A published managed calendar, exactly as PublicCalendarFeedDTO carries it:
+  // always https on our own API origin, never an admin's upstream URL.
+  const feed = "https://api-directory.eisenhower.school/ics/01ABC.ics";
+
+  it("swaps the scheme so a calendar app subscribes instead of downloading", () => {
+    expect(webcalUrl(feed)).toBe("webcal://api-directory.eisenhower.school/ics/01ABC.ics");
+  });
+
+  it("handles the http origin used in local dev", () => {
+    expect(webcalUrl("http://localhost:8787/ics/01ABC.ics")).toBe("webcal://localhost:8787/ics/01ABC.ics");
+  });
+
+  it("only touches the scheme — the path and any query survive intact", () => {
+    const withQuery = "https://api-directory.eisenhower.school/ics/source/01XYZ.ics?v=2";
+    expect(webcalUrl(withQuery)).toBe("webcal://api-directory.eisenhower.school/ics/source/01XYZ.ics?v=2");
+  });
+
+  it("gives Google a cid carrying the webcal form, url-encoded", () => {
+    // Google silently fails to subscribe if cid holds an https URL, so this is
+    // the assertion that keeps the Google path actually working.
+    const out = googleSubscribeUrl(feed);
+    expect(out.startsWith("https://calendar.google.com/calendar/r?cid=")).toBe(true);
+    const cid = decodeURIComponent(out.split("cid=")[1]!);
+    expect(cid).toBe("webcal://api-directory.eisenhower.school/ics/01ABC.ics");
+    expect(out).not.toContain("cid=https");
   });
 });

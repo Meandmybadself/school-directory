@@ -1,10 +1,12 @@
-// Bottom sheets: language picker and the account menu.
+// Bottom sheets: language picker, the account menu, and calendar subscription.
+import { useState } from "react";
 import { localeNames, LOCALES, type Locale } from "@sd/shared";
 import { Icon } from "./Icon.js";
 import { SheetOver } from "./parts.js";
 import { useI18n } from "../i18n/index.js";
 import { useSession } from "../lib/session.js";
 import { api, DIRECTORY_URL } from "../lib/api.js";
+import { googleSubscribeUrl, webcalUrl } from "../lib/calendar.js";
 
 /** Language trigger — shows the current language code (EN / ES / 中文) so it's
  *  obvious it's the language switcher and which language is active. */
@@ -95,6 +97,89 @@ export function AccountSheet({ onClose }: { onClose: () => void }) {
           <span style={{ fontSize: 14.5, fontWeight: 700 }}>{t("signOut")}</span>
         </button>
       </div>
+    </SheetOver>
+  );
+}
+
+/** How a family puts one of these calendars into the app they already use.
+ *
+ *  Three routes rather than one button, because no single link works everywhere:
+ *  `webcal:` covers Apple and Outlook, Google needs its own URL, and the raw
+ *  link covers everything else (and is the only thing that works if a handler
+ *  is missing). Offering only the first would silently fail for whoever is on
+ *  Google, which at a school is a large share of the parents. */
+export function SubscribeSheet({ name, url, onClose }: { name: string; url: string; onClose: () => void }) {
+  const { t } = useI18n();
+  const [copied, setCopied] = useState(false);
+
+  const copy = async () => {
+    try {
+      await navigator.clipboard.writeText(url);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    } catch {
+      /* clipboard blocked — the link is shown in full below and stays selectable */
+    }
+  };
+
+  const row = {
+    gap: 12, padding: "13px 14px", borderRadius: 12, width: "100%", textAlign: "left" as const,
+    font: "inherit", cursor: "pointer", border: "1px solid var(--line)", background: "var(--paper)",
+  };
+
+  return (
+    <SheetOver onClose={onClose}>
+      <h2 className="sd-h2" style={{ marginBottom: 3 }}>{t("subscribeIcs", { name })}</h2>
+      <p className="sd-meta" style={{ marginBottom: 14 }}>{t("subscribeLead", { name })}</p>
+
+      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+        <a
+          href={webcalUrl(url)}
+          className="sd-row"
+          style={{ ...row, color: "inherit", textDecoration: "none" }}
+          onClick={onClose}
+        >
+          <Icon name="calendar" size={18} style={{ color: "var(--blue)" }} />
+          <span style={{ fontSize: 14.5, fontWeight: 700 }}>{t("subscribeApple")}</span>
+          <Icon name="chevright" size={16} style={{ marginLeft: "auto", color: "var(--ink-3)" }} />
+        </a>
+
+        <a
+          href={googleSubscribeUrl(url)}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="sd-row"
+          style={{ ...row, color: "inherit", textDecoration: "none" }}
+          onClick={onClose}
+        >
+          <Icon name="globe" size={18} style={{ color: "var(--blue)" }} />
+          <span style={{ fontSize: 14.5, fontWeight: 700 }}>{t("subscribeGoogle")}</span>
+          <Icon name="chevright" size={16} style={{ marginLeft: "auto", color: "var(--ink-3)" }} />
+        </a>
+      </div>
+
+      <p className="sd-meta" style={{ margin: "16px 0 6px" }}>{t("subscribeOther")}</p>
+      <button
+        type="button"
+        className="sd-row"
+        onClick={() => void copy()}
+        style={{ ...row, gap: 10 }}
+      >
+        <Icon name={copied ? "check" : "link"} size={16} style={{ color: "var(--ink-3)", flex: "0 0 auto" }} />
+        <span
+          style={{
+            fontSize: 12.5, fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace",
+            overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", minWidth: 0,
+          }}
+        >
+          {url}
+        </span>
+        <span style={{ marginLeft: "auto", fontSize: 12, fontWeight: 700, color: "var(--ink-3)", flex: "0 0 auto" }}>
+          {copied ? t("subscribeCopied") : t("subscribeCopy")}
+        </span>
+      </button>
+
+      <p className="sd-meta" style={{ marginTop: 14 }}>{t("subscribeNote")}</p>
     </SheetOver>
   );
 }

@@ -61,6 +61,14 @@ export interface Strings {
   allDay: string;
   calendars: string;
   downloadIcs: string; // uses {name}
+  subscribeIcs: string; // uses {name}
+  subscribeLead: string; // uses {name}
+  subscribeApple: string;
+  subscribeGoogle: string;
+  subscribeOther: string;
+  subscribeCopy: string;
+  subscribeCopied: string;
+  subscribeNote: string;
 
   // newsletter (member- and public-facing only; the authoring UI is admin
   // tooling and stays English, as the calendar's admin screens do)
@@ -322,6 +330,16 @@ const en: Strings = {
   allDay: "All day",
   calendars: "Calendars",
   downloadIcs: "Download {name} (.ics)",
+  subscribeIcs: "Subscribe to {name}",
+  subscribeLead:
+    "Add {name} to the calendar app you already use. New and changed events arrive on their own — you won't need to come back here.",
+  subscribeApple: "Apple Calendar or Outlook",
+  subscribeGoogle: "Google Calendar",
+  subscribeOther: "Or paste this link into any calendar app",
+  subscribeCopy: "Copy link",
+  subscribeCopied: "Copied",
+  subscribeNote:
+    "Calendar apps check for updates on their own schedule, so a change can take a few hours to show up.",
 
   brandSubNewsletter: "PTO Newsletter",
   navNewsletter: "Newsletters",
@@ -577,6 +595,16 @@ const es: Strings = {
   allDay: "Todo el día",
   calendars: "Calendarios",
   downloadIcs: "Descargar {name} (.ics)",
+  subscribeIcs: "Suscribirse a {name}",
+  subscribeLead:
+    "Agrega {name} a la aplicación de calendario que ya usas. Los eventos nuevos y los cambios llegan solos: no tendrás que volver aquí.",
+  subscribeApple: "Apple Calendar u Outlook",
+  subscribeGoogle: "Google Calendar",
+  subscribeOther: "O pega este enlace en cualquier aplicación de calendario",
+  subscribeCopy: "Copiar enlace",
+  subscribeCopied: "Copiado",
+  subscribeNote:
+    "Las aplicaciones de calendario buscan actualizaciones por su cuenta, así que un cambio puede tardar unas horas en aparecer.",
 
   brandSubNewsletter: "Boletín de la PTO",
   navNewsletter: "Boletines",
@@ -764,6 +792,14 @@ const zh: Strings = {
   allDay: "全天",
   calendars: "日历",
   downloadIcs: "下载 {name}（.ics）",
+  subscribeIcs: "订阅{name}",
+  subscribeLead: "把{name}添加到你常用的日历应用。新活动和改动会自动同步，你不必再回到这里查看。",
+  subscribeApple: "Apple 日历或 Outlook",
+  subscribeGoogle: "Google 日历",
+  subscribeOther: "或把此链接粘贴到任意日历应用",
+  subscribeCopy: "复制链接",
+  subscribeCopied: "已复制",
+  subscribeNote: "日历应用会按自己的时间检查更新，因此改动可能需要几小时才会显示。",
 
   brandSubNewsletter: "PTO 通讯",
   navNewsletter: "通讯",
