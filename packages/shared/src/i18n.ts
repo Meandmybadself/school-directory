@@ -61,6 +61,7 @@ export interface Strings {
   allDay: string;
   calendars: string;
   downloadIcs: string; // uses {name}
+  downloadIcsNote: string;
   subscribeIcs: string; // uses {name}
   subscribeLead: string; // uses {name}
   subscribeApple: string;
@@ -330,6 +331,8 @@ const en: Strings = {
   allDay: "All day",
   calendars: "Calendars",
   downloadIcs: "Download {name} (.ics)",
+  downloadIcsNote:
+    "A one-time copy of today's dates. It won't update when the school's plans change.",
   subscribeIcs: "Subscribe to {name}",
   subscribeLead:
     "Add {name} to the calendar app you already use. New and changed events arrive on their own — you won't need to come back here.",
@@ -595,6 +598,8 @@ const es: Strings = {
   allDay: "Todo el día",
   calendars: "Calendarios",
   downloadIcs: "Descargar {name} (.ics)",
+  downloadIcsNote:
+    "Una copia única de las fechas de hoy. No se actualizará cuando cambien los planes de la escuela.",
   subscribeIcs: "Suscribirse a {name}",
   subscribeLead:
     "Agrega {name} a la aplicación de calendario que ya usas. Los eventos nuevos y los cambios llegan solos: no tendrás que volver aquí.",
@@ -792,6 +797,7 @@ const zh: Strings = {
   allDay: "全天",
   calendars: "日历",
   downloadIcs: "下载 {name}（.ics）",
+  downloadIcsNote: "当前日期的一次性副本。学校安排变动时不会自动更新。",
   subscribeIcs: "订阅{name}",
   subscribeLead: "把{name}添加到你常用的日历应用。新活动和改动会自动同步，你不必再回到这里查看。",
   subscribeApple: "Apple 日历或 Outlook",

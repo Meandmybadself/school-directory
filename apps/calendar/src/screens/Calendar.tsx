@@ -24,14 +24,6 @@ import { showsDescription, showsAllDayLabel, showsTitle, eventDayKey, formatEven
 
 const HIDDEN_KEY = "sd_cal_hidden";
 
-/** The two actions hanging off a calendar chip. Shared so subscribe and
- *  download keep matching each other as the chip is restyled — they read as one
- *  segmented control, and one drifting is immediately visible. */
-const feedActionStyle = {
-  display: "inline-flex", alignItems: "center", padding: "5px 9px",
-  color: "var(--ink-3)", border: 0, borderLeft: "1px solid var(--line)",
-} as const;
-
 function loadHidden(): Set<string> {
   try {
     const raw = localStorage.getItem(HIDDEN_KEY);
@@ -140,28 +132,24 @@ function FilterBar({ feeds, hidden, onToggle }: { feeds: PublicCalendarFeedDTO[]
                   {f.name}
                 </span>
               )}
-              {/* Subscribe sits before download deliberately: keeping up with
-                  the school is what a family actually wants, and a downloaded
-                  .ics is a snapshot that silently goes stale. */}
+              {/* One action per chip. Downloading lives inside the sheet this
+                  opens, rather than beside it: the two look alike but do
+                  opposite things — one keeps up with the school, the other
+                  takes a copy that silently goes stale — and a row of near
+                  identical icons is where that difference gets lost. */}
               <button
                 type="button"
                 onClick={() => setSubscribing(f)}
                 title={t("subscribeIcs", { name: f.name })}
                 aria-label={t("subscribeIcs", { name: f.name })}
-                style={{ ...feedActionStyle, background: "transparent", font: "inherit", cursor: "pointer" }}
+                style={{
+                  display: "inline-flex", alignItems: "center", padding: "5px 9px",
+                  color: "var(--ink-3)", border: 0, borderLeft: "1px solid var(--line)",
+                  background: "transparent", font: "inherit", cursor: "pointer",
+                }}
               >
                 <Icon name="plus" size={14} />
               </button>
-              <a
-                href={f.url}
-                target="_blank"
-                rel="noopener noreferrer"
-                title={t("downloadIcs", { name: f.name })}
-                aria-label={t("downloadIcs", { name: f.name })}
-                style={feedActionStyle}
-              >
-                <Icon name="download" size={14} />
-              </a>
             </div>
           );
         })}

@@ -101,13 +101,20 @@ export function AccountSheet({ onClose }: { onClose: () => void }) {
   );
 }
 
-/** How a family puts one of these calendars into the app they already use.
+/** Everything a family can do with one calendar — the chip carries a single
+ *  button, and this is what it opens.
  *
- *  Three routes rather than one button, because no single link works everywhere:
- *  `webcal:` covers Apple and Outlook, Google needs its own URL, and the raw
- *  link covers everything else (and is the only thing that works if a handler
- *  is missing). Offering only the first would silently fail for whoever is on
- *  Google, which at a school is a large share of the parents. */
+ *  Subscribing offers three routes rather than one, because no single link
+ *  works everywhere: `webcal:` covers Apple and Outlook, Google needs its own
+ *  URL, and the raw link covers everything else (and is the only thing that
+ *  works if no handler is registered). Offering only the first would silently
+ *  fail for whoever is on Google, which at a school is a large share of the
+ *  parents.
+ *
+ *  Downloading lives at the bottom, below a rule. It used to sit beside
+ *  subscribe on the chip, where two adjacent icons implied two flavours of the
+ *  same thing; they are opposites, and the one that goes stale is the one
+ *  people picked by accident. */
 export function SubscribeSheet({ name, url, onClose }: { name: string; url: string; onClose: () => void }) {
   const { t } = useI18n();
   const [copied, setCopied] = useState(false);
@@ -180,6 +187,31 @@ export function SubscribeSheet({ name, url, onClose }: { name: string; url: stri
       </button>
 
       <p className="sd-meta" style={{ marginTop: 14 }}>{t("subscribeNote")}</p>
+
+      {/* Downloading is the odd one out here, so it is set below a rule and
+          styled quieter than the three above rather than as a fourth peer.
+          It answers a different question — "give me these dates now" — and
+          the note is what stops someone reaching for it expecting the
+          subscription behaviour the rest of this sheet promises. */}
+      <hr style={{ border: 0, borderTop: "1px solid var(--line)", margin: "18px 0 14px" }} />
+      <a
+        href={url}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="sd-row"
+        style={{ ...row, gap: 12, color: "inherit", textDecoration: "none", background: "transparent" }}
+        onClick={onClose}
+      >
+        <Icon name="download" size={18} style={{ color: "var(--ink-3)", flex: "0 0 auto" }} />
+        <span style={{ minWidth: 0 }}>
+          <span style={{ display: "block", fontSize: 14.5, fontWeight: 700 }}>
+            {t("downloadIcs", { name })}
+          </span>
+          <span className="sd-meta" style={{ display: "block", marginTop: 2 }}>
+            {t("downloadIcsNote")}
+          </span>
+        </span>
+      </a>
     </SheetOver>
   );
 }
