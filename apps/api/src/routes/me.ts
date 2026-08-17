@@ -3,7 +3,7 @@
 import { Hono } from "hono";
 import type { Context } from "hono";
 import type { Capability, ControllablePersonDTO, CreatePersonBody, Locale, MeDTO, MyHouseholdDTO } from "@sd/shared";
-import { CAPABILITIES } from "@sd/shared";
+import { CAPABILITIES, LOCALES } from "@sd/shared";
 import type { HonoEnv } from "../env.js";
 import { requireAuth } from "../middleware/session.js";
 import { capabilitiesFor } from "../lib/serialize.js";
@@ -206,8 +206,9 @@ me.put("/newsletter", async (c) => {
 me.put("/locale", async (c) => {
   const auth = requireAuth(c);
   const body = await c.req.json<{ locale: Locale }>().catch(() => null);
-  const allowed: Locale[] = ["en", "es", "zh"];
-  if (!body || !allowed.includes(body.locale)) {
+  // LOCALES, not a copy of it: a locale added to @sd/shared is one the picker
+  // already offers, and a hand-kept list here would silently reject it.
+  if (!body || !LOCALES.includes(body.locale)) {
     return c.json({ error: "invalid_locale" }, 400);
   }
   await c.env.DB.prepare("UPDATE user SET locale = ? WHERE id = ?")

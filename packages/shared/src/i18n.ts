@@ -2,7 +2,7 @@
 // Keys mirror the strings objects in the design handoff (HOME_*, PROFILE_*).
 // Use `{name}` placeholders; interpolate with `t(key, { name })` in the client.
 
-import type { Capability, Locale } from "./types.js";
+import { LOCALES, type Capability, type Locale } from "./types.js";
 
 export interface Strings {
   // brand / generic
@@ -951,7 +951,277 @@ const zh: Strings = {
   signOut: "退出登录",
 };
 
-export const dictionaries: Record<Locale, Strings> = { en, es, zh };
+const so: Strings = {
+  brand: "Eisenhower",
+  brandSub: "Tusmada PTO",
+  brandSubCalendar: "Kalandarka PTO",
+  done: "Diyaar",
+  save: "Kaydi",
+  cancel: "Jooji",
+  back: "Ku noqo galitaanka",
+
+  signInTitle: "Gal tusmada",
+  signInCta: "Gal",
+  signInLead:
+    "Geli iimaylkaaga, waxaanan kuu soo dirnaa link aad ku gasho. Furaha sirta lama xasuusan doono.",
+  emailLabel: "Iimayl",
+  emailLink: "Link iigu soo dir iimaylka",
+  privateNote: "Waa gaar u ah bulshada {school}. Waxba halkan kuma jiraan wax dadweynuhu arki karo.",
+  checkEmailTitle: "Fiiri iimaylkaaga",
+  checkEmailLead:
+    "Waxaan link galitaan u dirnay {email}. Wuxuu dhacayaa 15 daqiiqo gudahood.",
+  openEmailApp: "Fur barnaamijka iimaylka",
+  resendLink: "Dib u dir link-ga",
+  signingIn: "Waa lagu gelinayaa\u2026",
+  signingInSub: "Daqiiqad, tusmada ayaa furmaysa.",
+  regClosedTitle: "Mahadsanid \u2014 fiiri iimaylkaaga",
+  regClosedLead:
+    "Haddii iimaylkani uu leeyahay xubin ka tirsan {school}, link galitaan ayaa soo socda.",
+  regClosedNote:
+    "Asturnaanta qof walba awgeed, ma xaqiijinno in akoon jiro iyo in kale. Diiwaangelinta cusub waxaa maamula xafiiska dugsiga.",
+
+  navHome: "Bogga hore",
+  navDir: "Tusmada",
+  navGroups: "Kooxaha",
+  navMe: "Adiga",
+  searchMembers: "Raadi xubno",
+  searchGroups: "Raadi kooxo",
+  myGroups: "Kooxahaaga",
+  allGroups: "Dhammaan kooxaha",
+  aboutGroupsTitle: "Waa maxay koox?",
+  aboutGroupsBody:
+    "Kooxuhu waxay habeeyaan bulshada. Qoysku waa reerkaaga; Fasalku waa fasalka macallin. Dugsiyadu waxay sidoo kale kooxaha u isticmaali karaan heer fasaleed, dugsiga oo dhan, ama naadiyo iyo guddiyo. Qof ayaa isku mar ka tirsanaan kara kooxo badan.",
+  whatAreGroups: "Waa maxay kooxuhu?",
+  colName: "Magaca",
+  colType: "Nooca",
+  groupsResults: "Natiijooyinka",
+  groupsEmpty: "Ma jiraan kooxo waafaqsan raadintaada.",
+  directoryEmpty: "Ma jiraan xubno waafaqsan raadintaada.",
+  loadMore: "Soo bandhig wax dheeraad ah",
+  showingOf: "Waxaa la tusayaa {shown} ka mid ah {total}",
+
+  navCalendar: "Kalandarrada",
+  calendarTitle: "Kalandarka",
+  upcomingEvents: "Dhacdooyinka soo socda",
+  noEvents: "Ma jiraan dhacdooyin soo socda",
+  searchEvents: "Raadi dhacdooyin",
+  clearSearch: "Tirtir raadinta",
+  noEventsMatch: "Ma jiraan dhacdooyin waafaqsan raadintaada.",
+  allDay: "Maalinta oo dhan",
+  calendars: "Kalandarrada",
+  downloadIcs: "Soo dejiso {name} (.ics)",
+  downloadIcsNote:
+    "Waa koobi hal mar ah oo taariikhaha maanta ah. Ma cusboonaysiimayso marka qorshaha dugsigu isbeddelo.",
+  subscribeIcs: "Ku biir {name}",
+  subscribeLead:
+    "Ku dar {name} barnaamijka kalandarka ee aad hore u isticmaasho. Dhacdooyinka cusub iyo kuwa isbeddelay iyagaa iskood u imanaya \u2014 uma baahnid inaad halkan ku soo noqoto.",
+  subscribeApple: "Apple Calendar ama Outlook",
+  subscribeGoogle: "Google Calendar",
+  subscribeOther: "Ama link-gan ku dhaji barnaamij kasta oo kalandar ah",
+  subscribeCopy: "Koobi link-ga",
+  subscribeCopied: "Waa la koobiyeeyay",
+  subscribeNote:
+    "Barnaamijyada kalandarku waxay cusboonaysiinta ku hubiyaan jadwalkooda gaarka ah, sidaas darteed isbeddelku wuxuu qaadan karaa dhowr saacadood inuu soo muuqdo.",
+
+  brandSubNewsletter: "Warsidaha PTO",
+  navNewsletter: "Warsidayaasha",
+  newsletterArchive: "Daabacaadihii hore",
+  newsletterPrefsTitle: "Warsidaha",
+  newsletterPrefsLead: "Dooro in warsidaha dugsiga loo diro iimaylkaaga iyo in kale.",
+  newsletterSubscribeLabel: "Warsidaha iimayl iigu soo dir",
+  newsletterSubscribed: "Waad ku biirtay.",
+  newsletterUnsubscribed: "Warsidaha ma heli doontid.",
+  unsubscribeTitle: "Ka bax",
+  unsubscribeLead: "Ma joojinnaa u dirista warsidaha {email}?",
+  unsubscribeConfirm: "Haa, iga saar",
+  unsubscribeDone: "Waa lagaa saaray.",
+  latestIssue: "Warsidihii ugu dambeeyay",
+
+  volunteersTitle: "Mutadawaciinta",
+  volunteersNeeded: "Mutadawaciin ayaa loo baahan yahay",
+  volunteerSpotsFilled: "{filled} ka mid ah {slots} ayaa buuxsamay",
+  volunteerSpotsLeft: "{left} ayaa weli loo baahan yahay",
+  volunteerFull: "Dhammaan way buuxsameen",
+  takeASpot: "Boos qaado",
+  signInToVolunteer: "Gal si aad u mutadawacdo",
+  volunteerWithdraw: "Booska ka noqo",
+  volunteerWhoFor: "Yaa is-diiwaangelinaya?",
+  volunteerNote: "Xusuus-qor (ikhtiyaari)",
+  volunteerNotePlaceholder: "Wax kasta oo qabanqaabiyuhu u baahan yahay inuu ogaado",
+  volunteerSignupsClosed: "Is-diiwaangelintu waa xiran tahay.",
+  volunteerNoPositions: "Weli ma jiraan boosas la soo bandhigay.",
+  volunteerNamesMembersOnly: "Gal si aad u aragto cidda is-diiwaangelisay.",
+  volunteerAlready: "Horey ayaad tan isugu diiwaangelisay.",
+  volunteerTookLastSpot: "Qof ayaa hadda qaatay booskii ugu dambeeyay.",
+  volunteerError: "Taasi ma shaqayn. Fadlan mar kale isku day.",
+  volunteerNotFound: "Warqadda is-diiwaangelinta lama helin",
+  volunteerNotFoundBody: "Link-gan waa laga yaabaa inuu dhacay, ama is-diiwaangelinta la qaaday.",
+
+  neighbors: "Deriska",
+  noNeighbors: "Weli ma jiraan deris kuu dhow.",
+  noNeighborsBody:
+    "Deriska waxay soo muuqdaan marka xubno kale oo 2 mayl gudaheeda ah ay ciwaankooda u shidaan \u201cI tus sida deris\u201d. Qoyskaaga halkan lagama liisgareeyo.",
+  seeAll: "Arag dhammaan",
+  groups: "Kooxahaaga",
+  member: "Xubin",
+  connect: "La xiriir",
+  connected: "Waa la xiriiray",
+  yourProfile: "Profile-kaaga",
+  preview: "Horudhac",
+  whatYouShare: "Waxaad wadaagto",
+  membersN: "Xubnaha",
+  privateN: "Gaar ah",
+  sharedN: "La wadaagay",
+  shownAsNeighbor: "Waxaa lagu tusayaa sida deris",
+  on: "Shidan",
+  off: "Xiran",
+  welcome: "Ku soo dhawoow {school}",
+  addAddressTitle: "Ku dar ciwaankaaga si aad deriska u aragto",
+  addAddressBody:
+    "Waxaan ku tusi doonnaa xubnaha kuu dhow iyo masaafo qiyaastii ah \u2014 waligeen ma tusi doonno ciwaankaaga saxda ah.",
+  addAddressBtn: "Ku dar ciwaan",
+  osmAttribution: "Masaafooyinka \u00a9 tabarucayaasha OpenStreetMap",
+  noGroups: "Weli koox kuma jirtid",
+  noGroupsBody:
+    "Qoyskaaga iyo fasalladaadu halkan ayay ka soo muuqan doonaan marka xafiisku ama macallin ku daro.",
+  finishTitle: "Dhammee profile-kaaga",
+  finishBody: "Ku dar taleefan ama sawir si kooxahaagu ay kuula soo xiriiraan.",
+  finishBtn: "Sii wad dejinta",
+
+  editProfile: "Wax ka beddel profile-ka",
+  previewingAsMember: "Waxaad u eegaysaa sida xubin",
+  whatOthersSee: "Kani waa waxa xubnaha kale arkaan",
+  hiddenFromMembers: "{count} ayaa laga qariyay xubnaha",
+  exitPreview: "Ka bax horudhaca",
+  contact: "Xiriir",
+  fromGroup: "laga helay {name}",
+  shareCta: "Xogtaada la wadaag {name}",
+  homeLabel: "Ciwaanka Guriga",
+  mobile: "Mobiil",
+  email: "Iimayl",
+  website: "Website",
+  typeAddress: "Ciwaan",
+  typePhone: "Taleefan",
+  exactHidden: "Ciwaanka saxda ah waa qarsoon yahay",
+  firstName: "Magaca hore",
+  lastName: "Magaca dambe",
+  setupTitle: "Deji profile-kaaga",
+  setupLead: "Ku dar magacaaga si bulshadaadu kuugu garato tusmada.",
+  createProfileBtn: "Samee profile-kayga",
+  skipToAdmin: "U bood console-ka maamulka",
+  alwaysVisible: "Had iyo jeer waa la arkaa",
+  firstFixedWhy:
+    "Dadku waxay u baahan yihiin magac ay kugu garan karaan. Wax kasta oo kale adigaa doorta.",
+  lnFull: "Buuxa",
+  lnInitial: "Xarafka hore",
+  shownAs: "Waxaa lagu tusayaa",
+  photo: "Sawirka profile-ka",
+  addPhoto: "Ku dar sawir",
+  addContact: "Ku dar xog xiriir",
+  showAsNeighbor: "I tus sida deris",
+  neighborWhy:
+    "Waxay xubnaha kuu dhow tusaysaa magacaaga iyo masaafo qiyaastii ah oo keliya \u2014 waligeed ma tusayso ciwaankaaga.",
+  whoManages: "Yaa maamula profile-kan",
+  inviteCoManager: "Qof ku casuum inuu kaa caawiyo maaraynta {name}",
+  owner: "Milkiile",
+  inviteTitle: "Qof ku casuum inuu kaa caawiyo maaraynta {name}",
+  inviteWhy:
+    "Wuxuu noqonayaa maamule-wadaag, wuxuuna wax ka beddeli karaa profile-ka {name}. Adiguna weli gelitaan ayaad haysataa.",
+  inviteSend: "Dir casuumaadda",
+  inviteSent: "Casuumaad loo diray {email}.",
+
+  visMembers: "Xubnaha",
+  visPrivate: "Gaar ah",
+  visShared: "La wadaagay",
+  visMembersDesc: "Qof kasta oo {school} ku gala",
+  visPrivateDesc: "Adiga oo keliya, ilaa aad wadaagto",
+  visSharedDesc: "Gaar ah, iyo dadka iyo kooxaha aad dooratay",
+  whoCanSee: "Yaa arki kara {field}-kaaga?",
+  sharedWith: "Waxaa la wadaagay",
+  addPeople: "Ku dar dad ama kooxo",
+
+  household: "Qoys",
+  classroom: "Fasal",
+  genericGroup: "Koox",
+  genericGroupSub: "Dugsi, heer fasaleed, naadi, ama guddi",
+  genericManages: "{name} ayaa maamula kooxdan.",
+  roster: "Liiska",
+  members: "Xubnaha",
+  manage: "Maaree",
+  youreAdmin: "Waxaad tahay maamule",
+  viewOnly: "Xubin \u00b7 daawasho oo keliya",
+  classMember: "Xubin fasalka",
+  teachThisClass: "Adigaa bara fasalkan",
+  addMember: "Ku dar xubin",
+  setTitle: "Deji darajada",
+  setTitles: "Deji darajooyinka",
+  editGroupInfo: "Wax ka beddel xogta",
+  householdContact: "Xiriirka qoyska",
+  cascadeNote: "Waxay khusaysaa qof kasta oo qoyska ku jira.",
+  manageMembers: "Maaree xubnaha",
+  messageAll: "Fariin u dir dhammaan",
+  adminManages: "{name} ayaa maamula qoyskan. Weydii maamule si isbeddel loo sameeyo.",
+  teacherRuns: "{name} ayaa maamula fasalkan. Waxaad arki kartaa ardayda fasalka ee xogtooda la wadaaga xubnaha.",
+  newGroup: "Cusub",
+  newHousehold: "Qoys cusub",
+  newClassroom: "Fasal cusub",
+  groupName: "Magaca",
+  create: "Samee",
+  createGroupChoose: "Maxaad samayn lahayd?",
+  createSubgroup: "Samee koox-hoosaad",
+  subgroups: "Kooxaha hoose",
+  parentGroup: "Kooxda sare",
+  setParentGroup: "Deji kooxda sare",
+  parentNone: "Koox sare ma leh (heerka ugu sarreeya)",
+  noEligibleGroups: "Ma jiraan kooxo u qalma.",
+  editGroup: "Wax ka beddel kooxda",
+  renameGroup: "Magac beddel",
+  deleteGroup: "Tirtir kooxda",
+  deleteGroupConfirm: "Ma tirtiraa \u201c{name}\u201d?",
+  deleteGroupWarn: "Tan dib looma soo celin karo.",
+  deleteGroupKeepsPeople: "{count} qof ee ku jira way ku sii jiraan tusmada \u2014 waxaa keliya la saarayaa kooxda iyo xogta xiriirka ee ay wadaagto.",
+  deleteGroupHasChildren: "Marka hore u dhaqaaji ama tirtir kooxaheeda hoose.",
+  deleteGroupFailed: "Kooxdan lama tirtiri karin.",
+  renameGroupFailed: "Kooxdan magaceeda lama beddeli karin.",
+  groupType: "Nooca",
+  groupTypeChangeNote: "Nooca ayaa go\u2019aaminaya waxa kooxdu qabato. Qoys keliya ayaa ciwaan la wadaaga xubnihiisa oo ka soo muuqda helitaanka deriska, oo maamulayaasha qoyska keliya ayaa hela calaamadda maamulaha qoyska.",
+  changeTypeFailed: "Nooca kooxdan lama beddeli karin.",
+  changeTypeHasChildren: "Qoysku ma qaadan karo kooxo hoose \u2014 marka hore ka saar.",
+  reparentFailed: "Kooxdan lama dhaqaajin karin.",
+  reparentRejected: "Kooxdaasi ma noqon karto tan sare \u2014 mid kale dooro.",
+  confirmDelete: "Haa, tirtir",
+
+  capParent: "Waalid",
+  capTeacher: "Macallin",
+  capStaff: "Shaqaale",
+  capStudent: "Arday",
+  capHouseholdAdmin: "Maamulaha qoyska",
+
+  actingAs: "Waxaad u dhaqmaysaa sida",
+  addPerson: "Ku dar qof",
+
+  addPersonTitle: "Ku dar qof",
+  addPersonLead: "Ku dar ilme, lammaane, ama qof kale oo aad maamusho. Waxaad awoodi doontaa inaad sidiisa u dhaqanto si aad profile-kiisa wax uga beddesho.",
+  addPersonBtn: "Ku dar qofka",
+  personType: "Nooca",
+  personTypeNote: "Ikhtiyaari. Tan dib ayaad u beddeli kartaa.",
+  personHousehold: "Qoys",
+  personHouseholdNote: "Ikhtiyaari. Wuxuu qoys ku darayaa si ciwaanka la wadaago u khuseeyo.",
+  householdNone: "Qoys ma leh",
+
+  language: "Luqadda",
+  languageNote: "Waxay tusmada u beddeshaa adiga oo keliya.",
+
+  offlineBanner: "Offline \u2014 waxaa lagu tusayaa koobigaaga la kaydiyay",
+  offlineReadOnly: "Akhris oo keliya",
+  offlineNote:
+    "Waad offline tahay, sidaas darteed tusmadu waa akhris oo keliya. Koobigaaga la kaydiyay ayaa la tusayaa. Dib u xiriir si aad isbeddel u samayso.",
+  masqViewingAs: "Waxaad u eegaysaa sida",
+  masqReturn: "Ku noqo maamulka",
+  signOut: "Ka bax",
+};
+
+export const dictionaries: Record<Locale, Strings> = { en, es, zh, so };
 
 /** Maps a Capability enum to its i18n dictionary key, so labels stay translated
  *  (never raw enum strings like "household_admin"). */
@@ -967,7 +1237,58 @@ export const localeNames: Record<Locale, { native: string; english: string }> = 
   en: { native: "English", english: "English" },
   es: { native: "Español", english: "Spanish" },
   zh: { native: "中文", english: "Chinese (Simplified)" },
+  so: { native: "Soomaali", english: "Somali" },
 };
+
+// ── Language deep links ─────────────────────────────────────────────────────
+
+/** The query parameter a language deep link carries: `?lang=so`.
+ *
+ *  It exists so a link can be handed to someone in the language they actually
+ *  read — "here is the calendar in Somali" — without their having to find the
+ *  language picker first. It is a one-shot instruction rather than a permanent
+ *  part of the URL: an app applies it, remembers the choice the same way the
+ *  picker would, and strips the parameter, so what stays in the address bar (and
+ *  in anything bookmarked or re-shared from it) is the ordinary link. That also
+ *  means these URLs need no route of their own — every existing path already
+ *  accepts one. */
+export const LOCALE_PARAM = "lang";
+
+/** Resolve a BCP-47 language tag to one of our locales, or null.
+ *
+ *  Matches on the primary subtag only and case-insensitively, so `so`, `so-SO`,
+ *  `SO_so` and `zh-Hans` all land where a reader would expect. Used for both the
+ *  deep-link parameter and `navigator.language`, so a hand-typed code and a
+ *  browser setting are interpreted by the same rule.
+ *
+ *  Anything unrecognized is null, never English: the caller's own fallback chain
+ *  (saved choice, then browser language) is a better answer than a typo. */
+export function localeFromTag(tag: string | null | undefined): Locale | null {
+  if (!tag) return null;
+  const code = tag.trim().toLowerCase().split(/[-_]/)[0];
+  return LOCALES.find((l) => l === code) ?? null;
+}
+
+/** The locale named by a URL's query string, if it names one at all. Takes
+ *  `location.search` (with or without its leading "?").
+ *
+ *  Parsed by hand rather than with URLSearchParams because this module is
+ *  imported by the Worker as well as the browser, and its tsconfig deliberately
+ *  carries no DOM lib. A malformed percent-escape is treated as "no locale"
+ *  rather than thrown, since this runs on the boot path of every page. */
+export function localeFromSearch(search: string): Locale | null {
+  for (const pair of search.replace(/^\?/, "").split("&")) {
+    const eq = pair.indexOf("=");
+    if ((eq === -1 ? pair : pair.slice(0, eq)) !== LOCALE_PARAM) continue;
+    const raw = eq === -1 ? "" : pair.slice(eq + 1).replace(/\+/g, " ");
+    try {
+      return localeFromTag(decodeURIComponent(raw));
+    } catch {
+      return null;
+    }
+  }
+  return null;
+}
 
 /** Interpolate `{placeholder}` tokens in a string. */
 export function interpolate(

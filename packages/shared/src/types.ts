@@ -2,8 +2,8 @@
 // These describe the *serialized* shapes that cross the wire — privacy filtering
 // and geo-coordinate stripping happen on the server before anything here is sent.
 
-export type Locale = "en" | "es" | "zh";
-export const LOCALES: Locale[] = ["en", "es", "zh"];
+export type Locale = "en" | "es" | "zh" | "so";
+export const LOCALES: Locale[] = ["en", "es", "zh", "so"];
 
 export type Capability =
   | "parent"
