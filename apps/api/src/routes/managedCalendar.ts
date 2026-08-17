@@ -21,6 +21,7 @@ import {
   listManagedCalendars,
   listManagedEvents,
   loadCalendar,
+  loadManagedEvent,
   ManagedEventError,
   updateManagedCalendar,
   updateManagedEvent,
@@ -164,6 +165,20 @@ managedCalendar.post("/managed-calendars/:id/events", async (c) => {
     if (bad) return c.json(bad, 400);
     throw err;
   }
+});
+
+/** GET /admin/managed-events/:id — one authored series.
+ *
+ *  The by-calendar list above backs the calendar's own page, which already has
+ *  every event in hand. This exists for the other entry point: the agenda's
+ *  event modal, which knows only the occurrence's `seriesId` and needs the
+ *  series itself to seed an edit form. */
+managedCalendar.get("/managed-events/:id", async (c) => {
+  const auth = requireAuth(c);
+  if (!auth.isSystemAdmin) return c.json({ error: "forbidden" }, 403);
+  const event = await loadManagedEvent(c.env, c.req.param("id"));
+  if (!event) return c.json({ error: "not_found" }, 404);
+  return c.json({ event });
 });
 
 /** PATCH /admin/managed-events/:id — re-expands and bumps SEQUENCE. */

@@ -58,6 +58,9 @@ export interface Strings {
   calendarTitle: string;
   upcomingEvents: string;
   noEvents: string;
+  searchEvents: string;
+  clearSearch: string;
+  noEventsMatch: string;
   allDay: string;
   calendars: string;
   downloadIcs: string; // uses {name}
@@ -328,6 +331,9 @@ const en: Strings = {
   calendarTitle: "Calendar",
   upcomingEvents: "Upcoming events",
   noEvents: "No upcoming events",
+  searchEvents: "Search events",
+  clearSearch: "Clear search",
+  noEventsMatch: "No events match your search.",
   allDay: "All day",
   calendars: "Calendars",
   downloadIcs: "Download {name} (.ics)",
@@ -595,6 +601,9 @@ const es: Strings = {
   calendarTitle: "Calendario",
   upcomingEvents: "Próximos eventos",
   noEvents: "No hay eventos próximos",
+  searchEvents: "Buscar eventos",
+  clearSearch: "Borrar la búsqueda",
+  noEventsMatch: "Ningún evento coincide con tu búsqueda.",
   allDay: "Todo el día",
   calendars: "Calendarios",
   downloadIcs: "Descargar {name} (.ics)",
@@ -794,6 +803,9 @@ const zh: Strings = {
   calendarTitle: "日历",
   upcomingEvents: "近期活动",
   noEvents: "暂无近期活动",
+  searchEvents: "搜索活动",
+  clearSearch: "清除搜索",
+  noEventsMatch: "没有符合搜索条件的活动。",
   allDay: "全天",
   calendars: "日历",
   downloadIcs: "下载 {name}（.ics）",

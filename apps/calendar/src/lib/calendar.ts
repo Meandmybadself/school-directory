@@ -1,4 +1,4 @@
-import type { PublicCalendarEventDTO } from "@sd/shared";
+import { htmlToText, type PublicCalendarEventDTO } from "@sd/shared";
 
 /** The event description is only surfaced for the "Lunch Menu" calendar (the
  *  menu text itself); other calendars keep their descriptions hidden. This gate
@@ -85,4 +85,42 @@ export function webcalUrl(url: string): string {
  *  unauthenticated by design. */
 export function googleSubscribeUrl(url: string): string {
   return `https://calendar.google.com/calendar/r?cid=${encodeURIComponent(webcalUrl(url))}`;
+}
+
+// ── As-you-type search ───────────────────────────────────────────────────────
+//
+// Filtering is entirely client-side: the agenda is already fully loaded (one
+// bounded request for the whole window), so there is nothing to gain from a
+// round trip per keystroke and nothing to debounce. The matcher lives here
+// rather than in the screen so its rules are testable and stated once.
+
+/** Fold a string for comparison: decomposed, stripped of combining marks, and
+ *  lowercased — so "Peña" matches a typed "pena" and "PTO" matches "pto". */
+export function normalizeSearch(s: string): string {
+  return s.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+}
+
+/** Split a raw query into the terms every match must satisfy. */
+export function searchTerms(q: string): string[] {
+  return normalizeSearch(q).split(/\s+/).filter(Boolean);
+}
+
+/** Everything one event is findable by, already normalized.
+ *
+ *  Deliberately only what the reader can SEE. The description is included only
+ *  when `showsDescription` would render it — matching a menu's text on a
+ *  calendar that hides descriptions would return a row with no visible reason
+ *  for being there. `dayLabel` is passed in already formatted (the caller owns
+ *  the locale) so that typing "friday" or "september" finds the right day. */
+export function eventSearchText(e: PublicCalendarEventDTO, dayLabel: string): string {
+  const parts = [e.title, e.location ?? "", e.source.name, dayLabel];
+  if (showsDescription(e)) parts.push(htmlToText(e.description!));
+  return normalizeSearch(parts.join(" "));
+}
+
+/** AND across terms, substring within each — so "carnival gym" finds the
+ *  carnival in the gym regardless of the order they were typed in, and a
+ *  partial word still matches while someone is still typing it. */
+export function matchesSearch(haystack: string, terms: string[]): boolean {
+  return terms.every((term) => haystack.includes(term));
 }

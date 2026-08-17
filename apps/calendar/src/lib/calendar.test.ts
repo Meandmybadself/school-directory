@@ -8,7 +8,17 @@
 
 import { describe, expect, it } from "vitest";
 import type { PublicCalendarEventDTO } from "@sd/shared";
-import { eventDayKey, formatEventDay, googleSubscribeUrl, webcalUrl } from "./calendar.js";
+import {
+  DESCRIPTION_CALENDAR,
+  eventDayKey,
+  eventSearchText,
+  formatEventDay,
+  googleSubscribeUrl,
+  matchesSearch,
+  normalizeSearch,
+  searchTerms,
+  webcalUrl,
+} from "./calendar.js";
 
 const ev = (over: Partial<PublicCalendarEventDTO>): PublicCalendarEventDTO => ({
   id: "e", kind: "imported", title: "Event", location: null, description: null,
@@ -96,5 +106,97 @@ describe("subscription links", () => {
     const cid = decodeURIComponent(out.split("cid=")[1]!);
     expect(cid).toBe("webcal://api-directory.eisenhower.school/ics/01ABC.ics");
     expect(out).not.toContain("cid=https");
+  });
+});
+
+// ── Search ──────────────────────────────────────────────────────────────────
+//
+// Filtering is client-side over the already-loaded agenda, so these are the
+// whole feature: what an event is findable by, and what counts as a match.
+
+describe("normalizeSearch", () => {
+  it("folds case so a typed query matches however the school wrote the title", () => {
+    expect(normalizeSearch("Fall CARNIVAL")).toBe("fall carnival");
+  });
+
+  it("strips diacritics, so an accented name is reachable from a plain keyboard", () => {
+    expect(normalizeSearch("Día de los Niños")).toBe("dia de los ninos");
+  });
+});
+
+describe("searchTerms", () => {
+  it("splits on whitespace and drops the empties a mid-typing query leaves", () => {
+    expect(searchTerms("  fall   carnival ")).toEqual(["fall", "carnival"]);
+  });
+
+  it("is empty for a blank query, which the screen reads as 'not searching'", () => {
+    expect(searchTerms("   ")).toEqual([]);
+  });
+});
+
+describe("eventSearchText", () => {
+  it("covers title, location, calendar name and the day label", () => {
+    const hay = eventSearchText(
+      ev({ title: "Fall Carnival", location: "Gym", source: { name: "PTO Events", color: "#000" } }),
+      "Friday, September 25",
+    );
+    for (const term of ["carnival", "gym", "pto events", "september"]) {
+      expect(matchesSearch(hay, [term])).toBe(true);
+    }
+  });
+
+  it("ignores a description the agenda does not render", () => {
+    // Descriptions are surfaced only on the menu calendar. Matching a hidden one
+    // would return a row with no visible reason for being in the results.
+    const hidden = ev({ description: "Sloppy joes", source: { name: "PTO Events", color: "#000" } });
+    expect(matchesSearch(eventSearchText(hidden, ""), ["sloppy"])).toBe(false);
+  });
+
+  it("searches the description on the menu calendar, where it IS rendered", () => {
+    const menu = ev({
+      title: DESCRIPTION_CALENDAR,
+      description: "Sloppy joes",
+      source: { name: DESCRIPTION_CALENDAR, color: "#000" },
+    });
+    expect(matchesSearch(eventSearchText(menu, ""), ["sloppy"])).toBe(true);
+  });
+
+  it("reads a description that arrived as HTML as its text", () => {
+    const menu = ev({
+      title: DESCRIPTION_CALENDAR,
+      description: "<p>Sloppy <strong>joes</strong></p>",
+      source: { name: DESCRIPTION_CALENDAR, color: "#000" },
+    });
+    const hay = eventSearchText(menu, "");
+    expect(matchesSearch(hay, ["sloppy", "joes"])).toBe(true);
+    // …and not by the markup around it.
+    expect(matchesSearch(hay, ["strong"])).toBe(false);
+  });
+});
+
+describe("matchesSearch", () => {
+  const hay = eventSearchText(
+    ev({ title: "Fall Carnival", location: "Gym", source: { name: "PTO Events", color: "#000" } }),
+    "Friday, September 25",
+  );
+
+  it("ANDs the terms, so words from different fields still match together", () => {
+    expect(matchesSearch(hay, ["carnival", "gym"])).toBe(true);
+  });
+
+  it("ignores the order they were typed in", () => {
+    expect(matchesSearch(hay, ["gym", "carnival"])).toBe(true);
+  });
+
+  it("matches a partial word, so results narrow while someone is still typing", () => {
+    expect(matchesSearch(hay, ["carn"])).toBe(true);
+  });
+
+  it("fails when any one term is absent", () => {
+    expect(matchesSearch(hay, ["carnival", "library"])).toBe(false);
+  });
+
+  it("matches everything when nothing has been typed", () => {
+    expect(matchesSearch(hay, [])).toBe(true);
   });
 });

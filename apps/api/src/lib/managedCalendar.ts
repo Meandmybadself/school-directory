@@ -381,7 +381,11 @@ export async function listManagedEvents(env: Env, calendarId: string): Promise<M
   return rows.results.map(toEventDTO);
 }
 
-async function loadEvent(env: Env, id: string): Promise<ManagedEventDTO | null> {
+/** One authored series by its durable id. Exported because an editor can be
+ *  opened from somewhere other than its calendar's page — the agenda's event
+ *  modal reaches an event by `seriesId` alone (invariant 8) and has to seed the
+ *  form from it. */
+export async function loadManagedEvent(env: Env, id: string): Promise<ManagedEventDTO | null> {
   const row = await env.DB.prepare(`${EVENT_SELECT} WHERE e.id = ?`).bind(id).first<EventRow>();
   return row ? toEventDTO(row) : null;
 }
@@ -432,7 +436,7 @@ export async function createManagedEvent(
     )
     .run();
   await materialize(env, id, calendarId, occurrences);
-  return loadEvent(env, id);
+  return loadManagedEvent(env, id);
 }
 
 export async function updateManagedEvent(
@@ -479,7 +483,7 @@ export async function updateManagedEvent(
     )
     .run();
   await materialize(env, id, existing.calendar_id, occurrences);
-  return loadEvent(env, id);
+  return loadManagedEvent(env, id);
 }
 
 export async function deleteManagedEvent(env: Env, id: string): Promise<boolean> {

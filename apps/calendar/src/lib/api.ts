@@ -3,6 +3,7 @@
 // eisenhower.school subdomains, so credentialed requests carry the cookie with no
 // cross-domain cookie tricks. The API must list this origin in ALLOWED_ORIGINS.
 import type {
+  CalendarEventDTO,
   PublicCalendarEventDTO,
   PublicCalendarFeedDTO,
   CalendarSourceDTO,
@@ -81,8 +82,10 @@ export const api = {
   // Deliberately the /calendar-public/* routes, not the session-gated
   // /calendar/* ones: this app's home screen renders for anonymous visitors, so
   // these two calls must succeed with no cookie. They return
-  // PublicCalendarEventDTO, which omits seriesId/recurrenceId — nothing in this
-  // app reads those, and the narrower type is what keeps it that way.
+  // PublicCalendarEventDTO, which omits seriesId/recurrenceId. That narrower type
+  // is what keeps the agenda honest about what an anonymous reader is entitled
+  // to; the one place this app wants seriesId — an admin's edit affordance — asks
+  // the members-only route below for it rather than widening this response.
   calendarEvents: (opts: { limit?: number; from?: string } = {}) => {
     const q = new URLSearchParams();
     if (opts.limit != null) q.set("limit", String(opts.limit));
@@ -93,6 +96,25 @@ export const api = {
     );
   },
   calendarFeeds: () => request<{ sources: PublicCalendarFeedDTO[] }>("/calendar-public/sources"),
+
+  // The SAME agenda, read through the members-only route, which answers with the
+  // full CalendarEventDTO. The one thing that adds is `seriesId` — the durable
+  // handle on a managed occurrence's authored series (invariant 8), and the only
+  // way the agenda's event modal can offer an admin an edit form.
+  //
+  // Used ONLY when the viewer is a system admin, and never as the first read:
+  // the screen renders from `calendarEvents` above so an anonymous visitor is
+  // not made to wait on /me, and this replaces that list once the session
+  // resolves to an admin. The narrowing in `publicEventOf` is what keeps
+  // seriesId off the anonymous wire, and that stays true — this is a different
+  // route with its own auth, not a widening of the public one.
+  memberCalendarEvents: (opts: { limit?: number; from?: string } = {}) => {
+    const q = new URLSearchParams();
+    if (opts.limit != null) q.set("limit", String(opts.limit));
+    if (opts.from) q.set("from", opts.from);
+    const qs = q.toString();
+    return request<{ events: CalendarEventDTO[] }>(`/calendar/events${qs ? `?${qs}` : ""}`);
+  },
 
   // Imported ICS sources (admin).
   calendarSources: () => request<{ sources: CalendarSourceDTO[] }>("/admin/calendar-sources"),
@@ -117,6 +139,10 @@ export const api = {
     request<{ ok: true }>(`/admin/managed-calendars/${id}`, { method: "DELETE" }),
 
   // Managed events (admin).
+  /** One authored series by its durable id — what the agenda's event modal has
+   *  (as `seriesId`) when it opens an editor away from the calendar's own page. */
+  managedEvent: (eventId: string) =>
+    request<{ event: ManagedEventDTO }>(`/admin/managed-events/${eventId}`),
   managedEvents: (calendarId: string) =>
     request<{ events: ManagedEventDTO[] }>(`/admin/managed-calendars/${calendarId}/events`),
   addManagedEvent: (calendarId: string, body: ManagedEventInput) =>
