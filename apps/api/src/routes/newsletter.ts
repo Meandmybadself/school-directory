@@ -33,11 +33,13 @@ import {
   isEmail,
   issueEmailArgs,
   parseSubscriberList,
+  previewUrl,
   resolveAudience,
   resolveEventsSnapshot,
   setNewsletterSettings,
   uniqueSlug,
 } from "../lib/newsletter.js";
+import { randomToken, sha256 } from "../lib/crypto.js";
 import {
   recipientCounts,
   retryFailed,
@@ -101,6 +103,12 @@ async function detailOf(
       : null,
     // Counting is only meaningful once recipients exist; skip the query for drafts.
     recipientCounts: row.status === "draft" ? null : await recipientCounts(env, row.id),
+    // Only whether a link is live — the token itself was hashed on the way in
+    // and is unrecoverable by design (migration 0015).
+    previewLink: {
+      active: row.preview_token_hash !== null,
+      createdAt: row.preview_token_created_at,
+    },
   };
 }
 
@@ -257,6 +265,80 @@ newsletter.delete("/issues/:id", async (c) => {
     entityKind: "newsletter_issue",
     entityId: id,
   });
+  return c.json({ ok: true });
+});
+
+// ── Review links ────────────────────────────────────────────────────────────
+
+/** POST /newsletter/issues/:id/preview-link — mint the review link, or replace
+ *  the one that's live.
+ *
+ *  Returns the URL ONCE. Only the token's hash is stored (migration 0015), so
+ *  this response is the sole copy that will ever exist; the issue DTO afterwards
+ *  reports only that a link is active. "One live link per issue" is enforced by
+ *  overwriting the same column pair rather than by refusing a second mint —
+ *  re-minting is also how an admin who lost the URL gets a working one, and it
+ *  invalidates the previous link in the same statement. */
+newsletter.post("/issues/:id/preview-link", async (c) => {
+  const auth = requireAuth(c);
+  if (!auth.isSystemAdmin) return c.json({ error: "forbidden" }, 403);
+
+  const id = c.req.param("id");
+  const row = await c.env.DB.prepare("SELECT id FROM newsletter_issue WHERE id = ?")
+    .bind(id)
+    .first<{ id: string }>();
+  if (!row) return c.json({ error: "not_found" }, 404);
+
+  const token = randomToken();
+  const createdAt = nowIso();
+  await c.env.DB.prepare(
+    `UPDATE newsletter_issue
+        SET preview_token_hash = ?, preview_token_created_at = ?
+      WHERE id = ?`,
+  )
+    .bind(await sha256(token), createdAt, id)
+    .run();
+
+  c.var.audit.push({
+    action: "newsletter.issue.preview_link_created",
+    entityKind: "newsletter_issue",
+    entityId: id,
+  });
+
+  return c.json({ url: previewUrl(c.env, token), createdAt });
+});
+
+/** DELETE /newsletter/issues/:id/preview-link — revoke.
+ *
+ *  Idempotent: revoking a link that isn't live answers ok rather than 404, so a
+ *  double-click can't raise an error about something that already happened. The
+ *  404 is reserved for an issue that doesn't exist. Nothing needs cache-busting
+ *  — the pages that read this token are served no-store (see functions/_lib/
+ *  page.ts's htmlPrivate), so the next request for a revoked URL misses. */
+newsletter.delete("/issues/:id/preview-link", async (c) => {
+  const auth = requireAuth(c);
+  if (!auth.isSystemAdmin) return c.json({ error: "forbidden" }, 403);
+
+  const id = c.req.param("id");
+  const row = await c.env.DB.prepare("SELECT id FROM newsletter_issue WHERE id = ?")
+    .bind(id)
+    .first<{ id: string }>();
+  if (!row) return c.json({ error: "not_found" }, 404);
+
+  await c.env.DB.prepare(
+    `UPDATE newsletter_issue
+        SET preview_token_hash = NULL, preview_token_created_at = NULL
+      WHERE id = ?`,
+  )
+    .bind(id)
+    .run();
+
+  c.var.audit.push({
+    action: "newsletter.issue.preview_link_revoked",
+    entityKind: "newsletter_issue",
+    entityId: id,
+  });
+
   return c.json({ ok: true });
 });
 

@@ -3,6 +3,7 @@ import { useSession } from "./lib/session.js";
 import { SignIn, CheckEmail } from "./screens/Onboarding.js";
 import { Issues } from "./screens/Issues.js";
 import { IssueEditor } from "./screens/IssueEditor.js";
+import { IssuePrint } from "./screens/IssuePrint.js";
 import { Settings } from "./screens/Settings.js";
 import { Subscribers } from "./screens/Subscribers.js";
 import { Preferences } from "./screens/Preferences.js";
@@ -86,6 +87,9 @@ export function App() {
 
       <Route path="/admin" element={<RequireAdmin><Issues /></RequireAdmin>} />
       <Route path="/admin/issues/:id" element={<RequireAdmin><IssueEditor /></RequireAdmin>} />
+      {/* No Function claims /admin/*, so this falls through to the bundle — see
+          ROUTING.md before adding a Function anywhere near it. */}
+      <Route path="/admin/issues/:id/print" element={<RequireAdmin><IssuePrint /></RequireAdmin>} />
       <Route path="/admin/settings" element={<RequireAdmin><Settings /></RequireAdmin>} />
       <Route path="/admin/subscribers" element={<RequireAdmin><Subscribers /></RequireAdmin>} />
 

@@ -21,6 +21,9 @@
 // Translating them means giving these functions a locale of their own — worth
 // doing, but a larger change than duplicating two lines.
 
+import { formatIssueDate, NEWSLETTER_WEB_CSS, renderNewsletterIssuePageHtml } from "@sd/shared";
+import type { NewsletterIssuePageDTO } from "@sd/shared";
+
 export interface PagesEnv {
   /** Origin of the API Worker, e.g. https://api-directory.eisenhower.school. */
   API_BASE: string;
@@ -46,6 +49,12 @@ export interface ShellInput {
   image?: string | null;
   /** Sent when an issue can't be found, so crawlers don't index a 404. */
   noindex?: boolean;
+  /** Opens the browser's print dialog on load — this project's "save as PDF".
+   *  There is no PDF renderer here and adding one would be a second place for a
+   *  newsletter's look to drift from the email (invariant 9), so the browser's
+   *  own print engine does the job. The markup is identical either way; the
+   *  @media print block in NEWSLETTER_WEB_CSS does the rest. */
+  print?: boolean;
 }
 
 export function shell(input: ShellInput): string {
@@ -85,9 +94,17 @@ ${input.body}
       <div>Feedback? Email <a href="mailto:admin@eisenhower.school">admin@eisenhower.school</a></div>
       <div style="margin-top:10px"><a href="/app">Members: sign in</a></div>
     </div>
+${input.print ? PRINT_SCRIPT : ""}
   </body>
 </html>`;
 }
+
+/** Fires the print dialog once the page has settled.
+ *
+ *  On `load` rather than immediately: a masthead logo that hasn't decoded yet
+ *  prints as a gap, and `load` is the one event that waits for images. The
+ *  optional chaining is for the rare embedded viewer that exposes no `print`. */
+const PRINT_SCRIPT = `    <script>addEventListener("load",function(){window.print&&window.print()})</script>`;
 
 /** Fetch JSON from the API. Returns null on any failure so a page can render a
  *  "not found" rather than a stack trace. */
@@ -130,14 +147,10 @@ export async function apiPost<T>(
   }
 }
 
-export function formatSentAt(iso: string): string {
-  return new Date(iso).toLocaleDateString("en-US", {
-    month: "long",
-    day: "numeric",
-    year: "numeric",
-    timeZone: "UTC",
-  });
-}
+/** Re-exported so these pages and the SPA's print view can't drift into two
+ *  date formats. Lives in @sd/shared next to the renderer that lays out the
+ *  page it appears on. */
+export { formatIssueDate };
 
 export function html(body: string, status = 200): Response {
   return new Response(body, {
@@ -166,4 +179,95 @@ export function htmlPrivate(body: string, status = 200): Response {
       "x-robots-tag": "noindex, nofollow",
     },
   });
+}
+
+export interface IssuePageOptions {
+  /** API path to read the issue from — by public slug or by review token. */
+  apiPath: string;
+  canonical: string;
+  /** "" on a token-reached page: it has no archive entry to go back to. */
+  archiveHref: string;
+  /** "" on a print view, so the printed page carries no link to itself. */
+  printHref: string;
+  print: boolean;
+  /** false ⇒ htmlPrivate(), which is MANDATORY when the URL contains a token.
+   *  A shared cache is keyed on the URL, so caching one would let a revoked link
+   *  keep being served from the edge after DELETE …/preview-link — silently
+   *  undoing the one guarantee the feature makes. It also keeps the token out of
+   *  referrers and out of search indexes. */
+  cacheable: boolean;
+  /** What the 404 page says when the issue isn't there. */
+  notFoundHint: string;
+}
+
+/** Load one issue and render it as a whole document, or as a 404.
+ *
+ *  The four issue-page routes — public and review-token, each with a print
+ *  twin — differ only in the fields above. Everything after the fetch is
+ *  identical, which is exactly what keeps them from drifting back into four
+ *  near-copies of the same template as the page grows. */
+export async function renderIssuePage(
+  env: PagesEnv,
+  opts: IssuePageOptions,
+): Promise<Response> {
+  const send = opts.cacheable ? html : htmlPrivate;
+  const issue = await apiJson<NewsletterIssuePageDTO>(env, opts.apiPath);
+
+  if (!issue) {
+    return send(
+      shell({
+        title: "Not found",
+        description: "This newsletter issue isn't available.",
+        canonical: opts.canonical,
+        accentColor: "#0068A8",
+        css: NEWSLETTER_WEB_CSS,
+        noindex: true,
+        body: `    <div class="nl-wrap">
+      <div class="nl-empty">
+        <p>${escapeHtml(opts.notFoundHint)}</p>
+        ${opts.archiveHref ? `<p><a href="${escapeHtml(opts.archiveHref)}">See all issues</a></p>` : ""}
+      </div>
+    </div>`,
+      }),
+      404,
+    );
+  }
+
+  const { branding } = issue;
+  const isDraft = issue.status !== "sent";
+  const body = renderNewsletterIssuePageHtml({
+    branding,
+    title: issue.title,
+    subtitle: issue.subtitle,
+    doc: issue.content,
+    resolveEvents: (attrs) => issue.eventsSnapshot[attrs.blockId] ?? [],
+    dateLabel:
+      issue.sentAt !== null
+        ? formatIssueDate(issue.sentAt)
+        : `Last edited ${formatIssueDate(issue.updatedAt)}`,
+    isDraft,
+    archiveHref: opts.archiveHref,
+    printHref: opts.printHref,
+  });
+
+  return send(
+    shell({
+      title: `${issue.title} — ${branding.newsletterTitle}`,
+      description: issue.subtitle ?? issue.excerpt,
+      canonical: opts.canonical,
+      accentColor: branding.accentColor,
+      css: NEWSLETTER_WEB_CSS,
+      image: branding.logoUrl,
+      // Exactly one of these four pages is meant to be indexed: the plain,
+      // cacheable page of a sent issue. A print view is a second rendering of a
+      // page that already exists, and anything reached by a token is nobody's
+      // business but the holder's — including after the issue is sent, which is
+      // why this keys on `cacheable` rather than on `isDraft`. htmlPrivate()
+      // already sends `x-robots-tag` for those, and the header is authoritative;
+      // this is the belt to its braces, and it costs a boolean.
+      noindex: opts.print || !opts.cacheable,
+      print: opts.print,
+      body,
+    }),
+  );
 }

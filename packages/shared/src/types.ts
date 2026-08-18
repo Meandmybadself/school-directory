@@ -803,6 +803,11 @@ export interface NewsletterIssueDTO extends NewsletterIssueSummaryDTO {
   eventsSnapshot: Record<string, CalendarEventDTO[]> | null;
   /** Present once sending has begun, for the admin's progress display. */
   recipientCounts: { pending: number; sent: number; failed: number } | null;
+  /** Whether a review link is live, and when it was minted. Never the token:
+   *  only its hash is stored, so the URL shown at mint time is the one and only
+   *  copy. "I lost it" is answered by minting a new one, which invalidates the
+   *  old — see migration 0015. */
+  previewLink: { active: boolean; createdAt: string | null };
 }
 
 export interface NewsletterIssueInput {
@@ -878,16 +883,37 @@ export interface PublicNewsletterIssueSummaryDTO {
   excerpt: string;
 }
 
-/** Carries data, not pre-rendered HTML: the public page runs the same shared
- *  renderer the email did, over the same frozen content and snapshot. */
-export interface PublicNewsletterIssueDTO extends PublicNewsletterIssueSummaryDTO {
+/** One issue's reader-facing page — everything needed to render it, whether it
+ *  was reached by a sent issue's public slug or by a review token.
+ *
+ *  Carries data, not pre-rendered HTML: the page runs the same shared renderer
+ *  the email did, over the same content and snapshot.
+ *
+ *  THE public seam for issue pages, built field by field by `issuePageOf` in
+ *  apps/api/src/lib/newsletter.ts — the companion to `publicEventOf` and
+ *  `publicSheetOf`. Never build it by spreading a wider DTO, and read that
+ *  function's comment before adding a field here: a column added to
+ *  `newsletter_issue` must not be able to reach a reader until someone edits
+ *  that projection on purpose. */
+export interface NewsletterIssuePageDTO {
+  /** The permanent archive URL's slug — null for an issue that hasn't been
+   *  sent, which has no `/n/` page of its own yet, only its token's. */
+  slug: string | null;
+  title: string;
+  subtitle: string | null;
+  status: NewsletterIssueStatus;
+  sentAt: string | null;
+  /** For the "last edited …" line an unsent issue shows in place of a date. */
+  updatedAt: string;
+  /** First few lines of body text, for the OG description. */
+  excerpt: string;
   content: NewsletterNode;
-  /** Narrowed on read, like the public agenda. The snapshot is FROZEN at send
-   *  as full CalendarEventDTOs (that stored artifact stays byte-identical to
-   *  what was mailed — invariant 10), but an issue's web page is public and
-   *  enumerable, so it is served through `publicEventOf`. Without that, the
-   *  archive would be a second, quieter way to read seriesId/recurrenceId off a
-   *  public URL. See invariant 12. */
+  /** Narrowed on read, like the public agenda. A sent issue's snapshot is
+   *  FROZEN at send as full CalendarEventDTOs (that stored artifact stays
+   *  byte-identical to what was mailed — invariant 10) and an unsent one's is
+   *  resolved live, but either way an issue page is readable without a session,
+   *  so both go out through `publicEventOf`. Without that, an issue page would
+   *  be a second, quieter way to read seriesId/recurrenceId. See invariant 12. */
   eventsSnapshot: Record<string, PublicCalendarEventDTO[]>;
   branding: NewsletterBrandingDTO;
 }
@@ -946,6 +972,14 @@ export type AuditAction =
   | "newsletter.issue.deleted"
   | "newsletter.issue.sent"
   | "newsletter.issue.retried"
+  /** A review link was minted (or re-minted, invalidating the previous one) or
+   *  revoked. Deliberately not the generic share.created/share.revoked above:
+   *  those belong to routes/shares.ts, which grants a Person or Group sight of
+   *  a private contact field. This is a bearer URL onto one issue — a different
+   *  mechanism with a different blast radius, and worth telling apart in a log
+   *  someone reads after the fact. */
+  | "newsletter.issue.preview_link_created"
+  | "newsletter.issue.preview_link_revoked"
   | "newsletter.media.uploaded"
   /** Someone completed double opt-in from the public form. Anonymous — there is
    *  no session on that route — so the actor column is null and the confirmed

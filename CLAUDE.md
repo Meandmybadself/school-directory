@@ -223,6 +223,37 @@ All three SPAs are separate Cloudflare Pages projects talking to the single
    settings blob, edited on the newsletter's own Settings screen — NOT with the
    new-member toggle in `apps/web`'s Admin, because each app owns its own admin.
    `lib/notify.ts` holds both, and the daily digests share one cron.
+15. **An issue page has ONE projection and TWO gates.** Everything a reader sees
+   of a newsletter issue — the public archive page and a review link alike — is
+   built by `issuePageOf` (`apps/api/src/lib/newsletter.ts`), field by field,
+   like `publicEventOf` and `publicSheetOf`. Never spread a row or a wider DTO
+   into it: `newsletter_issue` holds `preview_token_hash`, so a spread would
+   publish a live capability on an enumerable page. The two ways in are gated
+   differently and deliberately — `/newsletter-public/issues/:slug` filters
+   `status = 'sent'` **in SQL** (a guessed draft slug reveals nothing), while
+   `/newsletter-public/preview/:token` has no status filter at all, because
+   holding the token IS the authorization. Sharing a draft never required
+   loosening the first gate, and must not.
+   The token (migration 0015) is hashed at rest, minted only by a system admin,
+   **revocable with no expiry**, and deliberately **survives a send** so a link
+   already circulated keeps resolving. It is not an `auth_token`, for the reason
+   migration 0013 gives. `test/newsletterIssuePage.test.ts` asserts the exact
+   key set, that a widened row can't ride through, and that both gates still
+   behave.
+   **The pages that read a token must never be cacheable.** `/preview/:token`
+   and its `/print` twin pass `cacheable: false` to `renderIssuePage`, which
+   routes them through `htmlPrivate()`; a shared cache keyed on the URL would
+   let a revoked link keep being served from the edge.
+16. **"View as PDF" is printing, not a PDF renderer.** There is no PDF library
+   or Browser Rendering binding in this project on purpose — a second renderer
+   is a second place for a newsletter's look to drift from the email
+   (invariant 9). The `@media print` block lives inside `NEWSLETTER_WEB_CSS`, so
+   an ordinary Ctrl+P on any issue page also comes out clean; the `/print`
+   routes add only the auto-firing dialog. The admin's own print view
+   (`/admin/issues/:id/print`) is an SPA route rather than a Pages Function
+   because the session cookie is host-only to the API and a Function on the
+   newsletter origin cannot see it — see `apps/newsletter/ROUTING.md`.
+
 
 ## Conventions
 

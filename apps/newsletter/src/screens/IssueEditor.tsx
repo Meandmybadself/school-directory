@@ -74,6 +74,114 @@ function SendSheet({
   );
 }
 
+/** Mint, copy and revoke the review link.
+ *
+ *  The one thing shaping this component: the URL is unrecoverable. Only its hash
+ *  is stored (migration 0015), so the mint response is the sole copy that will
+ *  ever exist. That makes "a link is live but I don't have it" a real state the
+ *  sheet has to show honestly — the only ways out are revoking it or minting a
+ *  replacement, and there is deliberately no "show me the current link". */
+function ShareSheet({
+  issue,
+  onClose,
+  onChanged,
+}: {
+  issue: NewsletterIssueDTO;
+  onClose: () => void;
+  onChanged: (link: NewsletterIssueDTO["previewLink"]) => void;
+}) {
+  const [url, setUrl] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+  const active = issue.previewLink.active;
+
+  const mint = async () => {
+    setBusy(true);
+    setErr(null);
+    try {
+      const res = await api.createPreviewLink(issue.id);
+      setUrl(res.url);
+      onChanged({ active: true, createdAt: res.createdAt });
+    } catch (e) {
+      setErr(errorMessage(e, "Couldn't create that link."));
+    }
+    setBusy(false);
+  };
+
+  const revoke = async () => {
+    setBusy(true);
+    setErr(null);
+    try {
+      await api.revokePreviewLink(issue.id);
+      setUrl(null);
+      onChanged({ active: false, createdAt: null });
+    } catch (e) {
+      setErr(errorMessage(e, "Couldn't revoke that link."));
+    }
+    setBusy(false);
+  };
+
+  const copy = async () => {
+    if (!url) return;
+    try {
+      await navigator.clipboard.writeText(url);
+      setCopied(true);
+    } catch {
+      // A denied clipboard permission isn't worth an error banner — the URL is
+      // on screen in a selectable field either way.
+    }
+  };
+
+  return (
+    <SheetOver onClose={onClose}>
+      <h2 className="sd-h2" style={{ marginBottom: 4 }}>Share for review</h2>
+      <p className="sd-lead" style={{ fontSize: 14, marginBottom: 14 }}>
+        A private link to this issue as it stands, for someone who needs to read it
+        before it goes out. They don't need an account.
+      </p>
+      <div className="nlx-warn" style={{ marginBottom: 16 }}>
+        <Icon name="info" size={16} stroke={2} style={{ flex: "0 0 auto", marginTop: 1 }} />
+        <span>
+          Anyone with the link can read it, so treat it like the issue itself. It
+          keeps working until you revoke it — including after this issue is sent.
+        </span>
+      </div>
+
+      {err && <p className="sd-lead" style={{ color: "var(--warn)", fontSize: 14 }}>{err}</p>}
+
+      {url && (
+        <Field label="Link" hint="Copy it now — this is the only time it's shown.">
+          <input className="sd-input" readOnly value={url} onFocus={(e) => e.target.select()} />
+        </Field>
+      )}
+
+      {active && !url && (
+        <p className="sd-meta" style={{ marginBottom: 10 }}>
+          A link is already active. It can't be shown again — only replaced or revoked.
+        </p>
+      )}
+
+      <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 14 }}>
+        {url && (
+          <Btn block icon="link" onClick={() => void copy()}>
+            {copied ? "Copied" : "Copy link"}
+          </Btn>
+        )}
+        <button className="sd-btn sd-btn-ghost" onClick={() => void mint()} disabled={busy}>
+          {busy ? "Working…" : active ? "Replace with a new link" : "Create a link"}
+        </button>
+        {active && (
+          <button className="sd-btn sd-btn-ghost" onClick={() => void revoke()} disabled={busy}>
+            Stop sharing
+          </button>
+        )}
+        <button className="sd-btn sd-btn-ghost" onClick={onClose}>Close</button>
+      </div>
+    </SheetOver>
+  );
+}
+
 function TestSendSheet({
   onClose,
   onSend,
@@ -155,7 +263,7 @@ export function IssueEditor() {
   const [draft, setDraft] = useState<Draft | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [saveState, setSaveState] = useState<"idle" | "saving" | "saved" | "error">("idle");
-  const [sheet, setSheet] = useState<"send" | "test" | null>(null);
+  const [sheet, setSheet] = useState<"send" | "test" | "share" | null>(null);
   const [sending, setSending] = useState(false);
 
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -341,6 +449,21 @@ export function IssueEditor() {
         <StatusChip status={issue.status} />
         {!readOnly && <span className="sd-meta">{saveLabel}</span>}
         <div style={{ flex: 1 }} />
+        {/* Available whether or not the issue has been sent — "give me a PDF of
+            that newsletter" is asked about back issues at least as often as
+            about drafts. Opens in a tab so the print dialog doesn't take over
+            the editor. */}
+        <a
+          className="sd-btn sd-btn-ghost"
+          href={`/admin/issues/${id}/print`}
+          target="_blank"
+          rel="noopener"
+        >
+          View as PDF
+        </a>
+        <button className="sd-btn sd-btn-ghost" onClick={() => setSheet("share")}>
+          {issue.previewLink.active ? "Sharing…" : "Share for review…"}
+        </button>
         {!readOnly && (
           <>
             <button className="sd-btn sd-btn-ghost" onClick={() => setSheet("test")}>Send test</button>
@@ -439,6 +562,13 @@ export function IssueEditor() {
         <SendSheet issue={issue} busy={sending} onClose={() => setSheet(null)} onConfirm={() => void send()} />
       )}
       {sheet === "test" && <TestSendSheet onClose={() => setSheet(null)} onSend={testSend} />}
+      {sheet === "share" && (
+        <ShareSheet
+          issue={issue}
+          onClose={() => setSheet(null)}
+          onChanged={(previewLink) => setIssue((i) => (i ? { ...i, previewLink } : i))}
+        />
+      )}
     </div>
   );
 

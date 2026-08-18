@@ -51,6 +51,12 @@ export interface IssueRow {
   created_by: string | null;
   created_at: string;
   updated_at: string;
+  /** SHA-256 of the review link's token, or null when none is live. Never
+   *  leaves the server — `detailOf` reports only whether it is set. Deliberately
+   *  survives a send: the link is revocable with no expiry, so one already
+   *  circulated keeps working and starts showing the sent issue. */
+  preview_token_hash: string | null;
+  preview_token_created_at: string | null;
 }
 
 export type StartSendOutcome =

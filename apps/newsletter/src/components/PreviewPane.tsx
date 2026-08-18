@@ -10,6 +10,7 @@ import { useMemo } from "react";
 import type { CalendarEventDTO, NewsletterNode, NewsletterSettingsDTO } from "@sd/shared";
 import { renderNewsletterEmailHtml } from "@sd/shared";
 import { useDocumentEvents } from "../lib/useCalendarFeeds.js";
+import { brandingOf } from "../lib/branding.js";
 
 export function PreviewPane({
   doc,
@@ -33,13 +34,7 @@ export function PreviewPane({
   const html = useMemo(
     () =>
       renderNewsletterEmailHtml({
-        branding: {
-          newsletterTitle: settings.newsletterTitle,
-          accentColor: settings.accentColor,
-          logoUrl: settings.logoUrl,
-          footerHtml: settings.footerHtml,
-          calendarUrl: settings.calendarUrl,
-        },
+        branding: brandingOf(settings),
         title: title || "Untitled",
         subtitle,
         doc,

@@ -119,6 +119,26 @@ export const api = {
   retryIssue: (id: string) =>
     request<{ status: string }>(`/newsletter/issues/${id}/retry`, { method: "POST" }),
 
+  /** Events for an issue, resolved server-side — live while it is a draft, from
+   *  the freeze once it has been sent. The print view reads this rather than
+   *  resolving block by block in the browser: it needs ONE definite "the events
+   *  are in" moment before it opens the print dialog, or the dialog can snapshot
+   *  a page whose event lists are still empty. */
+  issuePreviewEvents: (id: string) =>
+    request<{ eventsSnapshot: Record<string, CalendarEventDTO[]> }>(
+      `/newsletter/issues/${id}/preview`,
+    ),
+
+  /** Mint the review link, or replace the one that's live. The URL comes back
+   *  ONCE — only its hash is stored — so whatever calls this is the only chance
+   *  to show it. Calling again invalidates the previous link. */
+  createPreviewLink: (id: string) =>
+    request<{ url: string; createdAt: string }>(`/newsletter/issues/${id}/preview-link`, {
+      method: "POST",
+    }),
+  revokePreviewLink: (id: string) =>
+    request<{ ok: true }>(`/newsletter/issues/${id}/preview-link`, { method: "DELETE" }),
+
   // Settings + subscribers (admin).
   settings: () => request<{ settings: NewsletterSettingsDTO }>("/newsletter/settings"),
   saveSettings: (body: NewsletterSettingsDTO) =>

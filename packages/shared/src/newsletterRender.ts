@@ -70,6 +70,11 @@ const DEFAULT_LOCALE = "en-US";
 
 const INK = "#1F2933";
 const MUTED = "#56636F";
+/** The design system's `--orange`, for the one thing on an issue page that is a
+ *  warning rather than content: the "this is a draft" banner. Not the accent —
+ *  that is the school's, and an admin may set it to anything, including
+ *  something that reads as ordinary chrome. */
+const DEFAULT_ORANGE = "#FAAB1C";
 const RULE = "#E4E7EB";
 const PAPER = "#FFFFFF";
 const BACKDROP = "#F4F6F8";
@@ -903,6 +908,103 @@ export function renderNewsletterEmailText(input: NewsletterEmailInput): string {
     .join("\n\n");
 }
 
+// ── The issue page ──────────────────────────────────────────────────────────
+
+/** Date on an issue page, e.g. "August 15, 2026".
+ *
+ *  Fixed to English and UTC, matching what the archive already did inline. That
+ *  is a deliberate difference from `formatEventDay`/`formatEventTime`, which ARE
+ *  locale- and zone-parameterized: those name an instant a reader is expected to
+ *  show up at, so getting the zone wrong moves an event a day. This names when
+ *  an issue was sent or last touched — page furniture on surfaces that have no
+ *  locale of their own (see functions/_lib/page.ts). It lives here so the
+ *  archive, the review page and the admin's print view don't keep three copies. */
+export function formatIssueDate(iso: string): string {
+  return new Date(iso).toLocaleDateString("en-US", {
+    month: "long",
+    day: "numeric",
+    year: "numeric",
+    timeZone: "UTC",
+  });
+}
+
+export interface NewsletterIssuePageInput extends NewsletterWrapperInput {
+  /** Already formatted by the caller — usually `formatIssueDate(sentAt)`, or a
+   *  "last edited …" line for an issue that hasn't gone out. */
+  dateLabel: string;
+  /** Draws the "not sent yet" banner. Drives nothing else: an unsent issue and
+   *  a sent one render identically otherwise, which is the point of showing a
+   *  reviewer the real thing. */
+  isDraft: boolean;
+  /** Href for the masthead and the "See all issues" link, or "" to omit both —
+   *  an issue reached by a review token has no archive entry to return to, and
+   *  linking one would invite a reviewer to go looking for a page that 404s. */
+  archiveHref: string;
+  /** Href of the print view, or "" to omit the link (the print view itself
+   *  passes "", so the printed page never carries a link to itself). */
+  printHref: string;
+}
+
+/** The issue page body — masthead, title, date, rendered body, footer.
+ *
+ *  Extracted from what was inline markup in functions/n/[slug].ts so the public
+ *  archive page, the review page, both of their print views and the admin's
+ *  own print view render through ONE function instead of drifting into five
+ *  near-identical templates. Emits the `.nl-` classes in NEWSLETTER_WEB_CSS
+ *  below; the caller supplies the document around it. */
+export function renderNewsletterIssuePageHtml(input: NewsletterIssuePageInput): string {
+  const { branding } = input;
+  const body = renderNewsletterBodyHtml(input.doc, input.resolveEvents, {
+    mode: "web",
+    accentColor: branding.accentColor,
+    timeZone: input.timeZone,
+    locale: input.locale,
+    calendarUrl: branding.calendarUrl,
+  });
+
+  const mark = branding.logoUrl
+    ? `<img src="${escapeHtml(branding.logoUrl)}" alt="${escapeHtml(branding.newsletterTitle)}" />`
+    : `<div class="nl-masthead-title">${escapeHtml(branding.newsletterTitle)}</div>`;
+  const masthead = input.archiveHref
+    ? `<a href="${escapeHtml(input.archiveHref)}" style="text-decoration:none">${mark}</a>`
+    : mark;
+
+  // Said plainly, and above the content rather than below it: a reviewer who
+  // was sent a link has no other way to tell a draft from the real thing, and
+  // finding out after reading is finding out too late.
+  const banner = input.isDraft
+    ? `<div class="nl-draft-banner">Draft — not sent yet. This is a private preview link.</div>`
+    : "";
+
+  const foot = [
+    footerHtmlOf(branding),
+    input.archiveHref
+      ? `<p style="margin:8px 0 0"><a href="${escapeHtml(input.archiveHref)}">See all issues</a></p>`
+      : "",
+    input.printHref
+      ? `<p class="nl-print-link"><a href="${escapeHtml(input.printHref)}">View as PDF</a></p>`
+      : "",
+  ]
+    .filter(Boolean)
+    .join("\n          ");
+
+  return `    <div class="nl-wrap">
+      ${banner}
+      <div class="nl-masthead">${masthead}</div>
+      <article class="nl-card">
+        <h1 class="nl-title">${escapeHtml(input.title)}</h1>
+        ${input.subtitle ? `<p class="nl-subtitle">${escapeHtml(input.subtitle)}</p>` : ""}
+        <p class="nl-date">${escapeHtml(input.dateLabel)}</p>
+        <div class="nl-body">
+${body}
+        </div>
+        <div class="nl-foot">
+          ${foot}
+        </div>
+      </article>
+    </div>`;
+}
+
 /** Stylesheet for the public archive pages. Lives here so the web target's look
  *  is defined next to the email's inline styles and the two stay in step. */
 export const NEWSLETTER_WEB_CSS = `
@@ -958,4 +1060,36 @@ a{color:var(--nl-accent,${DEFAULT_ACCENT})}
    field, while a screen reader is told to skip it. */
 .nl-hp{position:absolute;left:-9999px;width:1px;height:1px;overflow:hidden}
 @media (max-width:520px){.nl-card{padding:22px 18px 26px}.nl-title{font-size:25px}}
+.nl-print-link{margin:8px 0 0}
+.nl-draft-banner{
+  margin:0 0 16px;padding:10px 14px;border-radius:9px;
+  background:#fff4d6;border-left:3px solid ${DEFAULT_ORANGE};
+  font-size:13.5px;line-height:1.5;color:#6b4d05;
+}
+
+/* Printing IS the PDF export — there is no PDF renderer in this project, and a
+   second one would be a second place for a newsletter's look to drift from the
+   email (invariant 9). So the print stylesheet is part of the one stylesheet,
+   which also means an ordinary Ctrl+P on any issue page comes out clean; the
+   dedicated /print routes add only the auto-firing dialog.
+
+   Everything hidden here is navigation or an affordance that means nothing on
+   paper. The draft banner deliberately SURVIVES: a printed draft handed round a
+   meeting table is exactly where "this went out already" is easiest to assume
+   and most expensive to get wrong. */
+@media print{
+  body{background:#fff}
+  .nl-site-foot,.nl-subscribe-cta,.nl-print-link,.nl-events-more{display:none}
+  .nl-wrap{max-width:none;padding:0}
+  .nl-card{box-shadow:none;border-radius:0;padding:0}
+  .nl-masthead{padding:0 0 14px}
+  /* Links keep their href meaning on screen but read as noise in ink. */
+  a{color:inherit;text-decoration:none}
+  .nl-title{font-size:26px}
+  .nl-p,.nl-ul,.nl-ol{font-size:12pt;line-height:1.55}
+  /* Don't strand a heading or an event row at the foot of a page. */
+  .nl-h1,.nl-h2,.nl-h3,.nl-events-heading{break-after:avoid;page-break-after:avoid}
+  .nl-event,.nl-li,.nl-img,.nl-quote{break-inside:avoid;page-break-inside:avoid}
+  .nl-foot{break-inside:avoid}
+}
 `.trim();

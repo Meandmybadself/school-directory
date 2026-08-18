@@ -10,22 +10,26 @@
 import type {
   CalendarEventDTO,
   NewsletterBrandingDTO,
+  NewsletterIssuePageDTO,
+  NewsletterIssueStatus,
   NewsletterNode,
   NewsletterSettingsDTO,
   NotifyMode,
+  PublicCalendarEventDTO,
 } from "@sd/shared";
 import {
   blockWindow,
   collectEventsBlocks,
   DEFAULT_TIME_ZONE,
   escapeHtml,
+  newsletterExcerpt,
   NOTIFY_MODES,
   renderNewsletterEmailHtml,
   renderNewsletterEmailText,
   sanitizeFooterHtml,
 } from "@sd/shared";
 import type { Env } from "../env.js";
-import { queryUpcomingEvents } from "./calendar.js";
+import { publicEventOf, queryUpcomingEvents } from "./calendar.js";
 import { getSetting, normalizeEmail, setSetting } from "./db.js";
 import { ulid } from "./ids.js";
 import { nowIso } from "./time.js";
@@ -447,6 +451,113 @@ export function issueWebUrl(env: Env, slug: string): string {
 
 export function confirmSubscriptionUrl(env: Env, token: string): string {
   return `${env.NEWSLETTER_URL}/subscribe/confirm/${token}`;
+}
+
+/** Where a minted review token is read. Alongside its siblings above so every
+ *  outbound link into the newsletter site is built in one place. */
+export function previewUrl(env: Env, token: string): string {
+  return `${env.NEWSLETTER_URL}/preview/${token}`;
+}
+
+// ── The issue page seam ─────────────────────────────────────────────────────
+
+/** The columns an issue page needs, whichever route found the row — a sent
+ *  issue by slug, or any issue by its review token. Deliberately a narrow
+ *  SELECT rather than `SELECT *`: the row that reaches `issuePageOf` shouldn't
+ *  be carrying `preview_token_hash` in the first place. */
+export interface IssuePageRow {
+  slug: string;
+  title: string;
+  subtitle: string | null;
+  status: NewsletterIssueStatus;
+  sent_at: string | null;
+  updated_at: string;
+  content_json: string;
+  events_snapshot_json: string | null;
+}
+
+function parseIssueDoc(json: string): NewsletterNode {
+  try {
+    return JSON.parse(json) as NewsletterNode;
+  } catch {
+    return { type: "doc", content: [] };
+  }
+}
+
+/** Narrow a snapshot for a reader.
+ *
+ *  Moved here from routes/newsletterPublic.ts, where it was a private helper,
+ *  so `issuePageOf` is its only caller and a second route can't build an issue
+ *  response by hand and forget it. The stored JSON is left exactly as written at
+ *  send time — freezing is what keeps the archive matching the email (invariant
+ *  10) — so narrowing happens on the way OUT, the same way the public agenda
+ *  narrows. */
+export function publicEventsSnapshot(
+  raw: Record<string, CalendarEventDTO[]>,
+): Record<string, PublicCalendarEventDTO[]> {
+  const out: Record<string, PublicCalendarEventDTO[]> = {};
+  for (const [blockId, events] of Object.entries(raw)) {
+    if (!Array.isArray(events)) continue;
+    out[blockId] = events.map(publicEventOf);
+  }
+  return out;
+}
+
+/** Parse a stored snapshot blob, tolerating anything that isn't one. */
+function parseSnapshot(json: string | null): Record<string, CalendarEventDTO[]> {
+  if (!json) return {};
+  let raw: unknown;
+  try {
+    raw = JSON.parse(json);
+  } catch {
+    return {};
+  }
+  if (!raw || typeof raw !== "object") return {};
+  return raw as Record<string, CalendarEventDTO[]>;
+}
+
+/** THE reader-facing projection for issue pages — the companion to
+ *  `publicEventOf` and `publicSheetOf`, and built the same way.
+ *
+ *  Every field is written out by hand. Do not rewrite this as a spread of a
+ *  wider row or DTO: a column added to `newsletter_issue` must not be able to
+ *  reach a reader until somebody edits this function on purpose. That is not a
+ *  hypothetical here — this very change added `preview_token_hash` to that
+ *  table, and a spread would have published it.
+ *
+ *  Both callers are unauthenticated: `/newsletter-public/issues/:slug` (gated in
+ *  SQL to sent issues) and `/newsletter-public/preview/:token` (gated by holding
+ *  the token). Neither gate is this function's business — it is handed a row
+ *  some gate already approved, and its only job is deciding what leaves.
+ *
+ *  Events resolve live when there is no freeze yet, which is the draft case and
+ *  also the brief `sending` window before the snapshot lands. Either way the
+ *  result goes out through `publicEventsSnapshot`. */
+export async function issuePageOf(
+  env: Env,
+  row: IssuePageRow,
+  branding: NewsletterBrandingDTO,
+): Promise<NewsletterIssuePageDTO> {
+  const content = parseIssueDoc(row.content_json);
+  const resolved = row.events_snapshot_json
+    ? parseSnapshot(row.events_snapshot_json)
+    : await resolveEventsSnapshot(env, content, nowIso());
+
+  return {
+    // Null rather than the stored slug for an unsent issue: that slug names a
+    // page which does not exist yet and 404s, and handing it to a reviewer
+    // invites them to share the wrong URL.
+    slug: row.status === "sent" ? row.slug : null,
+    title: row.title,
+    subtitle: row.subtitle,
+    status: row.status,
+    sentAt: row.sent_at,
+    updatedAt: row.updated_at,
+    excerpt: newsletterExcerpt(content),
+    content,
+    eventsSnapshot: publicEventsSnapshot(resolved),
+    branding,
+  };
 }
 
 /** The double opt-in email: the only thing standing between "a stranger typed

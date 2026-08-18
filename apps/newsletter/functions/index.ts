@@ -6,7 +6,7 @@
 
 import { NEWSLETTER_WEB_CSS } from "@sd/shared";
 import type { PublicNewsletterArchiveDTO } from "@sd/shared";
-import { apiJson, escapeHtml, formatSentAt, html, shell, type PagesEnv } from "./_lib/page.js";
+import { apiJson, escapeHtml, formatIssueDate, html, shell, type PagesEnv } from "./_lib/page.js";
 
 export const onRequestGet: PagesFunction<PagesEnv> = async (context) => {
   const origin = new URL(context.request.url).origin;
@@ -30,7 +30,7 @@ export const onRequestGet: PagesFunction<PagesEnv> = async (context) => {
   const items = issues
     .map(
       (issue) => `      <a class="nl-archive-item" href="/n/${escapeHtml(issue.slug)}">
-        <span class="nl-archive-date">${escapeHtml(formatSentAt(issue.sentAt))}</span>
+        <span class="nl-archive-date">${escapeHtml(formatIssueDate(issue.sentAt))}</span>
         <h2>${escapeHtml(issue.title)}</h2>
         <p>${escapeHtml(issue.subtitle ?? issue.excerpt)}</p>
       </a>`,

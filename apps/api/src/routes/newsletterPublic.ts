@@ -17,12 +17,7 @@
 // comes back. See migration 0013 for why the token is not an auth_token.
 
 import { Hono } from "hono";
-import type {
-  CalendarEventDTO,
-  NewsletterNode,
-  PublicCalendarEventDTO,
-  PublicNewsletterIssueSummaryDTO,
-} from "@sd/shared";
+import type { NewsletterNode, PublicNewsletterIssueSummaryDTO } from "@sd/shared";
 import { newsletterExcerpt } from "@sd/shared";
 import type { HonoEnv } from "../env.js";
 import { isExpired, isoPlus, nowIso, NEWSLETTER_CONFIRM_TTL } from "../lib/time.js";
@@ -31,13 +26,14 @@ import { ulid } from "../lib/ids.js";
 import { randomToken, sha256 } from "../lib/crypto.js";
 import { sendEmail } from "../lib/email.js";
 import { notifyNewSubscriber } from "../lib/notify.js";
-import { publicEventOf } from "../lib/calendar.js";
 import {
   brandingOf,
   confirmSubscriptionUrl,
   getNewsletterSettings,
   isEmail,
+  issuePageOf,
   subscribeConfirmEmailArgs,
+  type IssuePageRow,
 } from "../lib/newsletter.js";
 
 export const newsletterPublic = new Hono<HonoEnv>();
@@ -51,31 +47,6 @@ interface PublicRow {
   content_json: string;
   events_snapshot_json: string | null;
   sent_at: string;
-}
-
-/** Narrow the frozen snapshot for public consumption.
- *
- *  The stored JSON is left exactly as it was written at send time — freezing is
- *  what keeps the archive matching the email (invariant 10) — so the narrowing
- *  happens here, on the way out, the same way the public agenda narrows. An
- *  issue's URL is public and enumerable; without this the archive would be a
- *  second, quieter route to seriesId/recurrenceId. */
-function publicEventsSnapshot(json: string | null): Record<string, PublicCalendarEventDTO[]> {
-  if (!json) return {};
-  let raw: unknown;
-  try {
-    raw = JSON.parse(json);
-  } catch {
-    return {};
-  }
-  if (!raw || typeof raw !== "object") return {};
-
-  const out: Record<string, PublicCalendarEventDTO[]> = {};
-  for (const [blockId, events] of Object.entries(raw as Record<string, unknown>)) {
-    if (!Array.isArray(events)) continue;
-    out[blockId] = (events as CalendarEventDTO[]).map(publicEventOf);
-  }
-  return out;
 }
 
 function parseDoc(json: string): NewsletterNode {
@@ -122,24 +93,58 @@ newsletterPublic.get("/issues", async (c) => {
  *
  *  Returns the stored document and the frozen events snapshot rather than
  *  pre-rendered HTML: the page runs the same @sd/shared renderer the email did,
- *  over the same inputs, so the archive can't drift from what was mailed. */
+ *  over the same inputs, so the archive can't drift from what was mailed.
+ *
+ *  The `status = 'sent'` gate below is the whole reason a guessed draft slug
+ *  reveals nothing (invariant 10). It stays in this query, in SQL — the review
+ *  link added in migration 0015 is a SEPARATE route on a SEPARATE column, so
+ *  sharing a draft never involved loosening this one. */
 newsletterPublic.get("/issues/:slug", async (c) => {
   const row = await c.env.DB.prepare(
-    `SELECT slug, title, subtitle, content_json, events_snapshot_json, sent_at
+    `SELECT slug, title, subtitle, status, content_json, events_snapshot_json, sent_at, updated_at
        FROM newsletter_issue
       WHERE slug = ? AND status = 'sent' AND sent_at IS NOT NULL`,
   )
     .bind(c.req.param("slug"))
-    .first<PublicRow>();
+    .first<IssuePageRow>();
   if (!row) return c.json({ error: "not_found" }, 404);
 
   const settings = await getNewsletterSettings(c.env);
-  return c.json({
-    ...summaryOf(row),
-    content: parseDoc(row.content_json),
-    eventsSnapshot: publicEventsSnapshot(row.events_snapshot_json),
-    branding: brandingOf(settings),
-  });
+  return c.json(await issuePageOf(c.env, row, brandingOf(settings)));
+});
+
+/** GET /newsletter-public/preview/:token — one issue by its review link.
+ *
+ *  Holding the token IS the authorization, the same posture as the unsubscribe
+ *  and confirm lookups: it carries 256 bits from randomToken() and only a system
+ *  admin can mint one, so there is no anonymous path to abuse and nothing to
+ *  walk. That is also why there is no rate limit here — entropy is the boundary,
+ *  consistently with every other bearer-token lookup in this file.
+ *
+ *  Read-only and non-consuming, unlike the double opt-in token: the same link
+ *  keeps working until an admin revokes it, and a mail scanner following it
+ *  changes nothing.
+ *
+ *  No status filter on purpose. The point is reading an issue BEFORE it is sent,
+ *  and a link already circulated should keep resolving afterwards rather than
+ *  breaking the moment the issue goes out. What comes back is built by the same
+ *  `issuePageOf` the public archive uses, so a reviewer sees neither more nor
+ *  less of an issue than a reader eventually will. */
+newsletterPublic.get("/preview/:token", async (c) => {
+  const token = c.req.param("token");
+  if (!token) return c.json({ error: "not_found" }, 404);
+
+  const row = await c.env.DB.prepare(
+    `SELECT slug, title, subtitle, status, content_json, events_snapshot_json, sent_at, updated_at
+       FROM newsletter_issue
+      WHERE preview_token_hash = ?`,
+  )
+    .bind(await sha256(token))
+    .first<IssuePageRow>();
+  if (!row) return c.json({ error: "not_found" }, 404);
+
+  const settings = await getNewsletterSettings(c.env);
+  return c.json(await issuePageOf(c.env, row, brandingOf(settings)));
 });
 
 /** GET /newsletter-public/branding — masthead + accent for a public page that

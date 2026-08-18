@@ -263,3 +263,39 @@ describe("member volunteer routes refuse without a session", () => {
     expect(res.status).toBe(401);
   });
 });
+
+describe("newsletter review-link routes refuse without a session", () => {
+  // Minting one of these hands out a URL that reads an unsent issue, so the two
+  // routes below are the mechanism's whole attack surface. They carry the file's
+  // ordinary inline admin gate rather than a middleware, which is exactly the
+  // kind of thing worth pinning: a dropped `requireAuth` line looks like nothing
+  // in a diff.
+  const newsletterEnv = () =>
+    ({
+      DB: {
+        prepare: () => ({ bind: () => ({ first: async () => ({ id: "01ISSUE" }), run: async () => ({}) }) }),
+      },
+    }) as unknown as HonoEnv["Bindings"];
+
+  it("POST /newsletter/issues/:id/preview-link → 401", async () => {
+    const { newsletter } = await import("../src/routes/newsletter.js");
+    const app = appWith("/newsletter", newsletter);
+    const res = await app.request(
+      "/newsletter/issues/01ISSUE/preview-link",
+      { method: "POST" },
+      newsletterEnv(),
+    );
+    expect(res.status).toBe(401);
+  });
+
+  it("DELETE /newsletter/issues/:id/preview-link → 401", async () => {
+    const { newsletter } = await import("../src/routes/newsletter.js");
+    const app = appWith("/newsletter", newsletter);
+    const res = await app.request(
+      "/newsletter/issues/01ISSUE/preview-link",
+      { method: "DELETE" },
+      newsletterEnv(),
+    );
+    expect(res.status).toBe(401);
+  });
+});
