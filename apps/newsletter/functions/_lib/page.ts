@@ -14,6 +14,12 @@
 // hands off to the SPA, which resolves who you are and routes accordingly. It
 // exists because these pages own `/`, so without it the bare origin is a dead
 // end with no way into the app at all.
+//
+// The footer copy here is English, unlike its counterpart in the SPAs, because
+// these pages have no i18n at all: they are rendered before any client runs, so
+// there is nothing to read a language preference from and no `?lang=` handling.
+// Translating them means giving these functions a locale of their own — worth
+// doing, but a larger change than duplicating two lines.
 
 export interface PagesEnv {
   /** Origin of the API Worker, e.g. https://api-directory.eisenhower.school. */
@@ -74,7 +80,11 @@ export function shell(input: ShellInput): string {
   </head>
   <body>
 ${input.body}
-    <div class="nl-site-foot"><a href="/app">Members: sign in</a></div>
+    <div class="nl-site-foot">
+      <div>Site built by the Eisenhower PTO.</div>
+      <div>Feedback? Email <a href="mailto:admin@eisenhower.school">admin@eisenhower.school</a></div>
+      <div style="margin-top:10px"><a href="/app">Members: sign in</a></div>
+    </div>
   </body>
 </html>`;
 }

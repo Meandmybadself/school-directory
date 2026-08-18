@@ -10,6 +10,7 @@ import { AppBar, IconBtn, SectLabel, GroupTile, NeighborCard, CTACard } from "..
 import { AppShell, BottomNav } from "../components/AppShell.js";
 import { DesktopShell } from "../components/DesktopShell.js";
 import { PersonSwitcherSheet, LanguageSheet, LanguageButton } from "../components/Sheets.js";
+import { SiteFooter } from "../components/SiteFooter.js";
 import { showsDescription, showsAllDayLabel, formatEventDay } from "../lib/calendar.js";
 import { useSession } from "../lib/session.js";
 import { useIsDesktop } from "../lib/useIsDesktop.js";
@@ -296,6 +297,7 @@ function MobileHome({ activePerson, groups, hasNeighbors, noAddress, list, event
               <GroupsContent groups={groups} columns={1} />
             </div>
           </div>
+          <SiteFooter />
         </div>
       </div>
       {sheet === "switcher" && <PersonSwitcherSheet onClose={() => setSheet(null)} />}

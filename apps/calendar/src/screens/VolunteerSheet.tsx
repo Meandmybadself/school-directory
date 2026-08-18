@@ -27,6 +27,7 @@ import { Avatar, Btn, Tag } from "../components/atoms.js";
 import { AppShell, BottomNav } from "../components/AppShell.js";
 import { DesktopShell } from "../components/DesktopShell.js";
 import { ScreenHeader, SectLabel, Field, SheetOver } from "../components/parts.js";
+import { SiteFooter } from "../components/SiteFooter.js";
 import { useI18n, type I18nT } from "../i18n/index.js";
 import { useIsDesktop } from "../lib/useIsDesktop.js";
 import { api, ApiError } from "../lib/api.js";
@@ -426,7 +427,7 @@ export function VolunteerSheet() {
         }
       />
       <div className="sd-scroll">
-        <div className="sd-body" style={{ gap: 16 }}>{body}</div>
+        <div className="sd-body" style={{ gap: 16 }}>{body}<SiteFooter /></div>
       </div>
       {claimSheet}
     </AppShell>

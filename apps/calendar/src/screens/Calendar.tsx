@@ -16,6 +16,7 @@ import { AppShell, BottomNav } from "../components/AppShell.js";
 import { DesktopShell } from "../components/DesktopShell.js";
 import { ScreenHeader, SectLabel, SheetOver } from "../components/parts.js";
 import { SubscribeSheet } from "../components/Sheets.js";
+import { SiteFooter } from "../components/SiteFooter.js";
 import { ErrorText, describeEvent } from "../components/adminUi.js";
 import { EventEditor } from "../components/EventEditor.js";
 import { useI18n } from "../i18n/index.js";
@@ -542,7 +543,7 @@ export function Calendar() {
         }
       />
       <div className="sd-scroll">
-        <div className="sd-body" style={{ gap: 16 }}>{body}</div>
+        <div className="sd-body" style={{ gap: 16 }}>{body}<SiteFooter /></div>
       </div>
       {sheet}
     </AppShell>

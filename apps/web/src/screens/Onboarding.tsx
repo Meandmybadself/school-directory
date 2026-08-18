@@ -6,6 +6,7 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import { Icon } from "../components/Icon.js";
 import { Btn } from "../components/atoms.js";
 import { AppShell } from "../components/AppShell.js";
+import { SiteFooter } from "../components/SiteFooter.js";
 import { api } from "../lib/api.js";
 import { useI18n } from "../i18n/index.js";
 
@@ -84,6 +85,7 @@ export function SignIn() {
             <Btn block icon="mail" type="submit" disabled={busy || !email.includes("@")}>{t("emailLink")}</Btn>
           </div>
         </form>
+        <SiteFooter style={{ marginTop: 0, padding: "22px 24px 18px" }} />
       </div>
     </AppShell>
   );

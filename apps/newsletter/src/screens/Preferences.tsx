@@ -9,6 +9,7 @@ import { AppShell, BottomNav } from "../components/AppShell.js";
 import { DesktopShell } from "../components/DesktopShell.js";
 import { ScreenHeader } from "../components/parts.js";
 import { Icon } from "../components/Icon.js";
+import { SiteFooter } from "../components/SiteFooter.js";
 import { useIsDesktop } from "../lib/useIsDesktop.js";
 import { useI18n } from "../i18n/index.js";
 import { api, errorMessage } from "../lib/api.js";
@@ -110,7 +111,7 @@ export function Preferences() {
   return (
     <AppShell bottomNav={<BottomNav active="newsletter" />}>
       <ScreenHeader title={t("newsletterPrefsTitle")} left="mail" />
-      <div className="sd-scroll" style={{ padding: "14px 16px 24px" }}>{body}</div>
+      <div className="sd-scroll" style={{ padding: "14px 16px 24px", display: "flex", flexDirection: "column" }}>{body}<SiteFooter /></div>
     </AppShell>
   );
 }

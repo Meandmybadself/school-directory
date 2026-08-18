@@ -6,6 +6,7 @@ import { Icon } from "./Icon.js";
 import { Avatar } from "./atoms.js";
 import { AccountSheet, LanguageSheet, LanguageButton } from "./Sheets.js";
 import { MasqueradeBanner, navItems, type NavKey } from "./AppShell.js";
+import { SiteFooter } from "./SiteFooter.js";
 import { useI18n } from "../i18n/index.js";
 import { useSession } from "../lib/session.js";
 
@@ -82,6 +83,10 @@ export function DesktopShell({
         <div className="sd-deskbody">
           {breadcrumb}
           {children}
+          {/* Last child of the flex column, so its `margin-top: auto` pins it to
+              the bottom of the viewport on a short page and simply follows the
+              content on a long one. One seam covers every desktop screen. */}
+          <SiteFooter />
         </div>
       </div>
       {sheet === "account" && <AccountSheet onClose={() => setSheet(null)} />}

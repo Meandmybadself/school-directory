@@ -269,6 +269,10 @@ export interface Strings {
   language: string;
   languageNote: string;
 
+  // site footer
+  footerBuiltBy: string; // uses {school}
+  footerFeedback: string; // uses {email}
+
   // cross-cutting states
   offlineBanner: string;
   offlineReadOnly: string;
@@ -539,6 +543,9 @@ const en: Strings = {
   language: "Language",
   languageNote: "Changes the directory for you only.",
 
+  footerBuiltBy: "Site built by the {school}.",
+  footerFeedback: "Feedback? Email {email}",
+
   offlineBanner: "Offline — showing your saved copy",
   offlineReadOnly: "Read-only",
   offlineNote:
@@ -744,6 +751,9 @@ const es: Strings = {
   language: "Idioma",
   languageNote: "Cambia el directorio solo para ti.",
 
+  footerBuiltBy: "Sitio creado por {school}.",
+  footerFeedback: "¿Comentarios? Escribe a {email}",
+
   offlineBanner: "Sin conexión — mostrando tu copia guardada",
   offlineReadOnly: "Solo lectura",
   offlineNote:
@@ -942,6 +952,9 @@ const zh: Strings = {
 
   language: "语言",
   languageNote: "仅更改你自己的目录显示。",
+
+  footerBuiltBy: "本网站由{school}制作。",
+  footerFeedback: "有意见或建议？请发送邮件至 {email}",
 
   offlineBanner: "离线 — 显示你保存的副本",
   offlineReadOnly: "只读",
@@ -1211,6 +1224,9 @@ const so: Strings = {
 
   language: "Luqadda",
   languageNote: "Waxay tusmada u beddeshaa adiga oo keliya.",
+
+  footerBuiltBy: "Bogga waxaa dhisay {school}.",
+  footerFeedback: "Ma leedahay talo? Iimayl u dir {email}",
 
   offlineBanner: "Offline \u2014 waxaa lagu tusayaa koobigaaga la kaydiyay",
   offlineReadOnly: "Akhris oo keliya",

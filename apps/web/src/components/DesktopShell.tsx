@@ -6,6 +6,7 @@ import { Icon, type IconName } from "./Icon.js";
 import { Avatar } from "./atoms.js";
 import { PersonSwitcherSheet, LanguageSheet, LanguageButton } from "./Sheets.js";
 import { MasqueradeBanner } from "./AppShell.js";
+import { SiteFooter } from "./SiteFooter.js";
 import { capLabel, useI18n } from "../i18n/index.js";
 import { useSession } from "../lib/session.js";
 import { mediaUrl, CALENDAR_APP_URL, NEWSLETTER_APP_URL } from "../lib/api.js";
@@ -106,6 +107,10 @@ export function DesktopShell({
         <div className="sd-deskbody">
           {breadcrumb}
           {children}
+          {/* Last child of the flex column, so its `margin-top: auto` pins it to
+              the bottom of the viewport on a short page and simply follows the
+              content on a long one. One seam covers every desktop screen. */}
+          <SiteFooter />
         </div>
       </div>
       {sheet === "switcher" && <PersonSwitcherSheet onClose={() => setSheet(null)} />}
