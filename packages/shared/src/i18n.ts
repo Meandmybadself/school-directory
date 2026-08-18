@@ -281,8 +281,13 @@ export interface Strings {
    *  stack of greetings, and it doubles as the language picker. */
   landingWelcome: string;
   landingTitle: string; // uses {school}
-  landingDescription: string; // uses {school} {languages}
+  landingDescription: string; // uses {school} {city} {languages}
   landingLead: string; // uses {school}
+  /** Names where the school is, in the footer. The place name itself is
+   *  configuration (`SCHOOL_CITY`/`SCHOOL_REGION`) and stays in Latin script in
+   *  every language, the way it is written on an envelope — only the sentence
+   *  around it is translated. */
+  landingLocatedIn: string; // uses {school} {city}
   landingReadIn: string; // uses {language}
   landingCreateAccount: string;
   landingNoPassword: string;
@@ -579,9 +584,10 @@ const en: Strings = {
   landingWelcome: "Welcome",
   landingTitle: "{school} — directory, calendar and newsletter",
   landingDescription:
-    "The directory, calendar, newsletter and volunteer sign-ups for {school} families. Available in {languages}.",
+    "The directory, calendar, newsletter and volunteer sign-ups for {school} families in {city}. Available in {languages}.",
   landingLead:
     "Everything the {school} keeps for families, in one place — a directory of who's who, the school calendar, and the newsletter. One account opens all three.",
+  landingLocatedIn: "Serving {school} families in {city}.",
   landingReadIn: "Read this page in {language}",
   landingCreateAccount: "Create your account",
   landingNoPassword: "No password to remember — we email you a sign-in link.",
@@ -819,9 +825,10 @@ const es: Strings = {
   landingWelcome: "Bienvenidos",
   landingTitle: "{school} — directorio, calendario y boletín",
   landingDescription:
-    "El directorio, el calendario, el boletín y las inscripciones de voluntarios para las familias de {school}. Disponible en {languages}.",
+    "El directorio, el calendario, el boletín y las inscripciones de voluntarios para las familias de {school} en {city}. Disponible en {languages}.",
   landingLead:
     "Todo lo que {school} reúne para las familias, en un solo lugar: un directorio de quién es quién, el calendario escolar y el boletín. Una sola cuenta abre los tres.",
+  landingLocatedIn: "Al servicio de las familias de {school} en {city}.",
   landingReadIn: "Leer esta página en {language}",
   landingCreateAccount: "Crea tu cuenta",
   landingNoPassword: "Sin contraseña que recordar: te enviamos un enlace por correo.",
@@ -1053,9 +1060,10 @@ const zh: Strings = {
   landingWelcome: "欢迎",
   landingTitle: "{school} — 名录、日历与通讯",
   landingDescription:
-    "{school} 为家庭提供的名录、日历、通讯和志愿者报名。提供 {languages} 版本。",
+    "{school} 为 {city} 的家庭提供的名录、日历、通讯和志愿者报名。提供 {languages} 版本。",
   landingLead:
     "{school} 为家庭准备的一切都在这里：一份「谁是谁」的名录、学校日历，以及通讯。一个账户，三处通用。",
+  landingLocatedIn: "为 {city} 的 {school} 家庭服务。",
   landingReadIn: "用{language}阅读本页",
   landingCreateAccount: "创建账户",
   landingNoPassword: "无需记住密码，我们会把登录链接发到你的邮箱。",
@@ -1356,9 +1364,10 @@ const so: Strings = {
   landingWelcome: "Soo dhawoow",
   landingTitle: "{school} — tusmo, kalandar iyo warsidaha",
   landingDescription:
-    "Tusmada, kalandarka, warsidaha iyo isdiiwaangelinta mutadawaciinta ee qoysaska {school}. Waxaa lagu heli karaa {languages}.",
+    "Tusmada, kalandarka, warsidaha iyo isdiiwaangelinta mutadawaciinta ee qoysaska {school} ee {city}. Waxaa lagu heli karaa {languages}.",
   landingLead:
     "Wax kasta oo {school} qoysaska u haysato meel keliya: tusmo muujinaysa cidda dadku yihiin, kalandarka dugsiga, iyo warsidaha. Hal xisaab ayaa saddexdaba kuu furaysa.",
+  landingLocatedIn: "U adeegaya qoysaska {school} ee {city}.",
   landingReadIn: "Bogga ku akhri {language}",
   landingCreateAccount: "Xisaab samayso",
   landingNoPassword:

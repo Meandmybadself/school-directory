@@ -20,6 +20,9 @@ CALENDAR_URL = "https://calendar.eisenhower.school"
 NEWSLETTER_URL = "https://newsletter.eisenhower.school"
 SCHOOL_SITE_URL = "https://eisenhower.hopkinsschools.org/"
 FEEDBACK_EMAIL = "admin@eisenhower.school"
+SCHOOL_CITY = "Hopkins"
+SCHOOL_REGION = "Minnesota"
+SCHOOL_REGION_CODE = "MN"
 
 [env.production.vars]
 SCHOOL_NAME = "Eisenhower PTO"
@@ -29,6 +32,9 @@ CALENDAR_URL = "https://calendar.eisenhower.school"
 NEWSLETTER_URL = "https://newsletter.eisenhower.school"
 SCHOOL_SITE_URL = "https://eisenhower.hopkinsschools.org/"
 FEEDBACK_EMAIL = "admin@eisenhower.school"
+SCHOOL_CITY = "Hopkins"
+SCHOOL_REGION = "Minnesota"
+SCHOOL_REGION_CODE = "MN"
 
 # Both hostnames are served by this Worker; www 301s to the apex in src/index.ts
 # rather than in a Cloudflare redirect rule, so the whole routing story for the

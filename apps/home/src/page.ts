@@ -73,6 +73,16 @@ const FAVICON =
       "</svg>",
   );
 
+/** Map pin for the hero's place-stamp. Inline because this Worker ships no
+ *  asset of any kind, and `aria-hidden` because the place name beside it
+ *  already says what it means in every language. */
+const PIN =
+  '<svg class="place-pin" width="11" height="11" viewBox="0 0 24 24" fill="none" ' +
+  'stroke="currentColor" stroke-width="2.6" stroke-linecap="round" ' +
+  'stroke-linejoin="round" aria-hidden="true">' +
+  '<path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/>' +
+  '<circle cx="12" cy="10" r="3"/></svg>';
+
 const FONTS =
   "https://fonts.googleapis.com/css2" +
   "?family=Hanken+Grotesk:wght@400;600;700;800" +
@@ -98,9 +108,10 @@ export function renderHome(env: Env, locale: Locale, explicit: boolean): string 
   const school = env.SCHOOL_NAME;
   const origin = env.SITE_ORIGIN.replace(/\/$/, "");
   const languages = LOCALES.map((l) => localeNames[l].native).join(" · ");
+  const city = `${env.SCHOOL_CITY}, ${env.SCHOOL_REGION}`;
 
   const title = t("landingTitle", { school });
-  const description = t("landingDescription", { school, languages });
+  const description = t("landingDescription", { school, city, languages });
 
   // The signature element. Fixed order (never "current language first"), so the
   // stack is a stable object a returning visitor recognizes rather than a list
@@ -181,7 +192,10 @@ export function renderHome(env: Env, locale: Locale, explicit: boolean): string 
     <main>
       <section class="hero">
         <div class="wrap hero-in">
-          <ul class="greet">${greeting}</ul>
+          <div>
+            <p class="eyebrow place">${PIN}${escapeHtml(city)}</p>
+            <ul class="greet">${greeting}</ul>
+          </div>
           <div class="card hero-card">
             <p class="lead">${escapeHtml(t("landingLead", { school }))}</p>
             <div class="acts">
@@ -223,6 +237,7 @@ export function renderHome(env: Env, locale: Locale, explicit: boolean): string 
 
     <footer class="ft">
       <div class="wrap ft-in">
+        <div>${escapeHtml(t("landingLocatedIn", { school, city }))}</div>
         <div>${escapeHtml(t("footerBuiltBy", { school }))}</div>
         <div>${escapeHtml(feedBefore)}<a href="mailto:${escapeHtml(
           env.FEEDBACK_EMAIL,
@@ -243,9 +258,48 @@ export function renderHome(env: Env, locale: Locale, explicit: boolean): string 
     title,
     description,
     canonical: `${origin}${explicit ? langHref(locale) : "/"}`,
-    head: alternates,
+    head: `${alternates}\n    ${jsonLd(env, description)}`,
     body,
   });
+}
+
+/** Structured data naming the organization and where it is.
+ *
+ *  This is the only page in the project that asks to be indexed, so it is also
+ *  the only place a search engine can learn that any of this is in Hopkins —
+ *  which is what a parent typing "Eisenhower Hopkins" is looking for. The
+ *  region goes out as a CODE here rather than the spelled-out name in the
+ *  visible stamp, because that is what schema.org's `addressRegion` wants in
+ *  the US.
+ *
+ *  Serialized with JSON.stringify and then escaped for `</script`, which is the
+ *  one sequence that can end the block early; every value in it is
+ *  configuration, but configuration is exactly what the escaping test feeds a
+ *  `<script>` tag through. */
+function jsonLd(env: Env, description: string): string {
+  const origin = env.SITE_ORIGIN.replace(/\/$/, "");
+  const data = {
+    "@context": "https://schema.org",
+    "@type": "Organization",
+    name: env.SCHOOL_NAME,
+    description,
+    url: `${origin}/`,
+    inLanguage: [...LOCALES],
+    address: {
+      "@type": "PostalAddress",
+      addressLocality: env.SCHOOL_CITY,
+      addressRegion: env.SCHOOL_REGION_CODE,
+      addressCountry: "US",
+    },
+    areaServed: {
+      "@type": "Place",
+      name: `${env.SCHOOL_CITY}, ${env.SCHOOL_REGION}`,
+    },
+    email: env.FEEDBACK_EMAIL,
+    sameAs: [env.SCHOOL_SITE_URL],
+  };
+  const json = JSON.stringify(data).replace(/<\//g, "<\\/");
+  return `<script type="application/ld+json">${json}</script>`;
 }
 
 export function renderNotFound(env: Env, locale: Locale): string {

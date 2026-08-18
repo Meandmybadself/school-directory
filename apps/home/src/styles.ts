@@ -45,6 +45,12 @@ img{max-width:100%}
 .hd-out a:hover{border-bottom-color:var(--blue)}
 @media(max-width:719px){.hd-out .lbl{display:none}}
 
+/* The place-stamp above the greeting. Same mono eyebrow as every other section
+   label, tinted blue and pulled tight to the stack so it reads as a dateline on
+   the greeting rather than as a heading for the whole hero. */
+.place{display:inline-flex;align-items:center;gap:6px;color:var(--blue-700);margin-bottom:12px}
+.place-pin{flex:0 0 auto;margin-top:-1px}
+
 /* ── Hero: the greeting stack IS the language picker ─────────────────────── */
 .hero{padding:54px 0 58px}
 .hero-in{display:grid;gap:42px;align-items:center}

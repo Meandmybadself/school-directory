@@ -9,4 +9,13 @@ export interface Env {
   /** The school's own website — where this hostname used to redirect. */
   SCHOOL_SITE_URL: string;
   FEEDBACK_EMAIL: string;
+  /** Where the school is. Split into three because each part has a different
+   *  job: the first two are read by people (`Hopkins, Minnesota`), the third is
+   *  read by search engines, which want a region CODE in the US. Kept out of
+   *  the dictionaries because a place name is configuration, not copy — it is
+   *  the same in all four languages, the way it is written on an envelope. */
+  SCHOOL_CITY: string;
+  SCHOOL_REGION: string;
+  /** ISO 3166-2 subdivision code, e.g. "MN" — `addressRegion` in the JSON-LD. */
+  SCHOOL_REGION_CODE: string;
 }

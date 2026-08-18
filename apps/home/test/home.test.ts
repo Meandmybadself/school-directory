@@ -12,6 +12,9 @@ const env: Env = {
   NEWSLETTER_URL: "https://newsletter.eisenhower.school",
   SCHOOL_SITE_URL: "https://eisenhower.hopkinsschools.org/",
   FEEDBACK_EMAIL: "admin@eisenhower.school",
+  SCHOOL_CITY: "Hopkins",
+  SCHOOL_REGION: "Minnesota",
+  SCHOOL_REGION_CODE: "MN",
 };
 
 function get(path: string, headers: Record<string, string> = {}): Response {
@@ -106,6 +109,44 @@ describe("the landing page", () => {
     }
   });
 
+  it("says where the school is, in every language", async () => {
+    for (const locale of LOCALES) {
+      const html = await body(`/?lang=${locale}`);
+      // The place name itself is configuration and stays in Latin script; only
+      // the sentence around it in the footer is translated.
+      expect(html).toContain("Hopkins, Minnesota");
+      expect(html).toContain(
+        dictionaries[locale].landingLocatedIn
+          .replace("{school}", "Eisenhower PTO")
+          .replace("{city}", "Hopkins, Minnesota"),
+      );
+    }
+  });
+
+  it("puts the location in the description a search engine reads", async () => {
+    const html = await body("/?lang=en");
+    expect(html).toMatch(/<meta name="description" content="[^"]*Hopkins, Minnesota/);
+  });
+
+  it("publishes the address as structured data, with the region as a code", async () => {
+    const html = await body("/");
+    const json = html.match(
+      /<script type="application\/ld\+json">(.*?)<\/script>/s,
+    )?.[1];
+    expect(json).toBeTruthy();
+    const data = JSON.parse(json!);
+    expect(data.address).toEqual({
+      "@type": "PostalAddress",
+      addressLocality: "Hopkins",
+      // "MN", not "Minnesota" — schema.org wants the subdivision code here even
+      // though the visible stamp spells the state out.
+      addressRegion: "MN",
+      addressCountry: "US",
+    });
+    expect(data.name).toBe("Eisenhower PTO");
+    expect(data.url).toBe("https://eisenhower.school/");
+  });
+
   it("asks to be indexed — unlike every members-only app in this repo", async () => {
     const html = await body("/");
     expect(html).not.toContain("noindex");
@@ -126,7 +167,7 @@ describe("the landing page", () => {
       const html = await body(`/?lang=${locale}`);
       // Any `{word}` that survived is a template we forgot to fill. `--i:0` and
       // CSS braces are excluded by requiring a bare word inside the braces.
-      expect(html).not.toMatch(/\{(school|email|name|feature|language|languages)\}/);
+      expect(html).not.toMatch(/\{(school|email|name|feature|language|languages|city)\}/);
     }
   });
 
@@ -192,5 +233,18 @@ describe("escaping", () => {
       .text();
     expect(html).not.toContain("<script>alert(1)</script>");
     expect(html).toContain("&lt;script&gt;alert(1)&lt;/script&gt;");
+  });
+
+  it("cannot be used to close the JSON-LD block early", async () => {
+    const hostile: Env = { ...env, SCHOOL_CITY: "</script><script>alert(1)</script>" };
+    const html = await worker
+      .fetch(new Request("https://eisenhower.school/"), hostile)
+      .text();
+    expect(html).not.toContain("</script><script>alert(1)");
+    // One ld+json block, and it still parses.
+    const json = html.match(/<script type="application\/ld\+json">(.*?)<\/script>/s)?.[1];
+    expect(JSON.parse(json!).address.addressLocality).toBe(
+      "</script><script>alert(1)</script>",
+    );
   });
 });
