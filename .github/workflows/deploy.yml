@@ -79,6 +79,13 @@ jobs:
         working-directory: apps/redirect
         run: pnpm exec wrangler deploy --env production
 
+      # The apex, eisenhower.school. Server-rendered landing page, no build
+      # step — see apps/home/wrangler.toml. It also owns www, which it 301s.
+      - name: Deploy home (Worker)
+        if: steps.guard.outputs.enabled == 'true'
+        working-directory: apps/home
+        run: pnpm exec wrangler deploy --env production
+
       - name: Build & deploy web (Pages)
         if: steps.guard.outputs.enabled == 'true'
         working-directory: apps/web

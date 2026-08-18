@@ -273,6 +273,36 @@ export interface Strings {
   footerBuiltBy: string; // uses {school}
   footerFeedback: string; // uses {email}
 
+  // landing page (apps/home — the public front door at eisenhower.school).
+  // That page is server-rendered by a Worker with no client bundle, so these
+  // are read straight out of `dictionaries` rather than through a provider.
+  /** The greeting, in THIS language. Unlike every other string here, all four
+   *  locales' copies are rendered at once — the landing page's hero is the
+   *  stack of greetings, and it doubles as the language picker. */
+  landingWelcome: string;
+  landingTitle: string; // uses {school}
+  landingDescription: string; // uses {school} {languages}
+  landingLead: string; // uses {school}
+  landingReadIn: string; // uses {language}
+  landingCreateAccount: string;
+  landingNoPassword: string;
+  landingSeeCalendar: string;
+  landingWhatsHere: string;
+  landingMembersOnly: string;
+  landingOpenToAll: string;
+  landingOpen: string; // uses {name}
+  landingDirBody: string;
+  landingDirMore: string; // uses {feature}
+  landingCalBody: string;
+  landingCalMore: string; // uses {feature}
+  landingNewsTitle: string;
+  landingNewsBody: string;
+  landingNewsMore: string;
+  landingJoinTitle: string;
+  landingJoinBody: string; // uses {school}
+  landingSchoolSiteLabel: string;
+  landingSchoolSiteLink: string;
+
   // cross-cutting states
   offlineBanner: string;
   offlineReadOnly: string;
@@ -546,6 +576,38 @@ const en: Strings = {
   footerBuiltBy: "Site built by the {school}.",
   footerFeedback: "Feedback? Email {email}",
 
+  landingWelcome: "Welcome",
+  landingTitle: "{school} — directory, calendar and newsletter",
+  landingDescription:
+    "The directory, calendar, newsletter and volunteer sign-ups for {school} families. Available in {languages}.",
+  landingLead:
+    "Everything the {school} keeps for families, in one place — a directory of who's who, the school calendar, and the newsletter. One account opens all three.",
+  landingReadIn: "Read this page in {language}",
+  landingCreateAccount: "Create your account",
+  landingNoPassword: "No password to remember — we email you a sign-in link.",
+  landingSeeCalendar: "See the calendar",
+  landingWhatsHere: "What's here",
+  landingMembersOnly: "Members only",
+  landingOpenToAll: "Open to everyone",
+  landingOpen: "Open {name}",
+  landingDirBody:
+    "Look up a classmate's family, a teacher, or whoever runs the thing you signed up for. Every detail you add starts private, and you decide field by field who can see it.",
+  landingDirMore:
+    "{feature}: opt in and see which member families live near you — a name and a rough distance, never an address.",
+  landingCalBody:
+    "Concerts, conferences, picnics, no-school days. Subscribe once and the school year keeps itself up to date in the calendar app you already use.",
+  landingCalMore: "{feature}: claim a spot at an event straight from its page.",
+  landingNewsTitle: "Newsletter",
+  landingNewsBody:
+    "PTO news in your inbox every few weeks — what's coming up, what got done, and what still needs hands.",
+  landingNewsMore:
+    "Anyone can subscribe, and every past issue is on the web. No account needed.",
+  landingJoinTitle: "Join the directory",
+  landingJoinBody:
+    "It takes a couple of minutes. Nothing here is ever public — the directory is closed to everyone outside the {school} community, and you choose what the rest of it sees.",
+  landingSchoolSiteLabel: "Looking for the school itself?",
+  landingSchoolSiteLink: "Eisenhower Elementary website",
+
   offlineBanner: "Offline — showing your saved copy",
   offlineReadOnly: "Read-only",
   offlineNote:
@@ -754,6 +816,38 @@ const es: Strings = {
   footerBuiltBy: "Sitio creado por {school}.",
   footerFeedback: "¿Comentarios? Escribe a {email}",
 
+  landingWelcome: "Bienvenidos",
+  landingTitle: "{school} — directorio, calendario y boletín",
+  landingDescription:
+    "El directorio, el calendario, el boletín y las inscripciones de voluntarios para las familias de {school}. Disponible en {languages}.",
+  landingLead:
+    "Todo lo que {school} reúne para las familias, en un solo lugar: un directorio de quién es quién, el calendario escolar y el boletín. Una sola cuenta abre los tres.",
+  landingReadIn: "Leer esta página en {language}",
+  landingCreateAccount: "Crea tu cuenta",
+  landingNoPassword: "Sin contraseña que recordar: te enviamos un enlace por correo.",
+  landingSeeCalendar: "Ver el calendario",
+  landingWhatsHere: "Qué hay aquí",
+  landingMembersOnly: "Solo para miembros",
+  landingOpenToAll: "Abierto a todos",
+  landingOpen: "Abrir {name}",
+  landingDirBody:
+    "Busca a la familia de un compañero de clase, a un maestro o a quien organiza la actividad en la que te apuntaste. Cada dato que agregas empieza como privado, y tú decides campo por campo quién puede verlo.",
+  landingDirMore:
+    "{feature}: actívalo y verás qué familias miembros viven cerca de ti: un nombre y una distancia aproximada, nunca una dirección.",
+  landingCalBody:
+    "Conciertos, conferencias, días de campo, días sin clases. Suscríbete una vez y el año escolar se mantiene al día en la aplicación de calendario que ya usas.",
+  landingCalMore: "{feature}: apúntate a un evento desde su propia página.",
+  landingNewsTitle: "Boletín",
+  landingNewsBody:
+    "Noticias de la PTO en tu correo cada pocas semanas: lo que viene, lo que ya se hizo y dónde hacen falta manos.",
+  landingNewsMore:
+    "Cualquiera puede suscribirse, y todos los números anteriores están en la web. No hace falta cuenta.",
+  landingJoinTitle: "Únete al directorio",
+  landingJoinBody:
+    "Toma un par de minutos. Nada de esto es público: el directorio está cerrado a cualquiera fuera de la comunidad de {school}, y tú eliges qué ve el resto.",
+  landingSchoolSiteLabel: "¿Buscas la escuela?",
+  landingSchoolSiteLink: "Sitio web de Eisenhower Elementary",
+
   offlineBanner: "Sin conexión — mostrando tu copia guardada",
   offlineReadOnly: "Solo lectura",
   offlineNote:
@@ -955,6 +1049,37 @@ const zh: Strings = {
 
   footerBuiltBy: "本网站由{school}制作。",
   footerFeedback: "有意见或建议？请发送邮件至 {email}",
+
+  landingWelcome: "欢迎",
+  landingTitle: "{school} — 名录、日历与通讯",
+  landingDescription:
+    "{school} 为家庭提供的名录、日历、通讯和志愿者报名。提供 {languages} 版本。",
+  landingLead:
+    "{school} 为家庭准备的一切都在这里：一份「谁是谁」的名录、学校日历，以及通讯。一个账户，三处通用。",
+  landingReadIn: "用{language}阅读本页",
+  landingCreateAccount: "创建账户",
+  landingNoPassword: "无需记住密码，我们会把登录链接发到你的邮箱。",
+  landingSeeCalendar: "查看日历",
+  landingWhatsHere: "这里有什么",
+  landingMembersOnly: "仅限成员",
+  landingOpenToAll: "对所有人开放",
+  landingOpen: "打开{name}",
+  landingDirBody:
+    "查找同学的家庭、老师，或某项活动的负责人。你填写的每一项资料默认都是私密的，并且可以逐项决定谁能看到。",
+  landingDirMore:
+    "{feature}：开启后即可看到住在附近的成员家庭——只显示姓名和大致距离，绝不显示地址。",
+  landingCalBody:
+    "音乐会、家长会、野餐、不上课的日子。订阅一次，整个学年都会自动同步到你惯用的日历应用里。",
+  landingCalMore: "{feature}：直接在活动页面上报名。",
+  landingNewsTitle: "通讯",
+  landingNewsBody:
+    "每隔几周，PTO 的消息就会送到你的邮箱：即将开始的事、已经完成的事，以及还需要人手的事。",
+  landingNewsMore: "任何人都可以订阅，往期通讯也都在网上，无需账户。",
+  landingJoinTitle: "加入名录",
+  landingJoinBody:
+    "只需几分钟。这里没有任何内容是公开的——名录不对 {school} 社区以外的任何人开放，其余内容由你决定谁能看到。",
+  landingSchoolSiteLabel: "在找学校官网？",
+  landingSchoolSiteLink: "Eisenhower Elementary 官网",
 
   offlineBanner: "离线 — 显示你保存的副本",
   offlineReadOnly: "只读",
@@ -1227,6 +1352,39 @@ const so: Strings = {
 
   footerBuiltBy: "Bogga waxaa dhisay {school}.",
   footerFeedback: "Ma leedahay talo? Iimayl u dir {email}",
+
+  landingWelcome: "Soo dhawoow",
+  landingTitle: "{school} — tusmo, kalandar iyo warsidaha",
+  landingDescription:
+    "Tusmada, kalandarka, warsidaha iyo isdiiwaangelinta mutadawaciinta ee qoysaska {school}. Waxaa lagu heli karaa {languages}.",
+  landingLead:
+    "Wax kasta oo {school} qoysaska u haysato meel keliya: tusmo muujinaysa cidda dadku yihiin, kalandarka dugsiga, iyo warsidaha. Hal xisaab ayaa saddexdaba kuu furaysa.",
+  landingReadIn: "Bogga ku akhri {language}",
+  landingCreateAccount: "Xisaab samayso",
+  landingNoPassword:
+    "Ma jiro furaha sirta ah oo aad xasuusan lahayd — link aad ku gasho ayaan iimayl kuugu soo dirnaa.",
+  landingSeeCalendar: "Eeg kalandarka",
+  landingWhatsHere: "Waxa halkan yaal",
+  landingMembersOnly: "Xubnaha oo keliya",
+  landingOpenToAll: "U furan qof walba",
+  landingOpen: "Fur {name}",
+  landingDirBody:
+    "Raadi qoyska ardayga fasalka la dhiganaya, macallin, ama qofka wax u qabta hawsha aad isku qortay. Wax kasta oo aad gelisid wuxuu ku bilaabmayaa inuu gaar yahay, adigana waxaad go'aamisaa mid mid cidda arki karta.",
+  landingDirMore:
+    "{feature}: dooro oo waxaad arki doontaa qoysaska xubnaha ah ee kuu dhow — magac iyo masaafo qiyaastii ah oo keliya, waligeed ma aha ciwaan.",
+  landingCalBody:
+    "Riwaayado, kulamo waalid-macallin, bannaanbax, iyo maalmaha aan dugsigu jirin. Hal mar ku biir, sanad-dugsiyeedka oo dhanna wuxuu iskiis ugu cusboonaanayaa abka kalandarka ee aad hore u isticmaasho.",
+  landingCalMore: "{feature}: boos ka qaado dhacdada boggeeda toos ah.",
+  landingNewsTitle: "Warsidaha",
+  landingNewsBody:
+    "Warka PTO-da ayaa dhowr toddobaad kasta iimaylkaaga ku soo gelaya: waxa soo socda, waxa la qabtay, iyo waxa weli gacmo u baahan.",
+  landingNewsMore:
+    "Qof kastaa wuu ku biiri karaa, daabacaadihii hore oo dhanna internetka ayay ku yaalliin. Xisaab looma baahna.",
+  landingJoinTitle: "Ku biir tusmada",
+  landingJoinBody:
+    "Waxay qaadanaysaa dhowr daqiiqo. Waxba halkan kuma jiraan wax dadweynuhu arki karo — tusmadu waa u xiran tahay qof kasta oo bulshada {school} ka baxsan, adigana waxaad dooranaysaa waxa inta kale arkayso.",
+  landingSchoolSiteLabel: "Ma raadinaysaa dugsiga laftiisa?",
+  landingSchoolSiteLink: "Bogga Eisenhower Elementary",
 
   offlineBanner: "Offline \u2014 waxaa lagu tusayaa koobigaaga la kaydiyay",
   offlineReadOnly: "Akhris oo keliya",

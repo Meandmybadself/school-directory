@@ -12,6 +12,7 @@ Resend email, Nominatim geocoding.
 ## Repository layout
 
 ```
+apps/home           One-page Worker owning the apex, eisenhower.school. Server-rendered, no bundle; the only surface here that wants to be indexed.
 apps/web            Directory SPA (Vite) → directory.eisenhower.school. Design system in src/components, screens in src/screens.
 apps/calendar       Calendar SPA (Vite) → calendar.eisenhower.school. Shares the API, D1 and session; design system is COPIED, not imported.
 apps/newsletter     Newsletter SPA (Vite) → newsletter.eisenhower.school. Admin authoring (TipTap) + a member preferences screen, PLUS Pages Functions serving the public archive. Design system COPIED.
@@ -22,6 +23,33 @@ packages/shared     Domain types (types.ts) + i18n dictionaries (i18n.ts). Impor
 docs/               Product spec (PLAN/SRD/SDD). Source of truth for requirements.
 design_handoff_*/   Hi-fi design reference. NOT a build target — port, don't ship.
 ```
+
+## The front door
+
+`apps/home` serves `eisenhower.school` (and 301s `www`). It is not a fourth SPA:
+one HTML document per request, rendered from the shared dictionaries, no client
+bundle and no API call. Three things about it are load-bearing:
+
+- **It is the only page in this project that asks to be indexed.** The three
+  SPAs send `noindex` because they are members-only. This one ships a
+  `robots.txt`, a sitemap and `hreflang` alternates, so nothing member-private
+  may ever appear on it.
+- **The hero greeting stack is the language picker**, and it is the one place
+  that reads ACROSS `dictionaries` rather than within one locale — it shows all
+  four `landingWelcome` strings at once, in `LOCALES` order, with the current
+  one marked. Adding a locale to `LOCALES` therefore adds a line to the hero for
+  free; adding one WITHOUT a `landingWelcome` breaks the type.
+- **`?lang=` stays in the URL here**, unlike in the SPAs, which apply it and
+  strip it. There is no client to remember a choice, and a stable per-language
+  URL is what `hreflang` and a shared link both need. Outbound links to the apps
+  carry `?lang=` so the reader's language travels with them.
+
+This hostname used to be a Cloudflare redirect rule pointing at
+`eisenhower.hopkinsschools.org`; the rule was deleted when the Worker took over,
+and redirect rules run BEFORE Workers, so if the apex ever starts 301ing again,
+look for a resurrected rule in the `eisenhower.school` zone before debugging the
+Worker. People still arrive here looking for the district's site, which is why
+every rendering carries a link out to it in the header.
 
 ## Three front ends, one API
 
@@ -220,6 +248,7 @@ pnpm install
 cp apps/api/.dev.vars.example apps/api/.dev.vars
 pnpm db:migrate:local && pnpm db:seed:local
 pnpm dev          # web :5173, calendar :5174, newsletter :5175, api :8787
+pnpm dev:home     # the apex landing page (wrangler dev) on :5176
 ```
 
 Magic links print to the **API console** when `RESEND_API_KEY` is empty — which

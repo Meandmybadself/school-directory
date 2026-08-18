@@ -1,0 +1,42 @@
+name = "school-home"
+main = "src/index.ts"
+compatibility_date = "2025-01-01"
+account_id = "c3b373ae8a90a6494e520f962bdf462b"
+
+# The public front door: eisenhower.school itself. Everything else in this repo
+# lives on a subdomain and is a members-only SPA; this Worker is the one page a
+# stranger is meant to find, so it is server-rendered with no client bundle and
+# is the only surface in the project that asks to be indexed.
+#
+# A Worker rather than a fourth Pages project because there is nothing to build:
+# one HTML document, rendered per request from the shared i18n dictionaries in
+# whichever of the four languages the visitor reads.
+
+[vars]
+SCHOOL_NAME = "Eisenhower PTO"
+SITE_ORIGIN = "https://eisenhower.school"
+DIRECTORY_URL = "https://directory.eisenhower.school"
+CALENDAR_URL = "https://calendar.eisenhower.school"
+NEWSLETTER_URL = "https://newsletter.eisenhower.school"
+SCHOOL_SITE_URL = "https://eisenhower.hopkinsschools.org/"
+FEEDBACK_EMAIL = "admin@eisenhower.school"
+
+[env.production.vars]
+SCHOOL_NAME = "Eisenhower PTO"
+SITE_ORIGIN = "https://eisenhower.school"
+DIRECTORY_URL = "https://directory.eisenhower.school"
+CALENDAR_URL = "https://calendar.eisenhower.school"
+NEWSLETTER_URL = "https://newsletter.eisenhower.school"
+SCHOOL_SITE_URL = "https://eisenhower.hopkinsschools.org/"
+FEEDBACK_EMAIL = "admin@eisenhower.school"
+
+# Both hostnames are served by this Worker; www 301s to the apex in src/index.ts
+# rather than in a Cloudflare redirect rule, so the whole routing story for the
+# front door is in one file that CI deploys.
+[[env.production.routes]]
+pattern = "eisenhower.school"
+custom_domain = true
+
+[[env.production.routes]]
+pattern = "www.eisenhower.school"
+custom_domain = true
