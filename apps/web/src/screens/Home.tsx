@@ -15,6 +15,7 @@ import { showsDescription, showsAllDayLabel, formatEventDay } from "../lib/calen
 import { useSession } from "../lib/session.js";
 import { useIsDesktop } from "../lib/useIsDesktop.js";
 import { api, mediaUrl, CALENDAR_APP_URL, NEWSLETTER_APP_URL } from "../lib/api.js";
+import { clearOnboardingSkipped, wasOnboardingSkipped } from "../lib/onboarding.js";
 import { capLabel, useI18n } from "../i18n/index.js";
 
 export function Home() {
@@ -168,21 +169,56 @@ function NoNeighborsCard({ marginTop }: { marginTop: number }) {
   );
 }
 
+/** Shown to someone who went through the welcome wizard and skipped adding
+ *  their family — never to a member who joined before that wizard existed, who
+ *  looks identical in the database but did not decline anything. Dismissible,
+ *  and it stops appearing on its own once a household exists. */
+function AddFamilyCard() {
+  const { t } = useI18n();
+  const navigate = useNavigate();
+  const [dismissed, setDismissed] = useState(false);
+  if (dismissed) return null;
+  return (
+    <div className="sd-card sd-card-pad" style={{ background: "var(--orange-tint)", borderColor: "var(--orange-tint-2)" }}>
+      <div className="sd-row" style={{ gap: 12, alignItems: "flex-start" }}>
+        <div style={{ width: 40, height: 40, borderRadius: 11, background: "var(--paper)", color: "var(--orange-700)", display: "flex", alignItems: "center", justifyContent: "center", flex: "0 0 auto" }}>
+          <Icon name="members" size={21} />
+        </div>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontSize: 14.5, fontWeight: 700 }}>{t("addFamilyTitle")}</div>
+          <div className="sd-meta" style={{ marginTop: 2, lineHeight: 1.4 }}>{t("addFamilyBody")}</div>
+        </div>
+      </div>
+      <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
+        <Btn sm icon="plus" onClick={() => navigate("/welcome")}>{t("addFamilyCta")}</Btn>
+        <button
+          className="sd-btn sd-btn-ghost sd-btn-sm"
+          onClick={() => { setDismissed(true); clearOnboardingSkipped(); }}
+        >
+          {t("addFamilyDismiss")}
+        </button>
+      </div>
+    </div>
+  );
+}
+
 function GroupsContent({ groups, columns }: { groups: GroupSummaryDTO[]; columns: number }) {
   const { t } = useI18n();
   const navigate = useNavigate();
   if (groups.length === 0) {
+    // A member with no groups can fix that themselves — households are
+    // self-service. The old copy here said to wait for the office, which was
+    // true of classrooms and wrong about households, and is the reason people
+    // never discovered they could add their own family at all.
     return (
-      <div className="sd-card sd-card-pad">
-        <div className="sd-row" style={{ gap: 12 }}>
-          <div style={{ width: 40, height: 40, borderRadius: 11, background: "var(--bg-2)", color: "var(--ink-3)", display: "flex", alignItems: "center", justifyContent: "center", flex: "0 0 auto" }}>
-            <Icon name="users3" size={21} />
-          </div>
-          <div>
-            <div style={{ fontSize: 14.5, fontWeight: 700 }}>{t("noGroups")}</div>
-            <div className="sd-meta" style={{ marginTop: 2, lineHeight: 1.4 }}>{t("noGroupsBody")}</div>
-          </div>
-        </div>
+      <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+        {wasOnboardingSkipped() && <AddFamilyCard />}
+        <CTACard
+          icon="users3"
+          title={t("noGroups")}
+          body={t("noGroupsBody")}
+          action={<Btn block icon="plus" onClick={() => navigate("/welcome")}>{t("noGroupsCta")}</Btn>}
+        />
       </div>
     );
   }

@@ -163,6 +163,42 @@ export interface Strings {
   setupLead: string;
   createProfileBtn: string;
   skipToAdmin: string;
+
+  // The welcome wizard's second step. A directory of one household member is
+  // half a directory, and the complaint this answers was that nobody realized
+  // they could add the rest — so the ask is made once, plainly, at the moment
+  // someone is already filling things in.
+  welcomeFamilyTitle: string;
+  welcomeFamilyLead: string;
+  welcomeAddChild: string;
+  welcomeAddPartner: string;
+  welcomeChildHeading: string;
+  welcomePartnerHeading: string;
+  welcomeAddSubmit: string;
+  welcomeAddedLabel: string; // uses {count}
+  inviteFailed: string;
+  welcomeSkip: string;
+  welcomeContinue: string;
+  welcomeNameError: string;
+  welcomeAddError: string;
+  welcomeDoneTitle: string;
+  welcomeDoneLead: string;
+  welcomeDoneCta: string;
+  /** Optional on the partner form: filling it in emails them a link so they end
+   *  up managing their own profile rather than being managed by their partner. */
+  welcomePartnerEmail: string;
+  welcomePartnerEmailNote: string;
+  welcomeInviteFailed: string; // uses {name}
+  /** Household names, composed on the client — the API has no locale. */
+  householdAutoName: string; // uses {lastName}
+  householdAutoNameFallback: string; // uses {firstName}
+
+  // Home nudges toward the same thing, for anyone who skipped.
+  noGroupsCta: string;
+  addFamilyTitle: string;
+  addFamilyBody: string;
+  addFamilyCta: string;
+  addFamilyDismiss: string;
   alwaysVisible: string;
   firstFixedWhy: string;
   lnFull: string;
@@ -449,7 +485,7 @@ const en: Strings = {
   osmAttribution: "Distances © OpenStreetMap contributors",
   noGroups: "You're not in any groups yet",
   noGroupsBody:
-    "Your household and classrooms appear here once the office or a teacher adds you.",
+    "Create your household to add the people you live with. Classrooms are added by a teacher or the office.",
   finishTitle: "Finish your profile",
   finishBody: "Add a phone or photo so your groups can reach you.",
   finishBtn: "Continue setup",
@@ -475,6 +511,37 @@ const en: Strings = {
   setupLead: "Add your name so your community can recognize you in the directory.",
   createProfileBtn: "Create my profile",
   skipToAdmin: "Skip to admin console",
+  welcomeFamilyTitle: "Who else is in your home?",
+  welcomeFamilyLead:
+    "Add your children and your partner so your family appears together. You can always do this later.",
+  welcomeAddChild: "Add a child",
+  welcomeAddPartner: "Add my partner",
+  welcomeChildHeading: "Your child",
+  welcomePartnerHeading: "Your partner",
+  welcomeAddSubmit: "Add",
+  welcomeAddedLabel: "Added so far: {count}",
+  inviteFailed: "We couldn't send that invitation. Check the email address and try again.",
+  welcomeSkip: "Skip for now",
+  welcomeContinue: "Continue",
+  welcomeNameError: "We couldn't create your profile. Please try again.",
+  welcomeAddError: "We couldn't add them. Please try again.",
+  welcomeDoneTitle: "You're all set",
+  welcomeDoneLead:
+    "Your household is in the directory. You can add more people any time from Groups.",
+  welcomeDoneCta: "Go to the directory",
+  welcomePartnerEmail: "Their email (optional)",
+  welcomePartnerEmailNote:
+    "We'll email them a link so they can manage their own profile.",
+  welcomeInviteFailed:
+    "{name} was added, but the invitation email didn't send. You can invite them later from their profile.",
+  householdAutoName: "The {lastName} family",
+  householdAutoNameFallback: "{firstName}'s household",
+  noGroupsCta: "Create your household",
+  addFamilyTitle: "Add your family",
+  addFamilyBody:
+    "Add your children and your partner so your family appears together in the directory.",
+  addFamilyCta: "Add family",
+  addFamilyDismiss: "Maybe later",
   alwaysVisible: "Always visible",
   firstFixedWhy:
     "People need a name to recognize you. You choose everything else.",
@@ -808,6 +875,46 @@ const es: Strings = {
   addPerson: "Agregar una persona",
 
   addPersonTitle: "Agregar una persona",
+
+  // Onboarding: la bienvenida y el segundo paso, donde se agrega a la familia.
+  setupTitle: "Crea tu perfil",
+  setupLead: "Agrega tu nombre para que tu comunidad te reconozca en el directorio.",
+  createProfileBtn: "Crear mi perfil",
+  skipToAdmin: "Ir a la consola de administración",
+  welcomeFamilyTitle: "¿Quién más vive contigo?",
+  welcomeFamilyLead:
+    "Agrega a tus hijos y a tu pareja para que tu familia aparezca junta. Siempre puedes hacerlo más tarde.",
+  welcomeAddChild: "Agregar un hijo",
+  welcomeAddPartner: "Agregar a mi pareja",
+  welcomeChildHeading: "Tu hijo o hija",
+  welcomePartnerHeading: "Tu pareja",
+  welcomeAddSubmit: "Agregar",
+  welcomeAddedLabel: "Agregados hasta ahora: {count}",
+  inviteFailed: "No pudimos enviar la invitación. Revisa el correo e inténtalo de nuevo.",
+  welcomeSkip: "Ahora no",
+  welcomeContinue: "Continuar",
+  welcomeNameError: "No pudimos crear tu perfil. Inténtalo de nuevo.",
+  welcomeAddError: "No pudimos agregarla. Inténtalo de nuevo.",
+  welcomeDoneTitle: "Todo listo",
+  welcomeDoneLead:
+    "Tu familia ya está en el directorio. Puedes agregar más personas cuando quieras desde Grupos.",
+  welcomeDoneCta: "Ir al directorio",
+  welcomePartnerEmail: "Su correo (opcional)",
+  welcomePartnerEmailNote:
+    "Le enviaremos un enlace para que administre su propio perfil.",
+  welcomeInviteFailed:
+    "Agregamos a {name}, pero no se pudo enviar la invitación. Puedes invitarla más tarde desde su perfil.",
+  householdAutoName: "Familia {lastName}",
+  householdAutoNameFallback: "Familia de {firstName}",
+  noGroups: "Todavía no estás en ningún grupo",
+  noGroupsBody:
+    "Crea tu familia para agregar a las personas con las que vives. Las clases las agrega un maestro o la oficina.",
+  noGroupsCta: "Crear mi familia",
+  addFamilyTitle: "Agrega a tu familia",
+  addFamilyBody:
+    "Agrega a tus hijos y a tu pareja para que tu familia aparezca junta en el directorio.",
+  addFamilyCta: "Agregar familia",
+  addFamilyDismiss: "Quizás después",
   addPersonLead: "Agrega a un hijo, pareja u otra persona que gestiones. Podrás actuar como ella para editar su perfil.",
   addPersonBtn: "Agregar persona",
   personType: "Tipo",
@@ -1043,6 +1150,41 @@ const zh: Strings = {
   addPerson: "添加成员",
 
   addPersonTitle: "添加成员",
+
+  // 新用户引导：欢迎页与第二步（添加家人）。
+  setupTitle: "创建你的资料",
+  setupLead: "填写你的姓名，让社区在名录中认出你。",
+  createProfileBtn: "创建我的资料",
+  skipToAdmin: "前往管理后台",
+  welcomeFamilyTitle: "家里还有谁？",
+  welcomeFamilyLead: "添加你的孩子和配偶，让一家人显示在一起。你也可以稍后再添加。",
+  welcomeAddChild: "添加孩子",
+  welcomeAddPartner: "添加配偶",
+  welcomeChildHeading: "你的孩子",
+  welcomePartnerHeading: "你的配偶",
+  welcomeAddSubmit: "添加",
+  welcomeAddedLabel: "已添加 {count} 人",
+  inviteFailed: "邀请发送失败，请检查邮箱地址后重试。",
+  welcomeSkip: "暂时跳过",
+  welcomeContinue: "继续",
+  welcomeNameError: "无法创建你的资料，请重试。",
+  welcomeAddError: "无法添加该成员，请重试。",
+  welcomeDoneTitle: "全部完成",
+  welcomeDoneLead: "你的家庭已加入名录。你可以随时在「群组」中添加更多成员。",
+  welcomeDoneCta: "前往名录",
+  welcomePartnerEmail: "对方的邮箱（可选）",
+  welcomePartnerEmailNote: "我们会给对方发送一个链接，让其自行管理资料。",
+  welcomeInviteFailed:
+    "已添加 {name}，但邀请邮件发送失败。你可以稍后在其资料页再次邀请。",
+  householdAutoName: "{lastName}家",
+  householdAutoNameFallback: "{firstName}的家庭",
+  noGroups: "你还没有加入任何群组",
+  noGroupsBody: "创建你的家庭，把同住的人加进来。班级由老师或校办添加。",
+  noGroupsCta: "创建我的家庭",
+  addFamilyTitle: "添加家人",
+  addFamilyBody: "添加你的孩子和配偶，让一家人在名录中显示在一起。",
+  addFamilyCta: "添加家人",
+  addFamilyDismiss: "以后再说",
   addPersonLead: "添加孩子、配偶或其他由你管理的人。你可以切换为该成员来编辑其资料。",
   addPersonBtn: "添加成员",
   personType: "类型",
@@ -1229,7 +1371,7 @@ const so: Strings = {
   osmAttribution: "Masaafooyinka \u00a9 tabarucayaasha OpenStreetMap",
   noGroups: "Weli koox kuma jirtid",
   noGroupsBody:
-    "Qoyskaaga iyo fasalladaadu halkan ayay ka soo muuqan doonaan marka xafiisku ama macallin ku daro.",
+    "Samee qoyskaaga si aad ugu darto dadka aad la nooshahay. Fasallada waxaa ku dara macallin ama xafiiska.",
   finishTitle: "Dhammee profile-kaaga",
   finishBody: "Ku dar taleefan ama sawir si kooxahaagu ay kuula soo xiriiraan.",
   finishBtn: "Sii wad dejinta",
@@ -1255,6 +1397,37 @@ const so: Strings = {
   setupLead: "Ku dar magacaaga si bulshadaadu kuugu garato tusmada.",
   createProfileBtn: "Samee profile-kayga",
   skipToAdmin: "U bood console-ka maamulka",
+  welcomeFamilyTitle: "Yaa kale oo guriga kula jooga?",
+  welcomeFamilyLead:
+    "Ku dar carruurtaada iyo lammaanahaaga si qoyskaagu wada muuqdo. Mar walba ayaad markii dambe samayn kartaa.",
+  welcomeAddChild: "Ku dar ilme",
+  welcomeAddPartner: "Ku dar lammaanahayga",
+  welcomeChildHeading: "Ilmahaaga",
+  welcomePartnerHeading: "Lammaanahaaga",
+  welcomeAddSubmit: "Ku dar",
+  welcomeAddedLabel: "Waxaa la daray: {count}",
+  inviteFailed: "Ma dirin karin casuumaadda. Hubi cinwaanka iimaylka oo isku day mar kale.",
+  welcomeSkip: "Hadda ka bood",
+  welcomeContinue: "Sii wad",
+  welcomeNameError: "Ma aan samayn karin profile-kaaga. Fadlan isku day mar kale.",
+  welcomeAddError: "Ma aan ku dari karin. Fadlan isku day mar kale.",
+  welcomeDoneTitle: "Wax walba diyaar",
+  welcomeDoneLead:
+    "Qoyskaagu wuxuu ku jiraa tusmada. Mar kasta ayaad dad kale kaga dari kartaa Kooxaha.",
+  welcomeDoneCta: "Aad tusmada",
+  welcomePartnerEmail: "Iimaylkooda (ikhtiyaari)",
+  welcomePartnerEmailNote:
+    "Waxaan u diri doonnaa link ay ku maamulaan profile-kooda.",
+  welcomeInviteFailed:
+    "{name} waa la daray, laakiin casuumaadda iimaylka ma dirsan. Markii dambe ayaad kaga casuumi kartaa profile-kooda.",
+  householdAutoName: "Qoyska {lastName}",
+  householdAutoNameFallback: "Qoyska {firstName}",
+  noGroupsCta: "Samee qoyskaaga",
+  addFamilyTitle: "Ku dar qoyskaaga",
+  addFamilyBody:
+    "Ku dar carruurtaada iyo lammaanahaaga si qoyskaagu tusmada ugu wada muuqdo.",
+  addFamilyCta: "Ku dar qoys",
+  addFamilyDismiss: "Malaha markii dambe",
   alwaysVisible: "Had iyo jeer waa la arkaa",
   firstFixedWhy:
     "Dadku waxay u baahan yihiin magac ay kugu garan karaan. Wax kasta oo kale adigaa doorta.",

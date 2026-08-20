@@ -74,7 +74,7 @@ export function InviteSheet({
 
         {error && (
           <p className="sd-meta" style={{ color: "var(--warn)", lineHeight: 1.4 }}>
-            Couldn't send the invitation. Check the email and try again.
+            {t("inviteFailed")}
           </p>
         )}
 

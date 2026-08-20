@@ -12,7 +12,7 @@ import { GroupDetail, GroupsIndex } from "./screens/Group.js";
 import { Admin } from "./screens/Admin.js";
 import { Import } from "./screens/Import.js";
 import { Directory } from "./screens/Directory.js";
-import { CreateProfile } from "./screens/CreateProfile.js";
+import { Welcome } from "./screens/Welcome.js";
 import { AddPerson } from "./screens/AddPerson.js";
 import { DesktopShell } from "./components/DesktopShell.js";
 import { useIsDesktop } from "./lib/useIsDesktop.js";
@@ -95,7 +95,7 @@ export function App() {
       <Route path="/sign-in" element={<RedirectIfAuthed><SignIn /></RedirectIfAuthed>} />
       <Route path="/check-email" element={<CheckEmail />} />
 
-      <Route path="/welcome" element={<RequireAuth><CreateProfile /></RequireAuth>} />
+      <Route path="/welcome" element={<RequireAuth><Welcome /></RequireAuth>} />
 
       <Route path="/" element={<RequireProfile><Home /></RequireProfile>} />
       <Route path="/persons/new" element={<RequireProfile><AddPerson /></RequireProfile>} />
