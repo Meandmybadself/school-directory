@@ -3,7 +3,7 @@
 import { Hono } from "hono";
 import type { Context } from "hono";
 import type { Capability, ControllablePersonDTO, CreatePersonBody, Locale, MeDTO, MyHouseholdDTO } from "@sd/shared";
-import { CAPABILITIES, LOCALES } from "@sd/shared";
+import { ASSIGNABLE_CAPABILITIES, LOCALES } from "@sd/shared";
 import type { HonoEnv } from "../env.js";
 import { requireAuth } from "../middleware/session.js";
 import { capabilitiesFor } from "../lib/serialize.js";
@@ -38,9 +38,16 @@ me.post("/persons", async (c) => {
   if (!firstName) return c.json({ error: "invalid_body" }, 400);
   const lastName = body?.lastName?.trim() || null;
 
-  // Whitelist requested capabilities against the known set.
+  // Whitelist requested capabilities against the ASSIGNABLE set, not every known
+  // code. `household_admin` is the difference: it is earned by being the admin
+  // member of a household (POST /groups grants it), never handed out on a Person
+  // somebody just made up. Nothing authorizes on it today — it renders as a
+  // badge — so this closes a labelling lie rather than a privilege hole, but the
+  // client has only ever offered these four and the server should agree.
   const caps: Capability[] = Array.isArray(body?.capabilities)
-    ? [...new Set(body!.capabilities)].filter((x): x is Capability => CAPABILITIES.includes(x as Capability))
+    ? [...new Set(body!.capabilities)].filter((x): x is Capability =>
+        ASSIGNABLE_CAPABILITIES.includes(x as Capability),
+      )
     : [];
 
   // A household, if given, must be one this User administers (so the new member
