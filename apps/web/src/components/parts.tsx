@@ -138,20 +138,32 @@ export function IconBtn({
   tone,
   onClick,
   label,
+  /** Hover text. An icon-only control has to say what it does somewhere, and
+   *  this is where the rest of the app does it — see `Vis` in atoms.tsx, which
+   *  pairs the same title/aria-label so the explanation reaches a pointer and a
+   *  screen reader alike. Falls back to `label` so callers can pass just one. */
+  title,
+  disabled,
 }: {
   name: IconName;
   badge?: boolean;
   tone?: "blue";
   onClick?: () => void;
   label?: string;
+  title?: string;
+  disabled?: boolean;
 }) {
   return (
     <button
       onClick={onClick}
-      aria-label={label || name}
+      disabled={disabled}
+      title={title ?? label}
+      aria-label={label || title || name}
       style={{
         width: 38, height: 38, borderRadius: 10, border: "1px solid var(--line)", background: "var(--paper)",
-        display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", position: "relative",
+        display: "flex", alignItems: "center", justifyContent: "center",
+        cursor: disabled ? "default" : "pointer", position: "relative",
+        opacity: disabled ? 0.45 : 1,
         color: tone === "blue" ? "var(--blue-700)" : "var(--ink-2)",
       }}
     >

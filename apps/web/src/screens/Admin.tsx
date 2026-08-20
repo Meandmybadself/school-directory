@@ -8,7 +8,7 @@ import { Icon } from "../components/Icon.js";
 import { Avatar, Btn, Tag } from "../components/atoms.js";
 import { AppShell, BottomNav } from "../components/AppShell.js";
 import { DesktopShell } from "../components/DesktopShell.js";
-import { ScreenHeader, SectLabel, SheetOver } from "../components/parts.js";
+import { IconBtn, ScreenHeader, SectLabel, SheetOver } from "../components/parts.js";
 import { useSession } from "../lib/session.js";
 import { useIsDesktop } from "../lib/useIsDesktop.js";
 import { api, ApiError, CALENDAR_APP_URL, NEWSLETTER_APP_URL } from "../lib/api.js";
@@ -464,6 +464,11 @@ export function Admin() {
                     {u.disabled && " · can't sign in; nothing of theirs was removed"}
                   </div>
                 </div>
+                {/* Icon-only, and deliberately so: four labelled buttons ran to
+                    most of the row's width and squeezed the email — the one
+                    thing that identifies the row — down to a few characters.
+                    Every action here is reversible, and each says what it does
+                    on hover and to a screen reader. */}
                 {!isSelf && (
                   <div className="sd-row" style={{ gap: 6, flexWrap: "wrap", justifyContent: "flex-end", flex: "0 0 auto" }}>
                     {/* A disabled account can't be acted on until it's back —
@@ -471,29 +476,43 @@ export function Admin() {
                         changing the role of someone who can't sign in is noise. */}
                     {!u.disabled && (
                       <>
-                        <button
-                          className="sd-btn sd-btn-secondary sd-btn-sm"
+                        <IconBtn
+                          name="shield"
+                          label={u.isSystemAdmin ? "Remove admin" : "Make admin"}
+                          title={
+                            u.isSystemAdmin
+                              ? "Remove admin access. They keep their profile and the people they manage."
+                              : "Give this account the full console: this list, masquerade, import and the audit log."
+                          }
                           disabled={busy === `role:${u.id}`}
                           onClick={() => void setAdmin(u.id, !u.isSystemAdmin)}
-                        >
-                          <Icon name="shield" size={15} />{u.isSystemAdmin ? "Remove admin" : "Make admin"}
-                        </button>
-                        <button className="sd-btn sd-btn-secondary sd-btn-sm" disabled={busy === u.id} onClick={() => void masquerade(u.id)}>
-                          <Icon name="eye" size={15} />Masquerade
-                        </button>
+                        />
+                        <IconBtn
+                          name="eye"
+                          label="Masquerade"
+                          title="See the directory as this account sees it. Starting and stopping is audited."
+                          disabled={busy === u.id}
+                          onClick={() => void masquerade(u.id)}
+                        />
                       </>
                     )}
-                    <button className="sd-btn sd-btn-secondary sd-btn-sm" onClick={() => setImpactFor(u)}>
-                      <Icon name="info" size={15} />What would be deleted?
-                    </button>
-                    <button
-                      className="sd-btn sd-btn-secondary sd-btn-sm"
+                    <IconBtn
+                      name="info"
+                      label="What would be deleted?"
+                      title="Show what deleting this account would remove. Nothing is deleted by looking."
+                      onClick={() => setImpactFor(u)}
+                    />
+                    <IconBtn
+                      name={u.disabled ? "check" : "lock"}
+                      label={u.disabled ? "Re-enable" : "Disable"}
+                      title={
+                        u.disabled
+                          ? "Let this account sign in again."
+                          : "Sign them out and stop this account signing in. Reversible, and nothing of theirs is removed."
+                      }
                       disabled={busy === `disable:${u.id}`}
                       onClick={() => void setDisabled(u.id, !u.disabled)}
-                    >
-                      <Icon name={u.disabled ? "check" : "lock"} size={15} />
-                      {u.disabled ? "Re-enable" : "Disable"}
-                    </button>
+                    />
                   </div>
                 )}
               </div>
