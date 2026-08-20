@@ -2,7 +2,7 @@
 // (CSV import, audit-log table, registration toggle UI) is M4.
 
 import { Hono } from "hono";
-import type { AuditEntryDTO, BulkImportRow, CalendarSourceDTO, CalendarSourceInput } from "@sd/shared";
+import type { AuditEntryDTO, BulkImportRow, CalendarSourceDTO, CalendarSourceInput, GroupKind } from "@sd/shared";
 import type { Env, HonoEnv } from "../env.js";
 import { requireAuth } from "../middleware/session.js";
 import { runBulkImport } from "../lib/bulkImport.js";
@@ -32,22 +32,231 @@ async function sendBulkInvites(env: Env, origin: string, invites: QueuedInvite[]
   }
 }
 
-/** GET /admin/users — directory of Users (system admins only). */
+/** GET /admin/users — directory of Users (system admins only).
+ *
+ *  Disabled accounts are INCLUDED, flagged. They used to be filtered out, which
+ *  was fine while nothing could disable one — but an account you cannot see is
+ *  an account you cannot re-enable, and disabling is meant to be reversible.
+ *  Active first, so the working list stays at the top. */
 admin.get("/users", async (c) => {
   const auth = requireAuth(c);
   if (!auth.isSystemAdmin) return c.json({ error: "forbidden" }, 403);
   const rows = await c.env.DB.prepare(
-    `SELECT u.id, u.email, u.is_system_admin,
+    `SELECT u.id, u.email, u.is_system_admin, u.disabled_at,
             (SELECT COUNT(*) FROM control ctl WHERE ctl.user_id = u.id) AS person_count
-     FROM user u WHERE u.disabled_at IS NULL ORDER BY u.email`,
-  ).all<{ id: string; email: string; is_system_admin: number; person_count: number }>();
+     FROM user u
+     ORDER BY (u.disabled_at IS NOT NULL), u.email`,
+  ).all<{
+    id: string;
+    email: string;
+    is_system_admin: number;
+    disabled_at: string | null;
+    person_count: number;
+  }>();
   return c.json({
     users: rows.results.map((u) => ({
       id: u.id,
       email: u.email,
       isSystemAdmin: u.is_system_admin === 1,
       personCount: u.person_count,
+      disabled: u.disabled_at !== null,
+      disabledAt: u.disabled_at,
     })),
+  });
+});
+
+/** POST /admin/users/:id/disabled { disabled } — take an account out of use, or
+ *  put it back.
+ *
+ *  Deliberately reversible, and deliberately the ONLY destructive-feeling thing
+ *  here: it touches the `user` row and nothing else. Their Persons, households,
+ *  contact items and audit trail are all left exactly as they were, because
+ *  "this person left the school" and "erase what they built" are different
+ *  requests and only the second one is unrecoverable. Everything that matters
+ *  already honours `disabled_at` — sessions (middleware/session.ts), the
+ *  newsletter audience (lib/newsletter.ts) and masquerade (below) — so the
+ *  account stops working the moment this lands.
+ *
+ *  Sessions are deleted rather than left to expire. The session lookup already
+ *  refuses a disabled user, so this changes no security property; it makes
+ *  "signed out everywhere" true rather than merely effective, and stops a
+ *  re-enable from silently restoring a year-old cookie. */
+admin.post("/users/:id/disabled", async (c) => {
+  const auth = requireAuth(c);
+  if (!auth.isSystemAdmin) return c.json({ error: "forbidden" }, 403);
+  // Same rule as changing a role: acting *as* somebody must never become a way
+  // to lock them out under their own name.
+  if (auth.isMasquerading) return c.json({ error: "forbidden_while_masquerading" }, 403);
+
+  const id = c.req.param("id");
+  const body = await c.req.json<{ disabled?: boolean }>().catch(() => null);
+  if (typeof body?.disabled !== "boolean") return c.json({ error: "invalid_body" }, 400);
+  // No self-disable. It is the one move that can empty the admin set — and
+  // since you cannot disable yourself, at least one admin always remains.
+  if (id === auth.userId) return c.json({ error: "cannot_disable_self" }, 400);
+
+  const target = await c.env.DB.prepare("SELECT id, email, disabled_at FROM user WHERE id = ?")
+    .bind(id)
+    .first<{ id: string; email: string; disabled_at: string | null }>();
+  if (!target) return c.json({ error: "not_found" }, 404);
+
+  const alreadyDisabled = target.disabled_at !== null;
+  if (alreadyDisabled === body.disabled) {
+    // Idempotent: a double click should not read as a failure.
+    return c.json({ ok: true, disabled: alreadyDisabled, disabledAt: target.disabled_at });
+  }
+
+  const disabledAt = body.disabled ? nowIso() : null;
+
+  // Never disable the last enabled admin. "You cannot disable yourself" is not
+  // enough on its own: two admins can each disable the OTHER, and if both land
+  // there is no admin left, no route that clears disabled_at without an admin
+  // session, and no way back in — a bootstrap-admin email re-grants the role on
+  // sign-in but never un-disables the row, so recovery means opening D1 by hand.
+  //
+  // The count lives INSIDE the UPDATE rather than in a preceding SELECT because
+  // D1 gives no transaction across a read-then-write; SQLite serializes the two
+  // writes, so whichever lands second sees the first and matches no rows. Same
+  // guarded-write-plus-meta.changes shape as the volunteer overfill check.
+  const update = body.disabled
+    ? await c.env.DB.prepare(
+        `UPDATE user SET disabled_at = ?
+          WHERE id = ?
+            AND (is_system_admin = 0
+                 OR EXISTS (SELECT 1 FROM user other
+                             WHERE other.is_system_admin = 1
+                               AND other.disabled_at IS NULL
+                               AND other.id <> ?))`,
+      )
+        .bind(disabledAt, id, id)
+        .run()
+    : await c.env.DB.prepare("UPDATE user SET disabled_at = NULL WHERE id = ?").bind(id).run();
+
+  if (update.meta.changes === 0) {
+    // The row exists (checked above), so the guard is what refused.
+    return c.json(
+      { error: "last_admin", message: "That's the only admin left. Make someone else an admin first." },
+      409,
+    );
+  }
+
+  if (body.disabled) {
+    // `OR acting_admin_id` is the load-bearing half. A masquerade session's
+    // user_id is the person being impersonated, NOT the admin doing it, so
+    // matching on user_id alone would leave a disabled admin browsing as
+    // somebody else until the masquerade aged out an hour later — the exact
+    // access this is meant to cut off.
+    await c.env.DB.prepare("DELETE FROM session WHERE user_id = ? OR acting_admin_id = ?")
+      .bind(id, id)
+      .run();
+  }
+
+  c.var.audit.push({
+    action: "admin.action",
+    entityKind: "user",
+    entityId: id,
+    detail: { op: body.disabled ? "user.disabled" : "user.enabled", email: target.email },
+  });
+
+  return c.json({ ok: true, disabled: body.disabled, disabledAt });
+});
+
+/** GET /admin/users/:id/impact — what permanently deleting this User would
+ *  remove. READ ONLY: it writes nothing and deletes nothing.
+ *
+ *  It exists because the obvious reading of "delete a user and everything they
+ *  made" cannot be answered by this schema, and the plausible-looking guesses
+ *  destroy other people's data:
+ *
+ *    `grp` has no creator column at all, so "groups they created" is not
+ *    recorded anywhere. The nearest proxy is "groups a Person they control
+ *    administers" — which for a teacher is a classroom full of other families'
+ *    children. Those are never deletion candidates here.
+ *
+ *    `control` is many-to-many on purpose (SDD: two parents, one child), so
+ *    "their people" splits in two. A Person somebody else also controls is not
+ *    theirs to take; only a Person left with no controller at all is, because
+ *    nobody could sign in and edit it afterwards.
+ *
+ *  An admin reads this before anything irreversible happens. */
+admin.get("/users/:id/impact", async (c) => {
+  const auth = requireAuth(c);
+  if (!auth.isSystemAdmin) return c.json({ error: "forbidden" }, 403);
+  const id = c.req.param("id");
+
+  const user = await c.env.DB.prepare("SELECT id, email, disabled_at FROM user WHERE id = ?")
+    .bind(id)
+    .first<{ id: string; email: string; disabled_at: string | null }>();
+  if (!user) return c.json({ error: "not_found" }, 404);
+
+  // Every Person they control, with how many OTHER users also control them.
+  const people = await c.env.DB.prepare(
+    `SELECT p.id, p.first_name, p.last_name,
+            (SELECT COUNT(*) FROM control c2 WHERE c2.person_id = p.id AND c2.user_id <> ?) AS others
+       FROM control c
+       JOIN person p ON p.id = c.person_id
+      WHERE c.user_id = ?
+      ORDER BY p.first_name`,
+  )
+    .bind(id, id)
+    .all<{ id: string; first_name: string; last_name: string | null; others: number }>();
+
+  const nameOf = (r: { first_name: string; last_name: string | null }) =>
+    [r.first_name, r.last_name].filter(Boolean).join(" ");
+
+  const orphanedPersons = people.results
+    .filter((r) => r.others === 0)
+    .map((r) => ({ id: r.id, name: nameOf(r) }));
+  const sharedPersons = people.results
+    .filter((r) => r.others > 0)
+    .map((r) => ({ id: r.id, name: nameOf(r), otherControllers: r.others }));
+
+  // Households whose every member is among the orphans — nobody would be left
+  // in them. A household that still has somebody in it stays, address and all.
+  const emptiedHouseholds: { id: string; name: string }[] = [];
+  if (orphanedPersons.length > 0) {
+    const marks = orphanedPersons.map(() => "?").join(",");
+    const ids = orphanedPersons.map((p) => p.id);
+    const rows = await c.env.DB.prepare(
+      `SELECT g.id, g.name
+         FROM grp g
+        WHERE g.kind = 'household'
+          AND EXISTS (SELECT 1 FROM membership m
+                       WHERE m.group_id = g.id AND m.person_id IN (${marks}))
+          AND NOT EXISTS (SELECT 1 FROM membership m2
+                           WHERE m2.group_id = g.id AND m2.person_id NOT IN (${marks}))
+        ORDER BY g.name`,
+    )
+      .bind(...ids, ...ids)
+      .all<{ id: string; name: string }>();
+    emptiedHouseholds.push(...rows.results);
+  }
+
+  // Classrooms and generic groups they administer. Reported, never deleted.
+  const retained = await c.env.DB.prepare(
+    `SELECT DISTINCT g.id, g.name, g.kind
+       FROM membership m
+       JOIN grp g ON g.id = m.group_id
+       JOIN control c ON c.person_id = m.person_id
+      WHERE c.user_id = ? AND m.is_admin = 1 AND g.kind <> 'household'
+      ORDER BY g.name`,
+  )
+    .bind(id)
+    .all<{ id: string; name: string; kind: GroupKind }>();
+
+  const audit = await c.env.DB.prepare(
+    "SELECT COUNT(*) AS n FROM audit_log WHERE actor_user_id = ? OR masquerading_as = ?",
+  )
+    .bind(id, id)
+    .first<{ n: number }>();
+
+  return c.json({
+    user: { id: user.id, email: user.email, disabled: user.disabled_at !== null },
+    orphanedPersons,
+    sharedPersons,
+    emptiedHouseholds,
+    retainedGroupsAdministered: retained.results,
+    auditEntries: audit?.n ?? 0,
   });
 });
 

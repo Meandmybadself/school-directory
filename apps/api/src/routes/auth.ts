@@ -112,6 +112,20 @@ auth.get("/callback", async (c) => {
   // system_admin, even when registration is closed (initial-setup path).
   const bootstrap = isBootstrapAdmin(c.env, row.email);
   let user = await findUserByEmail(c.env, row.email);
+
+  // A disabled account gets no session. Without this the link "works": the
+  // account is found, a session is minted, the browser lands in the app — and
+  // then every request 401s, because the session lookup filters on disabled_at.
+  // It also stops a session created while disabled from springing to life if
+  // the account is later re-enabled. Same failure page as an expired link, so
+  // the response says nothing about whether the address exists (invariant 4).
+  if (user) {
+    const state = await c.env.DB.prepare("SELECT disabled_at FROM user WHERE id = ?")
+      .bind(user.id)
+      .first<{ disabled_at: string | null }>();
+    if (state?.disabled_at) return fail(appOrigin);
+  }
+
   if (!user) {
     // signin tokens only create a user if registration was open at issue time.
     // invite tokens always create the user (they bypass the toggle).

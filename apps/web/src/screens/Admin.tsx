@@ -3,12 +3,12 @@
 // Admin chrome is intentionally English-only (operator tooling).
 import { useEffect, useState } from "react";
 import { Navigate, useNavigate } from "react-router-dom";
-import type { AdminUserDTO, AuditEntryDTO, NewUserNotify } from "@sd/shared";
+import type { AdminUserDTO, AuditEntryDTO, NewUserNotify, UserDeletionImpactDTO } from "@sd/shared";
 import { Icon } from "../components/Icon.js";
 import { Avatar, Btn, Tag } from "../components/atoms.js";
 import { AppShell, BottomNav } from "../components/AppShell.js";
 import { DesktopShell } from "../components/DesktopShell.js";
-import { ScreenHeader, SectLabel } from "../components/parts.js";
+import { ScreenHeader, SectLabel, SheetOver } from "../components/parts.js";
 import { useSession } from "../lib/session.js";
 import { useIsDesktop } from "../lib/useIsDesktop.js";
 import { api, ApiError, CALENDAR_APP_URL, NEWSLETTER_APP_URL } from "../lib/api.js";
@@ -115,6 +115,98 @@ function NotificationsSection() {
 }
 
 /** Create a sign-in account, optionally suppressing the welcome email. */
+/** What a permanent delete would remove, read before anything irreversible.
+ *
+ *  Nothing here deletes: permanent deletion is not built yet, deliberately. The
+ *  sheet exists so the shape of the damage is visible first — and because the
+ *  honest answer is usually "less is exclusively theirs than you would think".
+ *  A child with two parents belongs to both; a classroom belongs to the school. */
+function DeletionImpactSheet({ user, onClose }: { user: AdminUserDTO; onClose: () => void }) {
+  const [impact, setImpact] = useState<UserDeletionImpactDTO | null>(null);
+  const [error, setError] = useState(false);
+
+  useEffect(() => {
+    let alive = true;
+    void api
+      .userDeletionImpact(user.id)
+      .then((r) => alive && setImpact(r))
+      .catch(() => alive && setError(true));
+    return () => { alive = false; };
+  }, [user.id]);
+
+  return (
+    <SheetOver onClose={onClose}>
+      <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+        <div>
+          <h2 className="sd-h2">If {user.email} were deleted</h2>
+          <p className="sd-meta" style={{ marginTop: 4 }}>
+            Nothing is removed by opening this. Permanent deletion isn't built yet —
+            disabling the account is the reversible way to take it out of use.
+          </p>
+        </div>
+
+        {error && <p className="sd-meta" style={{ color: "var(--warn)" }}>Couldn't load the impact report.</p>}
+        {!impact && !error && <div className="sd-spinner" />}
+
+        {impact && (
+          <>
+            <ImpactBlock
+              tone="warn"
+              title={`${impact.orphanedPersons.length} would be deleted`}
+              note="Nobody else controls these, so no one could sign in and edit them afterwards."
+              items={impact.orphanedPersons.map((p) => p.name)}
+            />
+            <ImpactBlock
+              tone="ok"
+              title={`${impact.sharedPersons.length} would be kept`}
+              note="Someone else controls these too. Only this account's control would be dropped."
+              items={impact.sharedPersons.map((p) => `${p.name} — also controlled by ${p.otherControllers}`)}
+            />
+            <ImpactBlock
+              tone="warn"
+              title={`${impact.emptiedHouseholds.length} household(s) would be deleted`}
+              note="Left with no members at all. Households that still have someone in them stay."
+              items={impact.emptiedHouseholds.map((g) => g.name)}
+            />
+            <ImpactBlock
+              tone="ok"
+              title={`${impact.retainedGroupsAdministered.length} group(s) would be kept`}
+              note="Classrooms and school groups are never deleted with a member — but these would lose an admin."
+              items={impact.retainedGroupsAdministered.map((g) => `${g.name} (${g.kind})`)}
+            />
+            <p className="sd-meta" style={{ lineHeight: 1.5 }}>
+              {impact.auditEntries} audit entr{impact.auditEntries === 1 ? "y" : "ies"} would be kept.
+              The log is append-only and hash-chained, so removing rows would break
+              tamper-evidence and erase the record of what this account did.
+            </p>
+          </>
+        )}
+
+        <Btn kind="secondary" block onClick={onClose}>Close</Btn>
+      </div>
+    </SheetOver>
+  );
+}
+
+function ImpactBlock({
+  tone, title, note, items,
+}: { tone: "warn" | "ok"; title: string; note: string; items: string[] }) {
+  const color = tone === "warn" ? "var(--warn)" : "var(--ink-2)";
+  return (
+    <div className="sd-card sd-card-pad" style={{ padding: "12px 14px" }}>
+      <div style={{ fontSize: 14, fontWeight: 700, color }}>{title}</div>
+      <div className="sd-meta" style={{ marginTop: 3, lineHeight: 1.4 }}>{note}</div>
+      {items.length > 0 && (
+        <ul style={{ margin: "8px 0 0", paddingLeft: 18 }}>
+          {items.map((x) => (
+            <li key={x} className="sd-meta" style={{ lineHeight: 1.5 }}>{x}</li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
 function CreateUserForm({ onCreated }: { onCreated: () => void }) {
   const [email, setEmail] = useState("");
   const [sysAdmin, setSysAdmin] = useState(false);
@@ -172,6 +264,7 @@ export function Admin() {
   const [filter, setFilter] = useState("");
   const [nextBefore, setNextBefore] = useState<string | null>(null);
   const [tab, setTab] = useState<"users" | "audit">("users");
+  const [impactFor, setImpactFor] = useState<AdminUserDTO | null>(null);
 
   const loadUsers = () => void api.adminUsers().then((r) => setUsers(r.users)).catch(() => setUsers([]));
   useEffect(() => {
@@ -210,6 +303,22 @@ export function Admin() {
     } catch {
       setUsers((list) => list.map((u) => (u.id === userId ? { ...u, isSystemAdmin: !next } : u)));
       setUsersError(`Couldn't ${next ? "grant" : "remove"} admin for that account.`);
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  /** Reversible, and it touches only the account — see the API route. The list
+   *  is refetched rather than patched in place because disabling also ends
+   *  their sessions, and the row's other affordances change with it. */
+  const setDisabled = async (userId: string, next: boolean) => {
+    setBusy(`disable:${userId}`);
+    setUsersError(null);
+    try {
+      await api.setUserDisabled(userId, next);
+      loadUsers();
+    } catch {
+      setUsersError(`Couldn't ${next ? "disable" : "re-enable"} that account.`);
     } finally {
       setBusy(null);
     }
@@ -348,20 +457,42 @@ export function Admin() {
                     <span style={{ fontSize: 14.5, fontWeight: 700, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{u.email}</span>
                     {u.isSystemAdmin && <Tag tone="line"><Icon name="shield" size={11} stroke={2} />Admin</Tag>}
                     {isSelf && <Tag tone="blue">You</Tag>}
+                    {u.disabled && <Tag tone="orange">Disabled</Tag>}
                   </div>
-                  <div className="sd-meta">{u.personCount} {u.personCount === 1 ? "person" : "people"}</div>
+                  <div className="sd-meta">
+                    {u.personCount} {u.personCount === 1 ? "person" : "people"}
+                    {u.disabled && " · can't sign in; nothing of theirs was removed"}
+                  </div>
                 </div>
                 {!isSelf && (
                   <div className="sd-row" style={{ gap: 6, flexWrap: "wrap", justifyContent: "flex-end", flex: "0 0 auto" }}>
+                    {/* A disabled account can't be acted on until it's back —
+                        masquerading as one is already refused server-side, and
+                        changing the role of someone who can't sign in is noise. */}
+                    {!u.disabled && (
+                      <>
+                        <button
+                          className="sd-btn sd-btn-secondary sd-btn-sm"
+                          disabled={busy === `role:${u.id}`}
+                          onClick={() => void setAdmin(u.id, !u.isSystemAdmin)}
+                        >
+                          <Icon name="shield" size={15} />{u.isSystemAdmin ? "Remove admin" : "Make admin"}
+                        </button>
+                        <button className="sd-btn sd-btn-secondary sd-btn-sm" disabled={busy === u.id} onClick={() => void masquerade(u.id)}>
+                          <Icon name="eye" size={15} />Masquerade
+                        </button>
+                      </>
+                    )}
+                    <button className="sd-btn sd-btn-secondary sd-btn-sm" onClick={() => setImpactFor(u)}>
+                      <Icon name="info" size={15} />What would be deleted?
+                    </button>
                     <button
                       className="sd-btn sd-btn-secondary sd-btn-sm"
-                      disabled={busy === `role:${u.id}`}
-                      onClick={() => void setAdmin(u.id, !u.isSystemAdmin)}
+                      disabled={busy === `disable:${u.id}`}
+                      onClick={() => void setDisabled(u.id, !u.disabled)}
                     >
-                      <Icon name="shield" size={15} />{u.isSystemAdmin ? "Remove admin" : "Make admin"}
-                    </button>
-                    <button className="sd-btn sd-btn-secondary sd-btn-sm" disabled={busy === u.id} onClick={() => void masquerade(u.id)}>
-                      <Icon name="eye" size={15} />Masquerade
+                      <Icon name={u.disabled ? "check" : "lock"} size={15} />
+                      {u.disabled ? "Re-enable" : "Disable"}
                     </button>
                   </div>
                 )}
@@ -377,6 +508,8 @@ export function Admin() {
           <CreateUserForm onCreated={loadUsers} />
         </div>
       </div>
+
+      {impactFor && <DeletionImpactSheet user={impactFor} onClose={() => setImpactFor(null)} />}
     </>
   );
 

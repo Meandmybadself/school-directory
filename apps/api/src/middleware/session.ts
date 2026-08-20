@@ -37,7 +37,20 @@ export const sessionMiddleware = createMiddleware<HonoEnv>(async (c, next) => {
         .bind(session.user_id)
         .first<UserRow>();
 
-      if (user) {
+      // A masquerade is resolved against the TARGET's account, so the check
+      // above says nothing about the admin driving it. Disabling an admin
+      // deletes these sessions, but the door should refuse them regardless:
+      // access for a disabled account must not depend on cleanup having run.
+      const actorOk =
+        !user || !session.acting_admin_id
+          ? true
+          : !!(await c.env.DB.prepare(
+              "SELECT 1 AS ok FROM user WHERE id = ? AND disabled_at IS NULL",
+            )
+              .bind(session.acting_admin_id)
+              .first<{ ok: number }>());
+
+      if (user && actorOk) {
         // Bump last_seen_at without blocking the response.
         c.executionCtx.waitUntil(
           c.env.DB.prepare("UPDATE session SET last_seen_at = ? WHERE id = ?")

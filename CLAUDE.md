@@ -254,6 +254,33 @@ All three SPAs are separate Cloudflare Pages projects talking to the single
    because the session cookie is host-only to the API and a Function on the
    newsletter origin cannot see it — see `apps/newsletter/ROUTING.md`.
 
+17. **Removing a User is `disabled_at`, and deleting one has rules it does not
+   yet execute.** `POST /admin/users/:id/disabled` is reversible and touches the
+   `user` row alone — everything that matters already filters on `disabled_at`
+   (session middleware, newsletter audience, masquerade), so nothing of theirs
+   needs removing to cut off access. Two guards are load-bearing and both were
+   found in review rather than by design: the session sweep matches
+   `acting_admin_id` as well as `user_id`, because a masquerade session's
+   `user_id` is the person being impersonated and a disabled admin would
+   otherwise keep browsing as them for an hour; and the disable is refused
+   unless another enabled system admin remains, enforced *inside* the `UPDATE`
+   (D1 has no read-then-write transaction) because two admins disabling each
+   other concurrently would otherwise leave an instance nobody can sign in to —
+   with no route that clears `disabled_at` without an admin session, and a
+   bootstrap-admin email re-granting the role but never un-disabling the row.
+   **Permanent deletion is deliberately not implemented.**
+   `GET /admin/users/:id/impact` is the only statement of what it would be
+   allowed to touch, and if it is ever built it must execute that report rather
+   than re-derive it. The rules exist because the obvious reading is wrong:
+   `control` is many-to-many by design (two parents, one child), so a Person
+   any *other* User controls is not this user's to take — only one left with no
+   controller at all is. `grp` records no creator, so "groups they created" is
+   not a thing this schema knows; a household is removed only when it would be
+   left with no members, and a classroom or school group is never removed with a
+   member, because it belongs to the school. `audit_log` is never deleted for
+   anyone: it is append-only and hash-chained (invariant 5), so dropping rows
+   both breaks tamper-evidence and erases the record of what the account did.
+
 
 ## Conventions
 

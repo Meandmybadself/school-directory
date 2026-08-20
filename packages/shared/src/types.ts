@@ -545,6 +545,38 @@ export interface AdminUserDTO {
   email: string;
   isSystemAdmin: boolean;
   personCount: number;
+  /** Disabled accounts cannot sign in, receive the newsletter, or be
+   *  masqueraded as, and they keep everything they own. Reversible. */
+  disabled: boolean;
+  /** ISO-8601, or null while active. */
+  disabledAt: string | null;
+}
+
+/** What permanently deleting a User would remove — a dry run, computed on
+ *  demand and never acted on automatically.
+ *
+ *  The whole point of this shape is that "delete a user and everything they
+ *  made" is not a thing this schema can answer: `grp` records no creator, and
+ *  `control` is many-to-many precisely so two parents can share a child. So the
+ *  report distinguishes what is genuinely only theirs from what merely passes
+ *  through them, and an admin reads it before anything irreversible happens. */
+export interface UserDeletionImpactDTO {
+  user: { id: string; email: string; disabled: boolean };
+  /** Sole controller — nobody else can edit these, so a delete would take them. */
+  orphanedPersons: { id: string; name: string }[];
+  /** Co-controlled. A delete would drop only this user's control row and leave
+   *  the Person for whoever else holds one. */
+  sharedPersons: { id: string; name: string; otherControllers: number }[];
+  /** Households left with no members once the orphaned Persons are gone. */
+  emptiedHouseholds: { id: string; name: string }[];
+  /** Groups this user administers that would SURVIVE — classrooms and generic
+   *  groups belong to the school, not to a member, so a delete never removes
+   *  them. Listed because losing their only admin is worth knowing about. */
+  retainedGroupsAdministered: { id: string; name: string; kind: GroupKind }[];
+  /** Audit rows naming this user. Always retained — the log is append-only and
+   *  hash-chained, so removing entries would break tamper-evidence and erase
+   *  the record of what they did. */
+  auditEntries: number;
 }
 
 /** One normalized row submitted to bulk import (client maps CSV columns to these). */

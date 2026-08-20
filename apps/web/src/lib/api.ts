@@ -1,6 +1,7 @@
 // Thin fetch client. Always sends credentials so the session cookie rides along.
 import type {
   AdminUserDTO,
+  UserDeletionImpactDTO,
   AuditEntryDTO,
   BulkImportResult,
   BulkImportRow,
@@ -167,6 +168,16 @@ export const api = {
   adminUsers: () => request<{ users: AdminUserDTO[] }>("/admin/users"),
   createUser: (body: { email: string; isSystemAdmin?: boolean; sendEmail?: boolean }) =>
     request<{ user: AdminUserDTO }>("/admin/users", { method: "POST", body: JSON.stringify(body) }),
+  /** Take an account out of use, or put it back. Reversible, and it touches
+   *  only the `user` row — their people and groups are left alone. */
+  setUserDisabled: (userId: string, disabled: boolean) =>
+    request<{ ok: true; disabled: boolean; disabledAt: string | null }>(
+      `/admin/users/${userId}/disabled`,
+      { method: "POST", body: JSON.stringify({ disabled }) },
+    ),
+  /** Dry run: what a permanent delete would remove. Writes nothing. */
+  userDeletionImpact: (userId: string) =>
+    request<UserDeletionImpactDTO>(`/admin/users/${userId}/impact`),
   setUserAdmin: (userId: string, isSystemAdmin: boolean) =>
     request<{ user: AdminUserDTO }>(`/admin/users/${userId}`, {
       method: "PATCH",
