@@ -1,6 +1,7 @@
 // Email delivery via Resend. When no API key is configured (local dev), the
 // message is logged to the console so the magic link is still reachable.
 
+import { escapeHtml } from "@sd/shared";
 import type { Env } from "../env.js";
 
 export interface SendArgs {
@@ -209,12 +210,21 @@ export function directoryInviteEmail(env: Env, link: string, personName: string)
     to: "",
     subject: `You're listed in the ${school} Directory`,
     text: `${who} has been added to the ${school} Directory.\n\nSign in to view the directory and manage your profile:\n${link}\n\nThis link expires in 14 days. If you weren't expecting this, you can ignore this email.`,
-    html: `<p><strong>${who}</strong> has been added to the <strong>${school} Directory</strong>.</p>
+    html: `<p><strong>${escapeHtml(who)}</strong> has been added to the <strong>${escapeHtml(school)} Directory</strong>.</p>
 <p><a href="${link}">Sign in to view the directory and manage your profile</a></p>
 <p style="color:#56636f;font-size:13px">This link expires in 14 days. If you weren't expecting this, you can ignore this email.</p>`,
   };
 }
 
+/** Invitation to control a Person.
+ *
+ *  The wording deliberately avoids "help manage {name}". This same email is now
+ *  sent in two situations: a co-parent being given rights over a child, and —
+ *  since the welcome wizard — somebody being invited to take over THEIR OWN
+ *  profile, which a partner created for them. "Help manage Marcus Ruiz" reads
+ *  as nonsense when you are Marcus. "Lets you manage the profile for {name}" is
+ *  true and unremarkable either way, and avoids a possessive apostrophe on
+ *  names that already end in s. */
 export function inviteEmail(
   env: Env,
   link: string,
@@ -222,11 +232,16 @@ export function inviteEmail(
   personName: string,
 ): SendArgs {
   const school = env.SCHOOL_NAME;
+  // Both names are typed by a member and land in somebody else's inbox as
+  // markup, so neither may be interpolated raw.
+  const inviter = escapeHtml(inviterName);
+  const person = escapeHtml(personName);
   return {
     to: "",
     subject: `${inviterName} invited you to the ${school} Directory`,
-    text: `${inviterName} invited you to help manage ${personName} in the ${school} Directory.\n\nAccept: ${link}\n\nThis invitation expires in 14 days.`,
-    html: `<p><strong>${inviterName}</strong> invited you to help manage <strong>${personName}</strong> in the ${school} Directory.</p>
+    text: `${inviterName} invited you to the ${school} Directory.\n\nAccepting lets you manage the profile for ${personName}.\n\nAccept: ${link}\n\nThis invitation expires in 14 days.`,
+    html: `<p><strong>${inviter}</strong> invited you to the ${escapeHtml(school)} Directory.</p>
+<p>Accepting lets you manage the profile for <strong>${person}</strong>.</p>
 <p><a href="${link}">Accept invitation</a></p>
 <p style="color:#56636f;font-size:13px">This invitation expires in 14 days.</p>`,
   };
