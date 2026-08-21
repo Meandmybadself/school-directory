@@ -37,6 +37,7 @@ import type {
 } from "./types.js";
 import { EVENTS_BLOCK_TYPE } from "./types.js";
 import { visibleEvents } from "./newsletterEvents.js";
+import { eventPath, type EventPathInput } from "./eventPath.js";
 import { htmlToText } from "./text.js";
 
 /** Resolves one events block to the events it should render. */
@@ -609,8 +610,18 @@ function renderEventsBlock(node: NewsletterNode, ctx: Ctx): string {
       const when = [day, time].filter(Boolean).join(" · ");
       const meta = [when, e.location].filter(Boolean).join(" — ");
       const bar = e.source.color || ctx.accent;
+      // Linked when a calendar site is configured, plain otherwise — the same
+      // rule "See all events" follows, so a deployment with no calendar host
+      // renders exactly as it did before rather than emitting a dead link.
+      // Accent-coloured rather than ink, matching that link, because an inbox
+      // gives a reader no hover to discover clickability with.
+      const href = eventHref(ctx, e);
+      const title = escapeHtml(e.title);
+      const titleHtml = href
+        ? `<a href="${escapeHtml(href)}"${attr(ctx, "nl-event-title-link", `color:${ctx.accent};text-decoration:none`)}>${title}</a>`
+        : title;
       return `<tr><td${attr(ctx, "nl-event", `padding:10px 0 10px 12px;border-left:3px solid ${escapeHtml(bar)};border-bottom:1px solid ${RULE}`)}>
-<div${attr(ctx, "nl-event-title", `font-size:15px;font-weight:600;color:${INK};font-family:${FONT};line-height:1.4`)}>${escapeHtml(e.title)}</div>
+<div${attr(ctx, "nl-event-title", `font-size:15px;font-weight:600;color:${INK};font-family:${FONT};line-height:1.4`)}>${titleHtml}</div>
 <div${attr(ctx, "nl-event-meta", `font-size:13px;color:${MUTED};font-family:${FONT};margin-top:2px`)}>${escapeHtml(meta)}</div>
 </td></tr>`;
     })
@@ -621,6 +632,31 @@ function renderEventsBlock(node: NewsletterNode, ctx: Ctx): string {
   );
   parts.push(seeAllLink(ctx));
   return parts.join("");
+}
+
+/** Absolute URL of ONE event's page on the calendar site, or null when no
+ *  calendar URL is configured (or it isn't a safe absolute one).
+ *
+ *  The path is a content identity — day plus title slug — not an id; see
+ *  packages/shared/src/eventPath.ts for why an event has no durable public
+ *  handle to link to. Two consequences are worth knowing here:
+ *
+ *   - The day is minted in the ISSUE'S zone, not a reader's, because there is no
+ *     reader when an email is composed. `findEventByPath` searches a day either
+ *     side, so a recipient in another zone still lands on the right event.
+ *   - A link OUTLIVES what it points at. `calendar_event` keeps roughly two days
+ *     of past events, so an archived issue's event links stop resolving shortly
+ *     after the event happens, and the page answers with its "event not found"
+ *     card and a way back to the calendar. That is the cost of an addressable
+ *     event at all, and it degrades to what an unlinked title already offered.
+ *
+ *  Safe on the public archive page as well as in the email: an event page is
+ *  ungated, like the agenda it was reached from.
+ */
+function eventHref(ctx: Ctx, e: EventPathInput): string | null {
+  const base = safeLinkHref(ctx.calendarUrl);
+  if (!base) return null;
+  return `${base.replace(/\/+$/, "")}${eventPath(e, ctx.timeZone)}`;
 }
 
 /** "See all" out to the public calendar site. Omitted entirely when no calendar
@@ -771,7 +807,16 @@ export function renderNewsletterText(
           const when = [formatEventDay(e, locale, timeZone), formatEventTime(e, locale, timeZone)]
             .filter(Boolean)
             .join(" · ");
-          out.push(`• ${e.title} — ${[when, e.location].filter(Boolean).join(" — ")}`);
+          const line = `• ${e.title} — ${[when, e.location].filter(Boolean).join(" — ")}`;
+          // Plain text can't hyperlink, so the event page's URL is spelled out
+          // under its title — the same convention link marks and "See all" use.
+          // On its own line rather than in parentheses: these are long, and a
+          // reader scanning dates shouldn't have to read past one to reach the
+          // next event.
+          const href = calendarUrl
+            ? `${calendarUrl.replace(/\/+$/, "")}${eventPath(e, timeZone)}`
+            : null;
+          out.push(href ? `${line}\n  ${href}` : line);
         }
         if (calendarUrl) out.push(`See all events: ${calendarUrl}`);
         break;
@@ -1037,6 +1082,8 @@ a{color:var(--nl-accent,${DEFAULT_ACCENT})}
 .nl-events-more-link:hover{text-decoration:underline}
 .nl-event{padding:10px 0 10px 12px;border-left:3px solid var(--nl-accent,${DEFAULT_ACCENT});border-bottom:1px solid ${RULE}}
 .nl-event-title{font-size:15px;font-weight:600;line-height:1.4}
+.nl-event-title-link{color:var(--nl-accent,${DEFAULT_ACCENT});text-decoration:none}
+.nl-event-title-link:hover{text-decoration:underline}
 .nl-event-meta{font-size:13px;color:${MUTED};margin-top:2px}
 .nl-foot{margin-top:22px;padding-top:18px;border-top:1px solid ${RULE};font-size:13px;line-height:1.6;color:${MUTED}}
 .nl-archive-item{display:block;background:${PAPER};border-radius:12px;padding:18px 20px;margin-bottom:12px;text-decoration:none;color:inherit;box-shadow:0 1px 3px rgba(16,24,40,.06)}
@@ -1090,6 +1137,8 @@ a{color:var(--nl-accent,${DEFAULT_ACCENT})}
   /* Don't strand a heading or an event row at the foot of a page. */
   .nl-h1,.nl-h2,.nl-h3,.nl-events-heading{break-after:avoid;page-break-after:avoid}
   .nl-event,.nl-li,.nl-img,.nl-quote{break-inside:avoid;page-break-inside:avoid}
+  /* Nothing on paper is clickable, so an accent-coloured title is just noise. */
+  .nl-event-title-link{color:${INK}}
   .nl-foot{break-inside:avoid}
 }
 `.trim();

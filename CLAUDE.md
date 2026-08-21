@@ -107,6 +107,13 @@ All three SPAs are separate Cloudflare Pages projects talking to the single
   members-only twin only for a system admin — the one thing that adds is
   `seriesId`, which the edit form needs. The agenda itself no longer does that
   re-read at all, and is now written purely against `PublicCalendarEventDTO`.
+  **The newsletter's events blocks link every event title here**, in the email,
+  the composer preview and the public archive alike (one renderer — invariant 9),
+  minting the day in the ISSUE'S `SCHOOL_TIMEZONE` rather than a reader's. Note
+  what that means for the archive, which is permanent: `calendar_event` keeps
+  only ~2 days of past events, so an archived issue's event links stop resolving
+  shortly after the event happens and land on the page's "event not found" card.
+  That is inherent to addressing an event at all, not a bug in the link.
 
 ## Non-negotiable invariants
 

@@ -249,6 +249,108 @@ describe("newsletter renderer", () => {
     expect(text).toContain("See all events: https://calendar.x.test");
   });
 
+  it("links each event to its own page on the calendar site", () => {
+    const e: CalendarEventDTO = {
+      id: "e7", kind: "managed", seriesId: "01SERIES", recurrenceId: "2026-10-18T00:00:00.000Z",
+      title: "Fall Carnival", location: "Gym", description: null,
+      start: "2026-10-18T00:00:00.000Z", end: null, allDay: false,
+      sourceIds: ["s1"], source: { name: "Events", color: "#0068A8" }, volunteerSlug: null,
+    };
+    const block = {
+      type: EVENTS_BLOCK_TYPE,
+      attrs: {
+        blockId: "b", calendarIds: [], lookaheadDays: 30,
+        rangeStart: null, rangeEnd: null, excluded: [], heading: null,
+      },
+    };
+    const opts = { calendarUrl: "https://calendar.x.test/", timeZone: "America/Chicago" };
+
+    // 7pm Chicago on Oct 17 is Oct 18 in UTC. The path is minted in the ISSUE'S
+    // zone, so the link says the day the newsletter says — and the trailing
+    // slash on the configured URL must not double up.
+    const email = renderNewsletterBodyHtml(doc(block), () => [e], { mode: "email", ...opts });
+    expect(email).toContain('href="https://calendar.x.test/e/2026-10-17/fall-carnival"');
+    expect(email).not.toContain("test//e/");
+
+    const web = renderNewsletterBodyHtml(doc(block), () => [e], { mode: "web", ...opts });
+    expect(web).toContain('href="https://calendar.x.test/e/2026-10-17/fall-carnival"');
+    expect(web).toContain("nl-event-title-link");
+
+    // Plain text can't hyperlink, so the destination is spelled out under the
+    // title — same convention as every other link in this renderer.
+    const text = renderNewsletterText(doc(block), () => [e], opts);
+    expect(text).toContain("https://calendar.x.test/e/2026-10-17/fall-carnival");
+    expect(text).toContain("Fall Carnival");
+  });
+
+  it("leaves event titles unlinked when no calendar URL is configured", () => {
+    // Same rule "See all events" follows: a deployment with no calendar host
+    // renders as it did before rather than emitting a dead link.
+    const e: CalendarEventDTO = {
+      id: "e8", kind: "imported", title: "Book Fair", location: null, description: null,
+      start: "2026-08-10T14:00:00.000Z", end: null, allDay: false,
+      sourceIds: ["s1"], source: { name: "Events", color: "#0068A8" }, volunteerSlug: null,
+    };
+    const block = {
+      type: EVENTS_BLOCK_TYPE,
+      attrs: {
+        blockId: "b", calendarIds: [], lookaheadDays: 30,
+        rangeStart: null, rangeEnd: null, excluded: [], heading: null,
+      },
+    };
+    const html = renderNewsletterBodyHtml(doc(block), () => [e], { mode: "email" });
+    expect(html).toContain("Book Fair");
+    expect(html).not.toContain("<a href");
+    expect(renderNewsletterText(doc(block), () => [e])).not.toContain("http");
+  });
+
+  it("refuses to link events through an unsafe calendar URL", () => {
+    const e: CalendarEventDTO = {
+      id: "e9", kind: "imported", title: "Book Fair", location: null, description: null,
+      start: "2026-08-10T14:00:00.000Z", end: null, allDay: false,
+      sourceIds: ["s1"], source: { name: "Events", color: "#0068A8" }, volunteerSlug: null,
+    };
+    const block = {
+      type: EVENTS_BLOCK_TYPE,
+      attrs: {
+        blockId: "b", calendarIds: [], lookaheadDays: 30,
+        rangeStart: null, rangeEnd: null, excluded: [], heading: null,
+      },
+    };
+    const html = renderNewsletterBodyHtml(doc(block), () => [e], {
+      mode: "email",
+      calendarUrl: "javascript:alert(1)",
+    });
+    expect(html).not.toContain("javascript:");
+    expect(html).not.toContain("<a href");
+  });
+
+  it("escapes a title before putting it in a link", () => {
+    // The slug is percent-encoded by eventPath; the visible text still has to
+    // survive escapeHtml, or a crafted event title is stored XSS on the archive.
+    const e: CalendarEventDTO = {
+      id: "e10", kind: "imported", title: '<img src=x onerror=alert(1)> "Party"',
+      location: null, description: null,
+      start: "2026-08-10T14:00:00.000Z", end: null, allDay: false,
+      sourceIds: ["s1"], source: { name: "Events", color: "#0068A8" }, volunteerSlug: null,
+    };
+    const block = {
+      type: EVENTS_BLOCK_TYPE,
+      attrs: {
+        blockId: "b", calendarIds: [], lookaheadDays: 30,
+        rangeStart: null, rangeEnd: null, excluded: [], heading: null,
+      },
+    };
+    const html = renderNewsletterBodyHtml(doc(block), () => [e], {
+      mode: "email",
+      calendarUrl: "https://calendar.x.test",
+    });
+    expect(html).not.toContain("<img src=x");
+    expect(html).toContain("&lt;img src=x");
+    // And the href itself carries no raw quote that could break out of it.
+    expect(html).toMatch(/href="https:\/\/calendar\.x\.test\/e\/[^"]*"/);
+  });
+
   it("still offers the link when the block came up empty", () => {
     const block = {
       type: EVENTS_BLOCK_TYPE,
