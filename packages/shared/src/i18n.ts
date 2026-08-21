@@ -668,7 +668,7 @@ const en: Strings = {
   landingDirMore:
     "{feature}: opt in and see which member families live near you — a name and a rough distance, never an address.",
   landingCalBody:
-    "Concerts, conferences, picnics, no-school days. Subscribe once and the school year keeps itself up to date in the calendar app you already use.",
+    "Concerts, conferences, picnics, lunch menus, no-school days. Subscribe once and the school year keeps itself up to date in the calendar app you already use.",
   landingCalMore: "{feature}: claim a spot at an event straight from its page.",
   landingNewsTitle: "Newsletter",
   landingNewsBody:
@@ -949,7 +949,7 @@ const es: Strings = {
   landingDirMore:
     "{feature}: actívalo y verás qué familias miembros viven cerca de ti: un nombre y una distancia aproximada, nunca una dirección.",
   landingCalBody:
-    "Conciertos, conferencias, días de campo, días sin clases. Suscríbete una vez y el año escolar se mantiene al día en la aplicación de calendario que ya usas.",
+    "Conciertos, conferencias, días de campo, menús del almuerzo, días sin clases. Suscríbete una vez y el año escolar se mantiene al día en la aplicación de calendario que ya usas.",
   landingCalMore: "{feature}: apúntate a un evento desde su propia página.",
   landingNewsTitle: "Boletín",
   landingNewsBody:
@@ -1219,7 +1219,7 @@ const zh: Strings = {
   landingDirMore:
     "{feature}：开启后即可看到住在附近的成员家庭——只显示姓名和大致距离，绝不显示地址。",
   landingCalBody:
-    "音乐会、家长会、野餐、不上课的日子。订阅一次，整个学年都会自动同步到你惯用的日历应用里。",
+    "音乐会、家长会、野餐、午餐菜单、不上课的日子。订阅一次，整个学年都会自动同步到你惯用的日历应用里。",
   landingCalMore: "{feature}：直接在活动页面上报名。",
   landingNewsTitle: "通讯",
   landingNewsBody:
@@ -1555,7 +1555,7 @@ const so: Strings = {
   landingDirMore:
     "{feature}: dooro oo waxaad arki doontaa qoysaska xubnaha ah ee kuu dhow — magac iyo masaafo qiyaastii ah oo keliya, waligeed ma aha ciwaan.",
   landingCalBody:
-    "Riwaayado, kulamo waalid-macallin, bannaanbax, iyo maalmaha aan dugsigu jirin. Hal mar ku biir, sanad-dugsiyeedka oo dhanna wuxuu iskiis ugu cusboonaanayaa abka kalandarka ee aad hore u isticmaasho.",
+    "Riwaayado, kulamo waalid-macallin, bannaanbax, liiska cuntada qadada, iyo maalmaha aan dugsigu jirin. Hal mar ku biir, sanad-dugsiyeedka oo dhanna wuxuu iskiis ugu cusboonaanayaa abka kalandarka ee aad hore u isticmaasho.",
   landingCalMore: "{feature}: boos ka qaado dhacdada boggeeda toos ah.",
   landingNewsTitle: "Warsidaha",
   landingNewsBody:
