@@ -92,8 +92,11 @@ All three SPAs are separate Cloudflare Pages projects talking to the single
   write and always needs an account. See invariant 13.
 - **And so is one event's own page at `/e/:date/:slug`.** Tapping a row on the
   agenda goes there rather than opening a modal, and it is where the
-  description, the single-event `.ics` download, the volunteer sheet (inline,
-  via `components/VolunteerPositions.tsx`) and the admin edit form all live. The
+  description, the volunteer sheet (inline, via
+  `components/VolunteerPositions.tsx`) and the admin edit form all live. There is
+  deliberately **no per-event `.ics` download** — a copy of one occurrence goes
+  stale the moment the school moves the date, and the calendar-level subscribe on
+  the agenda's filter bar is the affordance that keeps up. The
   path is a CONTENT identity — day + title slug, minted by `eventPath` in
   `@sd/shared` and matched by `findEventByPath` — because an event has no
   durable public id to put in a URL; see invariant 8 and

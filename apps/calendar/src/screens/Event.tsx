@@ -33,7 +33,7 @@ import { EditEventSheet } from "../components/EditEventSheet.js";
 import { VolunteerPositions, type AnySheet } from "../components/VolunteerPositions.js";
 import { useI18n } from "../i18n/index.js";
 import { useIsDesktop } from "../lib/useIsDesktop.js";
-import { API_BASE, api } from "../lib/api.js";
+import { api } from "../lib/api.js";
 import { useSession } from "../lib/session.js";
 import { rememberReturnPath } from "../lib/returnPath.js";
 import { showsDescription, showsAllDayLabel, showsTitle, formatEventDay } from "../lib/calendar.js";
@@ -169,20 +169,10 @@ export function Event() {
       </div>
 
       <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-        {/* A COPY of this one occurrence, not a subscription — hence the same
-            caveat the per-calendar download carries. Someone who wants the
-            school year to keep itself up to date subscribes to the calendar
-            instead, from the agenda's filter bar. A plain link rather than a
-            fetch: handing the browser a text/calendar URL is what makes the
-            phone offer to add it. */}
-        <a
-          className="sd-btn sd-btn-secondary"
-          href={`${API_BASE}/ics/event/${encodeURIComponent(date)}/${encodeURIComponent(slug)}.ics`}
-        >
-          <Icon name="download" size={16} />
-          {t("addToCalendar")}
-        </a>
-        <div className="sd-meta" style={{ lineHeight: 1.45 }}>{t("downloadIcsNote")}</div>
+        {/* No per-event download here. Taking a COPY of one occurrence is the
+            thing that silently goes stale when the school moves the date; the
+            calendar-level subscribe on the agenda's filter bar is the affordance
+            that keeps up, and it is the one worth pointing people at. */}
         <Btn kind="secondary" icon="link" onClick={() => void copyLink()}>
           {copied ? t("subscribeCopied") : t("subscribeCopy")}
         </Btn>

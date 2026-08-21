@@ -76,7 +76,6 @@ export interface Strings {
   /** One event's own page — the dedicated URL at /e/:date/:slug. */
   eventTitle: string;
   eventDetails: string;
-  addToCalendar: string;
   eventNotFound: string;
   eventNotFoundBody: string;
 
@@ -432,7 +431,6 @@ const en: Strings = {
     "Calendar apps check for updates on their own schedule, so a change can take a few hours to show up.",
   eventTitle: "Event",
   eventDetails: "Event details",
-  addToCalendar: "Add to my calendar",
   eventNotFound: "Event not found",
   eventNotFoundBody:
     "This event may have been moved or taken down. The calendar has what's coming up.",
@@ -775,7 +773,6 @@ const es: Strings = {
     "Las aplicaciones de calendario buscan actualizaciones por su cuenta, así que un cambio puede tardar unas horas en aparecer.",
   eventTitle: "Evento",
   eventDetails: "Detalles del evento",
-  addToCalendar: "Añadir a mi calendario",
   eventNotFound: "No se encontró el evento",
   eventNotFoundBody:
     "Puede que el evento se haya cambiado o retirado. En el calendario está lo que viene.",
@@ -1056,7 +1053,6 @@ const zh: Strings = {
   subscribeNote: "日历应用会按自己的时间检查更新，因此改动可能需要几小时才会显示。",
   eventTitle: "活动",
   eventDetails: "活动详情",
-  addToCalendar: "添加到我的日历",
   eventNotFound: "未找到该活动",
   eventNotFoundBody: "该活动可能已改期或已取消。日历上有近期的安排。",
 
@@ -1335,7 +1331,6 @@ const so: Strings = {
     "Barnaamijyada kalandarku waxay cusboonaysiinta ku hubiyaan jadwalkooda gaarka ah, sidaas darteed isbeddelku wuxuu qaadan karaa dhowr saacadood inuu soo muuqdo.",
   eventTitle: "Dhacdo",
   eventDetails: "Faahfaahinta dhacdada",
-  addToCalendar: "Ku dar kalandarkayga",
   eventNotFound: "Dhacdada lama helin",
   eventNotFoundBody:
     "Dhacdadan waxaa laga yaabaa in la beddelay ama la qaaday. Kalandarku wuxuu leeyahay waxa soo socda.",
