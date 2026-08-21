@@ -22,7 +22,7 @@
 
 import { Hono } from "hono";
 import type { HonoEnv } from "../env.js";
-import { listPublicCalendarFeeds, publicEventOf, queryUpcomingEvents } from "../lib/calendar.js";
+import { findEventByPath, listPublicCalendarFeeds, publicEventOf, queryUpcomingEvents } from "../lib/calendar.js";
 import { upcomingEventsQuery } from "./calendar.js";
 
 export const calendarPublic = new Hono<HonoEnv>();
@@ -42,4 +42,20 @@ calendarPublic.get("/sources", async (c) => {
 calendarPublic.get("/events", async (c) => {
   const events = await queryUpcomingEvents(c.env, upcomingEventsQuery(c));
   return c.json({ events: events.map(publicEventOf) });
+});
+
+/** GET /calendar-public/events/:date/:slug — ONE event, for its own page.
+ *
+ *  The path is a content identity, not an id — see packages/shared/src/eventPath.ts
+ *  and `findEventByPath`. It resolves an IMPORTED event as readily as a managed
+ *  one, which is the whole reason it isn't a minted slug.
+ *
+ *  Narrowed through `publicEventOf` like everything else here, so the page an
+ *  anonymous reader opens from a text message carries no `seriesId` and no
+ *  upstream feed URL. `volunteerSlug` survives, and is what lets that page show
+ *  the signup sheet (counts only, until they sign in). */
+calendarPublic.get("/events/:date/:slug", async (c) => {
+  const event = await findEventByPath(c.env, c.req.param("date"), c.req.param("slug"));
+  if (!event) return c.json({ error: "not_found" }, 404);
+  return c.json({ event: publicEventOf(event) });
 });

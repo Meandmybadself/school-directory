@@ -97,24 +97,27 @@ export const api = {
   },
   calendarFeeds: () => request<{ sources: PublicCalendarFeedDTO[] }>("/calendar-public/sources"),
 
-  // The SAME agenda, read through the members-only route, which answers with the
-  // full CalendarEventDTO. The one thing that adds is `seriesId` — the durable
-  // handle on a managed occurrence's authored series (invariant 8), and the only
-  // way the agenda's event modal can offer an admin an edit form.
-  //
-  // Used ONLY when the viewer is a system admin, and never as the first read:
-  // the screen renders from `calendarEvents` above so an anonymous visitor is
-  // not made to wait on /me, and this replaces that list once the session
-  // resolves to an admin. The narrowing in `publicEventOf` is what keeps
-  // seriesId off the anonymous wire, and that stays true — this is a different
-  // route with its own auth, not a widening of the public one.
-  memberCalendarEvents: (opts: { limit?: number; from?: string } = {}) => {
-    const q = new URLSearchParams();
-    if (opts.limit != null) q.set("limit", String(opts.limit));
-    if (opts.from) q.set("from", opts.from);
-    const qs = q.toString();
-    return request<{ events: CalendarEventDTO[] }>(`/calendar/events${qs ? `?${qs}` : ""}`);
-  },
+  /** ONE event, by the content identity that IS its page URL (/e/:date/:slug).
+   *  Public for the same reason the agenda is: an event page has to open from a
+   *  text message with no account. Returns the narrowed shape — the member
+   *  counterpart below is the only way to `seriesId`. */
+  calendarEvent: (date: string, slug: string) =>
+    request<{ event: PublicCalendarEventDTO }>(
+      `/calendar-public/events/${encodeURIComponent(date)}/${encodeURIComponent(slug)}`,
+    ),
+
+  /** The single-event read through the members-only route. Same event, plus
+   *  `seriesId` — the durable handle on a managed occurrence's authored series
+   *  (invariant 8), and the only way the event page can offer an admin an edit
+   *  form. Asked for ONLY once the session resolves to a system admin, and never
+   *  as the first read: the page renders from `calendarEvent` above so an
+   *  anonymous visitor is not made to wait on /me. The narrowing in
+   *  `publicEventOf` is what keeps seriesId off the anonymous wire, and that
+   *  stays true — this is a different route with its own auth. */
+  memberCalendarEvent: (date: string, slug: string) =>
+    request<{ event: CalendarEventDTO }>(
+      `/calendar/events/${encodeURIComponent(date)}/${encodeURIComponent(slug)}`,
+    ),
 
   // Imported ICS sources (admin).
   calendarSources: () => request<{ sources: CalendarSourceDTO[] }>("/admin/calendar-sources"),

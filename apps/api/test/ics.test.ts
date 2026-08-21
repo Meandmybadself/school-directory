@@ -4,9 +4,12 @@
 // these agree, a member's agenda and a subscriber's feed cannot disagree.
 
 import { describe, expect, it } from "vitest";
+import { Hono } from "hono";
 import { icsDate, renderCalendar, rruleValue, weekdayOf, type IcsEventInput } from "../src/lib/icsWriter.js";
 import { parseIcs, renderImportedSourceIcs } from "../src/lib/calendar.js";
+import { ics as icsRouter } from "../src/routes/ics.js";
 import type { Env } from "../src/env.js";
+import type { HonoEnv } from "../src/env.js";
 
 const base: IcsEventInput = {
   uid: "01J8ZK@eisenhower.school",
@@ -325,5 +328,85 @@ describe("imported calendar mirror", () => {
     // The SELECT filters on enabled = 1, so a disabled calendar reads as absent
     // — the published surface stays equal to what the filter chips list.
     expect(await renderImportedSourceIcs(mirrorEnv(null, []), "01SRC")).toBeNull();
+  });
+});
+
+// ── One event as a download ──────────────────────────────────────────────────
+//
+// "Add to my calendar" on an event's own page (/e/:date/:slug) — a COPY of one
+// occurrence, not a subscription. It is addressed by that page's content
+// identity rather than by an id, for the reasons in packages/shared/src/
+// eventPath.ts; test/eventPage.test.ts covers the lookup itself, so what matters
+// here is the document it produces.
+describe("GET /ics/event/:date/:file", () => {
+  /** D1 stand-in for queryUpcomingEvents's single SELECT. */
+  function eventEnv(): HonoEnv["Bindings"] {
+    const eventRow = {
+      id: "01EVENT",
+      title: "Fall Carnival",
+      location: "Gym",
+      description: "Doors at 4.",
+      starts_at: "2026-10-18T00:00:00.000Z", // 7pm Oct 17, Chicago
+      ends_at: "2026-10-18T03:00:00.000Z",
+      all_day: 0,
+      managed_event_id: "01SERIES",
+      source_id: "01MC",
+      source_name: "PTO events",
+      source_color: "#0068A8",
+      volunteer_slug: null,
+    };
+    return {
+      DB: {
+        prepare() {
+          // Honours the query's own window binds ([from, from, to, cap]), so a
+          // link pointing at the wrong week genuinely finds nothing here.
+          return {
+            bind: (from: string, _from2: string, to: string) => ({
+              all: async () => ({
+                results: eventRow.starts_at >= from && eventRow.starts_at < to ? [eventRow] : [],
+              }),
+            }),
+          };
+        },
+      },
+    } as unknown as HonoEnv["Bindings"];
+  }
+
+  const app = new Hono<HonoEnv>().route("/ics", icsRouter);
+
+  it("serves one VEVENT as text/calendar", async () => {
+    const res = await app.request("/ics/event/2026-10-17/fall-carnival.ics", {}, eventEnv());
+    expect(res.status).toBe(200);
+    expect(res.headers.get("content-type")).toContain("text/calendar");
+
+    const body = await res.text();
+    expect(body).toContain("SUMMARY:Fall Carnival");
+    expect(body).toContain("LOCATION:Gym");
+    expect(body).toContain("DTSTART:20261018T000000Z");
+    // One occurrence, flattened: a reader adding "this Saturday" must not get
+    // the whole series.
+    expect(body.match(/BEGIN:VEVENT/g)).toHaveLength(1);
+    expect(body).not.toContain("RRULE");
+  });
+
+  it("uses a UID derived from the content identity, not the row id", async () => {
+    // calendar_event.id is re-minted on every refresh (invariant 8); keying the
+    // UID on it would make each download look like a brand new event and
+    // duplicate it in the reader's calendar.
+    const body = await (await app.request("/ics/event/2026-10-17/fall-carnival.ics", {}, eventEnv())).text();
+    expect(body).toContain("UID:fall-carnival-20261018T000000Z@eisenhower.school");
+    expect(body).not.toContain("01EVENT");
+  });
+
+  it("publishes nothing the public event page withholds", async () => {
+    // The download is as anonymous as the page it hangs off, so the durable
+    // handle volunteer signups key on must not appear in it either.
+    const body = await (await app.request("/ics/event/2026-10-17/fall-carnival.ics", {}, eventEnv())).text();
+    expect(body).not.toContain("01SERIES");
+  });
+
+  it("404s without the .ics suffix, and for an event that isn't there", async () => {
+    expect((await app.request("/ics/event/2026-10-17/fall-carnival", {}, eventEnv())).status).toBe(404);
+    expect((await app.request("/ics/event/2026-11-24/fall-carnival.ics", {}, eventEnv())).status).toBe(404);
   });
 });

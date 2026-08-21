@@ -72,6 +72,23 @@ describe("public calendar routes answer without a session", () => {
     expect(body.events[0]).not.toHaveProperty("recurrenceId");
   });
 
+  it("GET /calendar-public/events/:date/:slug → 200, still narrowed", async () => {
+    // One event's own page. Ungated for the same reason the agenda is — the
+    // link's whole job is to open from a text message — and narrowed by the same
+    // projection, so the durable pair a volunteer signup keys on stays off it.
+    const res = await app.request("/calendar-public/events/2099-09-10/general-meeting", {}, testEnv());
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { event: Record<string, unknown> };
+    expect(body.event.title).toBe("General Meeting");
+    expect(body.event).not.toHaveProperty("seriesId");
+    expect(body.event).not.toHaveProperty("recurrenceId");
+  });
+
+  it("GET /calendar-public/events/:date/:slug → 404 for a title that isn't there", async () => {
+    const res = await app.request("/calendar-public/events/2099-09-10/annual-gala", {}, testEnv());
+    expect(res.status).toBe(404);
+  });
+
   it("GET /calendar-public/sources → 200, no upstream URL on the wire", async () => {
     const res = await app.request("/calendar-public/sources", {}, testEnv());
     expect(res.status).toBe(200);
@@ -148,6 +165,13 @@ describe("member calendar routes refuse without a session", () => {
     const res = await app.request("/calendar/events", {}, testEnv());
     expect(res.status).toBe(401);
     expect(await res.json()).toEqual({ error: "unauthorized" });
+  });
+
+  it("GET /calendar/events/:date/:slug → 401", async () => {
+    // The single-event twin of the agenda read. It exists only to hand an admin
+    // `seriesId`, so it must refuse a stranger exactly as its sibling does.
+    const res = await app.request("/calendar/events/2099-09-10/general-meeting", {}, testEnv());
+    expect(res.status).toBe(401);
   });
 
   it("GET /calendar/sources → 401", async () => {

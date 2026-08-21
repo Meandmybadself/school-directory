@@ -5,6 +5,7 @@
 // pattern) and hand the string to the parser.
 
 import ICAL from "ical.js";
+import { eventTitleSlug, shiftIsoDate } from "@sd/shared";
 import type {
   CalendarEventDTO,
   CalendarEventKind,
@@ -339,6 +340,46 @@ export async function queryUpcomingEvents(
     .all<CalendarRow>();
 
   return dedupeEvents(rows.results, limit);
+}
+
+/** Resolve one event from its page URL (`/e/:date/:slug`) — the lookup behind
+ *  both the member and the anonymous event page, and behind the single-event
+ *  ICS download.
+ *
+ *  There is no id to look up. See packages/shared/src/eventPath.ts for why an
+ *  event is addressed by its CONTENT identity instead; this is the matching half
+ *  of that round trip, and it is a SEARCH rather than a key lookup.
+ *
+ *  Two deliberate slacknesses, both because the caller minted the date in the
+ *  READER'S timezone and this Worker has no way to know what that was:
+ *
+ *   - the window is `date - 1d … date + 2d`, so an evening event whose UTC date
+ *     is the next day (or a morning one east of UTC) still resolves; and
+ *   - among slug matches, the occurrence NEAREST that date's midday wins, which
+ *     is what makes a weekly event resolve to the right week rather than to
+ *     whichever copy the query happened to return first.
+ *
+ *  It returns the full CalendarEventDTO; narrowing for anonymous callers is
+ *  `publicEventOf`'s job, exactly as it is for the agenda. */
+export async function findEventByPath(
+  env: Env,
+  date: string,
+  slug: string,
+): Promise<CalendarEventDTO | null> {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return null;
+
+  const events = await queryUpcomingEvents(env, {
+    from: `${shiftIsoDate(date, -1)}T00:00:00.000Z`,
+    to: `${shiftIsoDate(date, 2)}T00:00:00.000Z`,
+    limit: 500,
+  });
+  const matches = events.filter((e) => eventTitleSlug(e.title) === slug);
+  if (matches.length === 0) return null;
+
+  const target = Date.parse(`${date}T12:00:00.000Z`);
+  return matches.reduce((best, e) =>
+    Math.abs(Date.parse(e.start) - target) < Math.abs(Date.parse(best.start) - target) ? e : best,
+  );
 }
 
 /** Every calendar available to the show/hide filter, tagged with its origin so

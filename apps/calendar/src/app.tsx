@@ -4,6 +4,7 @@ import { useSession } from "./lib/session.js";
 import { takeReturnPath } from "./lib/returnPath.js";
 import { SignIn, CheckEmail } from "./screens/Onboarding.js";
 import { Calendar } from "./screens/Calendar.js";
+import { Event } from "./screens/Event.js";
 import { Admin } from "./screens/Admin.js";
 import { CalendarEvents } from "./screens/CalendarEvents.js";
 import { EventVolunteers } from "./screens/EventVolunteers.js";
@@ -86,6 +87,13 @@ export function App() {
             and never names — see VolunteerSheet.tsx. Claiming a spot is a write
             and needs a session, which the API enforces. */}
         <Route path="/v/:slug" element={<VolunteerSheet />} />
+
+        {/* One event's own page, and ungated for the same reason again. The path
+            is a CONTENT identity (day + title slug), not an id: an event has no
+            durable public handle to put in a URL — see packages/shared/src/
+            eventPath.ts. That is also why it works for an event imported from
+            someone else's ICS feed, which has no durable id at all. */}
+        <Route path="/e/:date/:slug" element={<Event />} />
 
         <Route path="/admin" element={<RequireAuth><Admin /></RequireAuth>} />
         <Route path="/admin/calendars/:id" element={<RequireAuth><CalendarEvents /></RequireAuth>} />

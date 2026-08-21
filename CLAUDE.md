@@ -90,6 +90,20 @@ All three SPAs are separate Cloudflare Pages projects talking to the single
   screen picks its endpoint by whether there's a session — the anonymous one when
   signed out (counts, no names), the member one when signed in. Signing up is a
   write and always needs an account. See invariant 13.
+- **And so is one event's own page at `/e/:date/:slug`.** Tapping a row on the
+  agenda goes there rather than opening a modal, and it is where the
+  description, the single-event `.ics` download, the volunteer sheet (inline,
+  via `components/VolunteerPositions.tsx`) and the admin edit form all live. The
+  path is a CONTENT identity — day + title slug, minted by `eventPath` in
+  `@sd/shared` and matched by `findEventByPath` — because an event has no
+  durable public id to put in a URL; see invariant 8 and
+  `packages/shared/src/eventPath.ts` for the trade that makes. The app mints the
+  day in the READER'S timezone, so the lookup searches ±1 day and takes the
+  occurrence nearest the requested date; that is what makes a weekly series
+  resolve to the right week. The screen reads the public route, and re-reads the
+  members-only twin only for a system admin — the one thing that adds is
+  `seriesId`, which the edit form needs. The agenda itself no longer does that
+  re-read at all, and is now written purely against `PublicCalendarEventDTO`.
 
 ## Non-negotiable invariants
 
@@ -121,6 +135,12 @@ All three SPAs are separate Cloudflare Pages projects talking to the single
    already uses (kind + title + start-to-the-minute) — weaker, since retitling
    upstream drops the exclusion, but the strongest thing an ICS feed offers.
    Never key such a thing on `CalendarEventDTO.id`.
+   The calendar's event page URL (`/e/:date/:slug`) takes that same content
+   identity one step further: it uses it for managed and imported events alike,
+   because a URL is minted by a browser that was never given the durable pair.
+   Retitling or moving an event therefore drops links to the old one — the same
+   weakness `eventKey` accepts, taken deliberately, since the alternative is an
+   event page an imported event could never have.
 9. **One newsletter renderer.** A newsletter issue is stored as TipTap JSON and
    turned into HTML solely by `packages/shared/src/newsletterRender.ts` — used by
    the email, the composer's live preview, and the public archive page. It is
@@ -171,7 +191,10 @@ All three SPAs are separate Cloudflare Pages projects talking to the single
    is an opaque handle on a volunteer sheet's own public page (invariant 13), not
    the durable pair — a sheet has a slug of its own precisely so the public link
    needn't carry `(seriesId, recurrenceId)`. That is the bar for adding another
-   one.
+   one — and the event page at `/e/:date/:slug` did NOT clear it, because it did
+   not have to: it addresses an event by content identity and renders the
+   `volunteerSlug` already here. Nothing new joined this projection for it, and
+   the count is still one.
 13. **Volunteer counts are public; volunteer NAMES are members-only.** A sheet
    (`volunteer_sheet` → `volunteer_position` → `volunteer_signup`, migration
    0012) hangs off ONE occurrence of a managed event and is read by three

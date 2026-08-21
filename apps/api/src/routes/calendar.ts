@@ -12,7 +12,7 @@ import { Hono } from "hono";
 import type { Context } from "hono";
 import type { HonoEnv } from "../env.js";
 import { requireAuth } from "../middleware/session.js";
-import { listCalendarFeeds, queryUpcomingEvents, type UpcomingEventsQuery } from "../lib/calendar.js";
+import { findEventByPath, listCalendarFeeds, queryUpcomingEvents, type UpcomingEventsQuery } from "../lib/calendar.js";
 
 export const calendar = new Hono<HonoEnv>();
 
@@ -57,4 +57,18 @@ calendar.get("/events", async (c) => {
   requireAuth(c);
   const events = await queryUpcomingEvents(c.env, upcomingEventsQuery(c));
   return c.json({ events });
+});
+
+/** GET /calendar/events/:date/:slug — the same single event as the anonymous
+ *  route, read as a member: the full CalendarEventDTO, `seriesId` included.
+ *
+ *  That one extra field is why this exists. The event page renders from the
+ *  public read so a shared link is fast for someone with no cookie, and a system
+ *  admin re-reads it here to get the durable handle on the authored series that
+ *  the edit form opens — the same two-step the agenda does. */
+calendar.get("/events/:date/:slug", async (c) => {
+  requireAuth(c);
+  const event = await findEventByPath(c.env, c.req.param("date"), c.req.param("slug"));
+  if (!event) return c.json({ error: "not_found" }, 404);
+  return c.json({ event });
 });
