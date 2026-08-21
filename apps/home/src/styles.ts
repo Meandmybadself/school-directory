@@ -34,9 +34,12 @@ img{max-width:100%}
 
 /* ── Header ──────────────────────────────────────────────────────────────── */
 .hd{background:var(--paper);border-bottom:1px solid var(--line)}
+/* The min-height, not the padding, is what sets this bar's height — the mark
+   and the way-out link only come to ~27px between them. Both come down
+   together, or trimming the padding does nothing you can see. */
 .hd-in{
   display:flex;align-items:center;justify-content:space-between;
-  gap:18px;min-height:62px;padding-top:11px;padding-bottom:11px;
+  gap:18px;min-height:50px;padding-top:6px;padding-bottom:6px;
 }
 .mark{font-size:18px;font-weight:800;letter-spacing:-.035em;text-decoration:none;white-space:nowrap}
 .mark i{font-style:normal;font-weight:600;color:var(--ink-3)}
