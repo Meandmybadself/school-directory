@@ -129,6 +129,104 @@ img{max-width:100%}
 .go span{transition:transform .16s}
 .tile:hover .go span{transform:translateX(3px)}
 
+/* ── What is next: the one block read live off the calendar ─────────────── */
+.ev-sect{padding:0 0 74px}
+.ev-in{display:grid;gap:24px}
+@media(min-width:880px){.ev-in{grid-template-columns:.78fr 1.22fr;gap:52px;align-items:start}}
+.ev-sect h2,.help h2{
+  margin:0 0 12px;font-size:clamp(1.55rem,3.4vw,2.05rem);
+  font-weight:800;letter-spacing:-.032em;line-height:1.14;
+}
+.ev-all{
+  display:inline-flex;align-items:center;gap:7px;margin-top:4px;
+  font-size:14px;font-weight:700;color:var(--blue-700);text-decoration:none;
+}
+.ev-all span{transition:transform .16s}
+.ev-all:hover span{transform:translateX(3px)}
+
+.ev-list{
+  list-style:none;margin:0;padding:0;overflow:hidden;
+  background:var(--paper);border:1px solid var(--line);border-radius:16px;
+  box-shadow:0 1px 3px rgba(20,30,40,.06),0 8px 26px rgba(20,30,40,.07);
+}
+.ev-list li+li{border-top:1px solid var(--line)}
+.ev{
+  display:grid;gap:3px 22px;padding:15px 20px;
+  color:inherit;text-decoration:none;transition:background .14s;
+}
+.ev:hover{background:var(--bg-2)}
+/* The next thing to happen is the row most readers came for. */
+.ev-list li:first-child .ev{box-shadow:inset 3px 0 0 var(--orange)}
+@media(min-width:520px){.ev{grid-template-columns:9.5rem 1fr;align-items:baseline;padding:16px 22px}}
+.ev-when{
+  display:flex;flex-wrap:wrap;gap:2px 9px;
+  font-family:var(--ff-mono);font-size:12px;letter-spacing:.01em;
+}
+@media(min-width:520px){.ev-when{display:block}}
+.ev-date{font-weight:600;color:var(--blue-700);white-space:nowrap}
+.ev-time{color:var(--ink-3);white-space:nowrap}
+.ev-name{display:block;font-size:15.5px;font-weight:700;letter-spacing:-.012em;line-height:1.3}
+.ev-note{display:block;margin-top:3px;font-size:13.5px;line-height:1.5;color:var(--ink-2)}
+
+/* ── Who to call, where to look: the district's own information ──────────── */
+.help{padding:0 0 78px}
+.help h2{margin-bottom:26px}
+.help-grid{display:grid;gap:26px 40px;align-items:start}
+@media(min-width:760px){.help-grid{grid-template-columns:1fr 1fr}}
+@media(min-width:1000px){.help-grid{grid-template-columns:1fr 1fr 1.15fr;gap:44px}}
+.col h3{
+  margin:0 0 14px;padding-bottom:9px;border-bottom:1px solid var(--line-2);
+  font-size:11px;font-family:var(--ff-mono);font-weight:600;
+  letter-spacing:.12em;text-transform:uppercase;color:var(--ink-3);
+}
+
+/* A phone list. Label left, number right, with room for a note underneath —
+   which is why each row is its own grid rather than a bare dt/dd pair. */
+.rows{margin:0}
+.row{display:grid;grid-template-columns:1fr auto;gap:2px 14px;padding:9px 0;border-bottom:1px solid var(--line)}
+.row:last-child{border-bottom:0}
+.rows.tight .row{padding:7px 0}
+.row dt{font-size:14px;line-height:1.4;color:var(--ink)}
+.row dd{margin:0;text-align:right;white-space:nowrap}
+.row dd,.row dd a,.hours{font-family:var(--ff-mono);font-size:13px;font-variant-numeric:tabular-nums}
+.row dd a{color:var(--blue-700);text-decoration:none;border-bottom:1px solid var(--blue-tint-2)}
+.row dd a:hover{border-bottom-color:var(--blue)}
+.hours{color:var(--ink);font-weight:600}
+.rownote{grid-column:1/-1;margin:3px 0 0;font-size:12.5px;line-height:1.5;color:var(--ink-3)}
+
+/* Where to look: name, why, then the bare URL the mailing prints. */
+.res{list-style:none;margin:0;padding:0}
+.res li{padding:11px 0;border-bottom:1px solid var(--line)}
+.res li:last-child{border-bottom:0}
+.res-name{font-size:14.5px;font-weight:700;letter-spacing:-.01em;color:var(--ink);text-decoration:none}
+.res-name:hover{color:var(--blue-700)}
+.res-note{margin:3px 0 0;font-size:13px;line-height:1.5;color:var(--ink-2)}
+.res-note a{color:var(--blue-700);font-weight:600;overflow-wrap:anywhere}
+.res-url{
+  display:block;margin-top:5px;font-family:var(--ff-mono);font-size:11.5px;
+  color:var(--ink-3);overflow-wrap:anywhere;
+}
+
+/* Every other school office, folded away: this is the Eisenhower PTO's site,
+   but plenty of these families have an older sibling across town. */
+.others{margin-top:30px;border:1px solid var(--line);border-radius:14px;background:var(--paper)}
+.others summary{
+  padding:14px 18px;cursor:pointer;list-style:none;
+  font-size:13.5px;font-weight:700;color:var(--blue-700);
+}
+.others summary::-webkit-details-marker{display:none}
+.others summary::after{content:" +";font-family:var(--ff-mono);color:var(--ink-3)}
+.others[open] summary::after{content:" −"}
+.others summary:hover{color:var(--blue)}
+.others .rows{padding:0 18px 8px;border-top:1px solid var(--line)}
+.others .row:first-child{padding-top:10px}
+
+/* Attribution under the block: quiet, but a real way out. */
+.src{margin:26px 0 0;font-size:12.5px;line-height:1.6;color:var(--ink-3)}
+.src a{color:var(--ink-2);text-decoration:underline;text-underline-offset:.15em;text-decoration-color:var(--line-2)}
+.src a:hover{color:var(--blue-700);text-decoration-color:var(--blue)}
+.src .dot{color:var(--line-2);padding:0 3px}
+
 /* ── Close: the one dark band, and the one thing it asks for ─────────────── */
 .join{background:var(--blue-800);color:#fff}
 .join-in{padding:62px 0;display:grid;gap:28px;align-items:center}

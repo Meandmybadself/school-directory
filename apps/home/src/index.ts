@@ -12,8 +12,13 @@
 //    that is where this domain took them for years. Every rendering carries a
 //    link out to it in the header — see `landingSchoolSiteLabel`.
 //
-// No session, no D1, no API call: the page is a pure function of the requested
-// URL and the Accept-Language header.
+// No session and no D1. There is exactly ONE subrequest, and it is worth
+// knowing where: the landing page reads the next few events off the anonymous
+// `/calendar-public/events` so the front door can show what is coming up
+// without a copy of the dates going stale here. It is edge-cached, it times
+// out fast, and every failure mode resolves to "no events block" rather than to
+// a broken page — see `events.ts`. Everything else on the page is still a pure
+// function of the requested URL and the Accept-Language header.
 
 import { LOCALES } from "@sd/shared";
 import type { Env } from "./env.js";
@@ -52,7 +57,7 @@ function html(body: string, status = 200): Response {
 }
 
 export default {
-  fetch(request: Request, env: Env): Response {
+  async fetch(request: Request, env: Env): Promise<Response> {
     const url = new URL(request.url);
 
     // www → apex, path and query preserved. Kept here rather than in a
@@ -87,7 +92,7 @@ export default {
       return html(renderNotFound(env, locale), 404);
     }
 
-    return html(renderHome(env, locale, explicit));
+    return html(await renderHome(env, locale, explicit));
   },
 };
 

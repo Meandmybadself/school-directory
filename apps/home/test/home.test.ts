@@ -1,8 +1,10 @@
-import { describe, expect, it } from "vitest";
-import { LOCALES, dictionaries, localeNames } from "@sd/shared";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { LOCALES, dictionaries, localeNames, type PublicCalendarEventDTO } from "@sd/shared";
 import worker from "../src/index.js";
+import { DISTRICT_PHONES, OTHER_SCHOOLS, RESOURCES } from "../src/district.js";
 import type { Env } from "../src/env.js";
 import { localeFromAcceptLanguage } from "../src/locale.js";
+import { escapeHtml } from "../src/page.js";
 
 const env: Env = {
   SCHOOL_NAME: "Eisenhower PTO",
@@ -11,19 +13,74 @@ const env: Env = {
   CALENDAR_URL: "https://calendar.eisenhower.school",
   NEWSLETTER_URL: "https://newsletter.eisenhower.school",
   SCHOOL_SITE_URL: "https://eisenhower.hopkinsschools.org/",
+  DISTRICT_NAME: "Hopkins Public Schools",
+  DISTRICT_URL: "https://hopkinsschools.org/",
   FEEDBACK_EMAIL: "admin@eisenhower.school",
   SCHOOL_CITY: "Hopkins",
   SCHOOL_REGION: "Minnesota",
   SCHOOL_REGION_CODE: "MN",
+  API_URL: "https://api-directory.eisenhower.school",
 };
 
-function get(path: string, headers: Record<string, string> = {}): Response {
+function get(path: string, headers: Record<string, string> = {}): Promise<Response> {
   return worker.fetch(new Request(`https://eisenhower.school${path}`, { headers }), env);
 }
 
 async function body(path: string, headers?: Record<string, string>): Promise<string> {
-  return await get(path, headers).text();
+  return await (await get(path, headers)).text();
 }
+
+/** Two events off the calendar: one timed, one all-day, which is the whole
+ *  matrix the row renderer has to handle. */
+const EVENTS: PublicCalendarEventDTO[] = [
+  {
+    id: "01J0000000000000000000000A",
+    kind: "managed",
+    title: "Fall Carnival",
+    location: "Eisenhower gym",
+    description: null,
+    start: "2026-10-06T23:00:00.000Z", // 6:00 p.m. in Hopkins
+    end: "2026-10-07T01:00:00.000Z",
+    allDay: false,
+    sourceIds: ["cal"],
+    source: { name: "School", color: "#0068A8" },
+    volunteerSlug: null,
+  },
+  {
+    id: "01J0000000000000000000000B",
+    kind: "imported",
+    title: "No school — teacher workshop",
+    location: null,
+    description: null,
+    start: "2026-10-19T00:00:00.000Z",
+    end: null,
+    allDay: true,
+    sourceIds: ["cal"],
+    source: { name: "District", color: "#FAAB1C" },
+    volunteerSlug: null,
+  },
+];
+
+/** Stand in for the calendar API. `null` means the read fails, which is the
+ *  case the page has to survive without losing anything else. */
+function stubCalendar(events: PublicCalendarEventDTO[] | null): void {
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input instanceof Request ? input.url : input);
+      if (!url.includes("/calendar-public/events")) throw new Error(`unexpected fetch: ${url}`);
+      if (events === null) throw new Error("network");
+      return new Response(JSON.stringify({ events }), {
+        headers: { "content-type": "application/json" },
+      });
+    }),
+  );
+}
+
+// Every page render reads the calendar, so give every test a working one by
+// default; the tests that care override it.
+beforeEach(() => stubCalendar(EVENTS));
+afterEach(() => vi.unstubAllGlobals());
 
 describe("Accept-Language", () => {
   it("picks the highest-weighted supported language, not the first listed", () => {
@@ -167,7 +224,9 @@ describe("the landing page", () => {
       const html = await body(`/?lang=${locale}`);
       // Any `{word}` that survived is a template we forgot to fill. `--i:0` and
       // CSS braces are excluded by requiring a bare word inside the braces.
-      expect(html).not.toMatch(/\{(school|email|name|feature|language|languages|city)\}/);
+      expect(html).not.toMatch(
+        /\{(school|email|name|feature|language|languages|city|year|district)\}/,
+      );
     }
   });
 
@@ -179,27 +238,137 @@ describe("the landing page", () => {
   });
 });
 
+describe("upcoming events", () => {
+  it("shows the next few off the calendar, linking each to its own page", async () => {
+    const html = await body("/?lang=en");
+    expect(html).toContain("Fall Carnival");
+    expect(html).toContain("Eisenhower gym");
+    // Content identity minted in the SCHOOL's timezone: 23:00 UTC is the 6th
+    // in Hopkins, not the 7th.
+    expect(html).toContain(
+      'href="https://calendar.eisenhower.school/e/2026-10-06/fall-carnival?lang=en"',
+    );
+    expect(html).toContain(dictionaries.en.upcomingEvents);
+  });
+
+  it("gives an all-day event the words rather than a midnight clock time", async () => {
+    const html = await body("/?lang=en");
+    expect(html).toContain(escapeHtml(dictionaries.en.allDay));
+    expect(html).toContain("Mon, Oct 19");
+    expect(html).not.toContain("12:00 AM");
+    // A timed one still gets its range.
+    expect(html).toMatch(/6:00\s*[–-]\s*8:00\s*PM/);
+  });
+
+  it("reads the ANONYMOUS calendar route, never the members-only twin", async () => {
+    await body("/");
+    const [url] = vi.mocked(fetch).mock.calls[0]!;
+    expect(String(url)).toContain("/calendar-public/events");
+    expect(String(url)).not.toMatch(/\/calendar\/events/);
+  });
+
+  it("renders the whole page anyway when the calendar is unreachable", async () => {
+    stubCalendar(null);
+    const html = await body("/?lang=en");
+    expect(html).not.toContain(dictionaries.en.upcomingEvents);
+    expect(html).not.toContain("Fall Carnival");
+    // Everything that does not depend on that read is still here.
+    expect(html).toContain(dictionaries.en.landingCreateAccount);
+    expect(html).toContain(dictionaries.en.landingHelpTitle);
+  });
+
+  it("hides the block when the calendar has nothing coming up", async () => {
+    stubCalendar([]);
+    const html = await body("/?lang=en");
+    expect(html).not.toContain(dictionaries.en.upcomingEvents);
+  });
+});
+
+describe("who to call, and where to look", () => {
+  it("carries every district number, as a dialable link", async () => {
+    const html = await body("/?lang=en");
+    for (const row of DISTRICT_PHONES) {
+      expect(html).toContain(escapeHtml(dictionaries.en[row.key]));
+      expect(html).toContain(`>${row.phone}</a>`);
+      expect(html).toContain(`href="tel:+1${row.phone.replace(/-/g, "")}"`);
+    }
+    // Eisenhower's own two, which are the reason this block exists.
+    expect(html).toContain('href="tel:+19529884300"'); // school office
+    expect(html).toContain('href="tel:+19529885391"'); // interpreters
+  });
+
+  it("folds every other school office away, but keeps them on the page", async () => {
+    const html = await body("/?lang=en");
+    expect(html).toContain(`<summary>${dictionaries.en.landingContactsSchools}</summary>`);
+    for (const school of OTHER_SCHOOLS) {
+      expect(html).toContain(escapeHtml(school.name));
+      expect(html).toContain(`href="tel:+1${school.phone.replace(/-/g, "")}"`);
+    }
+  });
+
+  it("links every page the mailing points families at, with why", async () => {
+    for (const locale of LOCALES) {
+      const html = await body(`/?lang=${locale}`);
+      for (const r of RESOURCES) {
+        expect(html).toContain(`href="${r.href}"`);
+        expect(html).toContain(escapeHtml(r.label));
+        expect(html).toContain(escapeHtml(dictionaries[locale][r.key]));
+      }
+    }
+  });
+
+  it("turns the bus address into a mailto wherever the translator put it", async () => {
+    for (const locale of LOCALES) {
+      const html = await body(`/?lang=${locale}`);
+      expect(html).toContain(
+        '<a href="mailto:SchoolBus@HopkinsSchools.org">SchoolBus@HopkinsSchools.org</a>',
+      );
+      // The slot is filled, not left behind, in every language.
+      expect(html).not.toContain("{email}");
+    }
+  });
+
+  it("states the school hours in the reader's own clock convention", async () => {
+    expect(await body("/?lang=en")).toMatch(/7:40\s*(AM)?\s*[–-]\s*2:10\s*PM/);
+    // Chinese runs on a 24-hour clock, so the same two instants read differently.
+    expect(await body("/?lang=zh")).toMatch(/07:40\s*[–-]\s*14:10/);
+  });
+
+  it("names the district, links out to it, and prints where to send mail", async () => {
+    const html = await body("/?lang=so");
+    // The name is a LINK inside the translated sentence, wherever the
+    // translator put the slot — the same trick `emphasize` uses.
+    expect(html).toContain(
+      dictionaries.so.landingDistrictSource.replace(
+        "{district}",
+        '<a href="https://hopkinsschools.org/">Hopkins Public Schools</a>',
+      ),
+    );
+    expect(html).toContain("ISD 270, 1001 Highway 7, Hopkins, MN 55305");
+  });
+});
+
 describe("routing", () => {
-  it("301s www to the apex, preserving path and query", () => {
-    const res = worker.fetch(new Request("https://www.eisenhower.school/?lang=zh"), env);
+  it("301s www to the apex, preserving path and query", async () => {
+    const res = await worker.fetch(new Request("https://www.eisenhower.school/?lang=zh"), env);
     expect(res.status).toBe(301);
     expect(res.headers.get("location")).toBe("https://eisenhower.school/?lang=zh");
   });
 
-  it("hands the vanity paths to the app that owns them", () => {
-    expect(get("/calendar").headers.get("location")).toBe(
+  it("hands the vanity paths to the app that owns them", async () => {
+    expect((await get("/calendar")).headers.get("location")).toBe(
       "https://calendar.eisenhower.school/?lang=en",
     );
-    expect(get("/subscribe").headers.get("location")).toBe(
+    expect((await get("/subscribe")).headers.get("location")).toBe(
       "https://newsletter.eisenhower.school/subscribe?lang=en",
     );
-    expect(get("/sign-in?lang=es").headers.get("location")).toBe(
+    expect((await get("/sign-in?lang=es")).headers.get("location")).toBe(
       "https://directory.eisenhower.school/sign-in?lang=es",
     );
   });
 
   it("404s an unknown path in the reader's language rather than redirecting", async () => {
-    const res = get("/nope", { "accept-language": "so" });
+    const res = await get("/nope", { "accept-language": "so" });
     expect(res.status).toBe(404);
     const html = await res.text();
     expect(html).toContain('<html lang="so">');
@@ -207,20 +376,23 @@ describe("routing", () => {
   });
 
   it("serves a robots.txt that allows the page and names the sitemap", async () => {
-    const res = get("/robots.txt");
+    const res = await get("/robots.txt");
     const txt = await res.text();
     expect(txt).toContain("Allow: /");
     expect(txt).toContain("https://eisenhower.school/sitemap.xml");
   });
 
   it("lists every language in the sitemap, with escaped ampersands", async () => {
-    const xml = await get("/sitemap.xml").text();
+    const xml = await (await get("/sitemap.xml")).text();
     for (const locale of LOCALES) expect(xml).toContain(`/?lang=${locale}`);
     expect(xml).not.toMatch(/&(?!amp;)/);
   });
 
-  it("refuses a write", () => {
-    const res = worker.fetch(new Request("https://eisenhower.school/", { method: "POST" }), env);
+  it("refuses a write", async () => {
+    const res = await worker.fetch(
+      new Request("https://eisenhower.school/", { method: "POST" }),
+      env,
+    );
     expect(res.status).toBe(405);
   });
 });
@@ -228,18 +400,18 @@ describe("routing", () => {
 describe("escaping", () => {
   it("escapes values that come from configuration", async () => {
     const hostile: Env = { ...env, SCHOOL_NAME: '<script>alert(1)</script>' };
-    const html = await worker
-      .fetch(new Request("https://eisenhower.school/"), hostile)
-      .text();
+    const html = await (
+      await worker.fetch(new Request("https://eisenhower.school/"), hostile)
+    ).text();
     expect(html).not.toContain("<script>alert(1)</script>");
     expect(html).toContain("&lt;script&gt;alert(1)&lt;/script&gt;");
   });
 
   it("cannot be used to close the JSON-LD block early", async () => {
     const hostile: Env = { ...env, SCHOOL_CITY: "</script><script>alert(1)</script>" };
-    const html = await worker
-      .fetch(new Request("https://eisenhower.school/"), hostile)
-      .text();
+    const html = await (
+      await worker.fetch(new Request("https://eisenhower.school/"), hostile)
+    ).text();
     expect(html).not.toContain("</script><script>alert(1)");
     // One ld+json block, and it still parses.
     const json = html.match(/<script type="application\/ld\+json">(.*?)<\/script>/s)?.[1];

@@ -13,14 +13,31 @@
 // within one, since it shows all four at once by design.
 
 import {
+  DEFAULT_TIME_ZONE,
   LOCALES,
   dictionaries,
+  eventPath,
   interpolate,
   localeNames,
   type Locale,
+  type PublicCalendarEventDTO,
   type Strings,
 } from "@sd/shared";
+import {
+  BUS_EMAIL,
+  DISTRICT_ADDRESS,
+  DISTRICT_PHONES,
+  OTHER_SCHOOLS,
+  RESOURCES,
+  SCHOOL_HOURS,
+  SCHOOL_LABEL,
+  SCHOOL_PHONES,
+  hrefOf,
+  type PhoneRow,
+  type Resource,
+} from "./district.js";
 import type { Env } from "./env.js";
+import { upcomingEvents } from "./events.js";
 import { STYLES } from "./styles.js";
 
 export function escapeHtml(s: string): string {
@@ -39,11 +56,26 @@ export function escapeHtml(s: string): string {
  *  dictionary string, so the split is unambiguous. */
 const SLOT = "\u0000";
 
+/** The two halves of a sentence, either side of the slot. */
+function splitSlot(template: string, key: string): [string, string] {
+  const [before = "", after = ""] = interpolate(template, { [key]: SLOT }).split(SLOT);
+  return [before, after];
+}
+
 /** Interpolate a value into a sentence and wrap it in `<b>`, escaping both
  *  halves of the sentence and the value itself. */
 function emphasize(template: string, value: string): string {
-  const [before = "", after = ""] = interpolate(template, { feature: SLOT }).split(SLOT);
+  const [before, after] = splitSlot(template, "feature");
   return `${escapeHtml(before)}<b>${escapeHtml(value)}</b>${escapeHtml(after)}`;
+}
+
+/** Same trick, but the slot becomes a link out — used to name whoever published
+ *  a fact and hand the reader their site in the same breath. */
+function linkSlot(template: string, key: string, label: string, href: string): string {
+  const [before, after] = splitSlot(template, key);
+  return `${escapeHtml(before)}<a href="${escapeHtml(href)}">${escapeHtml(
+    label,
+  )}</a>${escapeHtml(after)}`;
 }
 
 /** A link into one of the apps, carrying the reader's language with it.
@@ -100,7 +132,15 @@ interface Tile {
   membersOnly: boolean;
 }
 
-export function renderHome(env: Env, locale: Locale, explicit: boolean): string {
+/** Async only because of the upcoming-events block, which is the one thing on
+ *  this page that isn't a pure function of the URL and the Accept-Language
+ *  header. Everything else renders whether or not that read succeeds. */
+export async function renderHome(
+  env: Env,
+  locale: Locale,
+  explicit: boolean,
+): Promise<string> {
+  const events = await upcomingEvents(env);
   const s: Strings = dictionaries[locale];
   const t = (key: keyof Strings, vars?: Record<string, string>): string =>
     interpolate(s[key], vars);
@@ -218,6 +258,9 @@ export function renderHome(env: Env, locale: Locale, explicit: boolean): string 
         </div>
       </section>
 
+      ${renderEvents(env, locale, events)}
+      ${renderHelp(env, locale)}
+
       <section class="join">
         <div class="wrap join-in">
           <div>
@@ -261,6 +304,200 @@ export function renderHome(env: Env, locale: Locale, explicit: boolean): string 
     head: `${alternates}\n    ${jsonLd(env, description)}`,
     body,
   });
+}
+
+/** Who published everything in the block above — named, and linked to their own
+ *  site. None of it is the PTO's to change, and a parent chasing a detail
+ *  should be one tap from the people who can answer. */
+function source(s: Strings, env: Env, extra = ""): string {
+  return `<p class="src">${linkSlot(
+    s.landingDistrictSource,
+    "district",
+    env.DISTRICT_NAME,
+    env.DISTRICT_URL,
+  )}${extra ? ` <span class="dot">·</span> ${escapeHtml(extra)}` : ""}</p>`;
+}
+
+/** The next few things on the calendar.
+ *
+ *  Read live rather than transcribed, which is the whole point: a date copied
+ *  onto this page is wrong the moment the school moves it, and this page has no
+ *  editor. `upcomingEvents` degrades to an empty list on any failure and an
+ *  empty list hides the block, so the front door never depends on the API being
+ *  up — see `events.ts`.
+ *
+ *  Each row links to the event's own page on the calendar site, minted by the
+ *  shared `eventPath` in the SCHOOL's timezone: this Worker has no reader
+ *  timezone to use, and the lookup on the other side searches ±1 day, so the
+ *  two ends can disagree about the boundary without breaking the link. */
+function renderEvents(env: Env, locale: Locale, events: PublicCalendarEventDTO[]): string {
+  if (events.length === 0) return "";
+  const s = dictionaries[locale];
+  const calendar = env.CALENDAR_URL.replace(/\/$/, "");
+
+  const rows = events
+    .map((e) => {
+      const href = `${calendar}${eventPath(e, DEFAULT_TIME_ZONE)}?lang=${locale}`;
+      const detail = e.location
+        ? `<span class="ev-note">${escapeHtml(e.location)}</span>`
+        : "";
+      return `
+            <li>
+              <a class="ev" href="${escapeHtml(href)}">
+                <span class="ev-when">
+                  <time class="ev-date" datetime="${escapeHtml(e.start)}">${escapeHtml(
+                    eventDay(locale, e),
+                  )}</time>
+                  <span class="ev-time">${escapeHtml(eventTime(locale, s, e))}</span>
+                </span>
+                <span class="ev-what">
+                  <span class="ev-name">${escapeHtml(e.title)}</span>
+                  ${detail}
+                </span>
+              </a>
+            </li>`;
+    })
+    .join("");
+
+  return `
+      <section class="ev-sect">
+        <div class="wrap ev-in">
+          <div>
+            <p class="eyebrow">${escapeHtml(s.calendarTitle)}</p>
+            <h2>${escapeHtml(s.upcomingEvents)}</h2>
+            <a class="ev-all" href="${escapeHtml(
+              appHref(env.CALENDAR_URL, "/", locale),
+            )}">${escapeHtml(s.seeAll)} <span aria-hidden="true">&#8594;</span></a>
+          </div>
+          <ol class="ev-list">${rows}</ol>
+        </div>
+      </section>`;
+}
+
+/** "Tue, Oct 6" in the school's timezone — the day the calendar itself files
+ *  the event under, not the day it falls on wherever the reader happens to be. */
+function eventDay(locale: Locale, e: PublicCalendarEventDTO): string {
+  return new Intl.DateTimeFormat(locale, {
+    timeZone: e.allDay ? "UTC" : DEFAULT_TIME_ZONE,
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+  }).format(new Date(e.start));
+}
+
+/** The clock time, or the words "all day". An all-day event is stored at UTC
+ *  midnight (see `eventDateSegment`), so rendering a time for it would be a
+ *  lie in either direction. */
+function eventTime(locale: Locale, s: Strings, e: PublicCalendarEventDTO): string {
+  if (e.allDay) return s.allDay;
+  const fmt = new Intl.DateTimeFormat(locale, {
+    timeZone: DEFAULT_TIME_ZONE,
+    hour: "numeric",
+    minute: "numeric",
+  });
+  const start = new Date(e.start);
+  const end = e.end ? new Date(e.end) : null;
+  return end && end > start ? fmt.formatRange(start, end) : fmt.format(start);
+}
+
+/** Everything the district publishes that a family actually reaches for: the
+ *  numbers to call and the pages to open.
+ *
+ *  Unlike the events above, none of it expires, so it is transcribed rather
+ *  than fetched (`district.ts`). Three columns, because that is genuinely three
+ *  different questions — who at this school, who at the district, and where to
+ *  read the rest — plus every other school office folded behind a `<details>`
+ *  for the families with an older sibling across town. */
+function renderHelp(env: Env, locale: Locale): string {
+  const s = dictionaries[locale];
+
+  const ours = [
+    `<div class="row">
+                  <dt>${escapeHtml(s.landingFactHours)}</dt>
+                  <dd class="hours">${escapeHtml(schoolHours(locale))}</dd>
+                </div>`,
+    ...SCHOOL_PHONES.map((p) => phoneRow(s, p)),
+  ].join("");
+
+  const district = DISTRICT_PHONES.map((p) => phoneRow(s, p)).join("");
+
+  const resources = RESOURCES.map(
+    (r) => `
+                <li>
+                  <a class="res-name" href="${escapeHtml(r.href)}">${escapeHtml(
+                    s[r.key],
+                  )}</a>
+                  <p class="res-note">${resourceNote(s, r)}</p>
+                  <span class="res-url">${escapeHtml(r.label)}</span>
+                </li>`,
+  ).join("");
+
+  const others = OTHER_SCHOOLS.map(
+    (o) => `
+                <div class="row">
+                  <dt>${escapeHtml(o.name)}</dt>
+                  <dd><a href="${escapeHtml(hrefOf(o))}">${escapeHtml(o.phone)}</a></dd>
+                </div>`,
+  ).join("");
+
+  return `
+      <section class="help">
+        <div class="wrap">
+          <p class="eyebrow">${escapeHtml(s.landingHelpEyebrow)}</p>
+          <h2>${escapeHtml(s.landingHelpTitle)}</h2>
+
+          <div class="help-grid">
+            <div class="col">
+              <h3>${escapeHtml(SCHOOL_LABEL)}</h3>
+              <dl class="rows">${ours}</dl>
+            </div>
+            <div class="col">
+              <h3>${escapeHtml(s.landingContactsDistrict)}</h3>
+              <dl class="rows tight">${district}</dl>
+            </div>
+            <div class="col">
+              <h3>${escapeHtml(s.landingResourcesTitle)}</h3>
+              <ul class="res">${resources}</ul>
+            </div>
+          </div>
+
+          <details class="others">
+            <summary>${escapeHtml(s.landingContactsSchools)}</summary>
+            <dl class="rows tight">${others}</dl>
+          </details>
+
+          ${source(s, env, DISTRICT_ADDRESS)}
+        </div>
+      </section>`;
+}
+
+function phoneRow(s: Strings, p: PhoneRow): string {
+  const note = p.noteKey ? `<p class="rownote">${escapeHtml(s[p.noteKey])}</p>` : "";
+  return `
+                <div class="row">
+                  <dt>${escapeHtml(s[p.key])}</dt>
+                  <dd><a href="${escapeHtml(hrefOf(p))}">${escapeHtml(p.phone)}</a></dd>
+                  ${note}
+                </div>`;
+}
+
+/** One resource's line of detail. The bus one names an address the reader may
+ *  want to write to, so its `{email}` slot becomes a real `mailto:`. */
+function resourceNote(s: Strings, r: Resource): string {
+  const note = s[r.noteKey];
+  return note.includes("{email}")
+    ? linkSlot(note, "email", BUS_EMAIL, `mailto:${BUS_EMAIL}`)
+    : escapeHtml(note);
+}
+
+/** The bell times, in whichever clock convention the reader's language uses —
+ *  "7:40 AM – 2:10 PM" in English, "07:40–14:10" in Chinese. */
+function schoolHours(locale: Locale): string {
+  return new Intl.DateTimeFormat(locale, {
+    timeZone: DEFAULT_TIME_ZONE,
+    hour: "numeric",
+    minute: "numeric",
+  }).formatRange(new Date(SCHOOL_HOURS.start), new Date(SCHOOL_HOURS.end));
 }
 
 /** Structured data naming the organization and where it is.

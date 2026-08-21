@@ -27,3 +27,8 @@ build/
 
 # Test / coverage
 coverage/
+
+# Scans of paper the school sends home. Source material for what gets typed
+# into apps/home/src/district.ts — never committed: this repo is public and a
+# district mailing carries a household's name and address on the label.
+images/

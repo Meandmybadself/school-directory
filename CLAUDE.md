@@ -44,6 +44,25 @@ bundle and no API call. Three things about it are load-bearing:
   URL is what `hreflang` and a shared link both need. Outbound links to the apps
   carry `?lang=` so the reader's language travels with them.
 
+- **It makes exactly one subrequest**, and it is the upcoming-events block:
+  `events.ts` reads the ANONYMOUS `/calendar-public/events` (never the
+  members-only twin — this is the one indexed surface in the project, so
+  invariant 12's projection is what keeps it safe). It is edge-cached, times out
+  fast, and **every failure mode resolves to an empty list, which hides the
+  block** — an API outage must never take the front door down. Dates are read
+  live rather than transcribed for the obvious reason: a date copied onto this
+  page is wrong the moment the school moves it, and this page has no editor.
+  Rows link to `/e/:date/:slug` on the calendar, minted in `SCHOOL_TIMEZONE`
+  since a Worker has no reader timezone.
+- **It repeats the school district's contacts and links**, transcribed from the
+  back-to-school mailing into `apps/home/src/district.ts` — phone numbers, URLs,
+  a street address and the bell times, since the words that label them are
+  dictionary keys like everything else. School NAMES live there too: a proper
+  noun, configuration in the same sense `SCHOOL_CITY` is. Nothing in that file
+  expires, which is why it may be transcribed at all. The block names
+  `DISTRICT_NAME` and links to `DISTRICT_URL`, because none of it is the PTO's
+  to change.
+
 This hostname used to be a Cloudflare redirect rule pointing at
 `eisenhower.hopkinsschools.org`; the rule was deleted when the Worker took over,
 and redirect rules run BEFORE Workers, so if the apex ever starts 301ing again,

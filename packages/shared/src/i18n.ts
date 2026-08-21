@@ -349,6 +349,48 @@ export interface Strings {
   landingSchoolSiteLabel: string;
   landingSchoolSiteLink: string;
 
+  // The contacts-and-links block on the landing page, transcribed from the
+  // district's back-to-school mailing. Every phone number, URL and street
+  // address in it is DATA and lives in `apps/home/src/district.ts`; only the
+  // words are here. School names are data too — a proper noun, like a city.
+  /** Names whoever published the facts around it, e.g. the school district.
+   *  `{district}` is wrapped in a link to their site. */
+  landingDistrictSource: string; // uses {district}
+  landingHelpEyebrow: string;
+  landingHelpTitle: string;
+  landingContactsDistrict: string;
+  landingContactsSchools: string;
+  landingResourcesTitle: string;
+  /** The one row whose value is a formatted time range rather than a phone
+   *  number, so it has a label and no link. */
+  landingFactHours: string;
+  landingFactOffice: string;
+  landingFactOfficeBody: string;
+  landingFactInterpreters: string;
+  landingFactInterpretersBody: string;
+  landingDeptAthletics: string;
+  landingDeptCommunityEd: string;
+  landingDeptEarlyChildhood: string;
+  landingDeptEarlyChildhoodScreening: string;
+  landingDeptHumanResources: string;
+  landingDeptSchoolAgeCare: string;
+  landingDeptNutrition: string;
+  landingDeptSpecialServices: string;
+  landingDeptSuperintendent: string;
+  landingDeptTransportation: string;
+  landingFactEnroll: string;
+  landingFactEnrollBody: string;
+  landingFactPortal: string;
+  landingFactPortalBody: string;
+  landingFactBuses: string;
+  landingFactBusesBody: string; // uses {email}
+  landingFactMeals: string;
+  landingFactMealsBody: string;
+  landingFactSafety: string;
+  landingFactSafetyBody: string;
+  landingFactRoyalReport: string;
+  landingFactRoyalReportBody: string;
+
   // cross-cutting states
   offlineBanner: string;
   offlineReadOnly: string;
@@ -691,6 +733,47 @@ const en: Strings = {
   landingSchoolSiteLabel: "Looking for the school itself?",
   landingSchoolSiteLink: "Eisenhower Elementary website",
 
+  landingDistrictSource: "Published by {district}.",
+  landingHelpEyebrow: "Good to know",
+  landingHelpTitle: "Who to call, and where to look",
+  landingContactsDistrict: "District contacts",
+  landingContactsSchools: "Other schools in the district",
+  landingResourcesTitle: "Where to look",
+  landingFactHours: "School hours",
+  landingFactOffice: "School office",
+  landingFactOfficeBody: "The school itself, immersion program included.",
+  landingFactInterpreters: "Interpreters and translation",
+  landingFactInterpretersBody:
+    "The district offers interpreters and translated documents for families whose first language is not English. Ask the Eisenhower Community Center.",
+  landingDeptAthletics: "Athletics",
+  landingDeptCommunityEd: "Community Education",
+  landingDeptEarlyChildhood: "Early Childhood",
+  landingDeptEarlyChildhoodScreening: "Early Childhood Screening",
+  landingDeptHumanResources: "Human Resources",
+  landingDeptSchoolAgeCare: "School-age care (Kids & Company)",
+  landingDeptNutrition: "Nutrition",
+  landingDeptSpecialServices: "Special Services",
+  landingDeptSuperintendent: "Superintendent",
+  landingDeptTransportation: "Transportation",
+  landingFactEnroll: "Enrollment",
+  landingFactEnrollBody:
+    "Every incoming kindergartner must submit a form — Hopkins residents, younger siblings and preschoolers included.",
+  landingFactPortal: "Parent portal",
+  landingFactPortalBody:
+    "Attendance, schedule, fees and grades live in Infinite Campus. Ask here if you need an account, and check that your contact details are current.",
+  landingFactBuses: "Buses",
+  landingFactBusesBody:
+    "Route and stop times arrive by email before the year starts, and are in the parent portal after that. Questions go to {email}.",
+  landingFactMeals: "Breakfast and lunch",
+  landingFactMealsBody:
+    "Free for every student every school day; seconds and extras are charged to their account. Filing for educational benefits still matters — it unlocks fee reductions and summer grocery help.",
+  landingFactSafety: "Safety",
+  landingFactSafetyBody:
+    "The drills every Minnesota school runs, plus how closings and early dismissals are announced.",
+  landingFactRoyalReport: "District newsletter",
+  landingFactRoyalReportBody:
+    "The Royal Report, emailed every two weeks during the school year. Separate from ours, and worth both.",
+
   offlineBanner: "Offline — showing your saved copy",
   offlineReadOnly: "Read-only",
   offlineNote:
@@ -977,6 +1060,47 @@ const es: Strings = {
   landingSchoolSiteLabel: "¿Buscas la escuela?",
   landingSchoolSiteLink: "Sitio web de Eisenhower Elementary",
 
+  landingDistrictSource: "Publicado por {district}.",
+  landingHelpEyebrow: "Bueno saberlo",
+  landingHelpTitle: "A quién llamar y dónde buscar",
+  landingContactsDistrict: "Contactos del distrito",
+  landingContactsSchools: "Otras escuelas del distrito",
+  landingResourcesTitle: "Dónde buscar",
+  landingFactHours: "Horario escolar",
+  landingFactOffice: "Oficina de la escuela",
+  landingFactOfficeBody: "La escuela misma, incluido el programa de inmersión.",
+  landingFactInterpreters: "Intérpretes y traducción",
+  landingFactInterpretersBody:
+    "El distrito ofrece intérpretes y documentos traducidos para las familias cuyo primer idioma no es el inglés. Pregunta en el Eisenhower Community Center.",
+  landingDeptAthletics: "Deportes",
+  landingDeptCommunityEd: "Educación Comunitaria",
+  landingDeptEarlyChildhood: "Primera Infancia",
+  landingDeptEarlyChildhoodScreening: "Evaluación de Primera Infancia",
+  landingDeptHumanResources: "Recursos Humanos",
+  landingDeptSchoolAgeCare: "Cuidado después de clases (Kids & Company)",
+  landingDeptNutrition: "Nutrición",
+  landingDeptSpecialServices: "Servicios Especiales",
+  landingDeptSuperintendent: "Superintendente",
+  landingDeptTransportation: "Transporte",
+  landingFactEnroll: "Inscripción",
+  landingFactEnrollBody:
+    "Todo niño que empieza kínder debe entregar un formulario, incluidos los residentes de Hopkins, los hermanos menores y los de preescolar.",
+  landingFactPortal: "Portal para padres",
+  landingFactPortalBody:
+    "La asistencia, el horario, las cuotas y las notas están en Infinite Campus. Pide aquí una cuenta si no la tienes, y comprueba que tus datos de contacto estén al día.",
+  landingFactBuses: "Autobuses",
+  landingFactBusesBody:
+    "Las rutas y las horas de parada llegan por correo antes de empezar el año, y después están en el portal para padres. Las dudas van a {email}.",
+  landingFactMeals: "Desayuno y almuerzo",
+  landingFactMealsBody:
+    "Gratis para cada estudiante todos los días de clase; las repeticiones y los extras se cobran a su cuenta. Aun así conviene solicitar los beneficios educativos: dan descuentos en cuotas y ayuda con la compra en verano.",
+  landingFactSafety: "Seguridad",
+  landingFactSafetyBody:
+    "Los simulacros que hace toda escuela de Minnesota, y cómo se anuncian los cierres y las salidas anticipadas.",
+  landingFactRoyalReport: "Boletín del distrito",
+  landingFactRoyalReportBody:
+    "El Royal Report, enviado por correo cada dos semanas durante el año escolar. Es aparte del nuestro, y vale la pena recibir ambos.",
+
   offlineBanner: "Sin conexión — mostrando tu copia guardada",
   offlineReadOnly: "Solo lectura",
   offlineNote:
@@ -1249,6 +1373,46 @@ const zh: Strings = {
     "只需几分钟。这里没有任何内容是公开的——名录不对 {school} 社区以外的任何人开放，其余内容由你决定谁能看到。",
   landingSchoolSiteLabel: "在找学校官网？",
   landingSchoolSiteLink: "Eisenhower Elementary 官网",
+
+  landingDistrictSource: "由{district}发布。",
+  landingHelpEyebrow: "需要知道的事",
+  landingHelpTitle: "找谁打电话，去哪里查",
+  landingContactsDistrict: "学区各部门",
+  landingContactsSchools: "学区的其他学校",
+  landingResourcesTitle: "去哪里查",
+  landingFactHours: "上课时间",
+  landingFactOffice: "学校办公室",
+  landingFactOfficeBody: "学校本身，含沉浸式课程。",
+  landingFactInterpreters: "口译与翻译",
+  landingFactInterpretersBody:
+    "学区为母语非英语的家庭提供口译员和翻译好的文件。请联系 Eisenhower Community Center。",
+  landingDeptAthletics: "体育",
+  landingDeptCommunityEd: "社区教育",
+  landingDeptEarlyChildhood: "幼儿教育",
+  landingDeptEarlyChildhoodScreening: "幼儿健康筛查",
+  landingDeptHumanResources: "人力资源",
+  landingDeptSchoolAgeCare: "课后托管（Kids & Company）",
+  landingDeptNutrition: "营养餐",
+  landingDeptSpecialServices: "特殊教育服务",
+  landingDeptSuperintendent: "学区总监",
+  landingDeptTransportation: "交通",
+  landingFactEnroll: "入学报名",
+  landingFactEnrollBody:
+    "所有即将入读幼儿园的孩子都必须提交表格，包括住在 Hopkins 的居民、弟弟妹妹以及读学前班的孩子。",
+  landingFactPortal: "家长门户",
+  landingFactPortalBody:
+    "出勤、课表、费用和成绩都在 Infinite Campus 里。没有账户可以在这里申请，也请顺便核对联系方式是否最新。",
+  landingFactBuses: "校车",
+  landingFactBusesBody:
+    "路线和上下车时间会在开学前通过邮件发送，之后可在家长门户中查看。有问题请联系 {email}。",
+  landingFactMeals: "早餐和午餐",
+  landingFactMealsBody:
+    "每位学生在每个上课日的早餐和午餐都免费；添饭和额外的食品会从学生账户中扣费。仍建议申请教育补助，可减免各项费用并获得暑期食品补贴。",
+  landingFactSafety: "安全",
+  landingFactSafetyBody: "明尼苏达州所有学校都要进行的演练，以及停课和提前放学的通知方式。",
+  landingFactRoyalReport: "学区通讯",
+  landingFactRoyalReportBody:
+    "Royal Report，学年期间每两周发送一次邮件。与我们的通讯是两回事，两份都值得订阅。",
 
   offlineBanner: "离线 — 显示你保存的副本",
   offlineReadOnly: "只读",
@@ -1591,6 +1755,47 @@ const so: Strings = {
     "Waxay qaadanaysaa dhowr daqiiqo. Waxba halkan kuma jiraan wax dadweynuhu arki karo — tusmadu waa u xiran tahay qof kasta oo bulshada {school} ka baxsan, adigana waxaad dooranaysaa waxa inta kale arkayso.",
   landingSchoolSiteLabel: "Ma raadinaysaa dugsiga laftiisa?",
   landingSchoolSiteLink: "Bogga Eisenhower Elementary",
+
+  landingDistrictSource: "Waxaa daabacay {district}.",
+  landingHelpEyebrow: "Wax fiican in la ogaado",
+  landingHelpTitle: "Cidda la soo waco iyo meesha wax laga eego",
+  landingContactsDistrict: "Xiriirada degmada",
+  landingContactsSchools: "Dugsiyada kale ee degmada",
+  landingResourcesTitle: "Meesha wax laga eego",
+  landingFactHours: "Saacadaha dugsiga",
+  landingFactOffice: "Xafiiska dugsiga",
+  landingFactOfficeBody: "Dugsiga laftiisa, oo ay ku jirto barnaamijka luqadda labaad.",
+  landingFactInterpreters: "Turjumaan iyo tarjumaad",
+  landingFactInterpretersBody:
+    "Degmadu waxay siisaa turjumaanno iyo dukumiintiyo la turjumay qoysaska aan Ingiriisigu luqaddooda koowaad ahayn. Weydii Eisenhower Community Center.",
+  landingDeptAthletics: "Ciyaaraha",
+  landingDeptCommunityEd: "Waxbarashada Bulshada",
+  landingDeptEarlyChildhood: "Carruurnimada Hore",
+  landingDeptEarlyChildhoodScreening: "Baaritaanka Carruurnimada Hore",
+  landingDeptHumanResources: "Shaqaalaha",
+  landingDeptSchoolAgeCare: "Daryeelka carruurta dugsiga (Kids & Company)",
+  landingDeptNutrition: "Nafaqada",
+  landingDeptSpecialServices: "Adeegyada Gaarka ah",
+  landingDeptSuperintendent: "Kormeeraha Guud",
+  landingDeptTransportation: "Gaadiidka",
+  landingFactEnroll: "Diiwaangelinta",
+  landingFactEnrollBody:
+    "Ilmo kasta oo bilaabaya xannaanada waa inuu foom soo gudbiyaa — oo ay ku jiraan dadka Hopkins deggan, walaalaha yaryar iyo carruurta dugsiga barbaarta.",
+  landingFactPortal: "Bogga waalidka",
+  landingFactPortalBody:
+    "Xaadirinta, jadwalka, khidmadaha iyo natiijooyinka waxay ku jiraan Infinite Campus. Halkan ka codso xisaab haddii aadan lahayn, oo hubi in xogtaada xiriirku cusub tahay.",
+  landingFactBuses: "Basaska",
+  landingFactBusesBody:
+    "Waddooyinka iyo saacadaha joogsiga waxaa iimayl lagugu soo diraa ka hor bilowga sanadka, ka dibna waxay ku jiraan bogga waalidka. Su'aalaha u dir {email}.",
+  landingFactMeals: "Quraac iyo qado",
+  landingFactMealsBody:
+    "Waa bilaash arday kasta maalin kasta oo dugsi ah; cunto labaad iyo wax dheeraad ah waxaa laga jaraa xisaabtooda. Weli waxtar leh in la codsado kaalmada waxbarasho — waxay yaraysaa khidmadaha oo xagaaga raashin lagu caawiyo.",
+  landingFactSafety: "Badbaadada",
+  landingFactSafetyBody:
+    "Tababarrada ay dugsi kasta oo Minnesota ku yaal sameeyo, iyo sida loo ogeysiiyo xiritaanka iyo baxa hore.",
+  landingFactRoyalReport: "Warsidaha degmada",
+  landingFactRoyalReportBody:
+    "Royal Report, oo iimayl lagu soo diro laba toddobaad kasta inta sanad-dugsiyeedku socdo. Kayaga wuu ka duwan yahay, labaduba way mudan yihiin.",
 
   offlineBanner: "Offline \u2014 waxaa lagu tusayaa koobigaaga la kaydiyay",
   offlineReadOnly: "Akhris oo keliya",
