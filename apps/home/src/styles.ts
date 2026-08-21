@@ -204,8 +204,10 @@ img{max-width:100%}
 .res-note a{color:var(--blue-700);font-weight:600;overflow-wrap:anywhere}
 .res-url{
   display:block;margin-top:5px;font-family:var(--ff-mono);font-size:11.5px;
-  color:var(--ink-3);overflow-wrap:anywhere;
+  color:var(--ink-3);text-decoration:none;overflow-wrap:anywhere;
+  transition:color .14s;
 }
+.res li:hover .res-url,.res-url:hover{color:var(--blue-700)}
 
 /* Every other school office, folded away: this is the Eisenhower PTO's site,
    but plenty of these families have an older sibling across town. */

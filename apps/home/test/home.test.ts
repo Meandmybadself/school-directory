@@ -317,6 +317,21 @@ describe("who to call, and where to look", () => {
     }
   });
 
+  it("makes the printed URL clickable, without doubling up the link for AT", async () => {
+    const html = await body("/?lang=en");
+    for (const r of RESOURCES) {
+      // The visible URL is a real link to the same page as the name above it…
+      expect(html).toContain(
+        `<a class="res-url" href="${r.href}" aria-hidden="true" tabindex="-1">${r.label}</a>`,
+      );
+    }
+    // …but a screen reader and the tab key still get one link per row.
+    const rows = html.split('class="res-name"').length - 1;
+    expect(rows).toBe(RESOURCES.length);
+    expect(html.split('class="res-url"').length - 1).toBe(RESOURCES.length);
+    expect(html.match(/class="res-url"[^>]*aria-hidden="true"/g)).toHaveLength(RESOURCES.length);
+  });
+
   it("turns the bus address into a mailto wherever the translator put it", async () => {
     for (const locale of LOCALES) {
       const html = await body(`/?lang=${locale}`);

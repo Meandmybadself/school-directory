@@ -421,6 +421,12 @@ function renderHelp(env: Env, locale: Locale): string {
 
   const district = DISTRICT_PHONES.map((p) => phoneRow(s, p)).join("");
 
+  // The printed URL is a link too, not decoration — it is the half of the row
+  // someone reads out over the phone or copies onto a fridge, and a URL that
+  // looks like a link and isn't one is just a broken one. It goes out
+  // `aria-hidden`/`tabindex="-1"` so a screen reader and the tab key get ONE
+  // link per row rather than two to the same page; the name above it is that
+  // link, and it says what the page is.
   const resources = RESOURCES.map(
     (r) => `
                 <li>
@@ -428,7 +434,9 @@ function renderHelp(env: Env, locale: Locale): string {
                     s[r.key],
                   )}</a>
                   <p class="res-note">${resourceNote(s, r)}</p>
-                  <span class="res-url">${escapeHtml(r.label)}</span>
+                  <a class="res-url" href="${escapeHtml(
+                    r.href,
+                  )}" aria-hidden="true" tabindex="-1">${escapeHtml(r.label)}</a>
                 </li>`,
   ).join("");
 
