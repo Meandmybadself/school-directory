@@ -214,8 +214,8 @@ img{max-width:100%}
 
 /* ── Close: the one dark band, and the one thing it asks for ─────────────── */
 .join{background:var(--blue-800);color:#fff}
-.join-in{padding:62px 0;display:grid;gap:28px;align-items:center}
-@media(min-width:880px){.join-in{grid-template-columns:1.15fr .85fr;gap:52px;padding:76px 0}}
+.join-in{padding-block:62px;display:grid;gap:28px;align-items:center}
+@media(min-width:880px){.join-in{grid-template-columns:1.15fr .85fr;gap:52px;padding-block:76px}}
 .join .eyebrow{color:rgba(255,255,255,.5)}
 .join h2{margin:0 0 13px;font-size:clamp(1.85rem,4.2vw,2.65rem);font-weight:800;letter-spacing:-.035em;line-height:1.08}
 .join p{margin:0;font-size:16px;line-height:1.6;color:rgba(255,255,255,.78);max-width:58ch}
@@ -224,12 +224,12 @@ img{max-width:100%}
 
 /* ── Footer ──────────────────────────────────────────────────────────────── */
 .ft{background:var(--paper);border-top:1px solid var(--line)}
-.ft-in{padding:28px 0 40px;font-size:12.5px;line-height:1.75;color:var(--ink-3);text-align:center}
+.ft-in{padding-block:28px 40px;font-size:12.5px;line-height:1.75;color:var(--ink-3);text-align:center}
 .ft a{color:var(--blue-700);font-weight:600;text-decoration:none}
 .ft a:hover{text-decoration:underline}
 
 /* ── Not found ───────────────────────────────────────────────────────────── */
-.gone{padding:96px 0 120px}
+.gone{padding-block:96px 120px}
 .gone h1{margin:0 0 10px;font-size:clamp(2rem,6vw,3rem);font-weight:800;letter-spacing:-.04em}
 .gone p{margin:0 0 22px;font-size:16px;color:var(--ink-2)}
 
