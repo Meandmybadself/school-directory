@@ -54,14 +54,17 @@ bundle and no API call. Three things about it are load-bearing:
   page is wrong the moment the school moves it, and this page has no editor.
   Rows link to `/e/:date/:slug` on the calendar, minted in `SCHOOL_TIMEZONE`
   since a Worker has no reader timezone.
-- **It repeats the school district's contacts and links**, transcribed from the
-  back-to-school mailing into `apps/home/src/district.ts` — phone numbers, URLs,
-  a street address and the bell times, since the words that label them are
-  dictionary keys like everything else. School NAMES live there too: a proper
-  noun, configuration in the same sense `SCHOOL_CITY` is. Nothing in that file
-  expires, which is why it may be transcribed at all. The block names
-  `DISTRICT_NAME` and links to `DISTRICT_URL`, because none of it is the PTO's
-  to change.
+- **It repeats the contacts and links a family reaches for**, transcribed from
+  the district's back-to-school mailing into `apps/home/src/district.ts` — phone
+  numbers, URLs and the bell times, since the words that label them are
+  dictionary keys like everything else. The school's NAME lives there too: a
+  proper noun, configuration in the same sense `SCHOOL_CITY` is. Nothing in that
+  file expires, which is why it may be transcribed at all. Three columns —
+  Eisenhower's own numbers, the district's departments, the pages worth opening
+  — and deliberately nothing else: the other schools' offices and the "published
+  by" attribution were both cut as reprinting rather than helping, so keep
+  additions to that bar. The district is already reachable from the header and
+  from every resource row.
 
 This hostname used to be a Cloudflare redirect rule pointing at
 `eisenhower.hopkinsschools.org`; the rule was deleted when the Worker took over,

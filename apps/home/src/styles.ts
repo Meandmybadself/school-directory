@@ -212,26 +212,6 @@ img{max-width:100%}
 }
 .res li:hover .res-url,.res-url:hover{color:var(--blue-700)}
 
-/* Every other school office, folded away: this is the Eisenhower PTO's site,
-   but plenty of these families have an older sibling across town. */
-.others{margin-top:30px;border:1px solid var(--line);border-radius:14px;background:var(--paper)}
-.others summary{
-  padding:14px 18px;cursor:pointer;list-style:none;
-  font-size:13.5px;font-weight:700;color:var(--blue-700);
-}
-.others summary::-webkit-details-marker{display:none}
-.others summary::after{content:" +";font-family:var(--ff-mono);color:var(--ink-3)}
-.others[open] summary::after{content:" −"}
-.others summary:hover{color:var(--blue)}
-.others .rows{padding:0 18px 8px;border-top:1px solid var(--line)}
-.others .row:first-child{padding-top:10px}
-
-/* Attribution under the block: quiet, but a real way out. */
-.src{margin:26px 0 0;font-size:12.5px;line-height:1.6;color:var(--ink-3)}
-.src a{color:var(--ink-2);text-decoration:underline;text-underline-offset:.15em;text-decoration-color:var(--line-2)}
-.src a:hover{color:var(--blue-700);text-decoration-color:var(--blue)}
-.src .dot{color:var(--line-2);padding:0 3px}
-
 /* ── Close: the one dark band, and the one thing it asks for ─────────────── */
 .join{background:var(--blue-800);color:#fff}
 .join-in{padding:62px 0;display:grid;gap:28px;align-items:center}

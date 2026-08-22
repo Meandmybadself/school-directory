@@ -25,9 +25,7 @@ import {
 } from "@sd/shared";
 import {
   BUS_EMAIL,
-  DISTRICT_ADDRESS,
   DISTRICT_PHONES,
-  OTHER_SCHOOLS,
   RESOURCES,
   SCHOOL_HOURS,
   SCHOOL_LABEL,
@@ -306,18 +304,6 @@ export async function renderHome(
   });
 }
 
-/** Who published everything in the block above — named, and linked to their own
- *  site. None of it is the PTO's to change, and a parent chasing a detail
- *  should be one tap from the people who can answer. */
-function source(s: Strings, env: Env, extra = ""): string {
-  return `<p class="src">${linkSlot(
-    s.landingDistrictSource,
-    "district",
-    env.DISTRICT_NAME,
-    env.DISTRICT_URL,
-  )}${extra ? ` <span class="dot">·</span> ${escapeHtml(extra)}` : ""}</p>`;
-}
-
 /** The next few things on the calendar.
  *
  *  Read live rather than transcribed, which is the whole point: a date copied
@@ -440,14 +426,6 @@ function renderHelp(env: Env, locale: Locale): string {
                 </li>`,
   ).join("");
 
-  const others = OTHER_SCHOOLS.map(
-    (o) => `
-                <div class="row">
-                  <dt>${escapeHtml(o.name)}</dt>
-                  <dd><a href="${escapeHtml(hrefOf(o))}">${escapeHtml(o.phone)}</a></dd>
-                </div>`,
-  ).join("");
-
   return `
       <section class="help">
         <div class="wrap">
@@ -468,13 +446,6 @@ function renderHelp(env: Env, locale: Locale): string {
               <ul class="res">${resources}</ul>
             </div>
           </div>
-
-          <details class="others">
-            <summary>${escapeHtml(s.landingContactsSchools)}</summary>
-            <dl class="rows tight">${others}</dl>
-          </details>
-
-          ${source(s, env, DISTRICT_ADDRESS)}
         </div>
       </section>`;
 }

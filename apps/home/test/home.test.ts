@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { LOCALES, dictionaries, localeNames, type PublicCalendarEventDTO } from "@sd/shared";
 import worker from "../src/index.js";
-import { DISTRICT_PHONES, OTHER_SCHOOLS, RESOURCES } from "../src/district.js";
+import { DISTRICT_PHONES, RESOURCES } from "../src/district.js";
 import type { Env } from "../src/env.js";
 import { localeFromAcceptLanguage } from "../src/locale.js";
 import { escapeHtml } from "../src/page.js";
@@ -13,8 +13,6 @@ const env: Env = {
   CALENDAR_URL: "https://calendar.eisenhower.school",
   NEWSLETTER_URL: "https://newsletter.eisenhower.school",
   SCHOOL_SITE_URL: "https://eisenhower.hopkinsschools.org/",
-  DISTRICT_NAME: "Hopkins Public Schools",
-  DISTRICT_URL: "https://hopkinsschools.org/",
   FEEDBACK_EMAIL: "admin@eisenhower.school",
   SCHOOL_CITY: "Hopkins",
   SCHOOL_REGION: "Minnesota",
@@ -297,15 +295,6 @@ describe("who to call, and where to look", () => {
     expect(html).toContain('href="tel:+19529885391"'); // interpreters
   });
 
-  it("folds every other school office away, but keeps them on the page", async () => {
-    const html = await body("/?lang=en");
-    expect(html).toContain(`<summary>${dictionaries.en.landingContactsSchools}</summary>`);
-    for (const school of OTHER_SCHOOLS) {
-      expect(html).toContain(escapeHtml(school.name));
-      expect(html).toContain(`href="tel:+1${school.phone.replace(/-/g, "")}"`);
-    }
-  });
-
   it("links every page the mailing points families at, with why", async () => {
     for (const locale of LOCALES) {
       const html = await body(`/?lang=${locale}`);
@@ -349,17 +338,19 @@ describe("who to call, and where to look", () => {
     expect(await body("/?lang=zh")).toMatch(/07:40\s*[–-]\s*14:10/);
   });
 
-  it("names the district, links out to it, and prints where to send mail", async () => {
-    const html = await body("/?lang=so");
-    // The name is a LINK inside the translated sentence, wherever the
-    // translator put the slot — the same trick `emphasize` uses.
-    expect(html).toContain(
-      dictionaries.so.landingDistrictSource.replace(
-        "{district}",
-        '<a href="https://hopkinsschools.org/">Hopkins Public Schools</a>',
-      ),
-    );
-    expect(html).toContain("ISD 270, 1001 Highway 7, Hopkins, MN 55305");
+  it("carries no attribution line and no other-schools fold", async () => {
+    // Both were removed on purpose: the block is the school's own contacts, not
+    // a reprint of the mailing, and the district is already linked from the
+    // header and from every resource row.
+    const html = await body("/?lang=en");
+    expect(html).not.toContain("ISD 270");
+    expect(html).not.toContain("Published by");
+    expect(html).not.toContain("<details");
+    expect(html).not.toContain("<summary");
+    // What replaced neither of them: the three columns are still all there.
+    expect(html).toContain(dictionaries.en.landingContactsDistrict);
+    expect(html).toContain(dictionaries.en.landingResourcesTitle);
+    expect(html).toContain("Eisenhower Elementary");
   });
 });
 

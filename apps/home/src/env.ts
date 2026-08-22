@@ -12,11 +12,6 @@ export interface Env {
   API_URL: string;
   /** The school's own website — where this hostname used to redirect. */
   SCHOOL_SITE_URL: string;
-  /** Who publishes the school-year dates and the school-day facts this page
-   *  repeats. Named and linked wherever they appear, because none of it is the
-   *  PTO's to change and a reader chasing a detail should land on the source. */
-  DISTRICT_NAME: string;
-  DISTRICT_URL: string;
   FEEDBACK_EMAIL: string;
   /** Where the school is. Split into three because each part has a different
    *  job: the first two are read by people (`Hopkins, Minnesota`), the third is

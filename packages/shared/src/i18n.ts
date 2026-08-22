@@ -353,13 +353,9 @@ export interface Strings {
   // district's back-to-school mailing. Every phone number, URL and street
   // address in it is DATA and lives in `apps/home/src/district.ts`; only the
   // words are here. School names are data too — a proper noun, like a city.
-  /** Names whoever published the facts around it, e.g. the school district.
-   *  `{district}` is wrapped in a link to their site. */
-  landingDistrictSource: string; // uses {district}
   landingHelpEyebrow: string;
   landingHelpTitle: string;
   landingContactsDistrict: string;
-  landingContactsSchools: string;
   landingResourcesTitle: string;
   /** The one row whose value is a formatted time range rather than a phone
    *  number, so it has a label and no link. */
@@ -733,11 +729,9 @@ const en: Strings = {
   landingSchoolSiteLabel: "Looking for the school itself?",
   landingSchoolSiteLink: "Eisenhower Elementary website",
 
-  landingDistrictSource: "Published by {district}.",
   landingHelpEyebrow: "Good to know",
   landingHelpTitle: "Who to call, and where to look",
   landingContactsDistrict: "District contacts",
-  landingContactsSchools: "Other schools in the district",
   landingResourcesTitle: "Where to look",
   landingFactHours: "School hours",
   landingFactOffice: "School office",
@@ -1060,11 +1054,9 @@ const es: Strings = {
   landingSchoolSiteLabel: "¿Buscas la escuela?",
   landingSchoolSiteLink: "Sitio web de Eisenhower Elementary",
 
-  landingDistrictSource: "Publicado por {district}.",
   landingHelpEyebrow: "Bueno saberlo",
   landingHelpTitle: "A quién llamar y dónde buscar",
   landingContactsDistrict: "Contactos del distrito",
-  landingContactsSchools: "Otras escuelas del distrito",
   landingResourcesTitle: "Dónde buscar",
   landingFactHours: "Horario escolar",
   landingFactOffice: "Oficina de la escuela",
@@ -1374,11 +1366,9 @@ const zh: Strings = {
   landingSchoolSiteLabel: "在找学校官网？",
   landingSchoolSiteLink: "Eisenhower Elementary 官网",
 
-  landingDistrictSource: "由{district}发布。",
   landingHelpEyebrow: "需要知道的事",
   landingHelpTitle: "找谁打电话，去哪里查",
   landingContactsDistrict: "学区各部门",
-  landingContactsSchools: "学区的其他学校",
   landingResourcesTitle: "去哪里查",
   landingFactHours: "上课时间",
   landingFactOffice: "学校办公室",
@@ -1756,11 +1746,9 @@ const so: Strings = {
   landingSchoolSiteLabel: "Ma raadinaysaa dugsiga laftiisa?",
   landingSchoolSiteLink: "Bogga Eisenhower Elementary",
 
-  landingDistrictSource: "Waxaa daabacay {district}.",
   landingHelpEyebrow: "Wax fiican in la ogaado",
   landingHelpTitle: "Cidda la soo waco iyo meesha wax laga eego",
   landingContactsDistrict: "Xiriirada degmada",
-  landingContactsSchools: "Dugsiyada kale ee degmada",
   landingResourcesTitle: "Meesha wax laga eego",
   landingFactHours: "Saacadaha dugsiga",
   landingFactOffice: "Xafiiska dugsiga",

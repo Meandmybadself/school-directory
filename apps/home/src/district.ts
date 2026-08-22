@@ -1,7 +1,7 @@
 // What the school district publishes, transcribed from the back-to-school
 // mailing that lands in every Hopkins family's mailbox in August.
 //
-// This is DATA — phone numbers, URLs, a street address, bell times — and the
+// This is DATA — phone numbers, URLs, bell times — and the
 // words that label each row are dictionary keys (CLAUDE.md invariant 6), joined
 // to this in `page.ts`. The one exception is a school's own NAME, which is a
 // proper noun and stays in Latin script in all four languages, for the same
@@ -17,10 +17,6 @@ import type { Strings } from "@sd/shared";
 
 /** The school this site belongs to, as the district writes it. */
 export const SCHOOL_LABEL = "Eisenhower Elementary";
-
-/** Where to send mail. Printed under the contacts, the way it is printed on the
- *  back of the mailing. */
-export const DISTRICT_ADDRESS = "ISD 270, 1001 Highway 7, Hopkins, MN 55305";
 
 /** The bell times of an ordinary day, given as a real school day so the UTC
  *  offset resolves the way it does on an actual Tuesday rather than being
@@ -46,12 +42,6 @@ export interface PhoneRow {
   phone: string;
 }
 
-/** A school office, labelled by its own name rather than by a dictionary key. */
-export interface NamedPhone {
-  name: string;
-  phone: string;
-}
-
 /** Somewhere to read more, on the district's own site. */
 export interface Resource {
   key: keyof Strings;
@@ -62,7 +52,7 @@ export interface Resource {
   href: string;
 }
 
-export function hrefOf(row: PhoneRow | NamedPhone): string {
+export function hrefOf(row: PhoneRow): string {
   return tel(row.phone);
 }
 
@@ -89,24 +79,6 @@ export const DISTRICT_PHONES: PhoneRow[] = [
   { key: "landingDeptSpecialServices", phone: "952-988-4042" },
   { key: "landingDeptSuperintendent", phone: "952-988-2066" },
   { key: "landingDeptTransportation", phone: "952-988-4115" },
-];
-
-/** Every other school office in the district. Folded away behind a `<details>`
- *  on the page: this is the Eisenhower PTO's site, but plenty of these families
- *  have an older sibling at West or at the high school. */
-export const OTHER_SCHOOLS: NamedPhone[] = [
-  { name: "Hopkins Preschool", phone: "952-988-5000" },
-  { name: "Alice Smith and Immersion", phone: "952-988-4200" },
-  { name: "Gatewood", phone: "952-988-5250" },
-  { name: "Glen Lake", phone: "952-988-5200" },
-  { name: "L.H. Tanglen", phone: "952-988-4900" },
-  { name: "Meadowbrook", phone: "952-988-5100" },
-  { name: "North Middle School", phone: "952-988-4800" },
-  { name: "West Middle School", phone: "952-988-4400" },
-  { name: "Hopkins High School", phone: "952-988-4500" },
-  { name: "VirtualEDU", phone: "952-988-4050" },
-  { name: "Transition Plus", phone: "952-848-5514" },
-  { name: "Hopkins East Learning Program", phone: "952-988-4212" },
 ];
 
 /** The pages the mailing points families at, each with the one line that says
