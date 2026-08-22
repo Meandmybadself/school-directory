@@ -18,11 +18,13 @@
 // without a copy of the dates going stale here. It is edge-cached, it times
 // out fast, and every failure mode resolves to "no events block" rather than to
 // a broken page — see `events.ts`. Everything else on the page is still a pure
-// function of the requested URL and the Accept-Language header.
+// function of the requested URL, the Accept-Language header and the `sd_lang`
+// cookie — the last of which is the ONLY state this page keeps, and holds
+// nothing but a choice of language. See `locale.ts`.
 
 import { LOCALES } from "@sd/shared";
 import type { Env } from "./env.js";
-import { resolveLocale } from "./locale.js";
+import { langCookie, resolveLocale } from "./locale.js";
 import { renderHome, renderNotFound } from "./page.js";
 
 /** Vanity paths people type or get told over the phone ("go to
@@ -40,20 +42,21 @@ function trimSlash(url: string): string {
   return url.replace(/\/$/, "");
 }
 
-function html(body: string, status = 200): Response {
-  return new Response(body, {
-    status,
-    headers: {
-      "content-type": "text/html; charset=utf-8",
-      // Rendering costs nothing and the answer varies by Accept-Language, which
-      // Cloudflare's edge cache does not key on. Revalidating every time is
-      // simpler than a Vary the cache would ignore.
-      "cache-control": "public, max-age=0, must-revalidate",
-      vary: "Accept-Language",
-      "x-content-type-options": "nosniff",
-      "referrer-policy": "strict-origin-when-cross-origin",
-    },
+function html(body: string, status = 200, setCookie?: string): Response {
+  const headers = new Headers({
+    "content-type": "text/html; charset=utf-8",
+    // Rendering costs nothing and the answer varies by Accept-Language and by
+    // the remembered-language cookie, neither of which Cloudflare's edge cache
+    // keys on. Revalidating every time is simpler than a Vary the cache would
+    // ignore — and with a cookie in the mix, storing a shared copy would mean
+    // serving one reader's language to the next.
+    "cache-control": "private, max-age=0, must-revalidate",
+    vary: "Accept-Language, Cookie",
+    "x-content-type-options": "nosniff",
+    "referrer-policy": "strict-origin-when-cross-origin",
   });
+  if (setCookie) headers.append("set-cookie", setCookie);
+  return new Response(body, { status, headers });
 }
 
 export default {
@@ -92,7 +95,11 @@ export default {
       return html(renderNotFound(env, locale), 404);
     }
 
-    return html(await renderHome(env, locale, explicit));
+    // Remember the choice, but only when `?lang=` made it. A language merely
+    // DETECTED from the header is never written back, so detection can't
+    // promote itself into a preference the reader never stated — see
+    // `resolveLocale`.
+    return html(await renderHome(env, locale, explicit), 200, explicit ? langCookie(locale) : undefined);
   },
 };
 

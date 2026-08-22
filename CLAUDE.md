@@ -40,9 +40,23 @@ bundle and no API call. Three things about it are load-bearing:
   one marked. Adding a locale to `LOCALES` therefore adds a line to the hero for
   free; adding one WITHOUT a `landingWelcome` breaks the type.
 - **`?lang=` stays in the URL here**, unlike in the SPAs, which apply it and
-  strip it. There is no client to remember a choice, and a stable per-language
-  URL is what `hreflang` and a shared link both need. Outbound links to the apps
-  carry `?lang=` so the reader's language travels with them.
+  strip it. A stable per-language URL is what `hreflang` and a shared link both
+  need. Outbound links to the apps carry `?lang=` so the reader's language
+  travels with them.
+- **Language resolves `?lang=` → `sd_lang` cookie → `Accept-Language` → `en`**
+  (`locale.ts`), the server-side twin of `detectLocale` in each SPA's
+  `src/i18n/index.tsx`, which reads `?lang=` → localStorage →
+  `navigator.language`. The order is the rule: a choice, once made, is never
+  quietly undone by detection. The cookie is written **only where an explicit
+  `?lang=` was honoured** — a detected language is never written back, so
+  detection can't promote itself into a preference the reader never stated. It
+  is the only state this page keeps; it is host-only (no `Domain`, like
+  `sd_session`), and the SPAs don't read it — the `?lang=` on every outbound
+  link is the handoff, and each app then saves the choice its own way. Because
+  the response now varies on a cookie it is `Cache-Control: private` with
+  `Vary: Accept-Language, Cookie`: a shared copy would hand the next reader the
+  previous one's language. Crawlers send no cookie, so canonical and `hreflang`
+  are unaffected.
 
 - **It makes exactly one subrequest**, and it is the upcoming-events block:
   `events.ts` reads the ANONYMOUS `/calendar-public/events` (never the

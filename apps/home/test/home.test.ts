@@ -3,7 +3,7 @@ import { LOCALES, dictionaries, localeNames, type PublicCalendarEventDTO } from 
 import worker from "../src/index.js";
 import { DISTRICT_PHONES, RESOURCES } from "../src/district.js";
 import type { Env } from "../src/env.js";
-import { localeFromAcceptLanguage } from "../src/locale.js";
+import { localeFromAcceptLanguage, localeFromCookie } from "../src/locale.js";
 import { escapeHtml } from "../src/page.js";
 
 const env: Env = {
@@ -104,6 +104,15 @@ describe("Accept-Language", () => {
   it("drops a q=0 rejection", () => {
     expect(localeFromAcceptLanguage("en;q=0, so;q=0.5")).toBe("so");
   });
+
+  it("reads sd_lang out of a cookie header, ignoring its neighbours", () => {
+    expect(localeFromCookie("sd_lang=so")).toBe("so");
+    expect(localeFromCookie("other=1; sd_lang=zh; more=2")).toBe("zh");
+    expect(localeFromCookie("sd_lang_other=so")).toBeNull();
+    expect(localeFromCookie("sd_lang=fr")).toBeNull();
+    expect(localeFromCookie("")).toBeNull();
+    expect(localeFromCookie(null)).toBeNull();
+  });
 });
 
 describe("the landing page", () => {
@@ -132,6 +141,52 @@ describe("the landing page", () => {
   it("lets ?lang beat the browser's preference", async () => {
     const html = await body("/?lang=zh", { "accept-language": "en-US" });
     expect(html).toContain('<html lang="zh">');
+  });
+
+  // A choice, once made, must not be quietly undone by detection. This is the
+  // server-side half of the same rule each SPA applies with localStorage.
+  it("remembers an explicit choice in a cookie, and never a detected one", async () => {
+    const chosen = await get("/?lang=so", { "accept-language": "en-US" });
+    const cookie = chosen.headers.get("set-cookie") ?? "";
+    expect(cookie).toContain("sd_lang=so");
+    expect(cookie).toContain("SameSite=Lax");
+    expect(cookie).toContain("Secure");
+    expect(cookie).toContain("HttpOnly");
+
+    const detected = await get("/", { "accept-language": "es-MX,es;q=0.9" });
+    expect(await detected.text()).toContain('<html lang="es">');
+    expect(detected.headers.get("set-cookie")).toBeNull();
+  });
+
+  it("lets the remembered choice beat the browser's preference on a later visit", async () => {
+    const html = await body("/", { cookie: "sd_lang=so", "accept-language": "en-US" });
+    expect(html).toContain('<html lang="so">');
+  });
+
+  it("still lets a fresh ?lang beat the remembered one", async () => {
+    const res = await get("/?lang=zh", { cookie: "sd_lang=so" });
+    expect(await res.text()).toContain('<html lang="zh">');
+    expect(res.headers.get("set-cookie")).toContain("sd_lang=zh");
+  });
+
+  it("ignores a cookie that isn't one of ours and falls back to detection", async () => {
+    const html = await body("/", { cookie: "sd_lang=klingon", "accept-language": "es" });
+    expect(html).toContain('<html lang="es">');
+  });
+
+  // A cookie in the mix means a shared cache must not keep a copy: it would
+  // hand the next reader the previous one's language.
+  it("varies on both signals and keeps the page out of shared caches", async () => {
+    const res = await get("/");
+    expect(res.headers.get("vary")).toBe("Accept-Language, Cookie");
+    expect(res.headers.get("cache-control")).toContain("private");
+  });
+
+  // The cookie is remembered here, but the SPAs save the choice their own way,
+  // so what travels outward is still the query string.
+  it("carries the remembered language onto a shortcut redirect", async () => {
+    const res = await get("/calendar", { cookie: "sd_lang=so" });
+    expect(res.headers.get("location")).toBe("https://calendar.eisenhower.school/?lang=so");
   });
 
   it("marks the current language as current and the others as links", async () => {
