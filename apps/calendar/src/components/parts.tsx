@@ -3,6 +3,9 @@
 // the two apps can drift independently.
 import type { ReactNode } from "react";
 import { Icon, type IconName } from "./Icon.js";
+import { useChrome } from "./chrome.js";
+import { useI18n } from "../i18n/index.js";
+import { useSession } from "../lib/session.js";
 
 export function IconBtn({
   name,
@@ -50,8 +53,48 @@ export function ScreenHeader({
         <Icon name={left} size={21} />
       </button>
       <span style={{ fontSize: 16, fontWeight: 700, letterSpacing: "-.2px", whiteSpace: "nowrap" }}>{title}</span>
-      <div style={{ minWidth: 36, display: "flex", justifyContent: "flex-end" }}>{right}</div>
+      <div className="sd-row" style={{ gap: 6, display: "flex", justifyContent: "flex-end", flex: "0 0 auto" }}>
+        {right}
+        <HeaderActions />
+      </div>
     </div>
+  );
+}
+
+/** The language + account controls shown on the right of every mobile app bar.
+ *  Wired to the chrome context that AppShell owns, so the language picker and the
+ *  account menu are reachable from every mobile screen. Renders nothing outside a
+ *  ChromeProvider (e.g. the desktop shell). */
+function HeaderActions() {
+  const { t, locale } = useI18n();
+  const { me } = useSession();
+  const chrome = useChrome();
+  if (!chrome) return null;
+  const langLabel = locale === "zh" ? "中文" : locale.toUpperCase();
+  return (
+    <>
+      <button
+        onClick={() => chrome.open("language")}
+        aria-label={t("language")}
+        title={t("language")}
+        style={{ height: 34, minWidth: 34, padding: "0 9px", borderRadius: 9, border: "1px solid var(--line)", background: "var(--paper)", color: "var(--ink-2)", fontWeight: 700, fontSize: 12, cursor: "pointer", display: "inline-flex", alignItems: "center", justifyContent: "center" }}
+      >
+        {langLabel}
+      </button>
+      {/* The account sheet is empty without a session (the calendar's agenda is
+       *  public), so it's shown only to signed-in members. The language picker
+       *  works signed-out too. */}
+      {me && (
+        <button
+          onClick={() => chrome.open("account")}
+          aria-label={t("yourProfile")}
+          title={t("yourProfile")}
+          style={{ width: 34, height: 34, borderRadius: 9, border: "1px solid var(--line)", background: "var(--paper)", color: "var(--ink-2)", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}
+        >
+          <Icon name="eye" size={18} />
+        </button>
+      )}
+    </>
   );
 }
 
