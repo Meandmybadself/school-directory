@@ -1,9 +1,8 @@
 import { htmlToText, type PublicCalendarEventDTO } from "@sd/shared";
 
-/** The event description is only surfaced for the "Lunch Menu" calendar (the
- *  menu text itself); other calendars keep their descriptions hidden. This gate
- *  is shared across every calendar UI (Calendar screen list + detail, Home
- *  upcoming events) so the rule is defined once. */
+/** The calendar whose description IS its content — the menu text itself, with a
+ *  title that only repeats the calendar name. See `showsDescription` for when a
+ *  description is surfaced generally. */
 export const DESCRIPTION_CALENDAR = "Lunch Menu";
 
 /** True for events on the special "Lunch Menu" calendar, which gets its own
@@ -12,8 +11,21 @@ export function isMenuCalendar(e: PublicCalendarEventDTO): boolean {
   return e.source.name === DESCRIPTION_CALENDAR;
 }
 
+/** Whether a description is worth rendering. Shared across every calendar UI
+ *  (Calendar screen list + detail, Home upcoming events) so the rule is defined
+ *  once, and consulted by `eventSearchText` so search only matches text the
+ *  reader can actually see.
+ *
+ *  Turns on the SOURCE of the text rather than the calendar it sits on. An
+ *  IMPORTED description is whatever the upstream ICS feed put there — vendor
+ *  boilerplate, tracking links, the same sentence on every row — which is why
+ *  this gate existed at all. A MANAGED one was typed by an admin in this app's
+ *  own editor, so hiding it discards the only thing they wrote it for.
+ *
+ *  The menu calendar stays included on its own terms: it is imported, but its
+ *  description is the entire point of the event. */
 export function showsDescription(e: PublicCalendarEventDTO): boolean {
-  return !!e.description && isMenuCalendar(e);
+  return !!e.description && (e.kind === "managed" || isMenuCalendar(e));
 }
 
 /** The menu feed sets every event's title to the calendar name ("Lunch Menu"),

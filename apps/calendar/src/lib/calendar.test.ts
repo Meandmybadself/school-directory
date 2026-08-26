@@ -10,6 +10,7 @@ import { describe, expect, it } from "vitest";
 import type { PublicCalendarEventDTO } from "@sd/shared";
 import {
   DESCRIPTION_CALENDAR,
+  showsDescription,
   eventDayKey,
   eventSearchText,
   formatEventDay,
@@ -146,10 +147,21 @@ describe("eventSearchText", () => {
   });
 
   it("ignores a description the agenda does not render", () => {
-    // Descriptions are surfaced only on the menu calendar. Matching a hidden one
+    // An IMPORTED description is feed boilerplate and stays hidden. Matching one
     // would return a row with no visible reason for being in the results.
     const hidden = ev({ description: "Sloppy joes", source: { name: "PTO Events", color: "#000" } });
     expect(matchesSearch(eventSearchText(hidden, ""), ["sloppy"])).toBe(false);
+  });
+
+  it("searches the description of a managed event, which IS rendered", () => {
+    // Authored in this app's editor rather than arriving from a feed, so it is
+    // shown — and therefore has to be findable.
+    const managed = ev({
+      kind: "managed",
+      description: "Classes rotate through game stations",
+      source: { name: "Events Calendar", color: "#000" },
+    });
+    expect(matchesSearch(eventSearchText(managed, ""), ["stations"])).toBe(true);
   });
 
   it("searches the description on the menu calendar, where it IS rendered", () => {
@@ -171,6 +183,30 @@ describe("eventSearchText", () => {
     expect(matchesSearch(hay, ["sloppy", "joes"])).toBe(true);
     // …and not by the markup around it.
     expect(matchesSearch(hay, ["strong"])).toBe(false);
+  });
+});
+
+describe("showsDescription", () => {
+  it("shows a managed event's description — an admin typed it here", () => {
+    expect(showsDescription(ev({ kind: "managed", description: "Field day details" }))).toBe(true);
+  });
+
+  it("hides an imported one — that is whatever the upstream feed put there", () => {
+    expect(showsDescription(ev({ kind: "imported", description: "Sent from My Calendar App" }))).toBe(false);
+  });
+
+  it("still shows the menu calendar, whose description IS the event", () => {
+    const menu = ev({
+      kind: "imported",
+      description: "Sloppy joes",
+      source: { name: DESCRIPTION_CALENDAR, color: "#000" },
+    });
+    expect(showsDescription(menu)).toBe(true);
+  });
+
+  it("shows nothing when there is no description, whatever the kind", () => {
+    expect(showsDescription(ev({ kind: "managed", description: null }))).toBe(false);
+    expect(showsDescription(ev({ kind: "managed", description: "" }))).toBe(false);
   });
 });
 
