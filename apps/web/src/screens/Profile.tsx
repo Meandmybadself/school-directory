@@ -22,7 +22,7 @@ import { capLabel, useI18n } from "../i18n/index.js";
 import { useSession } from "../lib/session.js";
 import { useIsDesktop } from "../lib/useIsDesktop.js";
 import { api, mediaUrl } from "../lib/api.js";
-import { downloadVCard } from "../lib/vcard.js";
+import { downloadVCard, fetchPhotoForVCard } from "../lib/vcard.js";
 
 const ICON_BY_TYPE: Record<ContactType, IconName> = {
   address: "pin",
@@ -46,6 +46,7 @@ export function ProfileView() {
   const { id } = useParams();
   const [p, setP] = useState<PersonProfileDTO | null>(null);
   const [notFound, setNotFound] = useState(false);
+  const [savingCard, setSavingCard] = useState(false);
 
   // The view screen is always a member's-eye view: a Controller (or an admin
   // looking at a Person they manage) must not be shown private items here, or
@@ -68,18 +69,31 @@ export function ProfileView() {
   // what goes on the downloadable contact card. Group-cascaded items (e.g. a
   // household address) are included since they're shown on the profile too.
   const cardContacts = [...p.contacts, ...(p.groupContacts ?? [])].filter((c) => c.value.trim());
+  const saveContact = async () => {
+    if (savingCard) return;
+    setSavingCard(true);
+    try {
+      // Embed the avatar the viewer is already looking at. Best-effort: if the
+      // fetch fails or there's no photo, the card still saves without one.
+      const photoSrc = mediaUrl(p.photoUrl);
+      const photo = photoSrc ? await fetchPhotoForVCard(photoSrc) : null;
+      downloadVCard({
+        fullName: p.displayName,
+        firstName: p.firstName,
+        lastName: p.lastName ?? null,
+        contacts: cardContacts.map((c) => ({ type: c.type, value: c.value, label: c.label })),
+        photo,
+      });
+    } finally {
+      setSavingCard(false);
+    }
+  };
   const saveContactBtn =
     cardContacts.length > 0 ? (
       <button
         className="sd-btn sd-btn-secondary sd-btn-sm"
-        onClick={() =>
-          downloadVCard({
-            fullName: p.displayName,
-            firstName: p.firstName,
-            lastName: p.lastName ?? null,
-            contacts: cardContacts.map((c) => ({ type: c.type, value: c.value, label: c.label })),
-          })
-        }
+        onClick={() => void saveContact()}
+        disabled={savingCard}
       >
         <Icon name="download" size={15} />{t("saveContact")}
       </button>

@@ -99,4 +99,44 @@ describe("buildVCard", () => {
     expect(out).not.toContain("TEL");
     expect(out).toContain("EMAIL;TYPE=INTERNET:dana@x.test");
   });
+
+  it("embeds a photo as base64 with the mapped TYPE", () => {
+    const out = buildVCard({
+      fullName: "Dana",
+      firstName: "Dana",
+      contacts: [],
+      photo: { base64: "QUJD", mime: "image/jpeg" },
+    });
+    expect(out).toContain("PHOTO;ENCODING=b;TYPE=JPEG:QUJD");
+  });
+
+  it("skips a photo of an unrecognized type rather than mislabeling it", () => {
+    const out = buildVCard({
+      fullName: "Dana",
+      firstName: "Dana",
+      contacts: [],
+      photo: { base64: "QUJD", mime: "image/svg+xml" },
+    });
+    expect(out).not.toContain("PHOTO");
+  });
+
+  it("emits no PHOTO when there's no photo", () => {
+    const out = buildVCard({ fullName: "Dana", firstName: "Dana", contacts: [], photo: null });
+    expect(out).not.toContain("PHOTO");
+  });
+
+  it("folds a long photo line to <=75-octet lines that unfold to the payload", () => {
+    const b64 = "A".repeat(300);
+    const out = buildVCard({
+      fullName: "Dana",
+      firstName: "Dana",
+      contacts: [],
+      photo: { base64: b64, mime: "image/png" },
+    });
+    // No raw line exceeds 75 octets (RFC 2426 §2.6).
+    expect(out.split("\r\n").every((l) => l.length <= 75)).toBe(true);
+    // Unfolding (drop CRLF + leading space) restores the exact PHOTO payload.
+    const unfolded = out.replace(/\r\n /g, "");
+    expect(unfolded).toContain(`PHOTO;ENCODING=b;TYPE=PNG:${b64}`);
+  });
 });
