@@ -3,10 +3,26 @@ import type { ReactNode } from "react";
 import { useNavigate } from "react-router-dom";
 import { Icon, type IconName } from "./Icon.js";
 import { OfflineBanner, MasqBanner } from "./parts.js";
+import { ChromeProvider, useChrome } from "./chrome.js";
+import { PersonSwitcherSheet, LanguageSheet } from "./Sheets.js";
 import { useOnline } from "../lib/useOnline.js";
 import { useI18n } from "../i18n/index.js";
 import { useSession } from "../lib/session.js";
 import { CALENDAR_APP_URL, NEWSLETTER_APP_URL } from "../lib/api.js";
+
+/** Renders whichever app-bar sheet the chrome context has open. Lives inside the
+ *  ChromeProvider so it can read that state; the directory's "account" affordance
+ *  is the active-Person switcher. */
+function ChromeSheets() {
+  const chrome = useChrome();
+  if (!chrome) return null;
+  return (
+    <>
+      {chrome.sheet === "language" && <LanguageSheet onClose={chrome.close} />}
+      {chrome.sheet === "account" && <PersonSwitcherSheet onClose={chrome.close} />}
+    </>
+  );
+}
 
 /** Persistent masquerade banner, shown app-wide whenever an admin is acting as another user. */
 export function MasqueradeBanner() {
@@ -31,11 +47,14 @@ export function AppShell({
   return (
     <div className={`sd ${locale === "zh" ? "sd-zh" : ""}`}>
       <div className="sd-app">
-        <MasqueradeBanner />
-        {!online && <OfflineBanner text={t("offlineBanner")} readOnly={t("offlineReadOnly")} />}
-        {banner}
-        {children}
-        {bottomNav}
+        <ChromeProvider>
+          <MasqueradeBanner />
+          {!online && <OfflineBanner text={t("offlineBanner")} readOnly={t("offlineReadOnly")} />}
+          {banner}
+          {children}
+          {bottomNav}
+          <ChromeSheets />
+        </ChromeProvider>
       </div>
     </div>
   );

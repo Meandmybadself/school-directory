@@ -336,8 +336,9 @@ export function Calendar() {
   }
   return (
     <AppShell bottomNav={<BottomNav active="calendar" />}>
-      {/* Mobile has no account menu, so the header's right slot is the only
-          way back in for a signed-out visitor reading the public agenda. */}
+      {/* A signed-out visitor reading the public agenda has no account menu (the
+          header only shows one when signed in), so the right slot offers the
+          explicit way in. */}
       <ScreenHeader
         title={t("calendarTitle")}
         left="calendar"

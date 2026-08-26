@@ -6,10 +6,25 @@ import type { ReactNode } from "react";
 import { useNavigate } from "react-router-dom";
 import { Icon, type IconName } from "./Icon.js";
 import { OfflineBanner, MasqBanner } from "./parts.js";
+import { ChromeProvider, useChrome } from "./chrome.js";
+import { AccountSheet, LanguageSheet } from "./Sheets.js";
 import { useOnline } from "../lib/useOnline.js";
 import { useI18n } from "../i18n/index.js";
 import { useSession } from "../lib/session.js";
 import { CALENDAR_URL, DIRECTORY_URL } from "../lib/api.js";
+
+/** Renders whichever app-bar sheet the chrome context has open, so every mobile
+ *  ScreenHeader can reach the language picker and the account menu. */
+function ChromeSheets() {
+  const chrome = useChrome();
+  if (!chrome) return null;
+  return (
+    <>
+      {chrome.sheet === "language" && <LanguageSheet onClose={chrome.close} />}
+      {chrome.sheet === "account" && <AccountSheet onClose={chrome.close} />}
+    </>
+  );
+}
 
 /** Persistent masquerade banner. The session is shared across all three apps, so
  *  an admin who started masquerading in the directory is still masquerading here. */
@@ -41,11 +56,14 @@ export function AppShell({
   return (
     <div className={`sd ${locale === "zh" ? "sd-zh" : ""}`}>
       <div className="sd-app">
-        <MasqueradeBanner />
-        {!online && <OfflineBanner text={t("offlineBanner")} readOnly={t("offlineReadOnly")} />}
-        {banner}
-        {children}
-        {bottomNav}
+        <ChromeProvider>
+          <MasqueradeBanner />
+          {!online && <OfflineBanner text={t("offlineBanner")} readOnly={t("offlineReadOnly")} />}
+          {banner}
+          {children}
+          {bottomNav}
+          <ChromeSheets />
+        </ChromeProvider>
       </div>
     </div>
   );

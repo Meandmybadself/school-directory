@@ -22,6 +22,7 @@ import { capLabel, useI18n } from "../i18n/index.js";
 import { useSession } from "../lib/session.js";
 import { useIsDesktop } from "../lib/useIsDesktop.js";
 import { api, mediaUrl } from "../lib/api.js";
+import { downloadVCard } from "../lib/vcard.js";
 
 const ICON_BY_TYPE: Record<ContactType, IconName> = {
   address: "pin",
@@ -63,6 +64,27 @@ export function ProfileView() {
     </button>
   ) : undefined;
 
+  // Everything the viewer is allowed to see — the server already filtered it — is
+  // what goes on the downloadable contact card. Group-cascaded items (e.g. a
+  // household address) are included since they're shown on the profile too.
+  const cardContacts = [...p.contacts, ...(p.groupContacts ?? [])].filter((c) => c.value.trim());
+  const saveContactBtn =
+    cardContacts.length > 0 ? (
+      <button
+        className="sd-btn sd-btn-secondary sd-btn-sm"
+        onClick={() =>
+          downloadVCard({
+            fullName: p.displayName,
+            firstName: p.firstName,
+            lastName: p.lastName ?? null,
+            contacts: cardContacts.map((c) => ({ type: c.type, value: c.value, label: c.label })),
+          })
+        }
+      >
+        <Icon name="download" size={15} />{t("saveContact")}
+      </button>
+    ) : undefined;
+
   const hero = (
     <div style={{ background: "var(--paper)", borderBottom: "1px solid var(--line)", padding: "20px 18px 18px", display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center", gap: 11, borderRadius: isDesktop ? "16px 16px 0 0" : undefined }}>
       <Avatar name={p.displayName} size={84} img={mediaUrl(p.photoUrl)} color="var(--blue)" />
@@ -80,7 +102,7 @@ export function ProfileView() {
   const body = (
     <>
       <div>
-        <SectLabel>{t("contact")}</SectLabel>
+        <SectLabel action={saveContactBtn}>{t("contact")}</SectLabel>
         <div className="sd-card sd-card-pad" style={{ marginTop: 9, paddingTop: 4, paddingBottom: 4 }}>
           {p.contacts.length === 0 && !p.groupContacts?.length && <div className="sd-meta" style={{ padding: "12px 0" }}>No shared contact info.</div>}
           {p.contacts.map((c) => (

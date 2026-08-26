@@ -153,6 +153,7 @@ export interface Strings {
   hiddenFromMembers: string; // uses {count}
   exitPreview: string;
   contact: string;
+  saveContact: string;
   fromGroup: string; // uses {name}
   shareCta: string; // uses {name}
   homeLabel: string;
@@ -544,6 +545,7 @@ const en: Strings = {
   hiddenFromMembers: "{count} hidden from members",
   exitPreview: "Exit preview",
   contact: "Contact",
+  saveContact: "Save contact",
   fromGroup: "via {name}",
   shareCta: "Share your info with {name}",
   homeLabel: "Home Address",
@@ -913,6 +915,7 @@ const es: Strings = {
   hiddenFromMembers: "{count} oculto(s) para los miembros",
   exitPreview: "Salir",
   contact: "Contacto",
+  saveContact: "Guardar contacto",
   fromGroup: "vía {name}",
   shareCta: "Comparte tu información con {name}",
   typeAddress: "Dirección",
@@ -1231,6 +1234,7 @@ const zh: Strings = {
   hiddenFromMembers: "{count} 项对成员隐藏",
   exitPreview: "退出",
   contact: "联系方式",
+  saveContact: "保存联系人",
   fromGroup: "来自 {name}",
   shareCta: "与 {name} 分享你的信息",
   typeAddress: "地址",
