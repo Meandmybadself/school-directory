@@ -1564,6 +1564,7 @@ const so: Strings = {
   hiddenFromMembers: "{count} ayaa laga qariyay xubnaha",
   exitPreview: "Ka bax horudhaca",
   contact: "Xiriir",
+  saveContact: "Kaydi xiriirka",
   fromGroup: "laga helay {name}",
   shareCta: "Xogtaada la wadaag {name}",
   homeLabel: "Ciwaanka Guriga",
