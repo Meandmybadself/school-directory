@@ -182,6 +182,23 @@ export function Event() {
         {isAdmin && event.seriesId && (
           <Btn kind="secondary" icon="pencil" onClick={() => setEditing(true)}>Edit event</Btn>
         )}
+        {/* The only route to a sheet that is still a DRAFT. The volunteer block
+            below renders solely off `volunteerSlug`, which the server resolves
+            with `published_at IS NOT NULL`, so an unpublished sheet is invisible
+            on this page to admin and member alike — leaving no way to reach one
+            but typing /v/:slug from memory. Points at the same screen the admin
+            event list does, which picks the occurrence before showing positions
+            (sheets are per-DATE — invariant 8). Shown whether or not a sheet
+            exists: with none, that screen is also where you create one. */}
+        {isAdmin && event.seriesId && (
+          <Btn
+            kind="secondary"
+            icon="members"
+            onClick={() => navigate(`/admin/events/${event.seriesId}/volunteers`)}
+          >
+            Volunteer signups
+          </Btn>
+        )}
       </div>
 
       {/* Present only when this occurrence has a PUBLISHED sheet — the server
