@@ -12,11 +12,31 @@ describe("buildVCard", () => {
     expect(lines).toContain("END:VCARD");
   });
 
-  it("withholds the family name when the viewer isn't a controller", () => {
-    // A member sees "Dana R." and no lastName; N carries the given name only.
+  it("recovers a visible surname from displayName when lastName isn't provided", () => {
+    // The profile view fetches a member's-eye DTO with no raw lastName, but a
+    // "full" last-name display still shows the surname in displayName — it must
+    // reach N, not be dropped.
+    const out = buildVCard({ fullName: "Dana Ruiz", firstName: "Dana", lastName: null, contacts: [] });
+    expect(out).toContain("N:Ruiz;Dana;;;");
+    expect(out).toContain("FN:Dana Ruiz");
+  });
+
+  it("carries an initials-only display name through as shown", () => {
+    // A member who only sees "Dana R." saves exactly that — the trailing part is
+    // an initial, and that is what's available.
     const out = buildVCard({ fullName: "Dana R.", firstName: "Dana", lastName: null, contacts: [] });
-    expect(out).toContain("N:;Dana;;;");
+    expect(out).toContain("N:R.;Dana;;;");
     expect(out).toContain("FN:Dana R.");
+  });
+
+  it("leaves the family name empty when only a given name is available", () => {
+    const out = buildVCard({ fullName: "Dana", firstName: "Dana", lastName: null, contacts: [] });
+    expect(out).toContain("N:;Dana;;;");
+  });
+
+  it("prefers an explicit lastName over deriving from displayName", () => {
+    const out = buildVCard({ fullName: "Dana R.", firstName: "Dana", lastName: "Ruiz", contacts: [] });
+    expect(out).toContain("N:Ruiz;Dana;;;");
   });
 
   it("maps each contact type to the right property", () => {

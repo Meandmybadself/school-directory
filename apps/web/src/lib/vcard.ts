@@ -49,13 +49,32 @@ function adrType(label: string | null): string {
   return "HOME";
 }
 
+/** Recover the family name from the display name when it isn't provided
+ *  explicitly. The profile view fetches a member's-eye DTO, which omits the raw
+ *  `lastName` field — but `displayName` is already last-name-rule-applied for the
+ *  viewer ("Dana Ruiz", "Dana R.", or just "Dana"), so whatever surname the
+ *  viewer is allowed to see is exactly its trailing part after the given name.
+ *  Deriving from it keeps the card honest: a full surname lands in N, a
+ *  members-see-an-initial name yields the initial, a withheld one yields "". */
+function deriveFamilyName(fullName: string, firstName: string): string {
+  const full = fullName.trim();
+  const first = firstName.trim();
+  if (first && full.toLowerCase().startsWith(first.toLowerCase())) {
+    return full.slice(first.length).trim();
+  }
+  return "";
+}
+
 /** Build the vCard text. Pure and deterministic (no timestamp), so it can be
  *  unit-tested. Lines are CRLF-joined as the spec requires. */
 export function buildVCard(input: VCardInput): string {
   const lines: string[] = ["BEGIN:VCARD", "VERSION:3.0"];
 
-  // N is structured: Family;Given;Additional;Prefix;Suffix.
-  lines.push(`N:${esc(input.lastName ?? "")};${esc(input.firstName)};;;`);
+  // N is structured: Family;Given;Additional;Prefix;Suffix. Prefer an explicit
+  // lastName; otherwise recover it from the (already privacy-applied) display
+  // name so a visible surname isn't dropped from the saved contact.
+  const family = (input.lastName ?? "").trim() || deriveFamilyName(input.fullName, input.firstName);
+  lines.push(`N:${esc(family)};${esc(input.firstName)};;;`);
   lines.push(`FN:${esc(input.fullName)}`);
 
   for (const c of input.contacts) {
