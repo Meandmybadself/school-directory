@@ -2,7 +2,7 @@
 // 4-up Neighbors row and the groups list.
 import { useEffect, useState, type ReactNode } from "react";
 import { useNavigate } from "react-router-dom";
-import { htmlToText, type CalendarEventDTO, type GroupSummaryDTO, type NeighborsResponse, type PersonProfileDTO, type PublicNewsletterIssueSummaryDTO } from "@sd/shared";
+import { eventPath, htmlToText, type CalendarEventDTO, type GroupSummaryDTO, type NeighborsResponse, type PersonProfileDTO, type PublicNewsletterIssueSummaryDTO } from "@sd/shared";
 import { Icon } from "../components/Icon.js";
 import { Btn } from "../components/atoms.js";
 import type { I18nT } from "../i18n/index.js";
@@ -113,23 +113,32 @@ function EventsSection({ events }: { events: CalendarEventDTO[] | null }) {
         {t("upcomingEvents")}
       </SectLabel>
       <div className="sd-card" style={{ marginTop: 9, padding: 12, display: "flex", flexWrap: "wrap", gap: 8, maxHeight: GRID_MAX_H, overflow: "hidden" }}>
-        {events.map((e) => <HomeEventRow key={e.id} e={e} locale={locale} t={t} onClick={openCalendar} />)}
+        {events.map((e) => <HomeEventRow key={e.id} e={e} locale={locale} t={t} />)}
       </div>
     </div>
   );
 }
 
-function HomeEventRow({ e, locale, t, onClick }: { e: CalendarEventDTO; locale: string; t: I18nT; onClick: () => void }) {
+/** A tapped event opens its own page on the calendar site, not the calendar
+ *  home. `eventPath` mints the `/e/:date/:slug` content identity in the reader's
+ *  own timezone, matching the day shown on the card (invariant 8). It's a
+ *  cross-origin hop to the calendar app, so `?lang=` carries the reader's
+ *  language along (the calendar is a separate origin and would otherwise
+ *  re-detect it). */
+function eventHref(e: CalendarEventDTO, locale: string): string {
+  return `${CALENDAR_APP_URL}${eventPath(e)}?lang=${encodeURIComponent(locale)}`;
+}
+
+function HomeEventRow({ e, locale, t }: { e: CalendarEventDTO; locale: string; t: I18nT }) {
   const d = new Date(e.start);
   const dateLabel = formatEventDay(e, locale, { weekday: "short", month: "short", day: "numeric" });
   const timeLabel = e.allDay ? t("allDay") : d.toLocaleTimeString(locale, { hour: "numeric", minute: "2-digit" });
   const showTime = e.allDay ? showsAllDayLabel(e) : true;
   const ellipsis = { overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } as const;
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      style={{ flex: "1 1 200px", minWidth: 0, height: CARD_H, overflow: "hidden", display: "flex", gap: 9, alignItems: "flex-start", border: "1px solid var(--line)", borderRadius: 10, background: "var(--paper)", padding: "9px 11px", textAlign: "left", font: "inherit", cursor: "pointer" }}
+    <a
+      href={eventHref(e, locale)}
+      style={{ flex: "1 1 200px", minWidth: 0, height: CARD_H, overflow: "hidden", display: "flex", gap: 9, alignItems: "flex-start", border: "1px solid var(--line)", borderRadius: 10, background: "var(--paper)", padding: "9px 11px", textAlign: "left", font: "inherit", cursor: "pointer", textDecoration: "none", color: "inherit" }}
     >
       <span style={{ width: 4, alignSelf: "stretch", borderRadius: 4, background: e.source.color, flex: "0 0 auto" }} />
       <div style={{ minWidth: 0, flex: 1 }}>
@@ -139,7 +148,7 @@ function HomeEventRow({ e, locale, t, onClick }: { e: CalendarEventDTO; locale: 
         )}
         <div className="sd-meta" style={ellipsis}>{dateLabel}{showTime ? ` · ${timeLabel}` : ""}{e.location ? ` · ${e.location}` : ""}</div>
       </div>
-    </button>
+    </a>
   );
 }
 
