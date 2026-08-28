@@ -18,10 +18,22 @@ export function haversineMiles(
   return EARTH_MILES * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
-/** "~0.4 mi" — rounded so it never reveals an exact location. */
+/** Band width for a reported neighbour distance, in miles. Deliberately coarse:
+ *  a member controls their own address, so they can move it, re-read
+ *  /home/neighbors and repeat — three readings trilaterate a discoverable
+ *  neighbour to roughly the band width. At 0.1 mi that was ~160 m, which is a
+ *  house; a quarter mile is a neighbourhood, which is all "who lives near me"
+ *  ever needed to answer. */
+const DISTANCE_BAND_MILES = 0.25;
+
+/** "~0.25 mi" — snapped to a band so it locates a neighbourhood, never a home.
+ *  (This used to branch on `miles < 1` with two identical arms, which decided
+ *  nothing; the band is the rule that branch was reaching for.) */
 export function approxDistance(miles: number): string {
-  const rounded = miles < 1 ? Math.round(miles * 10) / 10 : Math.round(miles * 10) / 10;
-  return `~${rounded.toFixed(1)} mi`;
+  const rounded = Math.round(miles / DISTANCE_BAND_MILES) * DISTANCE_BAND_MILES;
+  // Never claim "~0.00 mi" — the nearest band still means "very close by".
+  const banded = Math.max(DISTANCE_BAND_MILES, rounded);
+  return `~${banded.toFixed(2)} mi`;
 }
 
 /** Server-side static-map URL for coords. Uses a configured provider template

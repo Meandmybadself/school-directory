@@ -264,6 +264,9 @@ export interface Strings {
   removeMemberLastAdmin: string;
   removeMemberFailed: string;
   confirmRemove: string;
+  appErrorTitle: string;
+  appErrorBody: string;
+  appErrorReload: string;
   adminManages: string; // uses {name}
   teacherRuns: string; // uses {name}
   newGroup: string;
@@ -691,6 +694,9 @@ const en: Strings = {
   removeMemberLastAdmin: "Make someone else an admin first.",
   removeMemberFailed: "Couldn't remove them from the group.",
   confirmRemove: "Yes, remove",
+  appErrorTitle: "This screen stopped working",
+  appErrorBody: "Something went wrong on our side. Reloading usually fixes it — nothing you entered was sent.",
+  appErrorReload: "Reload",
 
   capParent: "Parent",
   capTeacher: "Teacher",
@@ -984,6 +990,9 @@ const es: Strings = {
   removeMemberLastAdmin: "Primero nombra administrador a otra persona.",
   removeMemberFailed: "No se pudo quitar a esta persona del grupo.",
   confirmRemove: "Sí, quitar",
+  appErrorTitle: "Esta pantalla dejó de funcionar",
+  appErrorBody: "Algo falló de nuestro lado. Recargar suele solucionarlo; no se envió nada de lo que escribiste.",
+  appErrorReload: "Recargar",
   members: "Miembros",
   manage: "Gestionar",
 
@@ -1312,6 +1321,9 @@ const zh: Strings = {
   removeMemberLastAdmin: "请先指定另一位管理员。",
   removeMemberFailed: "无法将该成员移出群组。",
   confirmRemove: "确认移出",
+  appErrorTitle: "此页面已停止运行",
+  appErrorBody: "我们这边出了问题。重新加载通常即可解决——您输入的内容并未发送。",
+  appErrorReload: "重新加载",
   members: "成员",
   manage: "管理",
 
@@ -1737,6 +1749,9 @@ const so: Strings = {
   removeMemberLastAdmin: "Marka hore qof kale maamule ka dhig.",
   removeMemberFailed: "Lagama saari karin kooxda.",
   confirmRemove: "Haa, ka saar",
+  appErrorTitle: "Shaashaddan way joogsatay",
+  appErrorBody: "Wax baa naga khaldamay. Dib-u-cusboonaysiintu badanaa way hagaajisaa — waxaad qortay lama dirin.",
+  appErrorReload: "Dib u cusboonaysii",
 
   capParent: "Waalid",
   capTeacher: "Macallin",

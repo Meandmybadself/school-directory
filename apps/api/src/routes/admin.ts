@@ -5,6 +5,7 @@ import { Hono } from "hono";
 import type { AuditEntryDTO, BulkImportRow, CalendarSourceDTO, CalendarSourceInput, GroupKind } from "@sd/shared";
 import type { Env, HonoEnv } from "../env.js";
 import { requireAuth } from "../middleware/session.js";
+import { verifyAuditChain } from "../lib/audit.js";
 import { runBulkImport } from "../lib/bulkImport.js";
 import { refreshSource, refreshAllSources } from "../lib/calendar.js";
 import { randomSessionId, randomToken, sha256 } from "../lib/crypto.js";
@@ -374,6 +375,27 @@ admin.post("/bulk-import", async (c) => {
     });
   }
   return c.json(result);
+});
+
+/**
+ * GET /admin/audit/verify?limit= — re-derive the hash chain (invariant 5).
+ *
+ * The chain was written from the start and read by nothing, which made the
+ * tamper evidence a claim rather than a check — and hid the fork that migration
+ * 0016 fixes. This is that check. It walks the log, re-hashes every row and
+ * reports the positions that don't reconcile: a `hash` break means a row's
+ * contents were altered, a `link` break means its parent doesn't match, a `gap`
+ * means a row was removed.
+ *
+ * Registered ABOVE `/audit` so Hono doesn't route "verify" into that handler's
+ * query-string world. Cheap enough to run by hand after anything alarming; not
+ * on a cron, because nobody reads a green cron.
+ */
+admin.get("/audit/verify", async (c) => {
+  const auth = requireAuth(c);
+  if (!auth.isSystemAdmin) return c.json({ error: "forbidden" }, 403);
+  const limit = Number.parseInt(c.req.query("limit") ?? "5000", 10) || 5000;
+  return c.json(await verifyAuditChain(c.env, { limit }));
 });
 
 /** GET /admin/audit?action=&limit=&before= — append-only audit log (FR-32). */

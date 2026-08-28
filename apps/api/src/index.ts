@@ -12,7 +12,7 @@ import {
   sweepExpiredConfirmations,
 } from "./lib/notify.js";
 import { contextMiddleware } from "./middleware/context.js";
-import { sessionMiddleware, UnauthorizedError } from "./middleware/session.js";
+import { requireAuth, sessionMiddleware, UnauthorizedError } from "./middleware/session.js";
 import { auditMiddleware } from "./middleware/audit.js";
 import { auth } from "./routes/auth.js";
 import { me } from "./routes/me.js";
@@ -83,9 +83,15 @@ app.post("/control-invites/:id/accept", (c) =>
   c.json({ error: "use_magic_link" }, 400),
 );
 
-// Profile photo serving (R2). Signed/time-limited URLs land in M2; for now a
-// controller-agnostic passthrough of the object if it exists.
+// Profile photo serving (R2). MEMBERS ONLY — these are photographs of children,
+// and an unguessable key is not an access rule: a URL in a cache, a referrer or
+// a screenshot would make one permanently public, with no way to revoke it short
+// of replacing the photo. `sd_session` is host-only to this API and every SPA is
+// a same-site subdomain, so an ordinary <img src> carries the cookie under
+// SameSite=Lax and needs no crossorigin attribute. Still `private` in the cache
+// header: the response varies by who asked.
 app.get("/photos/:key", async (c) => {
+  requireAuth(c);
   const obj = await c.env.PHOTOS.get(c.req.param("key"));
   if (!obj) return c.notFound();
   const headers = new Headers();

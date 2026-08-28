@@ -7,7 +7,7 @@ import { Hono } from "hono";
 import type { Capability, PersonSummaryDTO } from "@sd/shared";
 import type { HonoEnv } from "../env.js";
 import { requireAuth } from "../middleware/session.js";
-import { displayName } from "../lib/privacy.js";
+import { displayName, personSearchSql } from "../lib/privacy.js";
 
 export const directory = new Hono<HonoEnv>();
 
@@ -17,7 +17,6 @@ directory.get("/", async (c) => {
   const auth = requireAuth(c);
   const q = (c.req.query("q") ?? "").trim().toLowerCase();
   const offset = Math.max(0, Number.parseInt(c.req.query("offset") ?? "0", 10) || 0);
-  const like = `%${q}%`;
 
   // Persons the viewer controls (they see their own full names).
   const controlledRows = await c.env.DB.prepare("SELECT person_id FROM control WHERE user_id = ?")
@@ -25,10 +24,12 @@ directory.get("/", async (c) => {
     .all<{ person_id: string }>();
   const controlled = new Set(controlledRows.results.map((r) => r.person_id));
 
-  const whereSql = q
-    ? "WHERE lower(first_name) LIKE ? OR lower(coalesce(last_name,'')) LIKE ?"
-    : "";
-  const whereBinds = q ? [like, like] : [];
+  // Searching a surname the viewer isn't allowed to READ would confirm it by
+  // omission, so the predicate carries the display rule. Both statements below
+  // use it — the COUNT leaks the same bit as the page does.
+  const search = personSearchSql(q, auth.userId);
+  const whereSql = q ? `WHERE ${search.sql}` : "";
+  const whereBinds = search.binds;
 
   const totalRow = await c.env.DB.prepare(`SELECT COUNT(*) AS n FROM person ${whereSql}`)
     .bind(...whereBinds)

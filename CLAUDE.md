@@ -163,6 +163,18 @@ All three SPAs are separate Cloudflare Pages projects talking to the single
    are identical whether or not the email exists.
 5. **All mutating routes push audit drafts** to `c.var.audit`; the audit
    middleware persists them (hash-chained). Don't write `audit_log` directly.
+   The append is a **compare-and-swap on `seq`** (migration 0016), not a
+   read-then-write: reading the tail and inserting a successor are two
+   statements with no transaction between them, and the flush runs inside
+   `waitUntil`, so concurrent requests really did both chain onto row N and fork
+   the chain into a tree. A writer claims a position, `ON CONFLICT (seq) DO
+   NOTHING` rejects the loser, and it re-reads and chains onto the winner.
+   Exhausting the retry budget DROPS an entry, which is worse than the fork —
+   that is why the budget is 25 with jittered backoff and not a token 3.
+   `verifyAuditChain` is the other half: `prev_hash`/`row_hash` were written and
+   read by nothing for a long time, which is exactly why the fork went unnoticed
+   — a hash nobody checks is not evidence. It's exposed at
+   `GET /admin/audit/verify`. Rows appended before 0016 may legitimately fail it.
 6. **UI copy comes from `@sd/shared` i18n dictionaries** — never hardcode user-
    facing English in a component. Member-entered content is never translated.
 7. **IDs are ULIDs** (`lib/ids.ts`); timestamps are ISO-8601 UTC strings.
@@ -349,6 +361,46 @@ All three SPAs are separate Cloudflare Pages projects talking to the single
    member, because it belongs to the school. `audit_log` is never deleted for
    anyone: it is append-only and hash-chained (invariant 5), so dropping rows
    both breaks tamper-evidence and erases the record of what the account did.
+
+18. **A search may not match on more than it renders.** `person.last_name` is
+   shown as an initial when `last_name_visibility = 'initial'`, and a naked
+   `lower(last_name) LIKE ?` handed that back as an oracle: type "ruiz", see
+   whether Dana R. comes back, and the hidden surname is confirmed — with
+   `COUNT(*)` over the same WHERE leaking it before a row is even built. Every
+   name search therefore goes through **`personSearchSql`**
+   (`apps/api/src/lib/privacy.ts`), which conjoins the surname term with the
+   display rule plus the controller exemption. It backs the directory listing
+   AND its total, the share-target picker and the group add-member picker; there
+   is deliberately no second copy of that predicate. Group admin is authority
+   over a roster, not over a name, so the pickers get no exemption.
+   `test/privacyRoutes.test.ts` asserts all four statements carry the guard.
+   The same rule generalises: before adding a search, ask what the response
+   withholds, and make sure the WHERE withholds it too.
+
+19. **The two ways in from an email are read-only GETs.** Mail scanners and
+   "safe links" rewriters follow every GET in a message before the recipient
+   sees it, so a GET that spends a single-use token hands the use to the scanner
+   and shows the member an expired link — on those tenants, every time.
+   Invariant 14 states this for the newsletter's confirm link; **`/auth/callback`
+   has the same shape and takes the same answer.** The GET validates the token
+   and renders one small self-contained page (`signInHandoffPage`, the only HTML
+   this API serves) whose form POSTs it back; a browser auto-submits, a scanner
+   runs no script and issues no POST. `POST /auth/callback` does all the writing,
+   and claims the token INSIDE the UPDATE (`AND consumed_at IS NULL`, checking
+   `meta.changes`) for the reason invariants 13 and 17 give.
+   `/auth/start` also carries a send budget — per address and instance-wide,
+   counted the way invariant 14 counts, with the response unchanged either way
+   so the cap is no more an oracle than the rest of the route.
+
+20. **`/photos/:key` is members-only.** It is the only route serving `PHOTOS`,
+   the objects are photographs of children, and a ULID key is not an access rule
+   — a URL in a cache, a referrer or a screenshot would make one permanently
+   public with no way to revoke it. `sd_session` is host-only to the API and
+   every SPA is a same-site subdomain, so an ordinary `<img src>` carries the
+   cookie; `fetchPhotoForVCard` already passed `credentials: "include"`. Nothing
+   anonymous serves a photo URL — `publicEventOf`, `publicSheetOf` and
+   `issuePageOf` all omit it, and newsletter images live in a separate bucket
+   (see `NEWSLETTER_MEDIA`) precisely so the public media route can't reach one.
 
 
 ## Conventions

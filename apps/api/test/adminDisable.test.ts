@@ -221,8 +221,9 @@ describe("the deletion impact report", () => {
 // ── The other half of "disabled": the front door ────────────────────────────
 
 describe("a disabled account cannot get a session", () => {
-  /** Enough of D1 for GET /auth/callback: a live token, a user who exists, and
-   *  a `disabled_at` we can flip. */
+  /** Enough of D1 for POST /auth/callback: a live token, a user who exists, and
+   *  a `disabled_at` we can flip. (The GET is the read-only handoff page now —
+   *  see the describe block below.) */
   function authEnv(disabledAt: string | null, writes: Row[]): HonoEnv["Bindings"] {
     const mk = (sql: string) => ({
       sql,
@@ -275,10 +276,15 @@ describe("a disabled account cannot get a session", () => {
       await next();
     }));
     app.route("/auth", authRoutes);
-    return app.request("/auth/callback?t=sometoken", {}, env, {
-      waitUntil() {},
-      passThroughOnException() {},
-    } as unknown as ExecutionContext);
+    return app.request(
+      "/auth/callback",
+      {
+        method: "POST",
+        body: new URLSearchParams({ t: "sometoken" }),
+      },
+      env,
+      { waitUntil() {}, passThroughOnException() {} } as unknown as ExecutionContext,
+    );
   };
 
   it("turns the magic link away, and mints no session", async () => {

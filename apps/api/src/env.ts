@@ -31,7 +31,6 @@ export interface Env {
   // secrets (may be empty in local dev)
   RESEND_API_KEY?: string;
   EMAIL_FROM?: string;
-  SESSION_SECRET?: string;
 }
 
 /** Authenticated context attached to a request after session middleware. */

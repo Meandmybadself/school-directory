@@ -7,7 +7,7 @@ import type { Context } from "hono";
 import type { CreateShareBody, ShareGranteeDTO, ShareTargetDTO } from "@sd/shared";
 import type { HonoEnv } from "../env.js";
 import { requireAuth } from "../middleware/session.js";
-import { isController } from "../lib/privacy.js";
+import { isController, personSearchSql } from "../lib/privacy.js";
 import { ulid } from "../lib/ids.js";
 import { nowIso } from "../lib/time.js";
 
@@ -111,16 +111,19 @@ shares.delete("/:id", async (c) => {
 
 /** GET /share-targets?q= — Persons + Groups the user can share with. */
 shares.get("/targets", async (c) => {
-  requireAuth(c);
+  const auth = requireAuth(c);
   const q = (c.req.query("q") ?? "").trim().toLowerCase();
   const like = `%${q}%`;
 
+  // The picker renders a last initial, so it must not MATCH on more than that
+  // for a Person set to 'initial' — see personSearchSql.
+  const search = personSearchSql(q, auth.userId);
   const people = await c.env.DB.prepare(
     `SELECT id, first_name, last_name, last_name_visibility FROM person
-     WHERE (? = '' OR lower(first_name) LIKE ? OR lower(coalesce(last_name,'')) LIKE ?)
+     WHERE ${search.sql}
      ORDER BY first_name LIMIT 25`,
   )
-    .bind(q, like, like)
+    .bind(...search.binds)
     .all<{ id: string; first_name: string; last_name: string | null; last_name_visibility: string }>();
 
   const groups = await c.env.DB.prepare(

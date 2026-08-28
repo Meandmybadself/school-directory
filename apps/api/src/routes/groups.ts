@@ -8,7 +8,7 @@ import type { Context } from "hono";
 import type { Capability, ContactItemDTO, ContactItemInput, ContactType, GroupDetailDTO, GroupMemberDTO, GroupRefDTO, GroupSummaryDTO, ShareTargetDTO, Visibility } from "@sd/shared";
 import type { HonoEnv } from "../env.js";
 import { requireAuth } from "../middleware/session.js";
-import { canSeeItem, displayName, sharesFor, viewerGroupIds, type ContactItemRow } from "../lib/privacy.js";
+import { canSeeItem, displayName, personSearchSql, sharesForMany, sharesOf, viewerGroupIds, type ContactItemRow } from "../lib/privacy.js";
 import { capabilitiesFor } from "../lib/serialize.js";
 import { loadGroupGraph, ancestors, subtree, wouldCycle } from "../lib/groupTree.js";
 import { ulid } from "../lib/ids.js";
@@ -211,9 +211,11 @@ groups.get("/:id", async (c) => {
     .all<ContactItemRow>();
 
   const vGroups = await viewerGroupIds(c.env, viewer);
+  // One query for the whole group's contact shares, not one per contact.
+  const shareMap = await sharesForMany(c.env, "contact_item", itemRows.results.map((i) => i.id));
   const contacts: ContactItemDTO[] = [];
   for (const item of itemRows.results) {
-    const shares = await sharesFor(c.env, "contact_item", item.id);
+    const shares = sharesOf(shareMap, item.id);
     // Direct members (and admins) see all of the group's own contacts; everyone
     // else — including descendant-only members — sees service-visibility ones
     // plus anything explicitly shared with them (ancestor-group shares roll down
@@ -258,21 +260,50 @@ groups.get("/:id", async (c) => {
     .filter((r): r is { id: string; name: string; kind: GroupRefDTO["kind"] } => !!r)
     .map((r) => ({ id: r.id, name: r.name, kind: r.kind }));
 
+  // Immediate sub-groups, in two queries rather than two PER CHILD. The edge set
+  // is already in memory from loadGroupGraph, so each child's subtree is known
+  // without asking; the counts come back as one grouped query over the union,
+  // and are re-summed per child in memory. A Person in two of a child's
+  // descendants is counted once, which is what COUNT(DISTINCT) did before.
   const childIds = graph.childrenOf.get(groupId) ?? [];
   const children: GroupSummaryDTO[] = [];
-  for (const cid of childIds) {
-    const cg = await c.env.DB.prepare("SELECT id, kind, name, parent_id FROM grp WHERE id = ?")
-      .bind(cid)
-      .first<{ id: string; kind: GroupSummaryDTO["kind"]; name: string; parent_id: string | null }>();
-    if (!cg) continue;
-    // Each child's roll-up count includes its own descendants.
-    const sub = subtree(graph.childrenOf, cid);
-    const cnt = await c.env.DB.prepare(
-      `SELECT COUNT(DISTINCT person_id) AS n FROM membership WHERE group_id IN (${sub.map(() => "?").join(",")})`,
-    )
-      .bind(...sub)
-      .first<{ n: number }>();
-    children.push({ id: cg.id, kind: cg.kind, name: cg.name, memberCount: cnt?.n ?? 0, parentId: cg.parent_id });
+  if (childIds.length) {
+    const subtreeOf = new Map(childIds.map((cid) => [cid, subtree(graph.childrenOf, cid)]));
+    const allSubtreeIds = [...new Set([...subtreeOf.values()].flat())];
+
+    const [childRows, memberRowsForChildren] = await Promise.all([
+      c.env.DB.prepare(
+        `SELECT id, kind, name, parent_id FROM grp WHERE id IN (${childIds.map(() => "?").join(",")})`,
+      )
+        .bind(...childIds)
+        .all<{ id: string; kind: GroupSummaryDTO["kind"]; name: string; parent_id: string | null }>(),
+      c.env.DB.prepare(
+        `SELECT group_id, person_id FROM membership
+          WHERE group_id IN (${allSubtreeIds.map(() => "?").join(",")})`,
+      )
+        .bind(...allSubtreeIds)
+        .all<{ group_id: string; person_id: string }>(),
+    ]);
+
+    const membersByGroup = new Map<string, string[]>();
+    for (const r of memberRowsForChildren.results) {
+      const arr = membersByGroup.get(r.group_id) ?? [];
+      arr.push(r.person_id);
+      membersByGroup.set(r.group_id, arr);
+    }
+
+    const byId = new Map(childRows.results.map((r) => [r.id, r]));
+    // childIds order is the graph's, which is insertion order — keep it rather
+    // than whatever order the IN (…) happened to return.
+    for (const cid of childIds) {
+      const cg = byId.get(cid);
+      if (!cg) continue;
+      const people = new Set<string>();
+      for (const gid of subtreeOf.get(cid) ?? []) {
+        for (const pid of membersByGroup.get(gid) ?? []) people.add(pid);
+      }
+      children.push({ id: cg.id, kind: cg.kind, name: cg.name, memberCount: people.size, parentId: cg.parent_id });
+    }
   }
 
   const dto: GroupDetailDTO = {
@@ -590,14 +621,16 @@ groups.get("/:id/candidates", async (c) => {
   if (typeof admin !== "string") return admin;
 
   const q = (c.req.query("q") ?? "").trim().toLowerCase();
-  const like = `%${q}%`;
+  // Candidates render as a last initial, so the search must not match on more
+  // than the viewer may read — see personSearchSql.
+  const search = personSearchSql(q, requireAuth(c).userId);
   const rows = await c.env.DB.prepare(
     `SELECT id, first_name, last_name FROM person
      WHERE id NOT IN (SELECT person_id FROM membership WHERE group_id = ?)
-       AND (? = '' OR lower(first_name) LIKE ? OR lower(coalesce(last_name,'')) LIKE ?)
+       AND ${search.sql}
      ORDER BY first_name LIMIT 25`,
   )
-    .bind(groupId, q, like, like)
+    .bind(groupId, ...search.binds)
     .all<{ id: string; first_name: string; last_name: string | null }>();
   const targets: ShareTargetDTO[] = rows.results.map((p) => ({
     kind: "person",
@@ -615,10 +648,14 @@ groups.post("/:id/members", async (c) => {
   const body = await c.req.json<{ personId: string; title?: string; isAdmin?: boolean }>().catch(() => null);
   if (!body?.personId) return c.json({ error: "invalid_body" }, 400);
 
+  // The conflict clause carries is_admin too. Without it the route accepted an
+  // isAdmin it then silently dropped for anyone already in the group, so the
+  // same call meant two different things depending on prior membership.
   await c.env.DB.prepare(
     `INSERT INTO membership (group_id, person_id, title, is_admin, joined_at)
      VALUES (?,?,?,?,?)
-     ON CONFLICT (group_id, person_id) DO UPDATE SET title = excluded.title`,
+     ON CONFLICT (group_id, person_id) DO UPDATE
+       SET title = excluded.title, is_admin = excluded.is_admin`,
   )
     .bind(groupId, body.personId, body.title ?? null, body.isAdmin ? 1 : 0, nowIso())
     .run();

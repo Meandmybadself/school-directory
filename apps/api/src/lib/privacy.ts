@@ -118,22 +118,92 @@ export function displayName(
   return ln ? `${firstName} ${ln}` : firstName;
 }
 
-/** Shares grouped by target kind for one subject (contact item or field ref). */
-export async function sharesFor(
+/** What one subject is shared with. The shape `canSeeItem` consumes. */
+export interface ShareSet {
+  persons: Set<string>;
+  groups: Set<string>;
+  count: number;
+}
+
+const EMPTY_SHARES: ShareSet = { persons: new Set(), groups: new Set(), count: 0 };
+
+/**
+ * Shares for MANY subjects in one round trip, keyed by subject ref.
+ *
+ * This replaced a per-subject query, which was fine for one and quietly
+ * expensive for a profile: a member with eight contacts plus their household's
+ * paid eight sequential D1 round trips before the DTO existed. Same batching the
+ * capability lookups next door already do — collect the ids, one `IN (…)`, fan
+ * the rows back out. There is deliberately no single-subject variant left to
+ * reach for.
+ *
+ * Missing keys read as "shared with nobody" via `sharesOf`, so a caller never
+ * has to distinguish "no shares" from "not in the map".
+ */
+export async function sharesForMany(
   env: Env,
   subjectKind: "contact_item" | "field",
-  subjectRef: string,
-): Promise<{ persons: Set<string>; groups: Set<string>; count: number }> {
+  subjectRefs: string[],
+): Promise<Map<string, ShareSet>> {
+  const out = new Map<string, ShareSet>();
+  if (!subjectRefs.length) return out;
+  const refs = [...new Set(subjectRefs)];
   const rows = await env.DB.prepare(
-    "SELECT target_kind, target_id FROM share WHERE subject_kind = ? AND subject_ref = ?",
+    `SELECT subject_ref, target_kind, target_id FROM share
+      WHERE subject_kind = ? AND subject_ref IN (${refs.map(() => "?").join(",")})`,
   )
-    .bind(subjectKind, subjectRef)
-    .all<{ target_kind: string; target_id: string }>();
-  const persons = new Set<string>();
-  const groups = new Set<string>();
+    .bind(subjectKind, ...refs)
+    .all<{ subject_ref: string; target_kind: string; target_id: string }>();
+
   for (const r of rows.results) {
-    if (r.target_kind === "person") persons.add(r.target_id);
-    else if (r.target_kind === "group") groups.add(r.target_id);
+    let entry = out.get(r.subject_ref);
+    if (!entry) {
+      entry = { persons: new Set<string>(), groups: new Set<string>(), count: 0 };
+      out.set(r.subject_ref, entry);
+    }
+    if (r.target_kind === "person") entry.persons.add(r.target_id);
+    else if (r.target_kind === "group") entry.groups.add(r.target_id);
+    entry.count++;
   }
-  return { persons, groups, count: rows.results.length };
+  return out;
+}
+
+/** Read one subject out of a `sharesForMany` map, defaulting to no shares. */
+export function sharesOf(map: Map<string, ShareSet>, subjectRef: string): ShareSet {
+  return map.get(subjectRef) ?? EMPTY_SHARES;
+}
+
+
+/**
+ * Search predicate over `person` that respects the last-name display rule.
+ *
+ * A naked `lower(last_name) LIKE ?` is an oracle: the response renders a Person
+ * set to `initial` as "Dana R.", but matching on the stored surname lets any
+ * member confirm it by typing "ruiz" and seeing whether the row comes back — and
+ * `COUNT(*)` over the same WHERE leaks it before a row is even built. So the
+ * surname term is conjoined with the display rule, with the same controller
+ * exemption `renderLastName` grants: you may always search names you own.
+ *
+ * First names carry no display rule, so they match unconditionally. The initial
+ * itself is public, and a single letter matches through the first-name term
+ * anyway, so nothing a member can already see becomes harder to find.
+ *
+ * Returns a parenthesised boolean expression safe to AND into any WHERE over
+ * `person`, plus its binds. An empty query matches everything ("1"), which is
+ * what every call site wants for an unfiltered list.
+ */
+export function personSearchSql(
+  q: string,
+  viewerUserId: string,
+): { sql: string; binds: unknown[] } {
+  if (!q) return { sql: "1", binds: [] };
+  const like = `%${q}%`;
+  return {
+    sql:
+      `(lower(first_name) LIKE ?` +
+      ` OR (lower(coalesce(last_name,'')) LIKE ?` +
+      `     AND (last_name_visibility = 'full'` +
+      `          OR id IN (SELECT person_id FROM control WHERE user_id = ?))))`,
+    binds: [like, like, viewerUserId],
+  };
 }

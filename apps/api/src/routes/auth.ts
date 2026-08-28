@@ -24,6 +24,19 @@ export const auth = new Hono<HonoEnv>();
 
 const SESSION_TTL_SECONDS = Math.floor(SESSION_TTL / 1000);
 
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+/** Magic links one address may be sent per rolling day. A member who mistypes,
+ *  loses the mail, or clicks "resend" a few times stays well under it. */
+const SIGNIN_EMAILS_PER_DAY = 5;
+
+/** Magic links the whole instance may send per rolling day. `/auth/start` is
+ *  anonymous, so without a ceiling anyone can point a loop at it and mail a
+ *  member — or the whole roster — arbitrarily many sign-in links, on our Resend
+ *  quota. Sized for a school: a genuine sign-in wave (a newsletter going out,
+ *  back-to-school night) is dozens, not hundreds. */
+const SIGNIN_EMAILS_PER_DAY_TOTAL = 300;
+
 /** POST /auth/start — issue a magic link, or silently no-op. Always 200. */
 auth.post("/start", async (c) => {
   const body = await c.req.json<AuthStartBody>().catch(() => null);
@@ -39,7 +52,35 @@ auth.post("/start", async (c) => {
   // bare system with no users yet), so the instance is never locked out.
   const bootstrap = isBootstrapAdmin(c.env, email);
 
-  if (user || regOpen || bootstrap) {
+  // Both budgets in one round trip, counted the way the newsletter's confirm cap
+  // counts (invariant 14): an `auth_token` row is written ONLY on the path that
+  // also sends, so these are SEND counts. A suppressed attempt leaves no row, so
+  // replaying the form can neither reset the budget nor grow the table. The
+  // response below is identical either way, so the cap is no more an existence
+  // oracle than the rest of this route is (invariant 4).
+  const since = new Date(Date.now() - DAY_MS).toISOString();
+  const counts = await c.env.DB.prepare(
+    `SELECT COUNT(*) AS total,
+            SUM(CASE WHEN email = ? THEN 1 ELSE 0 END) AS mine
+       FROM auth_token
+      WHERE kind = 'signin' AND created_at > ?`,
+  )
+    .bind(email, since)
+    .first<{ total: number; mine: number | null }>();
+  const overTotal = (counts?.total ?? 0) >= SIGNIN_EMAILS_PER_DAY_TOTAL;
+  const overPerAddress = (counts?.mine ?? 0) >= SIGNIN_EMAILS_PER_DAY;
+  if (overTotal) {
+    // Loud, and deliberately not per-address: this one means the sign-in form is
+    // being driven by something that isn't a family.
+    console.error(
+      `[auth] DAILY SIGN-IN CAP REACHED (${SIGNIN_EMAILS_PER_DAY_TOTAL}/day) — ` +
+        `magic links suppressed instance-wide until the window slides`,
+    );
+  } else if (overPerAddress) {
+    console.warn("[auth] magic link suppressed; daily cap reached for one address");
+  }
+
+  if ((user || regOpen || bootstrap) && !overTotal && !overPerAddress) {
     const token = randomToken();
     const tokenHash = await sha256(token);
     // Which app started this sign-in, so the callback returns the member there
@@ -72,9 +113,53 @@ auth.post("/start", async (c) => {
   return c.json({ ok: true });
 });
 
-/** GET /auth/callback?t=… — consume token, create session, redirect to the SPA. */
+/**
+ * GET /auth/callback?t=… — the link in the email. READ-ONLY, on purpose.
+ *
+ * Mail scanners and "safe links" rewriters (Outlook, Proofpoint, Mimecast)
+ * follow every GET in a message before the recipient ever sees it. A GET that
+ * consumed the token would hand the single use to the scanner and leave the
+ * member staring at "this link has expired" — every time, on those tenants.
+ * Invariant 14 states exactly this reasoning for the newsletter's confirm link;
+ * the sign-in door has the same shape and now takes the same shape of answer.
+ *
+ * So this renders a page whose form POSTs the token back. A real browser
+ * auto-submits it on load, which is invisible to the member; a scanner executes
+ * no script and issues no POST, so it reads a page and consumes nothing. With
+ * JavaScript off there's a button, which is also the accessible path.
+ *
+ * The token is still VALIDATED here — that's a read — so a dead link redirects
+ * straight to the sign-in screen instead of offering a button that can't work.
+ */
 auth.get("/callback", async (c) => {
   const token = c.req.query("t");
+  const fail = (origin: string = c.env.APP_URL) => c.redirect(`${origin}/sign-in?error=link`, 302);
+  if (!token) return fail();
+
+  const row = await c.env.DB.prepare(
+    "SELECT expires_at, consumed_at, return_to FROM auth_token WHERE token_hash = ?",
+  )
+    .bind(await sha256(token))
+    .first<{ expires_at: string; consumed_at: string | null; return_to: string | null }>();
+  const origin = resolveReturnTo(c.env, row?.return_to);
+  if (!row || row.consumed_at || isExpired(row.expires_at)) return fail(origin);
+
+  return c.html(signInHandoffPage(token, c.env.SCHOOL_NAME), 200, {
+    // Holding the token IS the authorization, so no shared cache may keep this.
+    "cache-control": "no-store",
+    "referrer-policy": "no-referrer",
+  });
+});
+
+/**
+ * POST /auth/callback — consume the token, create the session, redirect.
+ *
+ * Everything that used to sit behind the GET. Same-origin form post from the
+ * page above, so the Lax session cookie set here rides back to the SPA normally.
+ */
+auth.post("/callback", async (c) => {
+  const form = await c.req.parseBody().catch(() => null);
+  const token = typeof form?.t === "string" ? form.t : c.req.query("t");
   // Before the token is loaded there's nothing to tell us which app started the
   // sign-in, so a missing token falls back to APP_URL as it always has.
   const fail = (origin: string = c.env.APP_URL) => c.redirect(`${origin}/sign-in?error=link`, 302);
@@ -103,10 +188,17 @@ auth.get("/callback", async (c) => {
   const appOrigin = resolveReturnTo(c.env, row?.return_to);
   if (!row || row.consumed_at || isExpired(row.expires_at)) return fail(appOrigin);
 
-  // Single-use: mark consumed immediately.
-  await c.env.DB.prepare("UPDATE auth_token SET consumed_at = ? WHERE id = ?")
+  // Single-use, enforced INSIDE the statement. The read above is a fast path, not
+  // the guard: D1 has no transaction around a read-then-write, so two clicks
+  // landing together would both pass it and both mint a session. Same reasoning
+  // as the overfill guard in lib/volunteers.ts and the last-admin guard in
+  // routes/admin.ts — whoever's UPDATE reports a changed row owns the token.
+  const claimed = await c.env.DB.prepare(
+    "UPDATE auth_token SET consumed_at = ? WHERE id = ? AND consumed_at IS NULL",
+  )
     .bind(nowIso(), row.id)
     .run();
+  if (!claimed.meta.changes) return fail(appOrigin);
 
   // Find or create the user. Bootstrap-admin emails always create + are granted
   // system_admin, even when registration is closed (initial-setup path).
@@ -184,6 +276,68 @@ auth.get("/callback", async (c) => {
 
   return c.redirect(`${appOrigin}/`, 302);
 });
+
+/**
+ * The one HTML page this API serves. Deliberately tiny and self-contained: no
+ * bundle, no fonts, no third-party anything, because it exists for the
+ * fraction of a second between the member's click and the redirect into the app.
+ *
+ * The form is the mechanism, not the decoration — see GET /auth/callback. It
+ * auto-submits, so what a member actually sees is a flash of the school's name;
+ * the button is what's left when scripting is off, and it is a real, focusable
+ * control rather than a fallback nobody tested.
+ *
+ * The token is echoed into a hidden input, so it must be escaped: it is
+ * URL-safe base64 and can't contain a quote, but this is the one place
+ * attacker-supplied text meets markup, and "can't" is not a thing to rely on.
+ */
+function signInHandoffPage(token: string, school: string): string {
+  const esc = (v: string) =>
+    v.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+  return `<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>Signing you in…</title>
+<style>
+  :root { color-scheme: light dark; }
+  body {
+    margin: 0; min-height: 100vh;
+    display: flex; align-items: center; justify-content: center;
+    font: 16px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+    background: #F4F6F8; color: #1F2933; text-align: center; padding: 24px;
+  }
+  main { max-width: 22rem; }
+  h1 { font-size: 1.25rem; font-weight: 600; margin: 0 0 .5rem; }
+  p { color: #56636F; margin: 0 0 1.5rem; }
+  button {
+    font: inherit; font-weight: 600; cursor: pointer;
+    background: #0068A8; color: #fff; border: 0;
+    border-radius: 10px; padding: .75rem 1.5rem;
+  }
+  button:focus-visible { outline: 3px solid #FAAB1C; outline-offset: 2px; }
+  @media (prefers-color-scheme: dark) {
+    body { background: #12181D; color: #E6EBEF; }
+    p { color: #A3B1BD; }
+  }
+</style>
+</head>
+<body>
+<main>
+  <h1>Signing you in…</h1>
+  <p>One moment while we open the ${esc(school)} Directory.</p>
+  <form method="POST" action="/auth/callback">
+    <input type="hidden" name="t" value="${esc(token)}">
+    <button type="submit">Continue</button>
+  </form>
+</main>
+<script>document.forms[0].submit();</script>
+</body>
+</html>`;
+}
 
 async function bindInvite(
   c: Context<HonoEnv>,

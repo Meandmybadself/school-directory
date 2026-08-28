@@ -13,7 +13,8 @@ import {
   canSeeItem,
   controllerUserIds,
   displayName,
-  sharesFor,
+  sharesForMany,
+  sharesOf,
   viewerGroupIds,
   type ContactItemRow,
   type Viewer,
@@ -127,9 +128,13 @@ export async function buildProfile(
     .bind(personId)
     .all<ContactItemRow>();
 
+  // One query for every item's shares rather than one per item — the loop below
+  // used to be the dominant cost of building a profile.
+  const shareMap = await sharesForMany(env, "contact_item", itemRows.results.map((i) => i.id));
+
   const contacts: ContactItemDTO[] = [];
   for (const item of itemRows.results) {
-    const shares = await sharesFor(env, "contact_item", item.id);
+    const shares = sharesOf(shareMap, item.id);
     const visible = canSeeItem({
       viewer,
       item,
@@ -188,9 +193,11 @@ export async function buildProfile(
     .bind(personId)
     .all<ContactItemRow & { group_name: string }>();
 
+  const gcShareMap = await sharesForMany(env, "contact_item", gcRows.results.map((i) => i.id));
+
   const groupContacts: ContactItemDTO[] = [];
   for (const item of gcRows.results) {
-    const shares = await sharesFor(env, "contact_item", item.id);
+    const shares = sharesOf(gcShareMap, item.id);
     const viewerInGroup = viewerDirectGroups.has(item.owner_id);
     const visible =
       item.visibility === "service" ||

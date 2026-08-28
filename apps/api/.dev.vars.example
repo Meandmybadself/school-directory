@@ -4,4 +4,3 @@ RESEND_API_KEY=
 # Sender address Resend is verified to send from.
 EMAIL_FROM="Eisenhower Directory <directory@example.com>"
 # Reserved for future HMAC/signing needs.
-SESSION_SECRET=dev-only-change-me

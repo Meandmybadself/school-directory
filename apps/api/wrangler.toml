@@ -71,7 +71,6 @@ crons = ["0 */3 * * *", "0 13 * * *"]
 # Secrets (set via `wrangler secret put --env production`, or .dev.vars locally):
 #   RESEND_API_KEY   — Resend email API key (magic links / invites)
 #   EMAIL_FROM       — verified Resend sender, e.g. "Eisenhower Directory <directory@…>"
-#   SESSION_SECRET   — random string reserved for HMAC needs
 
 # ── Production environment (deploy with `wrangler deploy --env production`) ──────
 # SPA:        https://directory.eisenhower.school  (Pages)
