@@ -283,6 +283,11 @@ groups.get("/:id", async (c) => {
     viewerIsAdmin,
     viewerIsMember,
     viewerCanDelete: canDeleteKind(group.kind, viewerIsAdmin, auth.isSystemAdmin),
+    // The roster is editable by whoever the member routes would let through —
+    // requireGroupAdmin, which admits a system admin who belongs to nothing.
+    // Deliberately NOT folded into viewerIsAdmin: that flag also unlocks this
+    // group's own private contacts and exact address, which stay on membership.
+    viewerCanManageMembers: viewerIsAdmin || auth.isSystemAdmin,
     members,
     contacts,
     parentId: group.parent_id,

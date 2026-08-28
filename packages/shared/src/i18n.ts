@@ -255,6 +255,15 @@ export interface Strings {
   cascadeNote: string;
   manageMembers: string;
   messageAll: string;
+  systemAdmin: string;
+  groupAdminRole: string;
+  noOneToAdd: string;
+  removeFromGroup: string;
+  removeMemberConfirm: string; // uses {name}
+  removeMemberKeepsPerson: string;
+  removeMemberLastAdmin: string;
+  removeMemberFailed: string;
+  confirmRemove: string;
   adminManages: string; // uses {name}
   teacherRuns: string; // uses {name}
   newGroup: string;
@@ -673,6 +682,15 @@ const en: Strings = {
   reparentFailed: "Couldn't move this group.",
   reparentRejected: "That group can't be the parent — pick another.",
   confirmDelete: "Yes, delete",
+  systemAdmin: "System admin",
+  groupAdminRole: "Group admin",
+  noOneToAdd: "No one left to add.",
+  removeFromGroup: "Remove from group",
+  removeMemberConfirm: "Remove {name} from this group?",
+  removeMemberKeepsPerson: "They stay in the directory and in every other group they belong to.",
+  removeMemberLastAdmin: "Make someone else an admin first.",
+  removeMemberFailed: "Couldn't remove them from the group.",
+  confirmRemove: "Yes, remove",
 
   capParent: "Parent",
   capTeacher: "Teacher",
@@ -957,6 +975,15 @@ const es: Strings = {
   reparentFailed: "No se pudo mover este grupo.",
   reparentRejected: "Ese grupo no puede ser el principal: elige otro.",
   confirmDelete: "Sí, eliminar",
+  systemAdmin: "Administrador del sistema",
+  groupAdminRole: "Administrador del grupo",
+  noOneToAdd: "No queda nadie por agregar.",
+  removeFromGroup: "Quitar del grupo",
+  removeMemberConfirm: "¿Quitar a {name} de este grupo?",
+  removeMemberKeepsPerson: "Seguirá en el directorio y en los demás grupos a los que pertenezca.",
+  removeMemberLastAdmin: "Primero nombra administrador a otra persona.",
+  removeMemberFailed: "No se pudo quitar a esta persona del grupo.",
+  confirmRemove: "Sí, quitar",
   members: "Miembros",
   manage: "Gestionar",
 
@@ -1276,6 +1303,15 @@ const zh: Strings = {
   reparentFailed: "无法移动此群组。",
   reparentRejected: "该群组不能作为上级，请选择其他群组。",
   confirmDelete: "确认删除",
+  systemAdmin: "系统管理员",
+  groupAdminRole: "群组管理员",
+  noOneToAdd: "没有可添加的人了。",
+  removeFromGroup: "移出群组",
+  removeMemberConfirm: "将 {name} 移出该群组？",
+  removeMemberKeepsPerson: "该成员仍会保留在通讯录中，以及其所属的其他群组中。",
+  removeMemberLastAdmin: "请先指定另一位管理员。",
+  removeMemberFailed: "无法将该成员移出群组。",
+  confirmRemove: "确认移出",
   members: "成员",
   manage: "管理",
 
@@ -1692,6 +1728,15 @@ const so: Strings = {
   reparentFailed: "Kooxdan lama dhaqaajin karin.",
   reparentRejected: "Kooxdaasi ma noqon karto tan sare \u2014 mid kale dooro.",
   confirmDelete: "Haa, tirtir",
+  systemAdmin: "Maamulaha nidaamka",
+  groupAdminRole: "Maamulaha kooxda",
+  noOneToAdd: "Cid lagu daro ma harin.",
+  removeFromGroup: "Ka saar kooxda",
+  removeMemberConfirm: "Ma ka saaraa {name} kooxdan?",
+  removeMemberKeepsPerson: "Wuxuu ku sii jiri doonaa tusmada iyo kooxaha kale ee uu ku jiro.",
+  removeMemberLastAdmin: "Marka hore qof kale maamule ka dhig.",
+  removeMemberFailed: "Lagama saari karin kooxda.",
+  confirmRemove: "Haa, ka saar",
 
   capParent: "Waalid",
   capTeacher: "Macallin",

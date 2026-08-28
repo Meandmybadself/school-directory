@@ -58,7 +58,7 @@ export function AddMemberSheet({ groupId, onClose, onChanged }: { groupId: strin
             <Icon name="plus" size={18} style={{ color: "var(--ink-3)" }} />
           </button>
         ))}
-        {targets.length === 0 && <div className="sd-meta" style={{ padding: "12px 0" }}>No one to add.</div>}
+        {targets.length === 0 && <div className="sd-meta" style={{ padding: "12px 0" }}>{t("noOneToAdd")}</div>}
       </div>
       <button
         type="button"
@@ -91,6 +91,7 @@ export function MemberSheet({
   const [title, setTitle] = useState(member.title ?? "");
   const [isAdmin, setIsAdmin] = useState(member.isAdmin);
   const [busy, setBusy] = useState(false);
+  const [confirming, setConfirming] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const save = async () => {
@@ -111,7 +112,9 @@ export function MemberSheet({
       onChanged();
       onClose();
     } catch (e) {
-      setError(e instanceof ApiError && e.status === 409 ? "Make someone else an admin first." : "Couldn't remove member.");
+      // 409 is the server refusing to drop a group's last admin.
+      setError(e instanceof ApiError && e.status === 409 ? t("removeMemberLastAdmin") : t("removeMemberFailed"));
+      setConfirming(false);
     } finally {
       setBusy(false);
     }
@@ -134,13 +137,43 @@ export function MemberSheet({
         style={{ gap: 10, marginTop: 14, padding: "11px 12px", background: "var(--bg-2)", borderRadius: 11, width: "100%", border: 0, font: "inherit", cursor: "pointer", textAlign: "left" }}
       >
         <Icon name="shield" size={17} style={{ color: "var(--ink-2)", flex: "0 0 auto" }} />
-        <span style={{ flex: 1, fontSize: 13.5, fontWeight: 600 }}>Group admin</span>
+        <span style={{ flex: 1, fontSize: 13.5, fontWeight: 600 }}>{t("groupAdminRole")}</span>
         <span className={`sd-toggle${isAdmin ? " on" : ""}`} />
       </button>
       <Btn block style={{ marginTop: 16 }} onClick={() => void save()} disabled={busy}>{t("save")}</Btn>
-      <button className="sd-btn sd-btn-ghost block" style={{ marginTop: 4, color: "var(--warn)" }} onClick={() => void remove()} disabled={busy}>
-        Remove from group
-      </button>
+
+      {/* Removal is a two-step, like deleting a group: the button arms a
+          confirmation that says what leaving the group does and doesn't do. */}
+      <div style={{ marginTop: 14, borderTop: "1px solid var(--line)", paddingTop: 12 }}>
+        {confirming ? (
+          <>
+            <div style={{ fontSize: 14.5, fontWeight: 700 }}>{t("removeMemberConfirm", { name: member.displayName })}</div>
+            <div className="sd-meta" style={{ marginTop: 4, lineHeight: 1.45 }}>{t("removeMemberKeepsPerson")}</div>
+            <div className="sd-row" style={{ gap: 9, marginTop: 12 }}>
+              <Btn block kind="secondary" style={{ flex: 1 }} onClick={() => setConfirming(false)} disabled={busy}>
+                {t("cancel")}
+              </Btn>
+              <button
+                className="sd-btn block"
+                style={{ flex: 1, background: "var(--warn)", color: "#fff", borderColor: "var(--warn)" }}
+                onClick={() => void remove()}
+                disabled={busy}
+              >
+                {t("confirmRemove")}
+              </button>
+            </div>
+          </>
+        ) : (
+          <button
+            className="sd-btn sd-btn-ghost block"
+            style={{ color: "var(--warn)" }}
+            onClick={() => { setError(null); setConfirming(true); }}
+            disabled={busy}
+          >
+            <Icon name="x" size={17} />{t("removeFromGroup")}
+          </button>
+        )}
+      </div>
       {error && <div className="sd-meta" style={{ color: "var(--warn)", textAlign: "center", marginTop: 6 }}>{error}</div>}
     </SheetOver>
   );

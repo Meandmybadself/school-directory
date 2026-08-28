@@ -136,6 +136,13 @@ export interface GroupDetailDTO {
    *  create the kind (generic groups are system-admin-only) plus admin rights
    *  over the group; the server owns the rule, the UI just reads it. */
   viewerCanDelete?: boolean;
+  /** True when the viewer may add, retitle and remove members. Wider than
+   *  `viewerIsAdmin`: a system admin runs every group's roster even when they
+   *  belong to none of them, which is the same authority `requireGroupAdmin`
+   *  enforces on the member routes. Kept separate because `viewerIsAdmin` also
+   *  means "you run this group" for the badge and the group-owned contacts,
+   *  which a system admin who isn't a member is not offered. */
+  viewerCanManageMembers?: boolean;
   members: GroupMemberDTO[];
   /** Group-owned contact items (e.g. household cascading address), filtered. */
   contacts: ContactItemDTO[];

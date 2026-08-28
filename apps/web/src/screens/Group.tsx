@@ -137,6 +137,14 @@ function isHousehold(g: GroupDetailDTO) {
   return g.kind === "household";
 }
 
+/** May the viewer add, retitle and remove members? Broader than `viewerIsAdmin`
+ *  — a system admin runs every roster without belonging to any group — and it is
+ *  the server that decides, so read the flag rather than re-deriving it here.
+ *  The fallback keeps an older API response rendering the way it used to. */
+function canManageMembers(g: GroupDetailDTO): boolean {
+  return g.viewerCanManageMembers ?? g.viewerIsAdmin;
+}
+
 function groupKindLabel(kind: GroupSummaryDTO["kind"], t: ReturnType<typeof useI18n>["t"]): string {
   if (kind === "household") return t("household");
   if (kind === "classroom") return t("classroom");
@@ -411,12 +419,13 @@ function MobileGroup({ g, actions }: { g: GroupDetailDTO; actions: GroupActions 
   const hh = isHousehold(g);
   const cls = g.kind === "classroom";
   const a = kindAccent(g.kind);
+  const canManage = canManageMembers(g);
   return (
     <AppShell bottomNav={<BottomNav active="groups" />}>
       <ScreenHeader
         title={groupKindLabel(g.kind, t)}
         onLeft={() => navigate("/groups")}
-        right={g.viewerIsAdmin ? <button className={`sd-btn sd-btn-${cls ? "orange" : "secondary"} sd-btn-sm`} onClick={actions.onAddMember}><Icon name="plus" size={15} />{t("addMember")}</button> : undefined}
+        right={canManage ? <button className={`sd-btn sd-btn-${cls ? "orange" : "secondary"} sd-btn-sm`} onClick={actions.onAddMember}><Icon name="plus" size={15} />{t("addMember")}</button> : undefined}
       />
       <div className="sd-scroll">
         {/* hero */}
@@ -434,6 +443,9 @@ function MobileGroup({ g, actions }: { g: GroupDetailDTO; actions: GroupActions 
           <div className="sd-row" style={{ gap: 6, marginTop: 12 }}>
             {g.viewerIsAdmin ? (
               <Tag tone={a.tagTone} icon="shield">{cls ? t("teachThisClass") : t("youreAdmin")}</Tag>
+            ) : canManage ? (
+              // A system admin isn't a member and isn't "view only" either.
+              <Tag tone={a.tagTone} icon="shield">{t("systemAdmin")}</Tag>
             ) : (
               <Tag tone="line"><Icon name="eye" size={12} stroke={2} />{cls ? t("classMember") : t("viewOnly")}</Tag>
             )}
@@ -449,7 +461,7 @@ function MobileGroup({ g, actions }: { g: GroupDetailDTO; actions: GroupActions 
           )}
 
           <div>
-            <SectLabel action={g.viewerIsAdmin ? <button className="sd-btn sd-btn-ghost sd-btn-sm" style={{ height: 24, padding: "0 4px" }} onClick={actions.onAddMember}><Icon name="plus" size={15} />{t("addMember")}</button> : undefined}>
+            <SectLabel action={canManage ? <button className="sd-btn sd-btn-ghost sd-btn-sm" style={{ height: 24, padding: "0 4px" }} onClick={actions.onAddMember}><Icon name="plus" size={15} />{t("addMember")}</button> : undefined}>
               {cls ? t("roster") : t("members")}
             </SectLabel>
             <div className="sd-card sd-card-pad" style={{ marginTop: 9, paddingTop: 4, paddingBottom: 4 }}>
@@ -462,8 +474,8 @@ function MobileGroup({ g, actions }: { g: GroupDetailDTO; actions: GroupActions 
                   tags={<MemberTags m={m} />}
                   onClick={() => navigate(`/persons/${m.personId}`)}
                   trailing={
-                    g.viewerIsAdmin ? (
-                      <button aria-label={t("setTitle")} onClick={(e) => { e.stopPropagation(); actions.onMember(m); }} style={{ width: 30, height: 30, borderRadius: 8, border: 0, background: "transparent", color: "var(--ink-3)", cursor: "pointer" }}><Icon name="dot3" size={18} /></button>
+                    canManage ? (
+                      <button aria-label={t("manage")} onClick={(e) => { e.stopPropagation(); actions.onMember(m); }} style={{ width: 30, height: 30, borderRadius: 8, border: 0, background: "transparent", color: "var(--ink-3)", cursor: "pointer" }}><Icon name="dot3" size={18} /></button>
                     ) : (
                       <Icon name="chevright" size={17} style={{ color: "var(--ink-3)" }} />
                     )
@@ -482,9 +494,13 @@ function MobileGroup({ g, actions }: { g: GroupDetailDTO; actions: GroupActions 
             <Btn block kind="secondary" icon="pencil" onClick={actions.onEditGroup}>{t("editGroup")}</Btn>
           )}
 
-          {g.viewerIsAdmin ? (
-            hh ? (
+          {canManage ? (
+            // Editing the group's OWN contact info stays with its admins: a
+            // system admin who isn't a member is served a redacted address.
+            hh && g.viewerIsAdmin ? (
               <Btn block kind="secondary" icon="pencil" onClick={actions.onEditContacts}>{t("editGroupInfo")}</Btn>
+            ) : hh ? (
+              <Btn block kind="secondary" icon="users3" onClick={actions.onAddMember}>{t("manageMembers")}</Btn>
             ) : (
               <div className="sd-row" style={{ gap: 9 }}>
                 <Btn block kind="secondary" icon="users3" style={{ flex: 1 }} onClick={actions.onAddMember}>{t("manageMembers")}</Btn>
@@ -511,6 +527,7 @@ function DesktopGroup({ g, actions }: { g: GroupDetailDTO; actions: GroupActions
   const hh = isHousehold(g);
   const cls = g.kind === "classroom";
   const a = kindAccent(g.kind);
+  const canManage = canManageMembers(g);
   const showRail = g.contacts.length > 0 || (hh && g.viewerIsAdmin);
   return (
     <DesktopShell
@@ -542,10 +559,13 @@ function DesktopGroup({ g, actions }: { g: GroupDetailDTO; actions: GroupActions
             </div>
             {g.viewerIsAdmin ? (
               <Tag tone={a.tagTone} icon="shield">{cls ? t("teachThisClass") : t("youreAdmin")}</Tag>
+            ) : canManage ? (
+              // A system admin isn't a member and isn't "view only" either.
+              <Tag tone={a.tagTone} icon="shield">{t("systemAdmin")}</Tag>
             ) : (
               <Tag tone="line"><Icon name="eye" size={12} stroke={2} />{cls ? t("classMember") : t("viewOnly")}</Tag>
             )}
-            {g.viewerIsAdmin && (
+            {canManage && (
               <button className="sd-btn sd-btn-secondary sd-btn-sm" onClick={actions.onAddMember}><Icon name="plus" size={15} />{t("addMember")}</button>
             )}
             {actions.onCreateSubgroup && (
@@ -566,7 +586,7 @@ function DesktopGroup({ g, actions }: { g: GroupDetailDTO; actions: GroupActions
                 tags={<MemberTags m={m} />}
                 onClick={() => navigate(`/persons/${m.personId}`)}
                 trailing={
-                  g.viewerIsAdmin ? (
+                  canManage ? (
                     <div className="sd-row" style={{ gap: 8 }}>
                       <button className="sd-btn sd-btn-ghost sd-btn-sm" onClick={(e) => { e.stopPropagation(); actions.onMember(m); }}>{t("setTitle")}</button>
                       <button aria-label={t("manage")} onClick={(e) => { e.stopPropagation(); actions.onMember(m); }} style={{ width: 30, height: 30, borderRadius: 8, border: 0, background: "transparent", color: "var(--ink-3)", cursor: "pointer" }}><Icon name="dot3" size={18} /></button>
