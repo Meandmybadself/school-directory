@@ -391,6 +391,16 @@ All three SPAs are separate Cloudflare Pages projects talking to the single
    `/auth/start` also carries a send budget — per address and instance-wide,
    counted the way invariant 14 counts, with the response unchanged either way
    so the cap is no more an oracle than the rest of the route.
+   **A rate limit that counts rows drags two more things along with it**, and
+   the first version of this one shipped without either: an index for the count
+   (`auth_token (kind, created_at)`, migration 0017 — without it every sign-in
+   attempt scanned the table) and a sweep so the table doesn't grow forever
+   (`sweepSpentAuthTokens`, on the daily cron). The sweep's retention is then a
+   SECURITY parameter, not housekeeping: it must exceed the counting window, or
+   waiting out the sweep resets the budget — and it must not key on
+   `expires_at`, since a magic link dies in 15 minutes and the count needs the
+   row for a day. `newsletter_confirmation` has had all three since 0013; copy
+   the whole pattern, not just the query.
 
 20. **`/photos/:key` is members-only.** It is the only route serving `PHOTOS`,
    the objects are photographs of children, and a ULID key is not an access rule

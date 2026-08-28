@@ -10,6 +10,7 @@ import {
   sendNewSubscriberDigest,
   sendNewUserDigest,
   sweepExpiredConfirmations,
+  sweepSpentAuthTokens,
 } from "./lib/notify.js";
 import { contextMiddleware } from "./middleware/context.js";
 import { requireAuth, sessionMiddleware, UnauthorizedError } from "./middleware/session.js";
@@ -142,8 +143,11 @@ const scheduled: ExportedHandlerScheduledHandler<Env> = (event, env, ctx) => {
     // can't swallow the other.
     ctx.waitUntil(sendNewUserDigest(env));
     ctx.waitUntil(sendNewSubscriberDigest(env));
-    // Housekeeping for the one table an anonymous route can grow.
+    // Housekeeping for the two tables an anonymous route can grow. Both are
+    // written by a public form, and both back a rate limit that counts rows —
+    // so each sweep's retention is a security parameter, not a tidiness one.
     ctx.waitUntil(sweepExpiredConfirmations(env));
+    ctx.waitUntil(sweepSpentAuthTokens(env));
     return;
   }
   ctx.waitUntil(refreshAllSources(env));

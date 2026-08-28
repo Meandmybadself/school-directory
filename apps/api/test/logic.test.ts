@@ -17,10 +17,13 @@ describe("geo", () => {
   it("rounds distance to one decimal and never exposes raw coords", () => {
     // Snapped to quarter-mile bands, so the string locates a neighbourhood
     // rather than a house — repeated readings can't trilaterate below the band.
-    expect(approxDistance(0.43)).toBe("~0.50 mi");
-    expect(approxDistance(0.6)).toBe("~0.50 mi");
-    expect(approxDistance(1.05)).toBe("~1.00 mi");
-    // Never "~0.00 mi": the nearest band still reads as "very close by".
+    expect(approxDistance(0.43)).toBe("~0.5 mi");
+    expect(approxDistance(0.6)).toBe("~0.5 mi");
+    expect(approxDistance(0.3)).toBe("~0.25 mi");
+    // No trailing zeros — the banding already removed that precision.
+    expect(approxDistance(1.05)).toBe("~1 mi");
+    expect(approxDistance(2)).toBe("~2 mi");
+    // Never "~0 mi": the nearest band still reads as "very close by".
     expect(approxDistance(0.01)).toBe("~0.25 mi");
     expect(approxDistance(0)).toBe("~0.25 mi");
   });

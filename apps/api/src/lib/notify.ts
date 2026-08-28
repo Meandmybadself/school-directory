@@ -140,6 +140,51 @@ export async function sweepExpiredConfirmations(env: Env): Promise<void> {
   }
 }
 
+/**
+ * How long a spent auth_token is kept.
+ *
+ * This is NOT a tidiness figure — it is the floor under the sign-in rate limit.
+ * `/auth/start` counts rows in `auth_token` from the last rolling DAY to decide
+ * whether an address has had its five links, so a sweep that removed rows any
+ * sooner would hand an attacker a way to reset the budget by waiting. Thirty
+ * days clears that window by a wide margin and still leaves a month of sign-in
+ * history for anyone looking into an incident.
+ *
+ * Note what it must NOT key on: `expires_at`. A magic link dies after fifteen
+ * minutes, so sweeping expired rows — which is exactly what the newsletter's
+ * confirmation sweep does — would delete the evidence the cap counts almost as
+ * fast as it was written.
+ */
+const AUTH_TOKEN_RETENTION_MS = 30 * DAYS;
+
+/**
+ * Delete auth tokens that are both old enough to be outside the rate-limit
+ * window and finished with. Daily, from the cron in index.ts.
+ *
+ * Without this the table had no delete path at all: it grew by a row per magic
+ * link forever, and every sign-in attempt scanned it (see migration 0017).
+ *
+ * A row is only removed once it is spent — consumed, or past its expiry — so an
+ * unclaimed 14-day invite is never swept out from under its recipient by the
+ * age test alone.
+ */
+export async function sweepSpentAuthTokens(env: Env): Promise<void> {
+  try {
+    const cutoff = new Date(Date.now() - AUTH_TOKEN_RETENTION_MS).toISOString();
+    const res = await env.DB.prepare(
+      `DELETE FROM auth_token
+        WHERE created_at < ?
+          AND (consumed_at IS NOT NULL OR expires_at < ?)`,
+    )
+      .bind(cutoff, nowIso())
+      .run();
+    const n = res.meta?.changes ?? 0;
+    if (n > 0) console.log(`[notify] swept ${n} spent auth token(s)`);
+  } catch (err) {
+    console.error(`[notify] auth token sweep failed: ${String(err)}`);
+  }
+}
+
 /** Reset the digest window. Called when the setting changes INTO "daily", so
  *  turning it on doesn't replay everyone who subscribed while it was off —
  *  the same thing setNewUserNotify does for members. */

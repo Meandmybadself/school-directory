@@ -118,7 +118,7 @@ describe("GET /home/neighbors returns distances, never coordinates", () => {
     const body = (await res.json()) as { neighbors: { approxDistance: string }[] };
     for (const n of body.neighbors) {
       // Quarter-mile bands only — an unrounded figure would locate a house.
-      expect(n.approxDistance).toMatch(/^~\d+\.(00|25|50|75) mi$/);
+      expect(n.approxDistance).toMatch(/^~\d+(\.(25|5|75))? mi$/);
     }
   });
 

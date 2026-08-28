@@ -31,9 +31,11 @@ const DISTANCE_BAND_MILES = 0.25;
  *  nothing; the band is the rule that branch was reaching for.) */
 export function approxDistance(miles: number): string {
   const rounded = Math.round(miles / DISTANCE_BAND_MILES) * DISTANCE_BAND_MILES;
-  // Never claim "~0.00 mi" — the nearest band still means "very close by".
+  // Never claim "~0 mi" — the nearest band still means "very close by".
   const banded = Math.max(DISTANCE_BAND_MILES, rounded);
-  return `~${banded.toFixed(2)} mi`;
+  // Trailing zeros off: a row reading "~1 mi" is what a person would say, and
+  // "~1.00 mi" implies a precision the banding just deliberately removed.
+  return `~${Number(banded.toFixed(2))} mi`;
 }
 
 /** Server-side static-map URL for coords. Uses a configured provider template
