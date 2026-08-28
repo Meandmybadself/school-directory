@@ -6,12 +6,8 @@ import { cors } from "hono/cors";
 import type { Env, HonoEnv } from "./env.js";
 import { refreshAllSources } from "./lib/calendar.js";
 import { allowedOrigins } from "./lib/db.js";
-import {
-  sendNewSubscriberDigest,
-  sendNewUserDigest,
-  sweepExpiredConfirmations,
-  sweepSpentAuthTokens,
-} from "./lib/notify.js";
+import { sendNewSubscriberDigest, sendNewUserDigest } from "./lib/notify.js";
+import { runDailySweeps } from "./lib/sweep.js";
 import { contextMiddleware } from "./middleware/context.js";
 import { requireAuth, sessionMiddleware, UnauthorizedError } from "./middleware/session.js";
 import { auditMiddleware } from "./middleware/audit.js";
@@ -143,11 +139,10 @@ const scheduled: ExportedHandlerScheduledHandler<Env> = (event, env, ctx) => {
     // can't swallow the other.
     ctx.waitUntil(sendNewUserDigest(env));
     ctx.waitUntil(sendNewSubscriberDigest(env));
-    // Housekeeping for the two tables an anonymous route can grow. Both are
-    // written by a public form, and both back a rate limit that counts rows —
-    // so each sweep's retention is a security parameter, not a tidiness one.
-    ctx.waitUntil(sweepExpiredConfirmations(env));
-    ctx.waitUntil(sweepSpentAuthTokens(env));
+    // Housekeeping for the four tables that would otherwise only ever grow.
+    // Two of them back a rate limit that counts rows, which makes their
+    // retention a security parameter rather than tidiness — see lib/sweep.ts.
+    ctx.waitUntil(runDailySweeps(env));
     return;
   }
   ctx.waitUntil(refreshAllSources(env));

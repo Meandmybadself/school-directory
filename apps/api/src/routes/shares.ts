@@ -52,10 +52,17 @@ shares.get("/", async (c) => {
     .bind(subjectKind, subjectRef)
     .all<{ id: string; target_kind: "person" | "group"; target_id: string }>();
 
-  const grantees: ShareGranteeDTO[] = [];
-  for (const r of rows.results) {
-    grantees.push({ id: r.id, targetKind: r.target_kind, targetId: r.target_id, name: await targetName(c, r.target_kind, r.target_id) });
-  }
+  // Two queries for the whole list, not one per grantee — the same batching
+  // buildProfile uses for shares. An id that resolves to nothing degrades to a
+  // placeholder rather than dropping the row: this list is the answer to "who
+  // can see this", and a silently shorter one is the wrong kind of wrong.
+  const names = await targetNames(c, rows.results);
+  const grantees: ShareGranteeDTO[] = rows.results.map((r) => ({
+    id: r.id,
+    targetKind: r.target_kind,
+    targetId: r.target_id,
+    name: names.get(`${r.target_kind}:${r.target_id}`) ?? (r.target_kind === "group" ? "Group" : "Member"),
+  }));
   return c.json({ grantees });
 });
 
@@ -144,18 +151,34 @@ shares.get("/targets", async (c) => {
   return c.json({ targets });
 });
 
-async function targetName(
+/** Display names for a whole grantee list, keyed "kind:id". Persons render as
+ *  first name + last initial, matching the picker and the directory — this is a
+ *  list of who you shared with, not a place to widen a name. */
+async function targetNames(
   c: Context<HonoEnv>,
-  kind: "person" | "group",
-  id: string,
-): Promise<string> {
-  if (kind === "group") {
-    const g = await c.env.DB.prepare("SELECT name FROM grp WHERE id = ?").bind(id).first<{ name: string }>();
-    return g?.name ?? "Group";
+  rows: { target_kind: "person" | "group"; target_id: string }[],
+): Promise<Map<string, string>> {
+  const out = new Map<string, string>();
+  const personIds = [...new Set(rows.filter((r) => r.target_kind === "person").map((r) => r.target_id))];
+  const groupIds = [...new Set(rows.filter((r) => r.target_kind === "group").map((r) => r.target_id))];
+
+  if (personIds.length) {
+    const ps = await c.env.DB.prepare(
+      `SELECT id, first_name, last_name FROM person WHERE id IN (${personIds.map(() => "?").join(",")})`,
+    )
+      .bind(...personIds)
+      .all<{ id: string; first_name: string; last_name: string | null }>();
+    for (const p of ps.results) {
+      out.set(`person:${p.id}`, p.last_name ? `${p.first_name} ${p.last_name.charAt(0)}.` : p.first_name);
+    }
   }
-  const p = await c.env.DB.prepare("SELECT first_name, last_name FROM person WHERE id = ?")
-    .bind(id)
-    .first<{ first_name: string; last_name: string | null }>();
-  if (!p) return "Member";
-  return p.last_name ? `${p.first_name} ${p.last_name.charAt(0)}.` : p.first_name;
+  if (groupIds.length) {
+    const gs = await c.env.DB.prepare(
+      `SELECT id, name FROM grp WHERE id IN (${groupIds.map(() => "?").join(",")})`,
+    )
+      .bind(...groupIds)
+      .all<{ id: string; name: string }>();
+    for (const g of gs.results) out.set(`group:${g.id}`, g.name);
+  }
+  return out;
 }

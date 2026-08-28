@@ -360,7 +360,8 @@ All three SPAs are separate Cloudflare Pages projects talking to the single
    left with no members, and a classroom or school group is never removed with a
    member, because it belongs to the school. `audit_log` is never deleted for
    anyone: it is append-only and hash-chained (invariant 5), so dropping rows
-   both breaks tamper-evidence and erases the record of what the account did.
+   both breaks tamper-evidence and erases the record of what the account did —
+   which is also why `audit_log` is deliberately absent from `lib/sweep.ts`.
 
 18. **A search may not match on more than it renders.** `person.last_name` is
    shown as an initial when `last_name_visibility = 'initial'`, and a naked
@@ -394,13 +395,11 @@ All three SPAs are separate Cloudflare Pages projects talking to the single
    **A rate limit that counts rows drags two more things along with it**, and
    the first version of this one shipped without either: an index for the count
    (`auth_token (kind, created_at)`, migration 0017 — without it every sign-in
-   attempt scanned the table) and a sweep so the table doesn't grow forever
-   (`sweepSpentAuthTokens`, on the daily cron). The sweep's retention is then a
-   SECURITY parameter, not housekeeping: it must exceed the counting window, or
-   waiting out the sweep resets the budget — and it must not key on
-   `expires_at`, since a magic link dies in 15 minutes and the count needs the
-   row for a day. `newsletter_confirmation` has had all three since 0013; copy
-   the whole pattern, not just the query.
+   attempt scanned the table) and a sweep so the table doesn't grow forever.
+   Where such a sweep's retention exceeds the counting window it is a SECURITY
+   parameter, not housekeeping — see `lib/sweep.ts`, which is where all four
+   growing tables are swept from, and which spells out which two of them are
+   load-bearing that way and why neither may key its age test on `expires_at`.
 
 20. **`/photos/:key` is members-only.** It is the only route serving `PHOTOS`,
    the objects are photographs of children, and a ULID key is not an access rule
