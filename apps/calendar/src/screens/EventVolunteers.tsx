@@ -6,11 +6,12 @@
 // still goes through the same picker; it just has one date to pick.
 //
 // Admin chrome is intentionally English-only (operator tooling), matching
-// CalendarEvents.tsx. The member- and public-facing sheet at /v/:slug is fully
-// translated — that's the page families actually read.
+// CalendarEvents.tsx. The member- and public-facing sheet — rendered on the
+// event's own page at /e/:date/:slug — is fully translated; that's the page
+// families actually read.
 import { useCallback, useEffect, useState } from "react";
 import { Navigate, useNavigate, useParams } from "react-router-dom";
-import type { ManagedOccurrenceDTO, VolunteerSheetDTO } from "@sd/shared";
+import { eventPath, type ManagedOccurrenceDTO, type VolunteerSheetDTO } from "@sd/shared";
 import { Icon } from "../components/Icon.js";
 import { Avatar, Btn, Tag } from "../components/atoms.js";
 import { AppShell, BottomNav } from "../components/AppShell.js";
@@ -21,10 +22,26 @@ import { useSession } from "../lib/session.js";
 import { useIsDesktop } from "../lib/useIsDesktop.js";
 import { api, errorMessage } from "../lib/api.js";
 
-/** Where a reader would find the published sheet. Built from this app's own
- *  origin because that is where /v/:slug is served. */
-function sheetUrl(slug: string): string {
-  return `${window.location.origin}/v/${slug}`;
+/** The link to hand out. A sheet no longer has a page of its own — it is read on
+ *  its event's page — so this is normally the event's URL, which is also what a
+ *  family sees when they reach the sheet from the calendar.
+ *
+ *  An ORPHANED sheet is the exception, and it is the reason this is a function
+ *  and not an interpolation. Its date is no longer on the calendar (the banner
+ *  above says so), which means the event path addresses nothing and a reader
+ *  following it would be told the event doesn't exist. The slug still resolves,
+ *  because a slug is the durable handle — so hand out /v/:slug there, which
+ *  forwards to the same page carrying the slug the fallback needs.
+ *
+ *  Built from this app's own origin, and only ever shown for a PUBLISHED sheet:
+ *  until then the event withholds the slug and its page shows no signup block.
+ *
+ *  The date segment is minted in the ADMIN's timezone, like every other link
+ *  this app builds; the lookup searches a ±1 day window, so a reader in another
+ *  zone still resolves it. See packages/shared/src/eventPath.ts. */
+function sheetUrl(sheet: VolunteerSheetDTO): string {
+  const path = sheet.orphaned ? `/v/${sheet.slug}` : eventPath(sheet.event);
+  return `${window.location.origin}${path}`;
 }
 
 function fmtOccurrence(o: ManagedOccurrenceDTO): string {
@@ -307,7 +324,7 @@ export function EventVolunteers() {
   const copyLink = async () => {
     if (!sheet) return;
     try {
-      await navigator.clipboard.writeText(sheetUrl(sheet.slug));
+      await navigator.clipboard.writeText(sheetUrl(sheet));
       setCopied(true);
       setTimeout(() => setCopied(false), 1500);
     } catch {
@@ -391,8 +408,8 @@ export function EventVolunteers() {
             one 404s for everyone but an admin. */}
         {sheet.published && (
           <div className="sd-row" style={{ gap: 6 }}>
-            <a href={sheetUrl(sheet.slug)} target="_blank" rel="noopener noreferrer" className="sd-meta sd-link" style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", minWidth: 0 }}>
-              {sheetUrl(sheet.slug)}
+            <a href={sheetUrl(sheet)} target="_blank" rel="noopener noreferrer" className="sd-meta sd-link" style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", minWidth: 0 }}>
+              {sheetUrl(sheet)}
             </a>
             <button aria-label="Copy signup link" onClick={() => void copyLink()} style={{ ...iconBtnStyle, flex: "0 0 auto" }}>
               <Icon name={copied ? "check" : "link"} size={15} />

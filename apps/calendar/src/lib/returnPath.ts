@@ -7,9 +7,10 @@
 // is kept on this side instead — the browser that started the sign-in is the one
 // that comes back, and sessionStorage is scoped to exactly that tab.
 //
-// Only pages that explicitly ask for it are remembered (today: a volunteer
-// sheet). The stash is one-shot and time-boxed, so a link clicked tomorrow
-// cannot yank someone away from the agenda they actually opened.
+// Only pages that explicitly ask for it are remembered (today: an event page,
+// which is where a volunteer sheet is signed up on). The stash is one-shot and
+// time-boxed, so a link clicked tomorrow cannot yank someone away from the
+// agenda they actually opened.
 
 const KEY = "sd_cal_return_path";
 /** Long enough to find the email, short enough that a stale entry expires. */

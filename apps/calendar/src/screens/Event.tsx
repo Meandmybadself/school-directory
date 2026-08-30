@@ -13,8 +13,13 @@
 // just as much as for one authored in this app; only the admin and volunteer
 // affordances are managed-only, and both are absent by construction (an imported
 // event has no `seriesId` and can carry no sheet).
-import { useCallback, useEffect, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+//
+// It is also the ONLY page a volunteer sheet is read on. /v/:slug used to render
+// its own near-copy of this one; it now resolves the slug and forwards here with
+// `?sheet=`, which this page honours so that a sheet the event alone would not
+// surface still opens — see screens/VolunteerRedirect.tsx and `sheetSlug` below.
+import { useCallback, useEffect, useRef, useState } from "react";
+import { useLocation, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import {
   eventPath,
   eventTitleSlug,
@@ -51,8 +56,14 @@ function googleMapsUrl(q: string): string {
   return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(q)}`;
 }
 
-/** "4:00 – 8:00 PM", or the all-day label. */
-function timeRange(e: PageEvent, locale: string, allDayLabel: string): string {
+/** "4:00 – 8:00 PM", or the all-day label. Typed by the fields it reads rather
+ *  than by PageEvent, because the fallback card below renders a sheet's own
+ *  occurrence, which is not an agenda row. */
+function timeRange(
+  e: Pick<PageEvent, "start" | "end" | "allDay">,
+  locale: string,
+  allDayLabel: string,
+): string {
   if (e.allDay) return allDayLabel;
   const start = new Date(e.start).toLocaleTimeString(locale, { hour: "numeric", minute: "2-digit" });
   const end = e.end ? new Date(e.end).toLocaleTimeString(locale, { hour: "numeric", minute: "2-digit" }) : null;
@@ -64,11 +75,30 @@ export function Event() {
   const { t, locale } = useI18n();
   const isDesktop = useIsDesktop();
   const navigate = useNavigate();
+  const { pathname, search } = useLocation();
   const { me, loading: sessionLoading } = useSession();
+
+  // A reader who arrived from a sheet's own link (/v/:slug) carries the slug
+  // here. It matters in exactly the cases the event can't cover by itself: a
+  // DRAFT sheet, whose slug the server withholds from `volunteerSlug` until it
+  // is published, and one whose event no longer resolves — the series was edited
+  // away from that date, or the day has aged out of `calendar_event`, which
+  // keeps only ~2 days of the past. The sheet and its signups are intact in both
+  // cases and the link is already circulating, so the page still has to open.
+  // Reading it grants nothing: both sheet endpoints do their own authorization,
+  // so a member handed an admin's draft link still gets a 404.
+  const [params] = useSearchParams();
+  const sheetParam = params.get("sheet");
 
   const [event, setEvent] = useState<PageEvent | null>(null);
   const [state, setState] = useState<"loading" | "ready" | "missing">("loading");
-  const [sheet, setSheet] = useState<AnySheet | null>(null);
+  const [loadedSheet, setLoadedSheet] = useState<AnySheet | null>(null);
+  // Which slug the fetch below has answered for. A boolean would have been the
+  // obvious thing and would have been wrong: `loadSheet` runs again after every
+  // claim, and clearing a flag on each call blanks the page mid-signup — taking
+  // the claim dialog's own error message down with it. What the page waits on is
+  // an ANSWER ABOUT THIS SLUG, which a re-read of the same slug already has.
+  const [settledFor, setSettledFor] = useState<string | null>(null);
   const [editing, setEditing] = useState(false);
   const [copied, setCopied] = useState(false);
 
@@ -94,33 +124,87 @@ export function Event() {
   // whether there's a session — counts for everyone, names for members. The
   // session has to have RESOLVED first, or a signed-in reader gets the nameless
   // copy; see components/VolunteerPositions.tsx.
-  const volunteerSlug = event?.volunteerSlug ?? null;
+  const sheetSlug = event?.volunteerSlug ?? sheetParam;
   const loadSheet = useCallback(async () => {
-    if (!volunteerSlug || sessionLoading) return;
+    if (!sheetSlug || sessionLoading) return;
     try {
-      const r = me ? await api.volunteerSheet(volunteerSlug) : await api.publicVolunteerSheet(volunteerSlug);
-      setSheet(r.sheet);
+      const r = me ? await api.volunteerSheet(sheetSlug) : await api.publicVolunteerSheet(sheetSlug);
+      setLoadedSheet(r.sheet);
     } catch {
       // A sheet unpublished between the agenda being read and this page opening
       // just means no signup block; the event itself is still worth showing.
-      setSheet(null);
+      setLoadedSheet(null);
+    } finally {
+      setSettledFor(sheetSlug);
     }
-  }, [volunteerSlug, me, sessionLoading]);
+  }, [sheetSlug, me, sessionLoading]);
 
   useEffect(() => {
     void loadSheet();
   }, [loadSheet]);
 
+  /* What the page actually shows. A `?sheet=` names a sheet; it does not say the
+     sheet is about the event this path names, and rendering one event's heading
+     over another's positions would have someone sign up for an event they are
+     not looking at. Both halves are content identities minted by the same
+     function, so a forward from /v/:slug always agrees and a hand-edited URL
+     that pairs two unrelated things does not. Only a param-sourced sheet is
+     checked: one the EVENT itself named is the event's by construction. */
+  const sheet =
+    loadedSheet && (event?.volunteerSlug || eventTitleSlug(loadedSheet.event.title) === slug)
+      ? loadedSheet
+      : null;
+
+  // Once the event has named the same sheet itself, the parameter has done its
+  // job — drop it, so the URL in the address bar is the canonical event link and
+  // that is what a reader who copies it passes on. It stays on the two paths
+  // above, where it is the only thing keeping the block on screen.
+  useEffect(() => {
+    if (sheetParam && event?.volunteerSlug === sheetParam) {
+      navigate(pathname, { replace: true });
+    }
+  }, [sheetParam, event?.volunteerSlug, navigate, pathname]);
+
+  // Someone who followed a sign-up link asked for the sign-up, not the event, so
+  // put it on screen. Once only, and only for that arrival: the ref is what
+  // remembers it across the URL cleanup above, and is reset when the page is
+  // pointed at a different event without unmounting.
+  const volunteersRef = useRef<HTMLDivElement | null>(null);
+  const cameFromSheetLink = useRef(!!sheetParam);
+  const scrolled = useRef(false);
+  useEffect(() => {
+    cameFromSheetLink.current = !!sheetParam;
+    scrolled.current = false;
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- the arrival, not every render
+  }, [date, slug]);
+  useEffect(() => {
+    if (!sheet || !cameFromSheetLink.current || scrolled.current) return;
+    // The sheet and the event are two races, and the sheet often wins: while the
+    // event is still loading the body is a spinner and this block is not in the
+    // tree. Spending the one scroll on a null ref would mean silently not
+    // scrolling at all, so wait for the element — `state` is in the deps because
+    // its landing is what mounts it.
+    const el = volunteersRef.current;
+    if (!el) return;
+    scrolled.current = true;
+    el.scrollIntoView({ behavior: "smooth", block: "start" });
+  }, [sheet, state]);
+
   const goSignIn = () => {
     // Remember this page so the magic link lands back here — the link itself can
     // only carry an origin. See lib/returnPath.ts.
-    rememberReturnPath(`/e/${date}/${slug}`);
+    // The live URL rather than a rebuilt one, so a `?sheet=` that is still doing
+    // work (a draft, or an event that no longer resolves) survives the trip.
+    rememberReturnPath(`${pathname}${search}`);
     navigate("/sign-in");
   };
 
   const copyLink = async () => {
     try {
-      await navigator.clipboard.writeText(window.location.href);
+      // Origin + path, not `href`: a reader who arrived from a sheet link may
+      // still have `?sheet=` on screen, and the link they pass on should be the
+      // event's own.
+      await navigator.clipboard.writeText(`${window.location.origin}${pathname}`);
       setCopied(true);
       setTimeout(() => setCopied(false), 1800);
     } catch {
@@ -128,14 +212,83 @@ export function Event() {
     }
   };
 
-  const body = state === "loading" ? (
+  /* The signup block. Present only when a sheet actually loaded — for an event
+     the server named one on, or for the `?sheet=` arrivals above. Counts for
+     everyone, names for members; the split is enforced by which endpoint
+     loadSheet asked, not by anything here. */
+  const volunteerBlock = sheet && (
+    <div ref={volunteersRef}>
+      <SectLabel>{t("volunteersNeeded")}</SectLabel>
+      {sheet.intro && (
+        <div style={{ fontSize: 13.5, lineHeight: 1.5, color: "var(--ink-2)", whiteSpace: "pre-wrap", wordBreak: "break-word", marginTop: 9 }}>
+          {sheet.intro}
+        </div>
+      )}
+      {sheet.closed && (
+        <div className="sd-row" style={{ gap: 7, color: "var(--ink-3)", marginTop: 9 }}>
+          <Icon name="lock" size={15} style={{ flex: "0 0 auto" }} />
+          <span style={{ fontSize: 13, fontWeight: 600 }}>{t("volunteerSignupsClosed")}</span>
+        </div>
+      )}
+      <VolunteerPositions
+        sheet={sheet}
+        onSheet={(s: VolunteerSheetDTO) => setLoadedSheet(s)}
+        onReload={() => void loadSheet()}
+        onSignIn={goSignIn}
+      />
+    </div>
+  );
+
+  /* The header built from the SHEET rather than from the agenda — what this page
+     falls back to when the path it was given addresses no event but a sheet did
+     load. It is the smaller card on purpose: a sheet knows its occurrence, not
+     which calendar the event sits on. No `showsDescription` gate, because only a
+     MANAGED event can carry a sheet (invariant 8), so the text is always one an
+     admin typed in this app's own editor. */
+  const sheetHeader = sheet && (
+    <div className="sd-card sd-card-pad" style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+      <h1 className="sd-h2" style={{ margin: 0 }}>{sheet.event.title}</h1>
+      <div className="sd-row" style={{ gap: 9 }}>
+        <Icon name="calendar" size={17} style={{ color: "var(--ink-3)", flex: "0 0 auto" }} />
+        <div style={{ fontSize: 14 }}>
+          {formatEventDay(sheet.event, locale, DAY_LABEL)}
+          <span style={{ color: "var(--ink-3)" }}> · {timeRange(sheet.event, locale, t("allDay"))}</span>
+        </div>
+      </div>
+      {sheet.event.location && (
+        <div className="sd-row" style={{ gap: 9 }}>
+          <Icon name="pin" size={17} style={{ color: "var(--ink-3)", flex: "0 0 auto" }} />
+          <a href={googleMapsUrl(sheet.event.location)} target="_blank" rel="noopener noreferrer" className="sd-link" style={{ fontSize: 14 }}>
+            {sheet.event.location}
+          </a>
+        </div>
+      )}
+      {sheet.event.description && (
+        <div style={{ fontSize: 13.5, lineHeight: 1.5, color: "var(--ink-2)", whiteSpace: "pre-wrap", wordBreak: "break-word", borderTop: "1px solid var(--line)", paddingTop: 12 }}>
+          {htmlToText(sheet.event.description)}
+        </div>
+      )}
+    </div>
+  );
+
+  // The event's lookup failing is only the whole answer once the sheet has
+  // spoken too: on a `?sheet=` arrival the sheet is what the page falls back to,
+  // and showing "event not found" for the moment before it lands would tell the
+  // reader their link is dead when it isn't.
+  const awaitingSheet = !!sheetParam && settledFor !== sheetSlug;
+
+  const body = state === "loading" || (state === "missing" && awaitingSheet) ? (
     <div className="sd-card sd-card-pad sd-meta" style={{ textAlign: "center", padding: "28px 16px" }}>…</div>
   ) : state === "missing" || !event ? (
-    <div className="sd-card sd-card-pad" style={{ textAlign: "center", padding: "28px 16px" }}>
-      <div className="sd-h2" style={{ marginBottom: 6 }}>{t("eventNotFound")}</div>
-      <div className="sd-meta">{t("eventNotFoundBody")}</div>
-      <Btn kind="secondary" style={{ marginTop: 14 }} onClick={() => navigate("/")}>{t("calendarTitle")}</Btn>
-    </div>
+    sheet ? (
+      <>{sheetHeader}{volunteerBlock}</>
+    ) : (
+      <div className="sd-card sd-card-pad" style={{ textAlign: "center", padding: "28px 16px" }}>
+        <div className="sd-h2" style={{ marginBottom: 6 }}>{t("eventNotFound")}</div>
+        <div className="sd-meta">{t("eventNotFoundBody")}</div>
+        <Btn kind="secondary" style={{ marginTop: 14 }} onClick={() => navigate("/")}>{t("calendarTitle")}</Btn>
+      </div>
+    )
   ) : (
     <>
       <div className="sd-card sd-card-pad" style={{ display: "flex", flexDirection: "column", gap: 10 }}>
@@ -201,31 +354,7 @@ export function Event() {
         )}
       </div>
 
-      {/* Present only when this occurrence has a PUBLISHED sheet — the server
-          joins it in, so a draft never surfaces here. Counts for everyone, names
-          for members; the split is enforced by which endpoint loadSheet asked. */}
-      {sheet && (
-        <div>
-          <SectLabel>{t("volunteersNeeded")}</SectLabel>
-          {sheet.intro && (
-            <div style={{ fontSize: 13.5, lineHeight: 1.5, color: "var(--ink-2)", whiteSpace: "pre-wrap", wordBreak: "break-word", marginTop: 9 }}>
-              {sheet.intro}
-            </div>
-          )}
-          {sheet.closed && (
-            <div className="sd-row" style={{ gap: 7, color: "var(--ink-3)", marginTop: 9 }}>
-              <Icon name="lock" size={15} style={{ flex: "0 0 auto" }} />
-              <span style={{ fontSize: 13, fontWeight: 600 }}>{t("volunteerSignupsClosed")}</span>
-            </div>
-          )}
-          <VolunteerPositions
-            sheet={sheet}
-            onSheet={(s: VolunteerSheetDTO) => setSheet(s)}
-            onReload={() => void loadSheet()}
-            onSignIn={goSignIn}
-          />
-        </div>
-      )}
+      {volunteerBlock}
     </>
   );
 

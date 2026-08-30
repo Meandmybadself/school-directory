@@ -1,15 +1,15 @@
 // The volunteer positions block — the list of jobs on a sheet, the claim flow,
 // and everything that follows from who is reading it.
 //
-// Extracted from screens/VolunteerSheet.tsx when the event page gained its own
-// URL: a sheet is now reachable two ways — its own page at /v/:slug, which
-// predates the event page and stays valid for links already circulated, and
-// inline on the event page at /e/:date/:slug. Both render THIS, so there is one
-// answer to "what does signing up look like" rather than two that drift.
+// Extracted from the sheet's own page when the event page gained its own URL,
+// and now the whole of what that page was: a sheet is rendered ONLY on the event
+// page at /e/:date/:slug, and /v/:slug resolves the slug and forwards there
+// (screens/VolunteerRedirect.tsx). One answer to "what does signing up look
+// like", rather than two that drift.
 //
-// What it does NOT own is the fetch. Each screen loads its own sheet, because
-// the two arrive at one from opposite directions (a slug in the path vs an
-// event's `volunteerSlug`), and both must pick between two endpoints:
+// What it does NOT own is the fetch. The screen loads its own sheet — by the
+// event's `volunteerSlug`, or by the slug a /v/ link forwarded in `?sheet=` —
+// and must pick between two endpoints:
 //
 //   signed out → /volunteers-public/sheets/:slug — positions and filled counts
 //   signed in  → /volunteers/sheets/:slug        — the same plus who took each spot

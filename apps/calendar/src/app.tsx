@@ -8,7 +8,7 @@ import { Event } from "./screens/Event.js";
 import { Admin } from "./screens/Admin.js";
 import { CalendarEvents } from "./screens/CalendarEvents.js";
 import { EventVolunteers } from "./screens/EventVolunteers.js";
-import { VolunteerSheet } from "./screens/VolunteerSheet.js";
+import { VolunteerRedirect } from "./screens/VolunteerRedirect.js";
 
 /** Shown while the session resolves. Renders the `.sd` token scope directly
  *  rather than going through AppShell: the shell's `.sd-app` is the mobile
@@ -81,12 +81,14 @@ export function App() {
             both here and, authoritatively, on the server. */}
         <Route path="/" element={<Calendar />} />
 
-        {/* Also ungated, and for the same reason: a volunteer sheet's whole job
-            is to open from a text message. The screen asks the anonymous
-            endpoint when there's no session, so a signed-out reader gets counts
-            and never names — see VolunteerSheet.tsx. Claiming a spot is a write
-            and needs a session, which the API enforces. */}
-        <Route path="/v/:slug" element={<VolunteerSheet />} />
+        {/* A volunteer sheet no longer has a page of its own: the event page
+            below renders the sheet inline, and this resolves the slug and
+            forwards there. The URL is kept forever — it is what is circulating
+            in text messages, and a slug is the only durable handle on a sheet.
+            Ungated for the same reason the event page is, and it asks the
+            anonymous endpoint when there's no session, so a signed-out reader
+            gets counts and never names — see VolunteerRedirect.tsx. */}
+        <Route path="/v/:slug" element={<VolunteerRedirect />} />
 
         {/* One event's own page, and ungated for the same reason again. The path
             is a CONTENT identity (day + title slug), not an id: an event has no

@@ -61,9 +61,13 @@ export function eventDayKey(e: PublicCalendarEventDTO): string {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 }
 
-/** Locale-formatted day label for an event, read in the right zone for its kind. */
+/** Locale-formatted day label for an event, read in the right zone for its kind.
+ *
+ *  Typed by the two fields it reads rather than by the whole DTO: the event page
+ *  labels a volunteer sheet's own occurrence with this when the event it hangs
+ *  off no longer resolves, and that occurrence is not an agenda row. */
 export function formatEventDay(
-  e: PublicCalendarEventDTO,
+  e: Pick<PublicCalendarEventDTO, "start" | "allDay">,
   locale: string,
   opts: Intl.DateTimeFormatOptions,
 ): string {

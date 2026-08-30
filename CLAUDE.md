@@ -122,14 +122,24 @@ All three SPAs are separate Cloudflare Pages projects talking to the single
   NOT the members-only `/calendar/*` — which still exist, still require auth, and
   are what `apps/web` uses. Admin routes stay gated on both sides. See invariant
   12 before adding a field to any calendar DTO.
-- **So is a volunteer sheet at `/v/:slug`.** Same pattern, one wrinkle: that
-  screen picks its endpoint by whether there's a session — the anonymous one when
-  signed out (counts, no names), the member one when signed in. Signing up is a
-  write and always needs an account. See invariant 13.
+- **A volunteer sheet no longer has a page of its own.** It is rendered inline
+  on its event's page (below), and `/v/:slug` resolves the slug and forwards
+  there — ungated, same pattern, and it picks its endpoint by whether there's a
+  session (the anonymous one when signed out: counts, no names). The URL is kept
+  permanently: it is what circulates in text messages, and a slug is the only
+  DURABLE handle on a sheet, where an event path is a content identity a retitle
+  invalidates. It forwards the slug in `?sheet=`, which the event page honours so
+  a sheet the event itself would not name still opens — a draft, or one whose
+  occurrence no longer resolves (which is also the one case the admin's share
+  link stays a `/v/` URL). A param-sourced sheet is checked against the path's
+  own slug before it renders, since a hand-edited URL could otherwise pair one
+  event's heading with another's positions. Signing up is a write and always
+  needs an account. See invariant 13.
 - **And so is one event's own page at `/e/:date/:slug`.** Tapping a row on the
-  agenda goes there rather than opening a modal, and it is where the
-  description, the volunteer sheet (inline, via
-  `components/VolunteerPositions.tsx`) and the admin edit form all live. There is
+  agenda goes there rather than opening a modal, and it is the ONE page where the
+  description, the volunteer sheet (via `components/VolunteerPositions.tsx`) and
+  the admin edit form all live — the sheet's own screen was folded into it, so
+  there is one rendering of an event rather than two that overlap. There is
   deliberately **no per-event `.ics` download** — a copy of one occurrence goes
   stale the moment the school moves the date, and the calendar-level subscribe on
   the agenda's filter bar is the affordance that keeps up. The
@@ -265,7 +275,11 @@ All three SPAs are separate Cloudflare Pages projects talking to the single
    open from a text message), so a name reaching that response is a member's name
    on the open internet; `test/volunteersPublic.test.ts` asserts the exact key
    sets at all three levels AND that no name, note or person id survives.
-   Three further rules follow from the design rather than from policy:
+   A sheet is READ on the event's page and nowhere else; `/v/:slug` forwards
+   there (see "Three front ends, one API" above), which is why the two endpoints
+   are now picked between by `screens/Event.tsx` and the redirect rather than by
+   a page of the sheet's own. Three further rules follow from the design rather
+   than from policy:
    **only managed events can carry a sheet** (an imported ICS event has no
    durable handle — invariant 8); **a sheet resolves its event from
    `managed_event`, never `calendar_event`**, so it survives re-materialization
