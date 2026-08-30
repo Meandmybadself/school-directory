@@ -40,6 +40,8 @@ controllers.post("/persons/:id/controllers", async (c) => {
     ).bind(ulid(), email, tokenHash, personId, auth.userId, isoPlus(INVITE_TTL), nowIso()),
   ]);
 
+  // UNLISTED-EXEMPT: single row by id, already isController-gated above — a
+  // Controller is one of the two audiences the gate admits anyway.
   const person = await c.env.DB.prepare("SELECT first_name, last_name FROM person WHERE id = ?")
     .bind(personId)
     .first<{ first_name: string; last_name: string | null }>();

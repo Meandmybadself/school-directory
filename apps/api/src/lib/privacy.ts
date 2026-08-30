@@ -175,7 +175,63 @@ export function sharesOf(map: Map<string, ShareSet>, subjectRef: string): ShareS
 
 
 /**
- * Search predicate over `person` that respects the last-name display rule.
+ * Which Persons this viewer may enumerate AT ALL — the gate every statement over
+ * `person` clears before any search term, roster join or bounding box narrows it
+ * further. An ordinary Person passes unconditionally; an unlisted one
+ * (`unlisted_at IS NOT NULL`, migration 0018) passes only for a system admin or
+ * for a User who controls them.
+ *
+ * Deliberately NOT folded into `canSeeItem`. That decides whether one CONTACT
+ * ITEM is visible on a Person already in view; this decides whether the Person is
+ * in view at all. Collapsing them would quietly make a contact's sharing rules
+ * double as the roster-membership rule, which they were never designed to be.
+ *
+ * A system admin short-circuits to "1" — being one is a fact about the caller,
+ * not something a WHERE over `person` can decide — so no guard is built at all,
+ * exactly as an empty search term builds no surname term.
+ *
+ * Returns a parenthesised boolean expression safe to AND into any WHERE over
+ * `person`, plus its binds. Pass `alias` when the statement joins `person` under
+ * a name: a bare `id` is ambiguous the moment another table in the join has one.
+ */
+export function personListableSql(
+  viewerUserId: string,
+  isSystemAdmin: boolean,
+  alias = "",
+): { sql: string; binds: unknown[] } {
+  if (isSystemAdmin) return { sql: "1", binds: [] };
+  const col = alias ? `${alias}.` : "";
+  return {
+    sql: `(${col}unlisted_at IS NULL OR ${col}id IN (SELECT person_id FROM control WHERE user_id = ?))`,
+    binds: [viewerUserId],
+  };
+}
+
+/**
+ * The same rule as `personListableSql`, evaluated over a row already fetched
+ * rather than compiled into a WHERE.
+ *
+ * Reach for the SQL form wherever a hidden row can simply not come back. This
+ * exists for the one place that can't do that: a volunteer position's `filled`
+ * count must still count an unlisted signer on the very response that hides
+ * their name, or a taken spot reads as open (invariant 13). So the row survives
+ * the query and is dropped only from the array of names — see `positionsOf` in
+ * lib/volunteers.ts. Never re-derive this condition a third time; call one of
+ * these two.
+ */
+export function isPersonListable(
+  personId: string,
+  unlistedAt: string | null,
+  viewer: { isSystemAdmin: boolean; controlledPersonIds: Set<string> },
+): boolean {
+  if (unlistedAt === null) return true;
+  if (viewer.isSystemAdmin) return true;
+  return viewer.controlledPersonIds.has(personId);
+}
+
+/**
+ * Search predicate over `person` that respects the last-name display rule, on
+ * top of the enumeration gate above.
  *
  * A naked `lower(last_name) LIKE ?` is an oracle: the response renders a Person
  * set to `initial` as "Dana R.", but matching on the stored surname lets any
@@ -188,22 +244,31 @@ export function sharesOf(map: Map<string, ShareSet>, subjectRef: string): ShareS
  * itself is public, and a single letter matches through the first-name term
  * anyway, so nothing a member can already see becomes harder to find.
  *
+ * **It is built ON `personListableSql`, not beside it.** A call site that
+ * remembered the surname guard and forgot the enumeration guard is precisely the
+ * failure invariant 21 exists to prevent, so searching by name cannot be spelled
+ * without also getting the gate. The consequence worth knowing: an empty query
+ * no longer means "1" — it means "everything this viewer may enumerate", which
+ * is what every call site wanted from it anyway.
+ *
  * Returns a parenthesised boolean expression safe to AND into any WHERE over
- * `person`, plus its binds. An empty query matches everything ("1"), which is
- * what every call site wants for an unfiltered list.
+ * `person`, plus its binds.
  */
 export function personSearchSql(
   q: string,
   viewerUserId: string,
+  isSystemAdmin: boolean,
 ): { sql: string; binds: unknown[] } {
-  if (!q) return { sql: "1", binds: [] };
+  const listable = personListableSql(viewerUserId, isSystemAdmin);
+  if (!q) return listable;
   const like = `%${q}%`;
+  const term =
+    `(lower(first_name) LIKE ?` +
+    ` OR (lower(coalesce(last_name,'')) LIKE ?` +
+    `     AND (last_name_visibility = 'full'` +
+    `          OR id IN (SELECT person_id FROM control WHERE user_id = ?))))`;
   return {
-    sql:
-      `(lower(first_name) LIKE ?` +
-      ` OR (lower(coalesce(last_name,'')) LIKE ?` +
-      `     AND (last_name_visibility = 'full'` +
-      `          OR id IN (SELECT person_id FROM control WHERE user_id = ?))))`,
-    binds: [like, like, viewerUserId],
+    sql: `(${listable.sql} AND ${term})`,
+    binds: [...listable.binds, like, like, viewerUserId],
   };
 }

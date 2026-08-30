@@ -124,7 +124,7 @@ shares.get("/targets", async (c) => {
 
   // The picker renders a last initial, so it must not MATCH on more than that
   // for a Person set to 'initial' — see personSearchSql.
-  const search = personSearchSql(q, auth.userId);
+  const search = personSearchSql(q, auth.userId, auth.isSystemAdmin);
   const people = await c.env.DB.prepare(
     `SELECT id, first_name, last_name, last_name_visibility FROM person
      WHERE ${search.sql}
@@ -164,6 +164,9 @@ async function targetNames(
 
   if (personIds.length) {
     const ps = await c.env.DB.prepare(
+      // UNLISTED-EXEMPT: recall of shares the caller already granted, not a
+      // browse. Hiding a grantee here would leave a share the owner can see the
+      // existence of but not the name on.
       `SELECT id, first_name, last_name FROM person WHERE id IN (${personIds.map(() => "?").join(",")})`,
     )
       .bind(...personIds)

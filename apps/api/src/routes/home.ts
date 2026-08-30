@@ -8,7 +8,7 @@ import type { NeighborDTO, NeighborsResponse } from "@sd/shared";
 import type { HonoEnv } from "../env.js";
 import { requireAuth } from "../middleware/session.js";
 import { approxDistance, boundingBox, haversineMiles } from "../lib/geo.js";
-import { displayName } from "../lib/privacy.js";
+import { displayName, personListableSql } from "../lib/privacy.js";
 
 export const home = new Hono<HonoEnv>();
 
@@ -99,15 +99,18 @@ home.get("/neighbors", async (c) => {
   const coMemberExclude = householdIds.length
     ? ` AND ci.owner_id NOT IN (SELECT person_id FROM membership WHERE group_id IN (${householdIds.map(() => "?").join(",")}))`
     : "";
+  // Aliased: `contact_item` has an `id` of its own, so a bare one is ambiguous.
+  const listable = personListableSql(auth.userId, auth.isSystemAdmin, "p");
   const personRows = await c.env.DB.prepare(
     `SELECT ci.owner_id, ci.geo_lat, ci.geo_lng, p.first_name, p.last_name, p.last_name_visibility
      FROM contact_item ci JOIN person p ON p.id = ci.owner_id
      WHERE ci.owner_kind = 'person' AND ci.type = 'address'
        AND ci.neighbor_discoverable = 1 AND ci.geo_lat IS NOT NULL
        AND ci.owner_id != ?
-       AND ci.geo_lat BETWEEN ? AND ? AND ci.geo_lng BETWEEN ? AND ?${coMemberExclude}`,
+       AND ci.geo_lat BETWEEN ? AND ? AND ci.geo_lng BETWEEN ? AND ?${coMemberExclude}
+       AND ${listable.sql}`,
   )
-    .bind(auth.activePersonId, minLat, maxLat, minLng, maxLng, ...householdIds)
+    .bind(auth.activePersonId, minLat, maxLat, minLng, maxLng, ...householdIds, ...listable.binds)
     .all<{
       owner_id: string;
       geo_lat: number;

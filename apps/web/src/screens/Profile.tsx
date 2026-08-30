@@ -47,6 +47,11 @@ export function ProfileView() {
   const [p, setP] = useState<PersonProfileDTO | null>(null);
   const [notFound, setNotFound] = useState(false);
   const [savingCard, setSavingCard] = useState(false);
+  const [unlisting, setUnlisting] = useState(false);
+  // `unlisted` only ever arrives for a viewer who already cleared the server's
+  // enumeration gate, so its presence is itself the permission to act on it.
+  const { me } = useSession();
+  const isSystemAdmin = !!me?.user.isSystemAdmin;
 
   // The view screen is always a member's-eye view: a Controller (or an admin
   // looking at a Person they manage) must not be shown private items here, or
@@ -174,6 +179,45 @@ export function ProfileView() {
         </div>
       )}
       {!p.controlledByViewer && <Btn block icon="plus" style={{ marginTop: 4 }}>{t("shareCta", { name: p.firstName })}</Btn>}
+      {/* Who sees this, and who may act on it, are two different questions.
+          A family is TOLD when their Person is off the roster — being missing
+          from the directory with no explanation is the confusing outcome — but
+          taking someone off it is the school's call: every other control here
+          governs what one FIELD reveals, while this removes the Person from the
+          census entirely. So the button is admin-only, and the server enforces
+          that; this block merely doesn't offer it.
+
+          An admin sees the block on any profile, because unlisting someone is
+          something they do TO a listed Person. A Controller sees it only when
+          there is something to tell them — otherwise every profile they manage
+          would carry a card announcing that nothing is unusual. */}
+      {(isSystemAdmin || p.unlisted) && (
+        <div>
+          <SectLabel>{t("unlistedSection")}</SectLabel>
+          <div className="sd-card sd-card-pad" style={{ marginTop: 9, display: "flex", flexDirection: "column", gap: 10 }}>
+            {p.unlisted && <div><Tag tone="line" icon="lock">{t("unlistedBadge")}</Tag></div>}
+            <div className="sd-meta" style={{ lineHeight: 1.45 }}>
+              {p.unlisted ? t("unlistedOn") : t("unlistedOff")}
+            </div>
+            {isSystemAdmin && (
+              <Btn
+                kind="secondary"
+                icon={p.unlisted ? "check" : "lock"}
+                disabled={unlisting}
+                onClick={() => {
+                  setUnlisting(true);
+                  void api
+                    .setPersonUnlisted(p.id, !p.unlisted)
+                    .then((r) => setP({ ...p, unlisted: r.unlisted }))
+                    .finally(() => setUnlisting(false));
+                }}
+              >
+                {p.unlisted ? t("unlistedRestore") : t("unlistedRemove")}
+              </Btn>
+            )}
+          </div>
+        </div>
+      )}
     </>
   );
 

@@ -150,6 +150,12 @@ export interface Strings {
   previewingAsMember: string;
   whatOthersSee: string;
   hiddenFromMembers: string; // uses {count}
+  unlistedSection: string;
+  unlistedOn: string;
+  unlistedOff: string;
+  unlistedRemove: string;
+  unlistedRestore: string;
+  unlistedBadge: string;
   exitPreview: string;
   contact: string;
   saveContact: string;
@@ -553,6 +559,12 @@ const en: Strings = {
   previewingAsMember: "Previewing as a member",
   whatOthersSee: "This is what other members see",
   hiddenFromMembers: "{count} hidden from members",
+  unlistedSection: "Directory listing",
+  unlistedOn: "Off the roster. Hidden from other members' directory, search, group rosters and neighbours — still visible to admins and to whoever manages this profile.",
+  unlistedOff: "Listed normally, like every other member.",
+  unlistedRemove: "Remove from directory",
+  unlistedRestore: "Restore to directory",
+  unlistedBadge: "Unlisted",
   exitPreview: "Exit preview",
   contact: "Contact",
   saveContact: "Save contact",
@@ -934,6 +946,12 @@ const es: Strings = {
   previewingAsMember: "Vista de un miembro",
   whatOthersSee: "Esto es lo que ven otros miembros",
   hiddenFromMembers: "{count} oculto(s) para los miembros",
+  unlistedSection: "Aparición en el directorio",
+  unlistedOn: "Fuera de la lista. Oculto del directorio, la búsqueda, las listas de grupos y los vecinos de otros miembros; sigue visible para los administradores y para quien gestiona este perfil.",
+  unlistedOff: "Aparece con normalidad, como cualquier otro miembro.",
+  unlistedRemove: "Quitar del directorio",
+  unlistedRestore: "Restaurar en el directorio",
+  unlistedBadge: "No listado",
   exitPreview: "Salir",
   contact: "Contacto",
   saveContact: "Guardar contacto",
@@ -1264,6 +1282,12 @@ const zh: Strings = {
   previewingAsMember: "以成员身份预览",
   whatOthersSee: "这是其他成员看到的内容",
   hiddenFromMembers: "{count} 项对成员隐藏",
+  unlistedSection: "名录显示",
+  unlistedOn: "已从名单中移除。其他成员的名录、搜索、小组名单和邻居中均不显示；管理员和管理此档案的人仍可看到。",
+  unlistedOff: "正常显示，与其他成员一样。",
+  unlistedRemove: "从名录中移除",
+  unlistedRestore: "恢复到名录",
+  unlistedBadge: "未列出",
   exitPreview: "退出",
   contact: "联系方式",
   saveContact: "保存联系人",
@@ -1605,6 +1629,12 @@ const so: Strings = {
   previewingAsMember: "Waxaad u eegaysaa sida xubin",
   whatOthersSee: "Kani waa waxa xubnaha kale arkaan",
   hiddenFromMembers: "{count} ayaa laga qariyay xubnaha",
+  unlistedSection: "Ku soo baxa buugga",
+  unlistedOn: "Liiska laga saaray. Waa laga qariyay buugga, raadinta, liiska kooxaha iyo deriska xubnaha kale — weli way u muuqataa maamulayaasha iyo qofka maareeya astaantan.",
+  unlistedOff: "Si caadi ah ayuu u soo baxaa, sida xubin kasta oo kale.",
+  unlistedRemove: "Ka saar buugga",
+  unlistedRestore: "Ku celi buugga",
+  unlistedBadge: "Aan la liisgelin",
   exitPreview: "Ka bax horudhaca",
   contact: "Xiriir",
   saveContact: "Kaydi xiriirka",

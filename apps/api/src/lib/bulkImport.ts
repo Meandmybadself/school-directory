@@ -2,6 +2,12 @@
 // and matches existing entities so a second run of the same file is a no-op.
 // Dry-run computes the same plan with no writes by simulating created entities
 // in memory so later rows "see" earlier ones.
+//
+// UNLISTED-EXEMPT-FILE: every `person` read here is DEDUPLICATION, not
+// enumeration — "have we already got this family?" on a system-admin-only route.
+// A match the query can't see is a duplicate Person it would silently create, so
+// applying the enumeration gate here would corrupt the roster rather than
+// protect anybody. Nothing in this file returns a name to a member.
 
 import type { BulkImportResult, BulkImportRow, Capability, GroupKind } from "@sd/shared";
 import type { Env } from "../env.js";

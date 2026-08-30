@@ -175,6 +175,14 @@ export const api = {
       `/admin/users/${userId}/disabled`,
       { method: "POST", body: JSON.stringify({ disabled }) },
     ),
+  /** Take a Person off the roster, or put them back. System admins only, and
+   *  the flag lives on the PERSON — unlike setUserDisabled, which is about an
+   *  account's own access. Reversible; nothing else about them changes. */
+  setPersonUnlisted: (personId: string, unlisted: boolean) =>
+    request<{ ok: true; unlisted: boolean }>(
+      `/persons/${personId}/unlisted`,
+      { method: "POST", body: JSON.stringify({ unlisted }) },
+    ),
   /** Dry run: what a permanent delete would remove. Writes nothing. */
   userDeletionImpact: (userId: string) =>
     request<UserDeletionImpactDTO>(`/admin/users/${userId}/impact`),

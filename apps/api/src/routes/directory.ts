@@ -25,23 +25,26 @@ directory.get("/", async (c) => {
   const controlled = new Set(controlledRows.results.map((r) => r.person_id));
 
   // Searching a surname the viewer isn't allowed to READ would confirm it by
-  // omission, so the predicate carries the display rule. Both statements below
-  // use it — the COUNT leaks the same bit as the page does.
-  const search = personSearchSql(q, auth.userId);
-  const whereSql = q ? `WHERE ${search.sql}` : "";
-  const whereBinds = search.binds;
+  // omission, so the predicate carries the display rule — and, since 0018, the
+  // enumeration gate that hides an unlisted Person. Both statements below use
+  // it: the COUNT leaks the same bits as the page does.
+  //
+  // The WHERE is unconditional now. It used to be dropped for an empty query,
+  // which was fine when "no query" meant "no predicate"; it no longer does, and
+  // an unfiltered listing is exactly where an unlisted Person must not appear.
+  const search = personSearchSql(q, auth.userId, auth.isSystemAdmin);
 
-  const totalRow = await c.env.DB.prepare(`SELECT COUNT(*) AS n FROM person ${whereSql}`)
-    .bind(...whereBinds)
+  const totalRow = await c.env.DB.prepare(`SELECT COUNT(*) AS n FROM person WHERE ${search.sql}`)
+    .bind(...search.binds)
     .first<{ n: number }>();
 
   const rows = await c.env.DB.prepare(
     `SELECT id, first_name, last_name, last_name_visibility, photo_object_key
-     FROM person ${whereSql}
+     FROM person WHERE ${search.sql}
      ORDER BY first_name COLLATE NOCASE, last_name COLLATE NOCASE, id
      LIMIT ? OFFSET ?`,
   )
-    .bind(...whereBinds, PAGE, offset)
+    .bind(...search.binds, PAGE, offset)
     .all<{
       id: string;
       first_name: string;

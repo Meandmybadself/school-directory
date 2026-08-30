@@ -426,6 +426,51 @@ All three SPAs are separate Cloudflare Pages projects talking to the single
    (see `NEWSLETTER_MEDIA`) precisely so the public media route can't reach one.
 
 
+21. **Whether a Person exists to a viewer is decided before any field on them
+   is.** `unlisted_at` (migration 0018) takes a Person off the roster for every
+   ordinary member while leaving them visible to a system admin and to any User
+   who controls them — `control` is many-to-many, so "controls" already names
+   the right set. It is a stronger withholding than any per-item `visibility` a
+   Controller sets, which is why only a system admin may move it
+   (`POST /persons/:id/unlisted`); a Controller SEES the flag on their own
+   Person — `buildProfile` returns `unlisted` to them and the profile screen
+   shows them the card without the button — and cannot flip it. Telling them
+   matters: a family missing from the directory with no explanation is the
+   confusing outcome, not the private one.
+   The seam is **`personListableSql`** (`apps/api/src/lib/privacy.ts`), the
+   counterpart to `canSeeItem`: `canSeeItem` decides whether one contact item is
+   visible on a Person already in view, this decides whether the Person is in
+   view at all. **`personSearchSql` is built ON it, not beside it** — a call site
+   that remembered the surname rule and forgot this one is exactly the failure
+   invariants 12, 13 and 18 were each written after, so name search cannot be
+   spelled without the gate. The consequence to know: an empty query used to
+   return `"1"` and now returns the gate, because "no search term" is precisely
+   the unfiltered listing an unlisted Person must stay out of.
+   Two places do not use the SQL form, both deliberately. `buildProfile` bakes it
+   into its single-row WHERE so an unlisted Person **404s** for a member who
+   guessed the ULID — hiding someone from a listing while still serving their
+   profile is invariant 18's oracle one URL along. And `lib/volunteers.ts`'s
+   `positionsOf` lets the row survive the query and drops it in memory with
+   **`isPersonListable`**, because a position's `filled` must still count an
+   unlisted signer on the very response that hides their name; a count that
+   shrank with the name would advertise a taken shift as needing help.
+   `test/personListable.test.ts` is the tripwire, and it is a different kind of
+   test from anything else here: it SCANS `apps/api/src` for `FROM person` /
+   `JOIN person` and fails unless each one composes the guard or carries an
+   `// UNLISTED-EXEMPT: <reason>` (a file may carry `UNLISTED-EXEMPT-FILE:`).
+   Route-pinned tests only catch a listing somebody remembered to test; this
+   catches the eighth one nobody did. It is detection, not prevention — a view or
+   a dynamic table name would slip past, the same ceiling `verifyAuditChain` has.
+   **Group-level hiding is deliberately not built**, and two counts are the
+   accepted price. `GET /groups` lets any member search every group's name and
+   see a raw `member_count`, and a group detail's `children[].memberCount` is
+   likewise a plain `membership` count — so a household of entirely unlisted
+   Persons is discoverable by NAME, with a roster that renders empty beside a
+   count that doesn't. (The group's OWN `memberCount` is filtered, being derived
+   from the roster rows.) Numbers, never identities. `unlisted_at` withholds a
+   Person, not a Group; extending it to `grp` is a second flag for when a real
+   case asks, not before.
+
 ## Conventions
 
 - TypeScript strict everywhere. `verbatimModuleSyntax` is on — use

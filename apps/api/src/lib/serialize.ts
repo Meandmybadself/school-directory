@@ -13,6 +13,7 @@ import {
   canSeeItem,
   controllerUserIds,
   displayName,
+  personListableSql,
   sharesForMany,
   sharesOf,
   viewerGroupIds,
@@ -26,6 +27,7 @@ interface PersonRow {
   last_name: string | null;
   last_name_visibility: LastNameDisplay;
   photo_object_key: string | null;
+  unlisted_at: string | null;
 }
 
 export async function capabilitiesFor(env: Env, personId: string): Promise<Capability[]> {
@@ -90,6 +92,12 @@ export interface BuildProfileOptions {
    *  controls the Person — for everyone else the normal rules already apply and
    *  suppressing their shares would UNDER-report what they may see. */
   asMember?: boolean;
+  /** Whether the viewer is a system admin. Governs which Persons the read can
+   *  FIND at all (`personListableSql`), which is a different axis from
+   *  `asMember` — that only degrades what is rendered from a row already found.
+   *  An admin previewing a member's-eye view of someone they don't control must
+   *  still reach the row, so the two never gate each other. */
+  isSystemAdmin?: boolean;
 }
 
 /** Build a profile DTO for `viewer` looking at `personId`, or null if missing. */
@@ -99,10 +107,16 @@ export async function buildProfile(
   personId: string,
   opts: BuildProfileOptions = {},
 ): Promise<PersonProfileDTO | null> {
+  // The enumeration gate is baked into the WHERE rather than checked after, so
+  // an unlisted Person is simply not found — a member who guesses the ULID gets
+  // the same 404 as for one that never existed. A listing that hides someone
+  // while still serving their profile is the oracle invariant 18 describes.
+  const listable = personListableSql(viewer.userId, opts.isSystemAdmin === true);
   const person = await env.DB.prepare(
-    "SELECT id, first_name, last_name, last_name_visibility, photo_object_key FROM person WHERE id = ?",
+    `SELECT id, first_name, last_name, last_name_visibility, photo_object_key, unlisted_at
+     FROM person WHERE id = ? AND ${listable.sql}`,
   )
-    .bind(personId)
+    .bind(personId, ...listable.binds)
     .first<PersonRow>();
   if (!person) return null;
 
@@ -237,6 +251,10 @@ export async function buildProfile(
     controlledByViewer: controlsPerson,
   };
   if (groupContacts.length) profile.groupContacts = groupContacts;
+  // Safe to state plainly: anyone who reached this line already cleared the gate
+  // above, so they are an admin or a Controller — the two audiences entitled to
+  // know. A member never sees the field because they never see the profile.
+  if (person.unlisted_at) profile.unlisted = true;
   if (previewAsMember) {
     profile.previewAsMember = true;
     profile.hiddenFromMembers = hiddenFromMembers;

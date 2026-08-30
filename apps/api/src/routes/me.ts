@@ -117,6 +117,8 @@ me.get("/households", async (c) => {
 me.get("/", async (c) => {
   const auth = requireAuth(c);
 
+  // UNLISTED-EXEMPT: every row is a Person the viewer controls (WHERE
+  // ctl.user_id = ?), which is the gate's own exception.
   const personRows = await c.env.DB.prepare(
     `SELECT p.id, p.first_name, p.last_name, p.last_name_visibility, p.photo_object_key
      FROM control ctl JOIN person p ON p.id = ctl.person_id

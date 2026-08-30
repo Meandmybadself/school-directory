@@ -28,7 +28,7 @@ import type {
 } from "@sd/shared";
 import { volunteerSheetSlug } from "@sd/shared";
 import type { Env } from "../env.js";
-import { displayName } from "./privacy.js";
+import { displayName, isPersonListable } from "./privacy.js";
 import { ulid } from "./ids.js";
 import { nowIso } from "./time.js";
 
@@ -89,6 +89,9 @@ interface SignupRow {
   first_name: string;
   last_name: string | null;
   last_name_visibility: LastNameDisplay;
+  /** Read so the NAME can be withheld while the row still counts — see
+   *  `positionsOf`. */
+  unlisted_at: string | null;
 }
 
 /** Who is reading. `controlledPersonIds` drives both `isYou` and the last-name
@@ -213,9 +216,13 @@ async function positionsOf(
   if (positions.results.length === 0) return [];
 
   const holes = positions.results.map(() => "?").join(",");
+  // UNLISTED-EXEMPT: filtered in memory below, not here, and deliberately. A
+  // position's `filled` must still count an unlisted signer on the very response
+  // that hides their name — dropping the row in SQL would report a spot as open
+  // that somebody is standing in. See isPersonListable.
   const signups = await env.DB.prepare(
     `SELECT su.id, su.position_id, su.person_id, su.note, su.created_at,
-            p.first_name, p.last_name, p.last_name_visibility
+            p.first_name, p.last_name, p.last_name_visibility, p.unlisted_at
        FROM volunteer_signup su
        JOIN person p ON p.id = su.person_id
       WHERE su.position_id IN (${holes})
@@ -238,6 +245,9 @@ async function positionsOf(
       title: p.title,
       description: p.description,
       slots: p.slots,
+      // Counted over the UNFILTERED rows: an unlisted volunteer still holds the
+      // spot, and a count that shrank with the name would advertise a shift as
+      // needing help when it doesn't (invariant 13).
       filled: rows.length,
       startsAt: p.starts_at,
       endsAt: p.ends_at,
@@ -245,7 +255,11 @@ async function positionsOf(
       // where these are dropped anyway. Emitting an empty list rather than
       // reading names we're about to discard keeps the anonymous path from ever
       // holding a member's name in memory.
-      signups: viewer ? rows.map((r) => signupDto(r, viewer)) : [],
+      signups: viewer
+        ? rows
+            .filter((r) => isPersonListable(r.person_id, r.unlisted_at, viewer))
+            .map((r) => signupDto(r, viewer))
+        : [],
     };
   });
 }

@@ -195,7 +195,7 @@ admin.get("/users/:id/impact", async (c) => {
     `SELECT p.id, p.first_name, p.last_name,
             (SELECT COUNT(*) FROM control c2 WHERE c2.person_id = p.id AND c2.user_id <> ?) AS others
        FROM control c
-       JOIN person p ON p.id = c.person_id
+       JOIN person p ON p.id = c.person_id -- UNLISTED-EXEMPT: system-admin route
       WHERE c.user_id = ?
       ORDER BY p.first_name`,
   )

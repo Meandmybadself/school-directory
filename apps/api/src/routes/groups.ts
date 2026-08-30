@@ -8,7 +8,7 @@ import type { Context } from "hono";
 import type { Capability, ContactItemDTO, ContactItemInput, ContactType, GroupDetailDTO, GroupMemberDTO, GroupRefDTO, GroupSummaryDTO, ShareTargetDTO, Visibility } from "@sd/shared";
 import type { HonoEnv } from "../env.js";
 import { requireAuth } from "../middleware/session.js";
-import { canSeeItem, displayName, personSearchSql, sharesForMany, sharesOf, viewerGroupIds, type ContactItemRow } from "../lib/privacy.js";
+import { canSeeItem, displayName, personListableSql, personSearchSql, sharesForMany, sharesOf, viewerGroupIds, type ContactItemRow } from "../lib/privacy.js";
 import { capabilitiesFor } from "../lib/serialize.js";
 import { loadGroupGraph, ancestors, subtree, wouldCycle } from "../lib/groupTree.js";
 import { ulid } from "../lib/ids.js";
@@ -131,6 +131,11 @@ groups.get("/:id", async (c) => {
   // Effective membership rows: direct members of this group OR any descendant.
   // A person can appear in several sub-groups, so dedup by person, keeping admin
   // status / title from THIS group's own membership (roles don't roll up).
+  // `memberCount` below is derived from these rows, so it UNDERCOUNTS for a
+  // viewer an unlisted member is hidden from. That is the intended withholding
+  // and costs nothing: unlike a volunteer position's `filled`, no write path
+  // reads this number as a capacity.
+  const listable = personListableSql(auth.userId, auth.isSystemAdmin, "p");
   const memberRows = await c.env.DB.prepare(
     `SELECT m.person_id,
             MAX(CASE WHEN m.group_id = ? THEN m.title END) AS title,
@@ -138,11 +143,11 @@ groups.get("/:id", async (c) => {
             MAX(CASE WHEN m.group_id = ? THEN 1 ELSE 0 END) AS is_direct,
             p.first_name, p.last_name, p.last_name_visibility, p.photo_object_key
      FROM membership m JOIN person p ON p.id = m.person_id
-     WHERE m.group_id IN (${placeholders})
+     WHERE m.group_id IN (${placeholders}) AND ${listable.sql}
      GROUP BY m.person_id
      ORDER BY is_admin DESC, p.first_name`,
   )
-    .bind(groupId, groupId, groupId, ...rosterGroupIds)
+    .bind(groupId, groupId, groupId, ...rosterGroupIds, ...listable.binds)
     .all<{
       person_id: string;
       title: string | null;
@@ -622,8 +627,12 @@ groups.get("/:id/candidates", async (c) => {
 
   const q = (c.req.query("q") ?? "").trim().toLowerCase();
   // Candidates render as a last initial, so the search must not match on more
-  // than the viewer may read — see personSearchSql.
-  const search = personSearchSql(q, requireAuth(c).userId);
+  // than the viewer may read — see personSearchSql. The exemption it carries is
+  // SYSTEM admin, not the group-admin bar cleared above: group admin is
+  // authority over a roster, not over a name, and no more over whether someone
+  // is on the roster at all.
+  const auth = requireAuth(c);
+  const search = personSearchSql(q, auth.userId, auth.isSystemAdmin);
   const rows = await c.env.DB.prepare(
     `SELECT id, first_name, last_name FROM person
      WHERE id NOT IN (SELECT person_id FROM membership WHERE group_id = ?)

@@ -91,6 +91,10 @@ export interface PersonProfileDTO extends PersonSummaryDTO {
   /** Preview only — how many of this Person's own contact items members cannot
    *  see. Group-owned cascaded items are excluded; they're edited on the group. */
   hiddenFromMembers?: number;
+  /** True when this Person is off the roster (migration 0018). Only ever present
+   *  for a viewer who already cleared the enumeration gate — a system admin or a
+   *  Controller — because nobody else is served this profile at all. */
+  unlisted?: boolean;
 }
 
 export interface GroupSummaryDTO {
