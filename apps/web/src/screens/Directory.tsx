@@ -3,6 +3,7 @@
 // the privacy-filtered profile each row links to.
 import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { CAPABILITIES } from "@sd/shared";
 import type { Capability, PersonSummaryDTO } from "@sd/shared";
 import { Icon } from "../components/Icon.js";
 import { Tag } from "../components/atoms.js";
@@ -26,18 +27,23 @@ export function Directory() {
   const navigate = useNavigate();
   const isDesktop = useIsDesktop();
   const [q, setQ] = useState("");
+  // Selected roles read as OR, matching the server: no chip on is "everyone".
+  const [caps, setCaps] = useState<Capability[]>([]);
   const [people, setPeople] = useState<PersonSummaryDTO[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(false);
   const reqId = useRef(0);
 
-  // Debounced search; resets the list on each query change.
+  // Debounced search; resets the list on each query or filter change. The
+  // filter shares the debounce so a burst of chip taps issues one request, and
+  // shares `reqId` so a slower earlier response can't overwrite a newer one.
+  const capKey = caps.join(",");
   useEffect(() => {
     const id = ++reqId.current;
     const handle = setTimeout(() => {
       setLoading(true);
       void api
-        .directory(q, 0)
+        .directory(q, 0, caps)
         .then((r) => {
           if (id !== reqId.current) return; // stale response
           setPeople(r.people);
@@ -49,10 +55,11 @@ export function Directory() {
         .finally(() => id === reqId.current && setLoading(false));
     }, 200);
     return () => clearTimeout(handle);
-  }, [q]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [q, capKey]);
 
   const loadMore = async () => {
-    const r = await api.directory(q, people.length);
+    const r = await api.directory(q, people.length, caps);
     setPeople((prev) => [...prev, ...r.people]);
     setTotal(r.total);
   };
@@ -68,6 +75,33 @@ export function Directory() {
         autoFocus={isDesktop}
         style={{ paddingLeft: 38 }}
       />
+    </div>
+  );
+
+  const toggleCap = (c: Capability) =>
+    setCaps((prev) => (prev.includes(c) ? prev.filter((x) => x !== c) : [...prev, c]));
+
+  const filters = (
+    <div className="sd-chips" role="group" aria-label={t("filterByRole")}>
+      <button
+        type="button"
+        className={`sd-chip ${caps.length === 0 ? "on" : ""}`}
+        aria-pressed={caps.length === 0}
+        onClick={() => setCaps([])}
+      >
+        {t("filterAllRoles")}
+      </button>
+      {CAPABILITIES.map((c) => (
+        <button
+          key={c}
+          type="button"
+          className={`sd-chip ${caps.includes(c) ? "on" : ""}`}
+          aria-pressed={caps.includes(c)}
+          onClick={() => toggleCap(c)}
+        >
+          {capLabel(t, c)}
+        </button>
+      ))}
     </div>
   );
 
@@ -101,6 +135,7 @@ export function Directory() {
       <DesktopShell active="dir" title={t("navDir")}>
         <div style={{ maxWidth: 720, display: "flex", flexDirection: "column", gap: 14 }}>
           {searchBar}
+          {filters}
           {meta}
           {list}
         </div>
@@ -113,6 +148,7 @@ export function Directory() {
       <div className="sd-scroll">
         <div className="sd-body" style={{ gap: 12 }}>
           {searchBar}
+          {filters}
           {meta}
           {list}
         </div>

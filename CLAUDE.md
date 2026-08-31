@@ -405,6 +405,19 @@ All three SPAs are separate Cloudflare Pages projects talking to the single
    `test/privacyRoutes.test.ts` asserts all four statements carry the guard.
    The same rule generalises: before adding a search, ask what the response
    withholds, and make sure the WHERE withholds it too.
+   The directory's **capability filter** (`?capability=teacher&capability=staff`,
+   OR'd into one `IN`) is the worked example of a term that clears this bar
+   rather than tripping it: every capability a Person holds is already rendered
+   as a tag on the very row the filter selects, so there is nothing for matching
+   on it to confirm. It is ANDed onto `personSearchSql`, never in place of it, so
+   the enumeration gate (invariant 21) and the surname rule both still apply —
+   and onto BOTH statements, because a total that ignored the filter would page
+   past the end of the list the member can see. It is written as a trailing
+   fragment appended inside each `prepare` template rather than folded with the
+   search into one `where` local, so `${search.sql}` stays visible to
+   `test/personListable.test.ts`'s scan; a second local would read to that scan
+   as an unguarded listing. An unrecognised code is a **400**, not a dropped
+   term: dropping it answers a filtered request with the whole roster.
 
 19. **The two ways in from an email are read-only GETs.** Mail scanners and
    "safe links" rewriters follow every GET in a message before the recipient

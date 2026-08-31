@@ -50,6 +50,8 @@ export interface Strings {
   groupsResults: string;
   groupsEmpty: string;
   directoryEmpty: string;
+  filterByRole: string;
+  filterAllRoles: string;
   loadMore: string;
   showingOf: string; // uses {shown} {total}
 
@@ -460,6 +462,8 @@ const en: Strings = {
   groupsResults: "Results",
   groupsEmpty: "No groups match your search.",
   directoryEmpty: "No members match your search.",
+  filterByRole: "Filter by role",
+  filterAllRoles: "Everyone",
   loadMore: "Load more",
   showingOf: "Showing {shown} of {total}",
 
@@ -859,6 +863,8 @@ const es: Strings = {
   groupsResults: "Resultados",
   groupsEmpty: "Ningún grupo coincide con tu búsqueda.",
   directoryEmpty: "Ningún miembro coincide con tu búsqueda.",
+  filterByRole: "Filtrar por rol",
+  filterAllRoles: "Todos",
   loadMore: "Cargar más",
   showingOf: "Mostrando {shown} de {total}",
 
@@ -1199,6 +1205,8 @@ const zh: Strings = {
   groupsResults: "结果",
   groupsEmpty: "没有匹配的群组。",
   directoryEmpty: "没有匹配的成员。",
+  filterByRole: "按角色筛选",
+  filterAllRoles: "全部",
   loadMore: "加载更多",
   showingOf: "显示 {shown} / {total}",
 
@@ -1530,6 +1538,8 @@ const so: Strings = {
   groupsResults: "Natiijooyinka",
   groupsEmpty: "Ma jiraan kooxo waafaqsan raadintaada.",
   directoryEmpty: "Ma jiraan xubno waafaqsan raadintaada.",
+  filterByRole: "Ku kala saar doorka",
+  filterAllRoles: "Dhammaan",
   loadMore: "Soo bandhig wax dheeraad ah",
   showingOf: "Waxaa la tusayaa {shown} ka mid ah {total}",
 

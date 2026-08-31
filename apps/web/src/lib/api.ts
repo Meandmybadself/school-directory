@@ -6,6 +6,7 @@ import type {
   BulkImportResult,
   BulkImportRow,
   CalendarEventDTO,
+  Capability,
   ContactItemInput,
   PersonSummaryDTO,
   CreatePersonBody,
@@ -118,9 +119,12 @@ export const api = {
 
   neighbors: () => request<NeighborsResponse>("/home/neighbors"),
 
-  directory: (q: string, offset = 0) =>
+  /** `capabilities` narrows the listing to Persons holding ANY of them; an empty
+   *  array is "no filter" and sends no param. */
+  directory: (q: string, offset = 0, capabilities: Capability[] = []) =>
     request<{ people: PersonSummaryDTO[]; total: number; offset: number; pageSize: number }>(
-      `/directory?q=${encodeURIComponent(q)}&offset=${offset}`,
+      `/directory?q=${encodeURIComponent(q)}&offset=${offset}` +
+        capabilities.map((c) => `&capability=${encodeURIComponent(c)}`).join(""),
     ),
 
   group: (id: string) => request<GroupDetailDTO>(`/groups/${id}`),
