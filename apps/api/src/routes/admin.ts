@@ -308,6 +308,7 @@ admin.post("/users", async (c) => {
     entityKind: "user",
     entityId: id,
     detail: { op: "user.create", emailSent: sendInvite },
+    notify: { op: "user.create", email, emailSent: sendInvite },
   });
   return c.json({ user: { id, email, isSystemAdmin: !!body?.isSystemAdmin, personCount: 0 } }, 201);
 });

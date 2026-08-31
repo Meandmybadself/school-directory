@@ -90,6 +90,17 @@ me.post("/persons", async (c) => {
 
   if (makeActive) setActivePersonCookie(c, personId);
 
+  // Pushed before control.granted: the Person existing is the primary fact and
+  // the grant is a consequence of it. The name is deliberately NOT in `notify` —
+  // a formatter that wants one looks it up through `personLabel`, which applies
+  // the unlisted gate and the surname rule (invariants 21 and 22).
+  c.var.audit.push({
+    action: "person.created",
+    entityKind: "person",
+    entityId: personId,
+    detail: { userId: auth.userId, householdId, capabilities: caps },
+    notify: { householdId },
+  });
   c.var.audit.push({ action: "control.granted", entityKind: "person", entityId: personId, detail: { userId: auth.userId, self: true } });
   if (householdId) {
     c.var.audit.push({ action: "admin.action", entityKind: "group", entityId: householdId, detail: { op: "member.add", personId } });

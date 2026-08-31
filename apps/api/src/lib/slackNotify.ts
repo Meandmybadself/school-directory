@@ -27,6 +27,7 @@
 // and the two shared lookups below.
 
 import type { AuditAction } from "@sd/shared";
+import { eventPath } from "@sd/shared";
 import type { Env } from "../env.js";
 import type { AuditDraft, AuditMeta } from "./audit.js";
 import { displayName, personListableSql } from "./privacy.js";
@@ -44,6 +45,10 @@ import { postToSlack } from "./slack.js";
  *  short-circuits the seam to the literal `"1"`, which reads like a guard,
  *  satisfies test/personListable.test.ts's scan, and gates nothing. */
 const NO_VIEWER = "";
+
+/** Where the school is, when `SCHOOL_TIMEZONE` is unset. Only ever affects how
+ *  a date READS in a message; nothing is stored from it. */
+const SCHOOL_TZ_FALLBACK = "America/Chicago";
 
 /** What a Person is called in this channel.
  *
@@ -120,6 +125,38 @@ function num(bag: NotifyBag, key: string): number {
   return typeof v === "number" ? v : 0;
 }
 
+/** " on Oct 17" — the date an event starts, or "" when the bag has no usable
+ *  one. Read in SCHOOL_TIMEZONE, never the Worker's UTC: a 7pm event would
+ *  otherwise report the following day for half the year. */
+function whenOf(bag: NotifyBag): string {
+  const start = typeof bag.start === "string" ? bag.start : null;
+  if (!start) return "";
+  const d = new Date(start);
+  if (Number.isNaN(d.getTime())) return "";
+  // All-day values are stored at UTC midnight and must be read back that way.
+  const timeZone = bag.allDay === true ? "UTC" : SCHOOL_TZ_FALLBACK;
+  try {
+    return ` on ${new Intl.DateTimeFormat("en-US", { timeZone, month: "short", day: "numeric" }).format(d)}`;
+  } catch {
+    return "";
+  }
+}
+
+/** The event's own page, when we can address it. Built from the same content
+ *  identity the calendar app mints (`eventPath`), in the school's zone since a
+ *  Worker has no reader timezone — the lookup searches ±1 day, so the two
+ *  agreeing to within a day is enough. */
+function eventLink(env: Env, bag: NotifyBag): string {
+  const title = typeof bag.title === "string" ? bag.title : null;
+  const start = typeof bag.start === "string" ? bag.start : null;
+  if (!env.CALENDAR_URL || !title || !start) return "";
+  const path = eventPath(
+    { title, start, allDay: bag.allDay === true },
+    env.SCHOOL_TIMEZONE ?? SCHOOL_TZ_FALLBACK,
+  );
+  return ` ${link(`${env.CALENDAR_URL}${path}`, "Open event")}`;
+}
+
 // ── The allowlist ───────────────────────────────────────────────────────────
 //
 // Curated for a school PTO's channel: things that are rare, or security-
@@ -128,16 +165,83 @@ function num(bag: NotifyBag, key: string): number {
 //
 //   Routine member traffic — auth.signin/signout, person.updated, contact.*,
 //   share.* — is the highest-frequency thing in the log and would bury
-//   everything else.
+//   everything else. Note the line this draws: `auth.signin` fires every time
+//   somebody opens the app and stays off; `auth.registered` fires once in an
+//   account's life and is on. Same for `person.created` against
+//   `person.updated`. Arrival is news; existing is not.
 //
-//   Authoring CRUD — calendar.event.*, calendar.managed.*, volunteer.sheet.*,
+//   Authoring CRUD — calendar.managed.*, volunteer.sheet.*,
 //   volunteer.position.*, newsletter.issue.updated — fires once per HTTP
 //   REQUEST, and the coalescing below only merges drafts within one request.
 //   Building a sheet with six positions is six requests, so it would be six
 //   messages however this file batches. newsletter.issue.updated is the worst
 //   of them: it fires on every autosave while someone is typing.
+//
+// `calendar.event.*` was in that second family and was moved OUT of it by an
+// explicit decision, against the advice above — the whole of an event's CRUD
+// now posts, updates included. Know what that buys: an admin filling in a term
+// generates one message per save, and re-saving the same event five times is
+// five messages, because there is no dedupe across requests and this file will
+// not grow one. If the channel gets noisy, `calendar.event.updated` is the
+// entry to drop first; `created` and `deleted` are the rare, consequential
+// halves, and deleting an event destroys volunteer signups with it.
 
 const FORMATTERS = {
+  // ── Joining: an account, or a Person on the roster ──
+  //
+  // Both are "someone new is here", which is the thing a PTO channel actually
+  // wants to see. Note what each may say. A new USER is identified by email:
+  // `user.email` carries no enumeration gate (invariant 21 is a rule about
+  // `person`), and `actorLabel` already puts admin addresses in this channel.
+  // A new PERSON is identified through `personLabel`, never from `notify` — so
+  // an unlisted Person reads as "A member" and a withheld surname stays an
+  // initial, the same treatment a volunteer signup gets.
+  "auth.registered": ({ notify }) => {
+    // No actor: nobody was signed in when the row was written, which is the
+    // honest description of a self-serve signup and why this is not phrased as
+    // something an admin did.
+    const how = notify.via === "invite" ? "accepted an invitation" : "signed up";
+    return `:wave: *${str(notify, "email")}* ${how} — new account.`;
+  },
+
+  "person.created": async ({ env, entityId, actor }) => {
+    const who = await personLabel(env, entityId ?? "");
+    return `:bust_in_silhouette: *${who}* was added to the directory — ${actor}.`;
+  },
+
+  // ── Calendar events: the whole of one series' CRUD ──
+  //
+  // Everything these say travels in `notify`, never `detail`, for the reason
+  // invariant 22 gives — and for a second one specific to deletes: the row is
+  // already gone by the time the draft is flushed, so a title this did not
+  // carry could not be looked up afterwards at all.
+  //
+  // Only created/updated get a link. A deleted event's page is exactly what no
+  // longer resolves (the URL is a content identity — invariant 8), so linking
+  // it would send readers to the "event not found" card.
+  "calendar.event.created": ({ env, notify, actor }) =>
+    `:calendar: New event *${str(notify, "title")}*${whenOf(notify)}` +
+    ` — ${actor}.${eventLink(env, notify)}`,
+
+  "calendar.event.updated": ({ env, notify, actor }) =>
+    `:pencil2: Event *${str(notify, "title")}* edited${whenOf(notify)}` +
+    ` — ${actor}.${eventLink(env, notify)}`,
+
+  "calendar.event.deleted": ({ notify, actor }) => {
+    const signups = num(notify, "signups");
+    // The sting in the tail: a delete cascades through volunteer sheets, and
+    // the people who had claimed those spots are never told (see the admin's
+    // own confirmation copy). If anyone was signed up, the channel says so.
+    const took = signups
+      ? `, taking ${signups} volunteer sign-up${signups === 1 ? "" : "s"} with it`
+      : "";
+    return (
+      `:wastebasket: Event *${str(notify, "title")}* deleted` +
+      ` (${num(notify, "occurrences")} date${num(notify, "occurrences") === 1 ? "" : "s"}${took})` +
+      ` — ${actor}.`
+    );
+  },
+
   // ── Volunteering: the one member-initiated action worth watching live ──
   "volunteer.signup.created": async ({ env, notify }) => {
     const who = await personLabel(env, String(notify.personId ?? ""));
@@ -199,6 +303,17 @@ const FORMATTERS = {
         return `:key: *${email}* was made a system admin — ${actor}.`;
       case "user.admin.revoked":
         return `:key: *${email}* is no longer a system admin — ${actor}.`;
+      case "user.create":
+        // The admin-created half of joining; `auth.registered` above is the
+        // self-serve half. `joined_via = 'admin'` keeps this one out of the
+        // new-member EMAIL digest, deliberately — but a channel is where an
+        // admin acting on someone else's behalf is worth seeing.
+        return (
+          `:heavy_plus_sign: *${email}* was added as a user — ${actor}` +
+          `${notify.emailSent === false ? " (no invitation sent)" : ""}.`
+        );
+      case "group.create":
+        return `:busts_in_silhouette: New ${str(notify, "kind", "group")} *${str(notify, "name")}* created — ${actor}.`;
       default:
         return null;
     }

@@ -235,6 +235,19 @@ auth.post("/callback", async (c) => {
     c.executionCtx.waitUntil(
       notifyNewUser(c.env, { email: row.email, via, createdAt: joinedAt }),
     );
+    // And record it. Pushed here, at the INSERT, rather than beside the
+    // `auth.signin` below: the account existing is the fact worth keeping, and
+    // it must survive even if something later in this handler throws (invariant
+    // 5's reasoning, and the same ordering test/volunteerSignupAudit.test.ts
+    // pins for a claimed spot). `via` distinguishes an open-registration signup
+    // from an invited one; the email is the only identity a brand-new row has.
+    c.var.audit.push({
+      action: "auth.registered",
+      entityKind: "user",
+      entityId: userId,
+      detail: { via, bootstrap },
+      notify: { email: row.email, via },
+    });
     if (bootstrap) {
       c.var.audit.push({ action: "admin.action", entityKind: "user", entityId: userId, detail: { op: "bootstrap_admin" } });
     }

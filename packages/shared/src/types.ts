@@ -993,6 +993,15 @@ export interface PublicNewsletterConfirmationDTO {
 
 /** Actions captured in the append-only audit log (FR-31). */
 export type AuditAction =
+  /** A `user` row was created by someone signing in for the first time — the
+   *  self-serve half of joining, where `admin.action` op `user.create` is the
+   *  half an admin performs. Recorded at the INSERT in /auth/callback, which
+   *  had no entry of its own before: the account existing is a bigger fact than
+   *  any single sign-in, and `auth.signin` (pushed moments later in the same
+   *  request) could not distinguish the first one from the thousandth. There is
+   *  no actor — nobody was signed in yet — so the row's actor column is null by
+   *  construction, exactly as `newsletter.subscribed` is. */
+  | "auth.registered"
   | "auth.signin"
   | "auth.signout"
   | "invite.sent"
@@ -1051,6 +1060,15 @@ export type AuditAction =
   // changing hands is exactly the kind of thing someone later asks about.
   | "volunteer.signup.created"
   | "volunteer.signup.deleted"
+  /** A Person was added to the directory. The companion to `person.updated`,
+   *  which was for a long time the only thing said about a Person at all — so a
+   *  row appearing was invisible to this log while every later edit to it was
+   *  recorded. `control.granted` is pushed in the same request (the creator
+   *  always controls what they create) but means something else, and would not
+   *  fire for a Person created any other way. Bulk imports do NOT push this:
+   *  `bulk.import` already reports the batch, and one draft per row would make
+   *  a 200-child import 200 entries saying nothing the summary doesn't. */
+  | "person.created"
   | "person.updated"
   | "contact.created"
   | "contact.updated"

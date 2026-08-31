@@ -551,11 +551,34 @@ All three SPAs are separate Cloudflare Pages projects talking to the single
    it is the capability to post into the channel.
    Two things are deliberately **not** on the allowlist and want a reason before
    they are. Routine member traffic (`auth.signin`, `person.updated`, `contact.*`,
-   `share.*`) would bury everything else. Authoring CRUD (`calendar.event.*`,
-   `volunteer.position.*`, `newsletter.issue.updated`) fires once per HTTP
+   `share.*`) would bury everything else. Authoring CRUD
+   (`volunteer.position.*`, `newsletter.issue.updated`) fires once per HTTP
    REQUEST, and coalescing only merges drafts WITHIN a request — building a sheet
    with six positions is six requests, so it is six messages however this batches.
    `newsletter.issue.updated` is the worst: it fires on every autosave.
+   **`calendar.event.*` was moved out of that second family on purpose** — the
+   whole of an event's CRUD now posts, updates included, which was asked for
+   knowing the cost: one message per save, five re-saves are five messages, and
+   there is no cross-request dedupe (nor should one be added here). If the
+   channel gets noisy, `calendar.event.updated` is the entry to drop first.
+   **The line the first family draws is arrival, not existence**: `auth.signin`
+   fires every time somebody opens the app and stays off, while `auth.registered`
+   fires once in an account's life and is on; the same split separates
+   `person.created` from `person.updated`.
+   Those two actions are **new**, and adding them fixed a gap in this log rather
+   than only feeding Slack: a `user` row created by /auth/callback and a Person
+   created by `POST /me/persons` were both invisible here, while every later edit
+   to either was recorded. `auth.registered` has a null actor by construction
+   (nobody is signed in yet — like `newsletter.subscribed`), and is pushed at the
+   INSERT rather than beside the `auth.signin` that follows it, for the ordering
+   reason above. `person.created` is deliberately NOT pushed by `bulkImport.ts`:
+   `bulk.import` already reports the batch, and one draft per row would make a
+   200-child import 200 entries saying nothing the summary doesn't.
+   `admin.action` speaks **six** of its ~15 ops (the four user/admin ones plus
+   `user.create` and `group.create`); the rest — renames, reparents, roster
+   edits, `bootstrap_admin` — fall through its switch's default and say nothing,
+   which is what stops that one action readmitting the noise the allowlist
+   exists to exclude.
 
 ## Conventions
 

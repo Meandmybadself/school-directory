@@ -163,6 +163,15 @@ managedCalendar.post("/managed-calendars/:id/events", async (c) => {
       entityKind: "managed_event",
       entityId: event.id,
       detail: { calendarId: event.calendarId, occurrences: event.occurrenceCount },
+      // Curated by hand for Slack (invariant 22): the title and start are what
+      // name the event and mint its link. Scalars only, and never `detail` —
+      // which is why these are spelled out again rather than shared.
+      notify: {
+        title: event.title,
+        start: event.start,
+        allDay: event.allDay,
+        occurrences: event.occurrenceCount,
+      },
     });
     return c.json({ event }, 201);
   } catch (err) {
@@ -201,6 +210,12 @@ managedCalendar.patch("/managed-events/:id", async (c) => {
       entityKind: "managed_event",
       entityId: event.id,
       detail: { occurrences: event.occurrenceCount },
+      notify: {
+        title: event.title,
+        start: event.start,
+        allDay: event.allDay,
+        occurrences: event.occurrenceCount,
+      },
     });
     return c.json({ event });
   } catch (err) {
@@ -231,6 +246,16 @@ managedCalendar.delete("/managed-events/:id", async (c) => {
     entityKind: "managed_event",
     entityId: id,
     detail: { ...removed },
+    // Named field by field rather than spread from `removed`, so a field added
+    // to Removal later cannot reach the channel on its own — the same property
+    // the public projections have. No `start`: the event is gone, so there is
+    // no page left to link.
+    notify: {
+      title: removed.title,
+      occurrences: removed.occurrences,
+      sheets: removed.sheets,
+      signups: removed.signups,
+    },
   });
   return c.json({ ok: true, removed });
 });

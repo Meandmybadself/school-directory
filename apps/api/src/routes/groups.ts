@@ -386,7 +386,15 @@ groups.post("/", async (c) => {
   }
   await c.env.DB.batch(stmts);
 
-  c.var.audit.push({ action: "admin.action", entityKind: "group", entityId: id, detail: { op: "group.create", kind, parentId } });
+  c.var.audit.push({
+    action: "admin.action",
+    entityKind: "group",
+    entityId: id,
+    detail: { op: "group.create", kind, parentId },
+    // A group's name is school-facing, not member-private — it is what every
+    // member already searches in GET /groups (invariant 21's accepted cost).
+    notify: { op: "group.create", name, kind },
+  });
   return c.json({ id }, 201);
 });
 

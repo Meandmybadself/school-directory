@@ -168,13 +168,15 @@ describe("the allowlist is closed by construction", () => {
     // Pinned so that adding one of these to FORMATTERS is a visible diff in
     // this file rather than a quiet flood in someone's channel.
     const excluded: AuditAction[] = [
-      "auth.signin",
+      // The near-misses matter most here: each of these has a sibling that IS
+      // curated, so a copy-paste in FORMATTERS would show up as a failure.
+      "auth.signin", // vs auth.registered — every visit, not the one arrival
       "auth.signout",
-      "person.updated",
+      "person.updated", // vs person.created — every edit, not the one arrival
       "contact.updated",
       "share.created",
       "newsletter.issue.updated", // fires on every autosave
-      "calendar.event.created",
+      "calendar.managed.created",
       "volunteer.position.created",
     ];
     for (const action of excluded) {
@@ -187,13 +189,20 @@ describe("the allowlist is closed by construction", () => {
     expect(posted).toEqual([]);
   });
 
-  it("declines an admin.action whose op is not one of the four", async () => {
-    const draft: AuditDraft = {
-      action: "admin.action",
-      entityId: "01G",
-      notify: { op: "group.create", email: "admin@eisenhower.edu" },
-    };
-    expect(await lines([draft])).toEqual([]);
+  it("declines an admin.action whose op is not curated", async () => {
+    // admin.action is a fifteen-way catch-all and only six of its ops are
+    // spoken. The rest — renames, reparents, roster edits, bootstrap_admin —
+    // must fall through the switch's default and say nothing, or this one
+    // action would quietly readmit the group-authoring noise the allowlist
+    // exists to keep out.
+    for (const op of ["group.rename", "group.reparent", "member.add", "member.remove", "bootstrap_admin"]) {
+      const draft: AuditDraft = {
+        action: "admin.action",
+        entityId: "01G",
+        notify: { op, email: "admin@eisenhower.edu" },
+      };
+      expect(await lines([draft])).toEqual([]);
+    }
   });
 });
 
@@ -434,5 +443,129 @@ describe("nothing here ever throws", () => {
     // exactly like RESEND_API_KEY and never echoed, not even on failure.
     expect(err.mock.calls.flat().join(" ")).not.toContain("xxxxxxxx");
     err.mockRestore();
+  });
+});
+
+describe("calendar event CRUD", () => {
+  // Added deliberately, against the noise argument in slackNotify.ts's header:
+  // the whole of an event's CRUD posts, updates included. These pin what each
+  // one says — and, more importantly, what none of them says.
+
+  it("names the event and links its page on create", async () => {
+    const [line] = await lines([
+      {
+        action: "calendar.event.created",
+        entityId: "01EV",
+        notify: { title: "Fall Carnival", start: "2026-10-17T22:00:00.000Z", allDay: false, occurrences: 1 },
+      },
+    ]);
+    expect(line).toContain("Fall Carnival");
+    expect(line).toContain("Oct 17");
+    // The content identity the calendar app addresses an event by (invariant 8).
+    expect(line).toContain("/e/2026-10-17/fall-carnival");
+  });
+
+  it("reports what a delete took, and links nothing", async () => {
+    const [line] = await lines([
+      {
+        action: "calendar.event.deleted",
+        entityId: "01EV",
+        notify: { title: "Fall Carnival", occurrences: 4, sheets: 1, signups: 3 },
+      },
+    ]);
+    expect(line).toContain("Fall Carnival");
+    expect(line).toContain("4 dates");
+    // The cascade is the consequential half — a deleted signup is not
+    // recoverable, and the people who claimed those spots are not told.
+    expect(line).toContain("3 volunteer sign-ups");
+    // The page is exactly what stopped resolving, so there must be no link.
+    expect(line).not.toContain("/e/");
+  });
+
+  it("still refuses to say anything a route did not put in notify", async () => {
+    // The defence invariant 22 rests on: a formatter has no `detail` in scope,
+    // so a draft carrying a secret there cannot leak through one. This is the
+    // calendar family's version of the assertion the source-feed test makes.
+    const [line] = await lines([
+      {
+        action: "calendar.event.updated",
+        entityId: "01EV",
+        detail: { url: "https://calendar.google.com/private-abc123/basic.ics" },
+        notify: { title: "Fall Carnival", start: "2026-10-17T22:00:00.000Z", allDay: false },
+      },
+    ]);
+    expect(line).not.toContain("private-abc123");
+    expect(line).not.toContain("google.com");
+  });
+
+  it("degrades to a usable line when notify is empty", async () => {
+    // A push site that forgets the bag must still post something harmless
+    // rather than throw inside waitUntil.
+    const [line] = await lines([{ action: "calendar.event.updated", entityId: "01EV" }]);
+    expect(line).toBeTruthy();
+    expect(line).not.toContain("undefined");
+  });
+});
+
+describe("someone new", () => {
+  it("announces a self-serve signup with no actor", async () => {
+    // Nobody is signed in when the row is written, so the message must not
+    // claim an admin did it.
+    const [line] = await lines(
+      [{ action: "auth.registered", entityId: "01U", notify: { email: "new@eisenhower.edu", via: "signup" } }],
+      testEnv(WEBHOOK),
+      { actorUserId: null, masqueradingAs: null, ip: null, userAgent: null },
+    );
+    expect(line).toContain("new@eisenhower.edu");
+    expect(line).toContain("signed up");
+    expect(line).not.toContain("someone signed out");
+  });
+
+  it("tells an invitation apart from an open-registration signup", async () => {
+    const [line] = await lines([
+      { action: "auth.registered", entityId: "01U", notify: { email: "new@eisenhower.edu", via: "invite" } },
+    ]);
+    expect(line).toContain("accepted an invitation");
+  });
+
+  it("names a new Person through the gate, not from notify", async () => {
+    const [line] = await lines([{ action: "person.created", entityId: "01DANA" }]);
+    // The fake D1 honours personListableSql, so this only passes if the
+    // formatter actually composed the guard.
+    expect(line).toContain("Dana");
+  });
+
+  it("says 'A member' for a new Person who is unlisted", async () => {
+    // The case that makes this channel safe: unlisted_at is reversible and a
+    // Slack channel is not, so a withheld Person must never be named here —
+    // and must read identically to a Person who does not exist (invariant 21).
+    const [line] = await lines([{ action: "person.created", entityId: "01HIDDEN" }]);
+    expect(line).toContain("A member");
+    expect(line).not.toContain("Dana");
+  });
+
+  it("announces a group by name and kind", async () => {
+    const [line] = await lines([
+      {
+        action: "admin.action",
+        entityId: "01G",
+        notify: { op: "group.create", name: "Ms. Ruiz — Grade 3", kind: "classroom" },
+      },
+    ]);
+    expect(line).toContain("Ms. Ruiz");
+    expect(line).toContain("classroom");
+  });
+
+  it("announces an admin-created user, and notes a silent one", async () => {
+    const [loud] = await lines([
+      { action: "admin.action", entityId: "01U", notify: { op: "user.create", email: "a@b.edu", emailSent: true } },
+    ]);
+    expect(loud).toContain("a@b.edu");
+    expect(loud).not.toContain("no invitation");
+
+    const [quiet] = await lines([
+      { action: "admin.action", entityId: "01U", notify: { op: "user.create", email: "a@b.edu", emailSent: false } },
+    ]);
+    expect(quiet).toContain("no invitation sent");
   });
 });
