@@ -452,6 +452,9 @@ newsletter.post("/issues/:id/send", async (c) => {
     entityKind: "newsletter_issue",
     entityId: id,
     detail: { recipientTotal: outcome.recipientTotal },
+    // The issue's title and slug are read back from the row by the notifier —
+    // unlike a deleted calendar source, a sent issue still exists.
+    notify: { recipientTotal: outcome.recipientTotal },
   });
   return c.json({ status: "sending", recipientTotal: outcome.recipientTotal });
 });

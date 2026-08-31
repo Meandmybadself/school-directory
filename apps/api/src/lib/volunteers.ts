@@ -505,6 +505,50 @@ export async function updateSheet(
   return await loadSheetForAdmin(env, id);
 }
 
+/** The three statements that remove every sheet matching `sheetWhere` — signups,
+ *  then positions, then the sheets themselves. Returned rather than run so a
+ *  caller can put them at the FRONT of its own `env.DB.batch`, which is the
+ *  whole reason this is exported: `volunteer_sheet.managed_event_id` references
+ *  `managed_event(id)`, so deleting an event without taking its sheets first
+ *  either trips the foreign key or leaves rows that nothing can ever reach
+ *  again — `sheetRow` joins `managed_event`, so an orphan is invisible to every
+ *  read while its signups sit in the table forever.
+ *
+ *  `sheetWhere` is a predicate over `volunteer_sheet` written by a caller in
+ *  this repo, never from a request; values still go through `binds`. Each
+ *  statement nests it exactly once, so every one takes the same binds. */
+export function sheetCascade(env: Env, sheetWhere: string, binds: unknown[]): D1PreparedStatement[] {
+  const sheets = `SELECT id FROM volunteer_sheet WHERE ${sheetWhere}`;
+  return [
+    env.DB.prepare(
+      `DELETE FROM volunteer_signup WHERE position_id IN
+         (SELECT id FROM volunteer_position WHERE sheet_id IN (${sheets}))`,
+    ).bind(...binds),
+    env.DB.prepare(`DELETE FROM volunteer_position WHERE sheet_id IN (${sheets})`).bind(...binds),
+    env.DB.prepare(`DELETE FROM volunteer_sheet WHERE ${sheetWhere}`).bind(...binds),
+  ];
+}
+
+/** How much volunteer work is hanging off the sheets `sheetWhere` selects,
+ *  counted BEFORE they are deleted. An admin is told this at the confirmation
+ *  step and the audit row keeps it afterwards: once the rows are gone, the
+ *  number of people who had claimed a spot is not recoverable from anywhere. */
+export async function volunteerFootprint(
+  env: Env,
+  sheetWhere: string,
+  binds: unknown[],
+): Promise<{ sheets: number; signups: number }> {
+  const sheets = `SELECT id FROM volunteer_sheet WHERE ${sheetWhere}`;
+  const row = await env.DB.prepare(
+    `SELECT (SELECT COUNT(*) FROM volunteer_sheet WHERE ${sheetWhere}) AS sheets,
+            (SELECT COUNT(*) FROM volunteer_signup WHERE position_id IN
+               (SELECT id FROM volunteer_position WHERE sheet_id IN (${sheets}))) AS signups`,
+  )
+    .bind(...binds, ...binds)
+    .first<{ sheets: number; signups: number }>();
+  return { sheets: row?.sheets ?? 0, signups: row?.signups ?? 0 };
+}
+
 /** Delete a sheet and everything hanging off it. Explicit child deletes rather
  *  than ON DELETE CASCADE, matching how deleteManagedEvent does it. */
 export async function deleteSheet(env: Env, id: string): Promise<boolean> {
@@ -512,13 +556,7 @@ export async function deleteSheet(env: Env, id: string): Promise<boolean> {
     .bind(id)
     .first<{ id: string }>();
   if (!row) return false;
-  await env.DB.batch([
-    env.DB.prepare(
-      "DELETE FROM volunteer_signup WHERE position_id IN (SELECT id FROM volunteer_position WHERE sheet_id = ?)",
-    ).bind(id),
-    env.DB.prepare("DELETE FROM volunteer_position WHERE sheet_id = ?").bind(id),
-    env.DB.prepare("DELETE FROM volunteer_sheet WHERE id = ?").bind(id),
-  ]);
+  await env.DB.batch(sheetCascade(env, "id = ?", [id]));
   return true;
 }
 
@@ -707,21 +745,27 @@ export async function claimSpot(
   return { ok: true, slug: position.slug };
 }
 
-/** Who a signup belongs to, for the route's authorization check. */
+/** Who a signup belongs to, for the route's authorization check.
+ *
+ *  `positionId` rides along for the notification the delete route pushes: the
+ *  signup row is gone by then, so the spot that just opened up can only be
+ *  named from something read before the DELETE. */
 export async function signupOwner(
   env: Env,
   signupId: string,
-): Promise<{ personId: string; userId: string; slug: string } | null> {
+): Promise<{ personId: string; userId: string; slug: string; positionId: string } | null> {
   const row = await env.DB.prepare(
-    `SELECT su.person_id, su.user_id, s.slug
+    `SELECT su.person_id, su.user_id, su.position_id, s.slug
        FROM volunteer_signup su
        JOIN volunteer_position p ON p.id = su.position_id
        JOIN volunteer_sheet s ON s.id = p.sheet_id
       WHERE su.id = ?`,
   )
     .bind(signupId)
-    .first<{ person_id: string; user_id: string; slug: string }>();
-  return row ? { personId: row.person_id, userId: row.user_id, slug: row.slug } : null;
+    .first<{ person_id: string; user_id: string; position_id: string; slug: string }>();
+  return row
+    ? { personId: row.person_id, userId: row.user_id, slug: row.slug, positionId: row.position_id }
+    : null;
 }
 
 export async function releaseSpot(env: Env, signupId: string): Promise<void> {

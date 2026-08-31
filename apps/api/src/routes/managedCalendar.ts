@@ -118,18 +118,23 @@ managedCalendar.patch("/managed-calendars/:id", async (c) => {
   }
 });
 
-/** DELETE /admin/managed-calendars/:id — removes its events and occurrences too. */
+/** DELETE /admin/managed-calendars/:id — removes its events, their volunteer
+ *  sheets and their occurrences too. What went is recorded on the audit row:
+ *  once the rows are gone the id resolves to nothing, so an entry saying only
+ *  which id was deleted says almost nothing. */
 managedCalendar.delete("/managed-calendars/:id", async (c) => {
   const auth = requireAuth(c);
   if (!auth.isSystemAdmin) return c.json({ error: "forbidden" }, 403);
   const id = c.req.param("id");
-  if (!(await deleteManagedCalendar(c.env, id))) return c.json({ error: "not_found" }, 404);
+  const removed = await deleteManagedCalendar(c.env, id);
+  if (!removed) return c.json({ error: "not_found" }, 404);
   c.var.audit.push({
     action: "calendar.managed.deleted",
     entityKind: "managed_calendar",
     entityId: id,
+    detail: { ...removed },
   });
-  return c.json({ ok: true });
+  return c.json({ ok: true, removed });
 });
 
 // ── Events ──────────────────────────────────────────────────────────────────
@@ -205,18 +210,29 @@ managedCalendar.patch("/managed-events/:id", async (c) => {
   }
 });
 
-/** DELETE /admin/managed-events/:id. */
+/** DELETE /admin/managed-events/:id — the whole authored series, every date it
+ *  expanded to, and any volunteer sheet hung off one of those dates.
+ *
+ *  There is no per-occurrence delete, for the same reason there is no
+ *  per-occurrence edit: this system stores a series, not a list of exceptions.
+ *  Ending a run early is an edit to its UNTIL, which is what the editor offers;
+ *  this route is for the event ceasing to exist.
+ *
+ *  The counts it answers with are the ones the admin was shown before
+ *  confirming, re-reported from what the delete actually touched. */
 managedCalendar.delete("/managed-events/:id", async (c) => {
   const auth = requireAuth(c);
   if (!auth.isSystemAdmin) return c.json({ error: "forbidden" }, 403);
   const id = c.req.param("id");
-  if (!(await deleteManagedEvent(c.env, id))) return c.json({ error: "not_found" }, 404);
+  const removed = await deleteManagedEvent(c.env, id);
+  if (!removed) return c.json({ error: "not_found" }, 404);
   c.var.audit.push({
     action: "calendar.event.deleted",
     entityKind: "managed_event",
     entityId: id,
+    detail: { ...removed },
   });
-  return c.json({ ok: true });
+  return c.json({ ok: true, removed });
 });
 
 // ── Volunteer sheets ────────────────────────────────────────────────────────

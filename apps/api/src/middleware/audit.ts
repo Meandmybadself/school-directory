@@ -4,6 +4,7 @@
 import { createMiddleware } from "hono/factory";
 import type { HonoEnv } from "../env.js";
 import { writeAudit } from "../lib/audit.js";
+import { notifySlackForAudit } from "../lib/slackNotify.js";
 
 export const auditMiddleware = createMiddleware<HonoEnv>(async (c, next) => {
   await next();
@@ -30,4 +31,12 @@ export const auditMiddleware = createMiddleware<HonoEnv>(async (c, next) => {
       }
     })(),
   );
+
+  // Slack (invariant 22), on its own promise rather than appended to the loop
+  // above: the two are independent effects of the same drafts, not a pipeline.
+  // A Slack outage must not stop the chain from being written, and a chain that
+  // exhausted its retry budget must still notify. It takes the whole batch
+  // because one request's drafts are one event to a reader — and it curates
+  // from `notify`, never `detail`.
+  c.executionCtx.waitUntil(notifySlackForAudit(c.env, drafts, meta));
 });

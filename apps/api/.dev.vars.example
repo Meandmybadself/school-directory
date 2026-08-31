@@ -4,3 +4,7 @@ RESEND_API_KEY=
 # Sender address Resend is verified to send from.
 EMAIL_FROM="Eisenhower Directory <directory@example.com>"
 # Reserved for future HMAC/signing needs.
+# Slack Incoming Webhook for system-event notifications (invariant 22).
+# When empty — the default — the feature is off and messages are logged to the
+# console instead, the same way an empty RESEND_API_KEY logs magic links.
+SLACK_WEBHOOK_URL=

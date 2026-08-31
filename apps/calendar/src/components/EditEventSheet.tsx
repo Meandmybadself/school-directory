@@ -18,20 +18,28 @@ import { useEffect, useState } from "react";
 import type { ManagedEventDTO } from "@sd/shared";
 import { Btn } from "./atoms.js";
 import { SheetOver } from "./parts.js";
-import { ErrorText, describeEvent } from "./adminUi.js";
+import { ConfirmDelete, ErrorText, dangerBtnStyle, describeEvent, eventDeleteLines } from "./adminUi.js";
 import { EventEditor } from "./EventEditor.js";
 import { api, errorMessage } from "../lib/api.js";
 import { formFromEvent, toInput, type EventForm } from "../lib/eventForm.js";
 
-export function EditEventSheet({ seriesId, onClose, onSaved }: {
+export function EditEventSheet({ seriesId, onClose, onSaved, onDeleted }: {
   seriesId: string;
   onClose: () => void;
   /** Handed the SAVED series. The caller needs it: a title or date change moves
    *  the event's page URL, which is built from exactly those fields. */
   onSaved: (event: ManagedEventDTO) => void;
+  /** Called once the series is gone. Deleting is offered here because this sheet
+   *  is where an admin already is when they decide an event shouldn't happen —
+   *  reached from the event's own page, which the delete then invalidates, so
+   *  the caller has to decide where to send them. Omit it and no delete is
+   *  offered. */
+  onDeleted?: () => void;
 }) {
   const [event, setEvent] = useState<ManagedEventDTO | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [confirming, setConfirming] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
@@ -59,6 +67,39 @@ export function EditEventSheet({ seriesId, onClose, onSaved }: {
     }
   };
 
+  const remove = async () => {
+    setBusy(true);
+    setDeleteError(null);
+    try {
+      await api.deleteManagedEvent(seriesId);
+      onDeleted?.();
+    } catch (err) {
+      // Including the ordinary race: somebody else deleted it first. Either way
+      // the event is gone, but say so rather than closing on silence.
+      setDeleteError(errorMessage(err, "Couldn't delete that event."));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  // The confirmation replaces the form inside this same sheet rather than
+  // opening a second overlay on top of it.
+  if (event && confirming) {
+    return (
+      <SheetOver onClose={busy ? undefined : () => setConfirming(false)}>
+        <ConfirmDelete
+          heading={`Delete "${event.title}"?`}
+          lines={eventDeleteLines(event)}
+          confirmLabel="Delete event"
+          busy={busy}
+          error={deleteError}
+          onConfirm={() => void remove()}
+          onCancel={() => setConfirming(false)}
+        />
+      </SheetOver>
+    );
+  }
+
   return (
     <SheetOver onClose={busy ? undefined : onClose}>
       <h2 className="sd-h2" style={{ marginBottom: 6 }}>Edit event</h2>
@@ -85,6 +126,21 @@ export function EditEventSheet({ seriesId, onClose, onSaved }: {
             onCancel={onClose}
             revealOnMount={false}
           />
+          {onDeleted && (
+            <Btn
+              block
+              kind="secondary"
+              icon="x"
+              disabled={busy}
+              onClick={() => {
+                setDeleteError(null);
+                setConfirming(true);
+              }}
+              style={{ ...dangerBtnStyle, marginTop: 12 }}
+            >
+              Delete event
+            </Btn>
+          )}
         </>
       )}
     </SheetOver>

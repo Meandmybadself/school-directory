@@ -380,6 +380,13 @@ export function Event() {
         if (next === `${window.location.pathname}`) void loadEvent();
         else navigate(next, { replace: true });
       }}
+      onDeleted={() => {
+        // This page addressed the event by title and day (invariant 8), so with
+        // the event gone the URL addresses nothing — staying here would render
+        // the "event not found" card. Back to the agenda, replacing the entry so
+        // Back doesn't return to a dead path.
+        navigate("/", { replace: true });
+      }}
     />
   );
 

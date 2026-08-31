@@ -69,8 +69,11 @@ bucket_name = "school-directory-newsletter-media"
 crons = ["0 */3 * * *", "0 13 * * *"]
 
 # Secrets (set via `wrangler secret put --env production`, or .dev.vars locally):
-#   RESEND_API_KEY   — Resend email API key (magic links / invites)
-#   EMAIL_FROM       — verified Resend sender, e.g. "Eisenhower Directory <directory@…>"
+#   RESEND_API_KEY    — Resend email API key (magic links / invites)
+#   EMAIL_FROM        — verified Resend sender, e.g. "Eisenhower Directory <directory@…>"
+#   SLACK_WEBHOOK_URL — Slack Incoming Webhook for system-event notifications
+#                       (optional; the feature is off entirely when unset, and
+#                       logs to the console instead — see CLAUDE.md invariant 22)
 
 # ── Production environment (deploy with `wrangler deploy --env production`) ──────
 # SPA:        https://directory.eisenhower.school  (Pages)

@@ -349,6 +349,12 @@ export interface ManagedEventDTO {
   recurrence: RecurrenceInput | null;
   /** Number of materialized occurrences currently visible in the agenda. */
   occurrenceCount: number;
+  /** Volunteer sheets hung off this series' occurrences, and the spots claimed
+   *  across them. Admin-only, like the rest of this DTO — they exist so a
+   *  delete can say what it is about to take with it (invariant 13: a sheet
+   *  keys on the series, so removing the series removes the sheet). */
+  sheetCount: number;
+  signupCount: number;
   createdBy: string | null;
   createdAt: string;
   updatedAt: string;

@@ -12,7 +12,7 @@ const NOW = new Date("2026-09-20T12:00:00.000Z").getTime();
 const evt = (over: Partial<ManagedEventDTO>): ManagedEventDTO => ({
   id: "e", calendarId: "c", title: "Event", location: null, description: null,
   start: "2026-09-20T12:00:00.000Z", end: null, allDay: false, recurrence: null,
-  occurrenceCount: 1, createdBy: null,
+  occurrenceCount: 1, sheetCount: 0, signupCount: 0, createdBy: null,
   createdAt: "2026-01-01T00:00:00.000Z", updatedAt: "2026-01-01T00:00:00.000Z",
   ...over,
 });

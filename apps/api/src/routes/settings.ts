@@ -26,7 +26,13 @@ settings.put("/registration", async (c) => {
   if (typeof body?.open !== "boolean") return c.json({ error: "invalid_body" }, 400);
 
   await setSetting(c.env, "registration_open", body.open ? "true" : "false");
-  c.var.audit.push({ action: "registration.toggled", entityKind: "setting", entityId: "registration_open", detail: { open: body.open } });
+  c.var.audit.push({
+    action: "registration.toggled",
+    entityKind: "setting",
+    entityId: "registration_open",
+    detail: { open: body.open },
+    notify: { open: body.open },
+  });
   return c.json({ open: body.open });
 });
 

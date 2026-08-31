@@ -11,8 +11,16 @@ import { Icon } from "../components/Icon.js";
 import { Btn, Tag } from "../components/atoms.js";
 import { AppShell, BottomNav } from "../components/AppShell.js";
 import { DesktopShell } from "../components/DesktopShell.js";
-import { ScreenHeader, SectLabel, Field } from "../components/parts.js";
-import { ErrorText, IcsLink, colorInputStyle, describeEvent, iconBtnStyle } from "../components/adminUi.js";
+import { ScreenHeader, SectLabel, Field, SheetOver } from "../components/parts.js";
+import {
+  ConfirmDelete,
+  ErrorText,
+  IcsLink,
+  colorInputStyle,
+  describeEvent,
+  eventDeleteLines,
+  iconBtnStyle,
+} from "../components/adminUi.js";
 import { EventEditor } from "../components/EventEditor.js";
 import { useSession } from "../lib/session.js";
 import { useIsDesktop } from "../lib/useIsDesktop.js";
@@ -171,6 +179,11 @@ export function CalendarEvents() {
   const [events, setEvents] = useState<ManagedEventDTO[] | null>(null);
   const [missing, setMissing] = useState(false);
   const [editing, setEditing] = useState<{ id: string | null; form: EventForm } | null>(null);
+  // The event an admin has asked to delete, held until they confirm it. Deleting
+  // takes the whole series, its dates and any volunteer sheet on them, so the
+  // one-tap X this used to be was a lot of destruction behind a small target.
+  const [removing, setRemoving] = useState<ManagedEventDTO | null>(null);
+  const [removeError, setRemoveError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [showPast, setShowPast] = useState(false);
 
@@ -202,10 +215,24 @@ export function CalendarEvents() {
     }
   };
 
-  const remove = async (eventId: string) => {
-    await api.deleteManagedEvent(eventId).catch(() => {});
-    loadEvents();
-    void api.managedCalendar(id).then((r) => setCalendar(r.calendar)).catch(() => {});
+  const remove = async () => {
+    if (!removing) return;
+    setBusy(true);
+    setRemoveError(null);
+    try {
+      await api.deleteManagedEvent(removing.id);
+      // Close the editor if it was open on the event that just went, rather
+      // than leaving a form that saves to a 404.
+      if (editing?.id === removing.id) setEditing(null);
+      setRemoving(null);
+      loadEvents();
+      // The header shows the event count, so refresh the calendar too.
+      void api.managedCalendar(id).then((r) => setCalendar(r.calendar)).catch(() => {});
+    } catch (err) {
+      setRemoveError(errorMessage(err, "Couldn't delete that event."));
+    } finally {
+      setBusy(false);
+    }
   };
 
   if (!sessionLoading && me && !me.user.isSystemAdmin) return <Navigate to="/" replace />;
@@ -243,7 +270,7 @@ export function CalendarEvents() {
             key={e.id}
             event={e}
             onEdit={() => setEditing({ id: e.id, form: formFromEvent(e) })}
-            onRemove={() => void remove(e.id)}
+            onRemove={() => { setRemoveError(null); setRemoving(e); }}
             onVolunteers={() => navigate(`/admin/events/${e.id}/volunteers`)}
           />
         ))}
@@ -264,7 +291,7 @@ export function CalendarEvents() {
                   key={e.id}
                   event={e}
                   onEdit={() => setEditing({ id: e.id, form: formFromEvent(e) })}
-                  onRemove={() => void remove(e.id)}
+                  onRemove={() => { setRemoveError(null); setRemoving(e); }}
                   onVolunteers={() => navigate(`/admin/events/${e.id}/volunteers`)}
                 />
               ))}
@@ -282,6 +309,20 @@ export function CalendarEvents() {
         )}
       </div>
     </>
+  );
+
+  const confirm = removing && (
+    <SheetOver onClose={busy ? undefined : () => setRemoving(null)}>
+      <ConfirmDelete
+        heading={`Delete "${removing.title}"?`}
+        lines={eventDeleteLines(removing)}
+        confirmLabel="Delete event"
+        busy={busy}
+        error={removeError}
+        onConfirm={() => void remove()}
+        onCancel={() => setRemoving(null)}
+      />
+    </SheetOver>
   );
 
   const body = missing ? (
@@ -311,6 +352,7 @@ export function CalendarEvents() {
           </button>
           {body}
         </div>
+        {confirm}
       </DesktopShell>
     );
   }
@@ -320,6 +362,7 @@ export function CalendarEvents() {
       <div className="sd-scroll">
         <div className="sd-body">{body}</div>
       </div>
+      {confirm}
     </AppShell>
   );
 }

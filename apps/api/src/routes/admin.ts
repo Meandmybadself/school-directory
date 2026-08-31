@@ -152,11 +152,16 @@ admin.post("/users/:id/disabled", async (c) => {
       .run();
   }
 
+  const op = body.disabled ? "user.disabled" : "user.enabled";
   c.var.audit.push({
     action: "admin.action",
     entityKind: "user",
     entityId: id,
-    detail: { op: body.disabled ? "user.disabled" : "user.enabled", email: target.email },
+    detail: { op, email: target.email },
+    // Restated rather than shared with `detail`: two bags, so widening one can
+    // never widen what leaves for Slack (invariant 22). The op itself is
+    // hoisted because that is a computation, not a decision about disclosure.
+    notify: { op, email: target.email },
   });
 
   return c.json({ ok: true, disabled: body.disabled, disabledAt });
@@ -334,11 +339,14 @@ admin.patch("/users/:id", async (c) => {
   const next = body.isSystemAdmin;
   if ((target.is_system_admin === 1) !== next) {
     await c.env.DB.prepare("UPDATE user SET is_system_admin = ? WHERE id = ?").bind(next ? 1 : 0, id).run();
+    const op = next ? "user.admin.granted" : "user.admin.revoked";
     c.var.audit.push({
       action: "admin.action",
       entityKind: "user",
       entityId: id,
-      detail: { op: next ? "user.admin.granted" : "user.admin.revoked", email: target.email },
+      detail: { op, email: target.email },
+      // Two bags on purpose — see the disable route above.
+      notify: { op, email: target.email },
     });
   }
   return c.json({
@@ -366,6 +374,15 @@ admin.post("/bulk-import", async (c) => {
       entityKind: "import",
       entityId: null,
       detail: {
+        rows: result.rowsProcessed,
+        personsCreated: result.personsCreated,
+        groupsCreated: result.groupsCreated,
+        invitesQueued: result.invitesQueued,
+        emailsSent,
+      },
+      // Counts only — the same numbers, restated deliberately rather than
+      // shared with `detail`, so widening one never widens the other.
+      notify: {
         rows: result.rowsProcessed,
         personsCreated: result.personsCreated,
         groupsCreated: result.groupsCreated,
@@ -452,10 +469,12 @@ admin.post("/masquerade", async (c) => {
   if (body.userId === auth.userId) return c.json({ error: "cannot_masquerade_self" }, 400);
 
   const target = await c.env.DB.prepare(
-    "SELECT id FROM user WHERE id = ? AND disabled_at IS NULL",
+    // `email` is selected for the Slack notification below, which names who is
+    // being impersonated — the audit row records it as `entityId` alone.
+    "SELECT id, email FROM user WHERE id = ? AND disabled_at IS NULL",
   )
     .bind(body.userId)
-    .first<{ id: string }>();
+    .first<{ id: string; email: string }>();
   if (!target) return c.json({ error: "not_found" }, 404);
 
   const sessionId = randomSessionId();
@@ -469,7 +488,12 @@ admin.post("/masquerade", async (c) => {
   setSessionCookie(c, sessionId, Math.floor(MASQUERADE_TTL / 1000));
   clearActivePersonCookie(c); // resolve the target's own first Person
 
-  c.var.audit.push({ action: "masquerade.start", entityKind: "user", entityId: target.id });
+  c.var.audit.push({
+    action: "masquerade.start",
+    entityKind: "user",
+    entityId: target.id,
+    notify: { targetEmail: target.email },
+  });
   return c.json({ ok: true });
 });
 
@@ -643,12 +667,25 @@ admin.delete("/calendar-sources/:id", async (c) => {
   const auth = requireAuth(c);
   if (!auth.isSystemAdmin) return c.json({ error: "forbidden" }, 403);
   const id = c.req.param("id");
+  // Read the name BEFORE the delete. The Slack notification (invariant 22) has
+  // to name the feed, and this is the one curated action whose row is already
+  // gone by the time the audit middleware flushes — a lookup there would find
+  // nothing. The URL is deliberately not read: it may be a secret subscribe
+  // link (invariant 12), and nothing outbound has any use for it.
+  const existing = await c.env.DB.prepare("SELECT name FROM calendar_source WHERE id = ?")
+    .bind(id)
+    .first<{ name: string }>();
   const res = await c.env.DB.batch([
     c.env.DB.prepare("DELETE FROM calendar_event WHERE source_id = ?").bind(id),
     c.env.DB.prepare("DELETE FROM calendar_source WHERE id = ?").bind(id),
   ]);
   if (!res[1]?.meta.changes) return c.json({ error: "not_found" }, 404);
-  c.var.audit.push({ action: "calendar.source.deleted", entityKind: "calendar_source", entityId: id });
+  c.var.audit.push({
+    action: "calendar.source.deleted",
+    entityKind: "calendar_source",
+    entityId: id,
+    notify: { name: existing?.name ?? null },
+  });
   return c.json({ ok: true });
 });
 

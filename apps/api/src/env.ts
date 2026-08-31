@@ -31,6 +31,12 @@ export interface Env {
   // secrets (may be empty in local dev)
   RESEND_API_KEY?: string;
   EMAIL_FROM?: string;
+  /** Slack Incoming Webhook posting system events to the admins' channel
+   *  (invariant 22). Absent — the default, and the case in local dev — turns
+   *  the feature off entirely and logs the message instead, exactly as an
+   *  absent RESEND_API_KEY does for mail. The value is a bearer capability to
+   *  post into that channel, so it lives here as a secret and is never logged. */
+  SLACK_WEBHOOK_URL?: string;
 }
 
 /** Authenticated context attached to a request after session middleware. */

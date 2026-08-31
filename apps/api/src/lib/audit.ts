@@ -12,6 +12,21 @@ export interface AuditDraft {
   entityKind?: string | null;
   entityId?: string | null;
   detail?: Record<string, unknown> | null;
+  /** What the pushing route decided, BY NAME, may leave the system for Slack
+   *  (invariant 22). Deliberately separate from `detail`, which is written for
+   *  this log's own reader — a system admin, through a route we control — and
+   *  legitimately holds things a third party must never see: the possibly
+   *  secret ICS subscribe URL in `calendar.source.created`, raw addresses
+   *  elsewhere. Reusing `detail` would make "is this safe to export?" a
+   *  judgement every future push site has to get right unaided; a second bag
+   *  makes silence the default and saying something the deliberate act.
+   *
+   *  NEVER PERSISTED. `chainHash` and `writeAudit` below do not read it,
+   *  `audit_log` has no column for it, and it lives only long enough for the
+   *  audit middleware to hand it to lib/slackNotify.ts in the same request's
+   *  `waitUntil`. Scalars only — a formatter that wants a name looks it up
+   *  through the gated helper rather than being handed one. */
+  notify?: Record<string, string | number | boolean | null> | null;
 }
 
 export interface AuditMeta {

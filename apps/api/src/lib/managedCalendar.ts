@@ -26,6 +26,7 @@ import { WEEKDAYS } from "@sd/shared";
 import type { Env } from "../env.js";
 import { parseIcs, type ParsedEvent } from "./calendar.js";
 import { renderCalendar, type IcsEventInput } from "./icsWriter.js";
+import { sheetCascade, volunteerFootprint } from "./volunteers.js";
 import { ulid } from "./ids.js";
 import { nowIso } from "./time.js";
 
@@ -36,6 +37,19 @@ import { nowIso } from "./time.js";
 export const MAX_OCCURRENCES = 730;
 /** D1 batches are kept modest, matching refreshSource's chunking. */
 const INSERT_CHUNK = 100;
+
+/** What a delete took with it. Both deletes report the same shape — a calendar's
+ *  is its events' summed — so a route can audit either one the same way. */
+export interface Removal {
+  /** The name of the thing deleted, kept because the id will not resolve again. */
+  title: string;
+  /** Present for an event; a calendar has no parent. */
+  calendarId?: string;
+  events: number;
+  occurrences: number;
+  sheets: number;
+  signups: number;
+}
 /** UID suffix. The ULID alone is already unique; the domain just makes the UID
  *  well-formed for calendar clients. */
 const UID_DOMAIN = "eisenhower.school";
@@ -76,6 +90,8 @@ interface EventRow {
   created_at: string;
   updated_at: string;
   occurrence_count: number;
+  sheet_count: number;
+  signup_count: number;
 }
 
 function icsUrl(apiOrigin: string, calendarId: string): string {
@@ -119,6 +135,8 @@ function toEventDTO(r: EventRow): ManagedEventDTO {
     allDay: r.all_day === 1,
     recurrence: recurrenceOf(r),
     occurrenceCount: r.occurrence_count,
+    sheetCount: r.sheet_count,
+    signupCount: r.signup_count,
     createdBy: r.created_by,
     createdAt: r.created_at,
     updatedAt: r.updated_at,
@@ -354,16 +372,32 @@ export async function updateManagedCalendar(
   return loadCalendar(env, id, apiOrigin);
 }
 
-/** Delete a calendar, its events, and their materialized occurrences. Explicit
- *  multi-statement delete, matching how calendar_source deletion works — nothing
- *  in this schema relies on FK cascade. */
-export async function deleteManagedCalendar(env: Env, id: string): Promise<boolean> {
+/** Delete a calendar, its events, their volunteer sheets, and their materialized
+ *  occurrences. Explicit multi-statement delete, matching how calendar_source
+ *  deletion works — nothing in this schema relies on FK cascade, which is
+ *  exactly why the sheets have to be named here: they hang off `managed_event`,
+ *  not off `calendar_event`, and would otherwise outlive every row that can
+ *  reach them (invariant 13). */
+export async function deleteManagedCalendar(env: Env, id: string): Promise<Removal | null> {
+  const cal = await env.DB.prepare("SELECT id, name FROM managed_calendar WHERE id = ?")
+    .bind(id)
+    .first<{ id: string; name: string }>();
+  if (!cal) return null;
+
+  const sheetWhere = "managed_event_id IN (SELECT id FROM managed_event WHERE calendar_id = ?)";
+  const footprint = await volunteerFootprint(env, sheetWhere, [id]);
   const res = await env.DB.batch([
+    ...sheetCascade(env, sheetWhere, [id]),
     env.DB.prepare("DELETE FROM calendar_event WHERE managed_calendar_id = ?").bind(id),
     env.DB.prepare("DELETE FROM managed_event WHERE calendar_id = ?").bind(id),
     env.DB.prepare("DELETE FROM managed_calendar WHERE id = ?").bind(id),
   ]);
-  return !!res[2]?.meta.changes;
+  return {
+    title: cal.name,
+    events: res[4]?.meta.changes ?? 0,
+    occurrences: res[3]?.meta.changes ?? 0,
+    ...footprint,
+  };
 }
 
 // ── Events ──────────────────────────────────────────────────────────────────
@@ -371,7 +405,12 @@ export async function deleteManagedCalendar(env: Env, id: string): Promise<boole
 const EVENT_SELECT = `SELECT e.id, e.calendar_id, e.title, e.location, e.description, e.starts_at, e.ends_at,
          e.all_day, e.recur_freq, e.recur_interval, e.recur_byday, e.recur_until, e.sequence,
          e.created_by, e.created_at, e.updated_at,
-         (SELECT COUNT(*) FROM calendar_event ce WHERE ce.managed_event_id = e.id) AS occurrence_count
+         (SELECT COUNT(*) FROM calendar_event ce WHERE ce.managed_event_id = e.id) AS occurrence_count,
+         (SELECT COUNT(*) FROM volunteer_sheet vs WHERE vs.managed_event_id = e.id) AS sheet_count,
+         (SELECT COUNT(*) FROM volunteer_signup vg
+            JOIN volunteer_position vp ON vp.id = vg.position_id
+            JOIN volunteer_sheet vs2 ON vs2.id = vp.sheet_id
+           WHERE vs2.managed_event_id = e.id) AS signup_count
   FROM managed_event e`;
 
 export async function listManagedEvents(env: Env, calendarId: string): Promise<ManagedEventDTO[]> {
@@ -486,12 +525,33 @@ export async function updateManagedEvent(
   return loadManagedEvent(env, id);
 }
 
-export async function deleteManagedEvent(env: Env, id: string): Promise<boolean> {
+/** Delete one authored series: its volunteer sheets first (they reference
+ *  `managed_event`), then its materialized occurrences, then the series itself.
+ *  Null when there was no such event, so the route can 404 rather than report a
+ *  delete that deleted nothing.
+ *
+ *  The counts come back because they are the only record of what went: the audit
+ *  row keeps them (invariant 5 — an entityId alone says nothing about a row that
+ *  no longer exists), and a deleted sheet's signups can't be counted afterwards. */
+export async function deleteManagedEvent(env: Env, id: string): Promise<Removal | null> {
+  const row = await env.DB.prepare("SELECT id, calendar_id, title FROM managed_event WHERE id = ?")
+    .bind(id)
+    .first<{ id: string; calendar_id: string; title: string }>();
+  if (!row) return null;
+
+  const footprint = await volunteerFootprint(env, "managed_event_id = ?", [id]);
   const res = await env.DB.batch([
+    ...sheetCascade(env, "managed_event_id = ?", [id]),
     env.DB.prepare("DELETE FROM calendar_event WHERE managed_event_id = ?").bind(id),
     env.DB.prepare("DELETE FROM managed_event WHERE id = ?").bind(id),
   ]);
-  return !!res[1]?.meta.changes;
+  return {
+    title: row.title,
+    calendarId: row.calendar_id,
+    events: res[4]?.meta.changes ?? 0,
+    occurrences: res[3]?.meta.changes ?? 0,
+    ...footprint,
+  };
 }
 
 // ── Publishing ──────────────────────────────────────────────────────────────

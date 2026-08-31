@@ -289,6 +289,20 @@ All three SPAs are separate Cloudflare Pages projects talking to the single
    system admin. Overfill is prevented by a guarded `INSERT … SELECT … WHERE
    (count < slots)` whose `meta.changes` is checked, because D1 has no
    transaction around a read-then-write.
+   The same foreign key is what makes **deleting an event a cascade**, and it is
+   the one direction the "survives re-materialization" rule does NOT cover: a
+   sheet outlives an occurrence, but not its series. `deleteManagedEvent` and
+   `deleteManagedCalendar` therefore run **`sheetCascade`** (`lib/volunteers.ts`,
+   shared with `deleteSheet`) at the FRONT of their own batch — signups,
+   positions, sheets, then the event. Skip it and the outcome is either a
+   constraint failure or, worse, silence: `sheetRow` joins `managed_event`, so
+   orphaned signups stay in the table invisible to every read. Both deletes count
+   what they are about to remove BEFORE removing it — the route puts those counts
+   on the audit row, and the admin is shown them in a confirmation, because a
+   deleted signup is not recoverable and not countable afterwards.
+   `ManagedEventDTO.sheetCount`/`signupCount` are what the confirmation reads;
+   they are admin-only, and adding them touched no public projection.
+   `test/managedEventDelete.test.ts` pins the order and the pre-count.
 14. **Public sign-up is double opt-in, and `POST /newsletter-public/subscribe`
    writes no subscription.** The form at `/subscribe` is anonymous, so the
    address it carries is an unproven claim by whoever typed it. That route only
@@ -470,6 +484,78 @@ All three SPAs are separate Cloudflare Pages projects talking to the single
    from the roster rows.) Numbers, never identities. `unlisted_at` withholds a
    Person, not a Group; extending it to `grp` is a second flag for when a real
    case asks, not before.
+
+22. **Slack is the first OUTBOUND boundary, and what may cross it is decided by
+   a type, not by care.** Every projection above this one — `publicEventOf`,
+   `publicSheetOf`, `issuePageOf` — withholds data from a less-privileged reader
+   INSIDE this system. A Slack channel is a third party: its own retention, its
+   own search, its own export, and a membership list that grows later without
+   asking us. So a value that is safe in `audit_log`, which only a system admin
+   reads through a route we control, is not thereby safe to send there. The seam
+   is **`slackLinesOf`** (`apps/api/src/lib/slackNotify.ts`), fed from the one
+   place every system event is already known — the `waitUntil` in
+   `middleware/audit.ts`, on its own promise beside `writeAudit` so neither
+   effect can fail the other. Two mechanisms hold it, and **neither is a rule
+   anyone has to remember**:
+   `FORMATTERS` is a curated `Partial<Record<AuditAction, …>>`, so an action
+   with no entry sends nothing — the default for every action in the union,
+   **including one added to it next year** (invariant 12's property, transplanted;
+   `satisfies` still catches a misspelling); and a formatter's input type has
+   **no `detail` field at all**. That second one is the whole defence against
+   forwarding the raw blob: there is nothing to forward, because it is not in
+   scope. `calendar.source.created` is the case that forced it — it puts the
+   feed's `url` in `detail`, and invariant 12 says that may be a secret
+   Google/Outlook subscribe link.
+   What a formatter may say instead comes from **`AuditDraft.notify`**, a second
+   bag a route fills in by hand, by name, at the push site. It is deliberately
+   not `detail`: reusing that column would make "is this safe to export?" a
+   judgement every future push site must get right unaided, which is the failure
+   this whole entry is written after. `notify` is **never persisted** —
+   `chainHash` and `writeAudit` don't read it and `audit_log` has no column for
+   it — so it needed no migration, and it carries scalars only. A formatter that
+   wants a NAME must look it up through **`personLabel`**, which composes
+   `personListableSql(NO_VIEWER, false)`: the channel is nobody, so an unlisted
+   Person's row never comes back and renders as "A member" (invariant 21). It
+   reports a withheld Person and a nonexistent one identically, or the channel
+   becomes an oracle for the flag; and `filled` still counts them, for the reason
+   invariant 13 gives. Because it composes the seam, this is a GUARDED read of
+   `person`, spending none of `test/personListable.test.ts`'s exemption budget
+   (7 of 8 were already gone).
+   **Know what that scan cannot catch**: `personListableSql(x, true)`
+   short-circuits to the literal `"1"`, which reads like a guard, satisfies the
+   scan, and gates nothing. Two independent designs for this feature made exactly
+   that mistake. `test/slackNotify.test.ts` is therefore behavioural, not
+   textual — its fake D1 honours the predicate, so a guard that collapsed to
+   `"1"` fails it with a real name in the message. It also asserts that an
+   invented future action sends nothing, that the deliberately-excluded actions
+   still send nothing, and that a `detail.url` never appears in a rendered line
+   even when `notify` is absent.
+   **Wanting a richer message must never move the push.** A draft is pushed the
+   moment its write commits; anything only a later read can supply is merged
+   into `notify` afterwards, in place, on the object the array already holds
+   (`routes/volunteers.ts` is the worked example — the position's name and
+   counts come from the sheet the response reloads anyway). Pushing after that
+   read instead reads perfectly naturally and is wrong: the read can fail on its
+   own, and then a spot that really was claimed has no audit row and no
+   notification. Nor does "a throwing handler skips the flush anyway" rescue it
+   — Hono's `compose` wraps each handler in its own try/catch and, with
+   `onError` set, turns the throw into a response AT THAT FRAME, so
+   `auditMiddleware`'s `await next()` resolves and flushes whatever was already
+   pushed. Pushing early genuinely saves the record. `test/
+   volunteerSignupAudit.test.ts` fails if either route is reordered.
+   Delivery is fire-and-forget and coalesced to ONE post per request (`c.var.audit`
+   is already the batch). A dropped message is cosmetic where a dropped audit row
+   is not, which is why the two share no machinery — no outbox, no retry, no
+   cron. `SLACK_WEBHOOK_URL` is a secret, absent by default (feature off, message
+   logged, mirroring `RESEND_API_KEY`), and never logged even on failure: holding
+   it is the capability to post into the channel.
+   Two things are deliberately **not** on the allowlist and want a reason before
+   they are. Routine member traffic (`auth.signin`, `person.updated`, `contact.*`,
+   `share.*`) would bury everything else. Authoring CRUD (`calendar.event.*`,
+   `volunteer.position.*`, `newsletter.issue.updated`) fires once per HTTP
+   REQUEST, and coalescing only merges drafts WITHIN a request — building a sheet
+   with six positions is six requests, so it is six messages however this batches.
+   `newsletter.issue.updated` is the worst: it fires on every autosave.
 
 ## Conventions
 

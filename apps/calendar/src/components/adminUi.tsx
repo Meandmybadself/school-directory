@@ -4,6 +4,7 @@
 // copy still goes through i18n.
 import { useState, type ReactNode } from "react";
 import type { ManagedEventDTO } from "@sd/shared";
+import { Btn } from "./atoms.js";
 import { Icon } from "./Icon.js";
 
 export const DEFAULT_COLOR = "#0068A8";
@@ -15,6 +16,14 @@ export const colorInputStyle = {
 
 export const iconBtnStyle = {
   background: "none", border: 0, color: "var(--ink-3)", cursor: "pointer",
+} as const;
+
+/** A destructive button. There is no `danger` Btn kind in the copied design
+ *  system, and adding one would have to be decided for three apps (see
+ *  CLAUDE.md on the copied tokens); a secondary button wearing --warn is the
+ *  same colour the error text already uses and stays local to admin chrome. */
+export const dangerBtnStyle = {
+  color: "var(--warn)", borderColor: "var(--warn)",
 } as const;
 
 export function ErrorText({ children }: { children: ReactNode }) {
@@ -84,4 +93,74 @@ export function IcsLink({ url }: { url: string }) {
       </button>
     </div>
   );
+}
+
+/** The "are you sure" for a destructive admin action.
+ *
+ *  Body only, no overlay: the two callers each already have somewhere to put it.
+ *  The event list wraps it in a SheetOver of its own; the edit sheet swaps it in
+ *  for the form rather than stacking a second overlay on top of itself.
+ *
+ *  `lines` is the caller's, because only the caller knows the collateral — how
+ *  many dates a series expanded to, how many people had claimed a volunteer
+ *  spot. Naming it here is the entire point of the step: a delete is one
+ *  statement in D1 with nothing to undo it, so the number of sign-ups about to
+ *  be discarded has to be read BEFORE, not regretted after. */
+export function ConfirmDelete({
+  heading,
+  lines,
+  confirmLabel = "Delete",
+  busy,
+  error,
+  onConfirm,
+  onCancel,
+}: {
+  heading: string;
+  lines: string[];
+  confirmLabel?: string;
+  busy: boolean;
+  error: string | null;
+  onConfirm: () => void;
+  onCancel: () => void;
+}) {
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+      <h2 className="sd-h2" style={{ margin: 0 }}>{heading}</h2>
+      {lines.map((line) => (
+        <div key={line} className="sd-meta" style={{ lineHeight: 1.45 }}>{line}</div>
+      ))}
+      <div className="sd-meta" style={{ lineHeight: 1.45 }}>This can't be undone.</div>
+      {error && <ErrorText>{error}</ErrorText>}
+      <div className="sd-row" style={{ gap: 8, marginTop: 4 }}>
+        <Btn kind="secondary" icon="x" disabled={busy} onClick={onConfirm} style={{ ...dangerBtnStyle, flex: 1 }}>
+          {busy ? "Deleting…" : confirmLabel}
+        </Btn>
+        <Btn kind="secondary" disabled={busy} onClick={onCancel}>Keep it</Btn>
+      </div>
+    </div>
+  );
+}
+
+/** The collateral lines for deleting one authored series, in the words the
+ *  admin needs: the dates go, and so does anyone who had signed up. Shared by
+ *  the event list and the edit sheet so the two never disagree about what a
+ *  delete does. */
+export function eventDeleteLines(e: ManagedEventDTO): string[] {
+  const lines = [describeEvent(e)];
+  if (e.recurrence) {
+    lines.push(`All ${e.occurrenceCount} dates in this series come off the calendar.`);
+  }
+  if (e.signupCount > 0) {
+    lines.push(
+      `${e.signupCount} volunteer sign-up${e.signupCount === 1 ? "" : "s"} ` +
+        `on ${e.sheetCount} sheet${e.sheetCount === 1 ? "" : "s"} will be deleted with it, ` +
+        `and the people who claimed those spots are not told.`,
+    );
+  } else if (e.sheetCount > 0) {
+    lines.push(
+      `${e.sheetCount} volunteer sheet${e.sheetCount === 1 ? "" : "s"} will be deleted with it. ` +
+        `Nobody has claimed a spot yet.`,
+    );
+  }
+  return lines;
 }

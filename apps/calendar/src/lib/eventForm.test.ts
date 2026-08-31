@@ -155,6 +155,8 @@ describe("formFromEvent", () => {
     allDay: true,
     recurrence: null,
     occurrenceCount: 1,
+    sheetCount: 0,
+    signupCount: 0,
     createdBy: null,
     createdAt: "2026-09-01T00:00:00.000Z",
     updatedAt: "2026-09-01T00:00:00.000Z",
