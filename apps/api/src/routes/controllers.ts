@@ -61,6 +61,9 @@ controllers.post("/persons/:id/controllers", async (c) => {
     entityKind: "person",
     entityId: personId,
     detail: { email },
+    // The Person is `entityId`; the formatter resolves the name through the
+    // gate rather than being handed one (invariants 21 and 22).
+    notify: { email },
   });
   return c.json({ ok: true, inviteId }, 201);
 });

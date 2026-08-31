@@ -101,9 +101,24 @@ me.post("/persons", async (c) => {
     detail: { userId: auth.userId, householdId, capabilities: caps },
     notify: { householdId },
   });
-  c.var.audit.push({ action: "control.granted", entityKind: "person", entityId: personId, detail: { userId: auth.userId, self: true } });
+  c.var.audit.push({
+    action: "control.granted",
+    entityKind: "person",
+    entityId: personId,
+    detail: { userId: auth.userId, self: true },
+    // `self` reaches the notifier so it can DECLINE this one: the
+    // person.created draft above already reported the same act, and a channel
+    // saying it twice in one message is noise rather than detail.
+    notify: { self: true },
+  });
   if (householdId) {
-    c.var.audit.push({ action: "admin.action", entityKind: "group", entityId: householdId, detail: { op: "member.add", personId } });
+    c.var.audit.push({
+      action: "admin.action",
+      entityKind: "group",
+      entityId: householdId,
+      detail: { op: "member.add", personId },
+      notify: { op: "member.add", personId },
+    });
   }
   return c.json({ id: personId, activated: makeActive }, 201);
 });

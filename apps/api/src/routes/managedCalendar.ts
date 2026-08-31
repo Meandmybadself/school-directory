@@ -12,6 +12,7 @@ import type {
   VolunteerSheetInput,
 } from "@sd/shared";
 import type { HonoEnv } from "../env.js";
+import type { AuditDraft } from "../lib/audit.js";
 import { requireAuth } from "../middleware/session.js";
 import {
   createManagedCalendar,
@@ -295,6 +296,10 @@ managedCalendar.post("/managed-events/:id/sheets", async (c) => {
       entityKind: "volunteer_sheet",
       entityId: sheet.id,
       detail: { seriesId: sheet.event.seriesId, occurrenceStart: sheet.event.recurrenceId },
+      // NOT the seriesId/occurrence pair from `detail` — that is the durable
+      // handle signups key on, which invariant 12 withholds from anything
+      // outward-facing. The slug is the sheet's own public handle.
+      notify: { eventTitle: sheet.event.title, slug: sheet.slug, published: sheet.published },
     });
     return c.json({ sheet }, 201);
   } catch (err) {
@@ -330,6 +335,7 @@ managedCalendar.patch("/volunteer-sheets/:id", async (c) => {
       entityKind: "volunteer_sheet",
       entityId: sheet.id,
       detail: { published: sheet.published },
+      notify: { eventTitle: sheet.event.title, slug: sheet.slug, published: sheet.published },
     });
     return c.json({ sheet });
   } catch (err) {
@@ -344,11 +350,16 @@ managedCalendar.delete("/volunteer-sheets/:id", async (c) => {
   const auth = requireAuth(c);
   if (!auth.isSystemAdmin) return c.json({ error: "forbidden" }, 403);
   const id = c.req.param("id");
+  // Read the event's title BEFORE the delete: the sheet joins managed_event, so
+  // once it is gone there is nothing left to look the name up from. Same shape
+  // as the calendar-source delete (invariant 22).
+  const doomed = await loadSheetForAdmin(c.env, id);
   if (!(await deleteSheet(c.env, id))) return c.json({ error: "not_found" }, 404);
   c.var.audit.push({
     action: "volunteer.sheet.deleted",
     entityKind: "volunteer_sheet",
     entityId: id,
+    notify: { eventTitle: doomed?.event.title ?? null },
   });
   return c.json({ ok: true });
 });
@@ -368,6 +379,11 @@ managedCalendar.post("/volunteer-sheets/:id/positions", async (c) => {
       entityKind: "volunteer_sheet",
       entityId: sheet.id,
       detail: { title: body.title },
+      notify: {
+        title: body.title ?? null,
+        eventTitle: sheet.event.title,
+        slots: sheet.positions.find((p) => p.title === body.title)?.slots ?? 1,
+      },
     });
     return c.json({ sheet }, 201);
   } catch (err) {
@@ -391,6 +407,10 @@ managedCalendar.patch("/volunteer-positions/:id", async (c) => {
       action: "volunteer.position.updated",
       entityKind: "volunteer_position",
       entityId: c.req.param("id"),
+      notify: {
+        title: sheet.positions.find((p) => p.id === c.req.param("id"))?.title ?? null,
+        eventTitle: sheet.event.title,
+      },
     });
     return c.json({ sheet });
   } catch (err) {
@@ -406,11 +426,17 @@ managedCalendar.delete("/volunteer-positions/:id", async (c) => {
   if (!auth.isSystemAdmin) return c.json({ error: "forbidden" }, 403);
   const sheetId = await deletePosition(c.env, c.req.param("id"));
   if (!sheetId) return c.json({ error: "not_found" }, 404);
-  c.var.audit.push({
+  // Pushed BEFORE the read below, then enriched in place — the position is
+  // already gone and invariant 22 wants that recorded whether or not the read
+  // that builds the response succeeds. Same shape as routes/volunteers.ts.
+  const draft: AuditDraft = {
     action: "volunteer.position.deleted",
     entityKind: "volunteer_position",
     entityId: c.req.param("id"),
-  });
+    notify: {},
+  };
+  c.var.audit.push(draft);
   const sheet = await loadSheetForAdmin(c.env, sheetId);
+  draft.notify!.eventTitle = sheet?.event.title ?? null;
   return c.json({ sheet });
 });

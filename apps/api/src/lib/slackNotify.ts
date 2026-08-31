@@ -146,6 +146,32 @@ function whenOf(bag: NotifyBag): string {
  *  identity the calendar app mints (`eventPath`), in the school's zone since a
  *  Worker has no reader timezone — the lookup searches ±1 day, so the two
  *  agreeing to within a day is enough. */
+/** A volunteer sheet's public page. The slug is the durable handle a sheet has
+ *  precisely so a link needn't carry the occurrence pair (invariant 12). */
+function sheetLink(env: Env, bag: NotifyBag): string {
+  const slug = typeof bag.slug === "string" ? bag.slug : null;
+  if (!env.CALENDAR_URL || !slug) return "";
+  return ` ${link(`${env.CALENDAR_URL}/v/${slug}`, "Open sheet")}`;
+}
+
+/** One line about a Person moving on or off a group's roster.
+ *
+ *  Shared by the three `member.*` ops because they differ only in verb, and
+ *  because both lookups they need — the gated name and the group — should
+ *  happen in exactly one place rather than three. */
+async function rosterLine(
+  input: SlackFormatInput,
+  icon: string,
+  verb: string,
+): Promise<string> {
+  const { env, entityId, notify, actor } = input;
+  const [who, group] = await Promise.all([
+    personLabel(env, String(notify.personId ?? "")),
+    groupLabel(env, entityId),
+  ]);
+  return `${icon} *${esc(who)}* ${verb} *${esc(group?.name ?? "a group")}* — ${actor}.`;
+}
+
 function eventLink(env: Env, bag: NotifyBag): string {
   const title = typeof bag.title === "string" ? bag.title : null;
   const start = typeof bag.start === "string" ? bag.start : null;
@@ -208,6 +234,60 @@ const FORMATTERS = {
     const who = await personLabel(env, entityId ?? "");
     return `:bust_in_silhouette: *${who}* was added to the directory — ${actor}.`;
   },
+
+  /** A User gained control of a Person — but ONLY when that is news.
+   *
+   *  A self-grant is the second half of creating your own child's listing, and
+   *  `person.created` above already reported it from the same request; saying
+   *  it twice in one message is noise, not detail. So this speaks for the other
+   *  case only: somebody ELSE accepted an invitation and can now manage that
+   *  Person — a second parent joining a listing, which is a real change in who
+   *  holds a family's data and worth seeing. Declining an instance is what a
+   *  formatter returning null is for. */
+  "control.granted": async ({ env, entityId, notify, actor }) => {
+    if (notify.self === true) return null;
+    const who = await personLabel(env, entityId ?? "");
+    return `:handshake: ${actor} can now manage *${who}*'s listing.`;
+  },
+
+  "invite.sent": async ({ env, entityId, notify, actor }) => {
+    const who = await personLabel(env, entityId ?? "");
+    return `:envelope: ${actor} invited *${str(notify, "email")}* to help manage *${who}*'s listing.`;
+  },
+
+  // ── Volunteer sheets and the positions on them ──
+  //
+  // The authoring side; `volunteer.signup.*` below is the member side. Low
+  // volume in practice — a sheet is built once and then filled — which is why
+  // these are here at all despite firing one request at a time.
+  "volunteer.sheet.created": ({ env, notify, actor }) =>
+    `:clipboard: Volunteer sheet opened for *${str(notify, "eventTitle")}*` +
+    `${notify.published === false ? " (draft)" : ""} — ${actor}.${sheetLink(env, notify)}`,
+
+  "volunteer.sheet.updated": ({ env, notify, actor }) =>
+    // Publishing is the transition worth naming: it is what puts the sheet in
+    // front of members, where every other edit is bookkeeping.
+    `:clipboard: Volunteer sheet for *${str(notify, "eventTitle")}* ` +
+    `${notify.published === true ? "published" : "updated"} — ${actor}.${sheetLink(env, notify)}`,
+
+  "volunteer.sheet.deleted": ({ notify, actor }) =>
+    // No link: the sheet's page is exactly what stopped resolving.
+    `:wastebasket: Volunteer sheet for *${str(notify, "eventTitle")}* deleted — ${actor}.`,
+
+  "volunteer.position.created": ({ notify, actor }) =>
+    `:heavy_plus_sign: *${str(notify, "title")}* (${num(notify, "slots")} needed) added to the ` +
+    `*${str(notify, "eventTitle")}* sheet — ${actor}.`,
+
+  "volunteer.position.updated": ({ notify, actor }) =>
+    `:pencil2: Position *${str(notify, "title")}* on the *${str(notify, "eventTitle")}* sheet ` +
+    `updated — ${actor}.`,
+
+  "volunteer.position.deleted": ({ notify, actor }) =>
+    // The position is gone before this runs and its title was never carried
+    // out, so this names the sheet rather than the spot. Deliberate: recovering
+    // the title would cost a second read of a row that no longer exists, on a
+    // route that fires a few times a year.
+    `:heavy_minus_sign: A position was removed from the *${str(notify, "eventTitle")}* sheet — ${actor}.`,
 
   // ── Calendar events: the whole of one series' CRUD ──
   //
@@ -292,7 +372,8 @@ const FORMATTERS = {
   /** The catch-all, dispatched on the `op` its route curated into `notify`.
    *  Only these four ops reach the channel; every other op (group.create,
    *  member.add, bootstrap_admin, …) declines by falling through to null. */
-  "admin.action": ({ notify, actor }) => {
+  "admin.action": (input) => {
+    const { notify, actor } = input;
     const email = str(notify, "email");
     switch (notify.op) {
       case "user.disabled":
@@ -314,6 +395,14 @@ const FORMATTERS = {
         );
       case "group.create":
         return `:busts_in_silhouette: New ${str(notify, "kind", "group")} *${str(notify, "name")}* created — ${actor}.`;
+      // Roster membership. `entityId` is the group; the Person travels as a
+      // ULID in `notify` so the name goes through the gate like every other.
+      case "member.add":
+        return rosterLine(input, ":heavy_plus_sign:", "added to");
+      case "member.remove":
+        return rosterLine(input, ":heavy_minus_sign:", "removed from");
+      case "member.update":
+        return rosterLine(input, ":pencil2:", "had their role changed in");
       default:
         return null;
     }
@@ -340,6 +429,24 @@ const FORMATTERS = {
 } satisfies Partial<Record<AuditAction, SlackFormatter>>;
 
 // ── Shared lookups ──────────────────────────────────────────────────────────
+
+/** A group's name and kind.
+ *
+ *  A plain lookup with no gate, and that is a deliberate reading of invariant
+ *  21 rather than an oversight: `unlisted_at` withholds a PERSON, not a Group,
+ *  and that invariant says so — group-level hiding was considered and not
+ *  built. It reads `grp` alone and joins no `person`, so it is outside the
+ *  scope of test/personListable.test.ts's scan entirely. The Person on the
+ *  other half of a roster line still goes through `personLabel`. */
+async function groupLabel(
+  env: Env,
+  groupId: string | null,
+): Promise<{ name: string; kind: string } | null> {
+  if (!groupId) return null;
+  return env.DB.prepare("SELECT name, kind FROM grp WHERE id = ?")
+    .bind(groupId)
+    .first<{ name: string; kind: string }>();
+}
 
 /** A newsletter issue's title and slug. Safe to read back: unlike a deleted
  *  calendar source, an issue still exists when it is sent or retried. */

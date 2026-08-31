@@ -549,18 +549,28 @@ All three SPAs are separate Cloudflare Pages projects talking to the single
    cron. `SLACK_WEBHOOK_URL` is a secret, absent by default (feature off, message
    logged, mirroring `RESEND_API_KEY`), and never logged even on failure: holding
    it is the capability to post into the channel.
-   Two things are deliberately **not** on the allowlist and want a reason before
-   they are. Routine member traffic (`auth.signin`, `person.updated`, `contact.*`,
-   `share.*`) would bury everything else. Authoring CRUD
-   (`volunteer.position.*`, `newsletter.issue.updated`) fires once per HTTP
-   REQUEST, and coalescing only merges drafts WITHIN a request — building a sheet
-   with six positions is six requests, so it is six messages however this batches.
-   `newsletter.issue.updated` is the worst: it fires on every autosave.
-   **`calendar.event.*` was moved out of that second family on purpose** — the
-   whole of an event's CRUD now posts, updates included, which was asked for
-   knowing the cost: one message per save, five re-saves are five messages, and
-   there is no cross-request dedupe (nor should one be added here). If the
-   channel gets noisy, `calendar.event.updated` is the entry to drop first.
+   **The allowlist was set too narrow the first time, and the fix came from
+   counting rather than reasoning.** It originally excluded authoring CRUD on
+   the theory that it fires once per HTTP REQUEST — true, and coalescing only
+   merges drafts WITHIN a request, so a sheet with six positions really is six
+   messages. But nobody measured. Thirty days of this instance's `audit_log`
+   said `calendar.event.*` ran 3, `volunteer.sheet.*` ran 3, roster ops ran 17,
+   and the shipped list would have posted **about four messages in a month** —
+   a channel nobody would look at. Everything in that theoretical second family
+   except the newsletter autosave is now curated. Before narrowing this list on
+   a noise argument, run the count: `SELECT action, COUNT(*) FROM audit_log
+   WHERE created_at > date('now','-30 day') GROUP BY action`.
+   What stays out, and why: routine member FIELD edits (`person.updated`,
+   `contact.*`, `share.*`) — a parent fixing their own phone number is not news;
+   `auth.signin`/`auth.signout` — every visit, where `auth.registered` is the
+   one arrival; and `newsletter.issue.updated`, the single genuine flood at 47
+   in thirty days, because it fires on every autosave while someone types.
+   **One curated action deliberately declines most of its instances**:
+   `control.granted` returns null when `notify.self` is true, because
+   `person.created` reported the same act from the same request and 22 of 22
+   real grants are self-grants. It speaks only for a second parent gaining
+   control by invitation — rarer, and the case where "who can see this family's
+   data" actually changed.
    **The line the first family draws is arrival, not existence**: `auth.signin`
    fires every time somebody opens the app and stays off, while `auth.registered`
    fires once in an account's life and is on; the same split separates

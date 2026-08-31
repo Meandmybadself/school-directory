@@ -87,6 +87,11 @@ function fakeDb(): D1Database {
                 if (row.unlisted_at !== null && GUARD.test(sql)) return null;
                 return row as unknown as T;
               }
+              if (sql.includes("FROM grp")) {
+                return (binds[0] === "01GRP"
+                  ? { name: "Smith Household", kind: "household" }
+                  : null) as T | null;
+              }
               if (sql.includes("FROM calendar_source")) {
                 return (binds[0] === "01SRC" ? { name: "District Athletics" } : null) as T | null;
               }
@@ -173,11 +178,15 @@ describe("the allowlist is closed by construction", () => {
       "auth.signin", // vs auth.registered — every visit, not the one arrival
       "auth.signout",
       "person.updated", // vs person.created — every edit, not the one arrival
+      "contact.created",
       "contact.updated",
       "share.created",
-      "newsletter.issue.updated", // fires on every autosave
-      "calendar.managed.created",
-      "volunteer.position.created",
+      "share.revoked",
+      "newsletter.issue.updated", // fires on every autosave — the one real flood
+      "calendar.managed.created", // vs calendar.event.created — the calendar, not an event on it
+      "calendar.source.updated", // vs source.created/deleted — a re-fetch is not news
+      "calendar.refreshed",
+      "newsletter.subscriber.added",
     ];
     for (const action of excluded) {
       expect(await lines([{ action, entityId: "01X" }])).toEqual([]);
@@ -190,12 +199,12 @@ describe("the allowlist is closed by construction", () => {
   });
 
   it("declines an admin.action whose op is not curated", async () => {
-    // admin.action is a fifteen-way catch-all and only six of its ops are
-    // spoken. The rest — renames, reparents, roster edits, bootstrap_admin —
-    // must fall through the switch's default and say nothing, or this one
-    // action would quietly readmit the group-authoring noise the allowlist
-    // exists to keep out.
-    for (const op of ["group.rename", "group.reparent", "member.add", "member.remove", "bootstrap_admin"]) {
+    // admin.action is a fifteen-way catch-all and nine of its ops are spoken.
+    // The rest must fall through the switch's default and say nothing. Roster
+    // ops (member.add/update/remove) were ADDED to the spoken set once the
+    // production numbers showed the channel was otherwise near-silent; these
+    // are the ones still left out.
+    for (const op of ["group.rename", "group.reparent", "group.delete", "bootstrap_admin"]) {
       const draft: AuditDraft = {
         action: "admin.action",
         entityId: "01G",
@@ -282,6 +291,74 @@ describe("an unlisted Person is not named", () => {
     // `filled` (invariant 13): a count that shrank with the name would
     // advertise a covered shift as needing help.
     expect(line).toContain("3/4");
+  });
+});
+
+describe("the widened allowlist — activity, not field edits", () => {
+  it("names both the Person and the group on a roster change", async () => {
+    const [line] = await lines([
+      {
+        action: "admin.action",
+        entityKind: "group",
+        entityId: "01GRP",
+        notify: { op: "member.add", personId: "01DANA" },
+      },
+    ]);
+    expect(line).toContain("Dana Ruiz");
+    expect(line).toContain("Smith Household");
+    expect(line).toContain("added to");
+  });
+
+  it("puts a roster change's Person through the same gate as everything else", async () => {
+    // The group is named; the unlisted member is not. Group-level hiding is
+    // deliberately not built (invariant 21), so only one half is withheld.
+    const [line] = await lines([
+      {
+        action: "admin.action",
+        entityId: "01GRP",
+        notify: { op: "member.remove", personId: "01HIDDEN" },
+      },
+    ]);
+    expect(line).toContain("A member");
+    expect(line).toContain("Smith Household");
+    expect(line).not.toContain("Nguyen");
+  });
+
+  it("declines a self-grant, which person.created already reported", async () => {
+    // Both drafts come from ONE request (routes/me.ts). Without this, adding a
+    // child would post two lines saying the same thing.
+    expect(await lines([{ action: "control.granted", entityId: "01DANA", notify: { self: true } }])).toEqual([]);
+  });
+
+  it("speaks for a grant to someone else, which nothing else reports", async () => {
+    const [line] = await lines([{ action: "control.granted", entityId: "01DANA", notify: {} }]);
+    expect(line).toContain("Dana Ruiz");
+    expect(line).toContain("can now manage");
+  });
+
+  it("links a volunteer sheet by its own slug, not the occurrence pair", async () => {
+    const [line] = await lines([
+      {
+        action: "volunteer.sheet.created",
+        entityId: "01SHEET",
+        // What routes/managedCalendar.ts puts in `detail` — the durable handle
+        // invariant 12 withholds from anything outward-facing.
+        detail: { seriesId: "01SERIES", occurrenceStart: "2026-10-17T18:00:00.000Z" },
+        notify: { eventTitle: "Fall Festival", slug: "fall-festival", published: true },
+      },
+    ]);
+    expect(line).toContain("Fall Festival");
+    expect(line).toContain("https://calendar.eisenhower.school/v/fall-festival");
+    expect(line).not.toContain("01SERIES");
+    expect(line).not.toContain("2026-10-17");
+  });
+
+  it("names the event on a deleted sheet, captured before the row went", async () => {
+    const [line] = await lines([
+      { action: "volunteer.sheet.deleted", entityId: "01SHEET", notify: { eventTitle: "Fall Festival" } },
+    ]);
+    expect(line).toContain("Fall Festival");
+    expect(line).toContain("deleted");
   });
 });
 

@@ -676,7 +676,7 @@ groups.post("/:id/members", async (c) => {
   )
     .bind(groupId, body.personId, body.title ?? null, body.isAdmin ? 1 : 0, nowIso())
     .run();
-  c.var.audit.push({ action: "admin.action", entityKind: "group", entityId: groupId, detail: { op: "member.add", personId: body.personId } });
+  c.var.audit.push({ action: "admin.action", entityKind: "group", entityId: groupId, detail: { op: "member.add", personId: body.personId }, notify: { op: "member.add", personId: body.personId } });
   return c.json({ ok: true }, 201);
 });
 
@@ -705,7 +705,7 @@ groups.patch("/:id/members/:personId", async (c) => {
     .bind(...binds)
     .run();
   if (!res.meta.changes) return c.json({ error: "not_found" }, 404);
-  c.var.audit.push({ action: "admin.action", entityKind: "group", entityId: groupId, detail: { op: "member.update", personId } });
+  c.var.audit.push({ action: "admin.action", entityKind: "group", entityId: groupId, detail: { op: "member.update", personId }, notify: { op: "member.update", personId } });
   return c.json({ ok: true });
 });
 
@@ -734,7 +734,7 @@ groups.delete("/:id/members/:personId", async (c) => {
     }
   }
   await c.env.DB.prepare("DELETE FROM membership WHERE group_id = ? AND person_id = ?").bind(groupId, personId).run();
-  c.var.audit.push({ action: "admin.action", entityKind: "group", entityId: groupId, detail: { op: "member.remove", personId } });
+  c.var.audit.push({ action: "admin.action", entityKind: "group", entityId: groupId, detail: { op: "member.remove", personId }, notify: { op: "member.remove", personId } });
   return c.json({ ok: true });
 });
 
