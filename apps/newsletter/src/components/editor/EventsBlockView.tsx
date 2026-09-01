@@ -253,6 +253,11 @@ export function EventsBlockView({
                           .filter(Boolean)
                           .join(" · ")}
                         {e.location ? ` — ${e.location}` : ""}
+                        {/* The same flag the rendered block draws, so the list
+                            that answers "which events did my query pick?" also
+                            answers "which of them are asking for help?" before
+                            the author starts removing rows. */}
+                        {e.volunteerSlug ? " · Volunteers needed" : ""}
                       </div>
                     </div>
                     {off ? (

@@ -76,6 +76,12 @@ const MUTED = "#56636F";
  *  that is the school's, and an admin may set it to anything, including
  *  something that reads as ordinary chrome. */
 const DEFAULT_ORANGE = "#FAAB1C";
+/** The "volunteers needed" flag on an event row. A darkened `--orange` rather
+ *  than DEFAULT_ORANGE itself, which is a fill colour and fails contrast as
+ *  13px text on white; it matches the same flag on the calendar's agenda. Not
+ *  the accent, deliberately — this is the one thing in an events block a reader
+ *  is being ASKED something by, and it has to survive an accent set to orange. */
+const VOLUNTEER = "#A06A00";
 const RULE = "#E4E7EB";
 const PAPER = "#FFFFFF";
 const BACKDROP = "#F4F6F8";
@@ -622,7 +628,7 @@ function renderEventsBlock(node: NewsletterNode, ctx: Ctx): string {
         : title;
       return `<tr><td${attr(ctx, "nl-event", `padding:10px 0 10px 12px;border-left:3px solid ${escapeHtml(bar)};border-bottom:1px solid ${RULE}`)}>
 <div${attr(ctx, "nl-event-title", `font-size:15px;font-weight:600;color:${INK};font-family:${FONT};line-height:1.4`)}>${titleHtml}</div>
-<div${attr(ctx, "nl-event-meta", `font-size:13px;color:${MUTED};font-family:${FONT};margin-top:2px`)}>${escapeHtml(meta)}</div>
+<div${attr(ctx, "nl-event-meta", `font-size:13px;color:${MUTED};font-family:${FONT};margin-top:2px`)}>${escapeHtml(meta)}</div>${volunteerLine(ctx, e)}
 </td></tr>`;
     })
     .join("");
@@ -657,6 +663,51 @@ function eventHref(ctx: Ctx, e: EventPathInput): string | null {
   const base = safeLinkHref(ctx.calendarUrl);
   if (!base) return null;
   return `${base.replace(/\/+$/, "")}${eventPath(e, ctx.timeZone)}`;
+}
+
+/** The public page of ONE occurrence's volunteer sheet, or null when no calendar
+ *  URL is configured.
+ *
+ *  `/v/:slug` rather than the event's own `/e/:date/:slug`, even though the sheet
+ *  is RENDERED on the event page and that is where this link lands. The slug is
+ *  the only DURABLE handle a sheet has (invariant 13); the event path is a
+ *  content identity that a retitle invalidates (invariant 8, eventPath.ts). A
+ *  newsletter is mailed once and archived forever, so the link that outlives a
+ *  retitle is the right one to put in it — and `/v/:slug` resolving to the event
+ *  page is exactly the forward that makes it safe to prefer.
+ *
+ *  Public on both surfaces this renders for: the sheet's anonymous route
+ *  publishes counts and never names, which is the whole reason a sheet has a
+ *  slug of its own. */
+function volunteerHref(ctx: Ctx, slug: string): string | null {
+  const base = safeLinkHref(ctx.calendarUrl);
+  if (!base) return null;
+  return `${base.replace(/\/+$/, "")}/v/${encodeURIComponent(slug)}`;
+}
+
+/** "Volunteers needed", under an event that has a published sheet — otherwise
+ *  the empty string, so a row without one renders exactly as it did before.
+ *
+ *  The signal is `volunteerSlug`, i.e. "this occurrence has a PUBLISHED sheet",
+ *  which is the same thing the calendar's agenda flags and the same words it
+ *  uses. It is deliberately not "has unfilled spots": that count is not in the
+ *  DTO, and it could not be trusted here even if it were — an events block is
+ *  frozen at send (invariant 10), so a live count would be a promise the email
+ *  starts breaking the moment somebody signs up.
+ *
+ *  Unlinked when no calendar URL is configured, like the title and "See all
+ *  events" — a deployment without a calendar host still says where help is
+ *  wanted, it just can't say where to go. */
+function volunteerLine(ctx: Ctx, e: CalendarEventDTO): string {
+  if (!e.volunteerSlug) return "";
+  const style = `font-size:13px;font-weight:700;color:${VOLUNTEER};font-family:${FONT};margin-top:3px`;
+  const href = volunteerHref(ctx, e.volunteerSlug);
+  // Colour stated on the anchor too: an inbox restyles a bare <a> blue, and this
+  // one is a flag before it is a link.
+  const inner = href
+    ? `<a href="${escapeHtml(href)}"${attr(ctx, "nl-event-volunteer-link", `color:${VOLUNTEER};text-decoration:none`)}>Volunteers needed →</a>`
+    : "Volunteers needed";
+  return `\n<div${attr(ctx, "nl-event-volunteer", style)}>${inner}</div>`;
 }
 
 /** "See all" out to the public calendar site. Omitted entirely when no calendar
@@ -816,7 +867,19 @@ export function renderNewsletterText(
           const href = calendarUrl
             ? `${calendarUrl.replace(/\/+$/, "")}${eventPath(e, timeZone)}`
             : null;
-          out.push(href ? `${line}\n  ${href}` : line);
+          // Same flag the HTML draws, and part of the SAME entry as the event:
+          // `out` is joined with blank lines and each entry is trimmed, so a
+          // push of its own would float the flag off as a paragraph belonging to
+          // nothing. The URL is the sheet's own, for the reason volunteerHref
+          // gives.
+          const sheet =
+            e.volunteerSlug && calendarUrl
+              ? `${calendarUrl.replace(/\/+$/, "")}/v/${encodeURIComponent(e.volunteerSlug)}`
+              : null;
+          const flag = e.volunteerSlug
+            ? `\n  Volunteers needed${sheet ? `: ${sheet}` : ""}`
+            : "";
+          out.push(`${line}${href ? `\n  ${href}` : ""}${flag}`);
         }
         if (calendarUrl) out.push(`See all events: ${calendarUrl}`);
         break;
@@ -1085,6 +1148,9 @@ a{color:var(--nl-accent,${DEFAULT_ACCENT})}
 .nl-event-title-link{color:var(--nl-accent,${DEFAULT_ACCENT});text-decoration:none}
 .nl-event-title-link:hover{text-decoration:underline}
 .nl-event-meta{font-size:13px;color:${MUTED};margin-top:2px}
+.nl-event-volunteer{font-size:13px;font-weight:700;color:${VOLUNTEER};margin-top:3px}
+.nl-event-volunteer-link{color:${VOLUNTEER};text-decoration:none}
+.nl-event-volunteer-link:hover{text-decoration:underline}
 .nl-foot{margin-top:22px;padding-top:18px;border-top:1px solid ${RULE};font-size:13px;line-height:1.6;color:${MUTED}}
 .nl-archive-item{display:block;background:${PAPER};border-radius:12px;padding:18px 20px;margin-bottom:12px;text-decoration:none;color:inherit;box-shadow:0 1px 3px rgba(16,24,40,.06)}
 .nl-archive-item h2{margin:0;font-size:19px;line-height:1.3}

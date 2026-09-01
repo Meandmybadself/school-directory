@@ -351,6 +351,90 @@ describe("newsletter renderer", () => {
     expect(html).toMatch(/href="https:\/\/calendar\.x\.test\/e\/[^"]*"/);
   });
 
+  it("flags an event that has a volunteer sheet, and links its durable URL", () => {
+    // The sheet is rendered on the event's page, but the link is /v/:slug: the
+    // slug is the only DURABLE handle a sheet has, where the event path is a
+    // content identity a retitle invalidates — and a newsletter outlives both.
+    const needs: CalendarEventDTO = {
+      id: "e11", kind: "managed", seriesId: "01SERIES", recurrenceId: "2026-10-18T00:00:00.000Z",
+      title: "Fall Carnival", location: null, description: null,
+      start: "2026-10-18T00:00:00.000Z", end: null, allDay: false,
+      sourceIds: ["s1"], source: { name: "Events", color: "#0068A8" },
+      volunteerSlug: "fall-carnival-2026",
+    };
+    const quiet: CalendarEventDTO = { ...needs, id: "e12", title: "Book Fair", volunteerSlug: null };
+    const block = {
+      type: EVENTS_BLOCK_TYPE,
+      attrs: {
+        blockId: "b", calendarIds: [], lookaheadDays: 30,
+        rangeStart: null, rangeEnd: null, excluded: [], heading: null,
+      },
+    };
+    const opts = { calendarUrl: "https://calendar.x.test/", timeZone: "America/Chicago" };
+    const resolve = () => [needs, quiet];
+
+    const email = renderNewsletterBodyHtml(doc(block), resolve, { mode: "email", ...opts });
+    expect(email).toContain("Volunteers needed");
+    expect(email).toContain('href="https://calendar.x.test/v/fall-carnival-2026"');
+    expect(email).not.toContain("test//v/");
+    // Exactly one row carries it — an event with no sheet renders as before.
+    expect(email.match(/Volunteers needed/g)).toHaveLength(1);
+
+    // The archive page renders the same block in web mode.
+    const web = renderNewsletterBodyHtml(doc(block), resolve, { mode: "web", ...opts });
+    expect(web).toContain("nl-event-volunteer");
+    expect(web).toContain('href="https://calendar.x.test/v/fall-carnival-2026"');
+
+    // Plain text can't hyperlink, so the destination is spelled out.
+    const text = renderNewsletterText(doc(block), resolve, opts);
+    expect(text).toContain("Volunteers needed: https://calendar.x.test/v/fall-carnival-2026");
+  });
+
+  it("says volunteers are needed even with no calendar URL, but links nothing", () => {
+    // Same rule the title and "See all events" follow: no calendar host means no
+    // link, not a dead one — and the flag itself is still worth saying.
+    const e: CalendarEventDTO = {
+      id: "e13", kind: "managed", seriesId: "01SERIES", recurrenceId: "2026-10-18T00:00:00.000Z",
+      title: "Fall Carnival", location: null, description: null,
+      start: "2026-10-18T00:00:00.000Z", end: null, allDay: false,
+      sourceIds: ["s1"], source: { name: "Events", color: "#0068A8" },
+      volunteerSlug: "fall-carnival-2026",
+    };
+    const block = {
+      type: EVENTS_BLOCK_TYPE,
+      attrs: {
+        blockId: "b", calendarIds: [], lookaheadDays: 30,
+        rangeStart: null, rangeEnd: null, excluded: [], heading: null,
+      },
+    };
+    const html = renderNewsletterBodyHtml(doc(block), () => [e], { mode: "email" });
+    expect(html).toContain("Volunteers needed");
+    expect(html).not.toContain("<a href");
+    expect(renderNewsletterText(doc(block), () => [e])).toContain("Volunteers needed");
+    expect(renderNewsletterText(doc(block), () => [e])).not.toContain("http");
+  });
+
+  it("keeps the volunteer link out of an event the author removed", () => {
+    const dropped: CalendarEventDTO = {
+      id: "e14", kind: "managed", seriesId: "01SERIES", recurrenceId: "2026-10-18T00:00:00.000Z",
+      title: "Fall Carnival", location: null, description: null,
+      start: "2026-10-18T00:00:00.000Z", end: null, allDay: false,
+      sourceIds: ["s1"], source: { name: "Events", color: "#0068A8" },
+      volunteerSlug: "fall-carnival-2026",
+    };
+    const block = {
+      type: EVENTS_BLOCK_TYPE,
+      attrs: {
+        blockId: "b", calendarIds: [], lookaheadDays: 30,
+        rangeStart: null, rangeEnd: null, excluded: [eventKey(dropped)], heading: null,
+      },
+    };
+    const opts = { calendarUrl: "https://calendar.x.test" };
+    expect(renderNewsletterBodyHtml(doc(block), () => [dropped], { mode: "email", ...opts }))
+      .not.toContain("Volunteers needed");
+    expect(renderNewsletterText(doc(block), () => [dropped], opts)).not.toContain("Volunteers needed");
+  });
+
   it("still offers the link when the block came up empty", () => {
     const block = {
       type: EVENTS_BLOCK_TYPE,
