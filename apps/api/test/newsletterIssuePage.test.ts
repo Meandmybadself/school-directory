@@ -163,6 +163,7 @@ function render(over: Partial<Parameters<typeof renderNewsletterIssuePageHtml>[0
     isDraft: false,
     archiveHref: "/",
     printHref: "/n/x/print",
+    issueUrl: "",
     ...over,
   });
 }

@@ -43,7 +43,12 @@ export function PreviewPane({
         unsubscribeUrl: "#",
         unsubscribeWording: settings.unsubscribeWording,
         mailingAddress: settings.mailingAddress,
-        webUrl: `/n/${slug}`,
+        // Absolute, so the author sees the real language bar rather than an
+        // empty gap: `newsletterLanguageLinks` needs a public https origin to
+        // build a translation link at all, and this app is served from the very
+        // origin the issue will be archived on. Still inert — the iframe is
+        // sandboxed with no allow-scripts and cannot navigate.
+        webUrl: `${window.location.origin}/n/${slug}`,
         // The school's zone, not the author's — the same one the send uses, so
         // an event near midnight doesn't preview on the wrong day.
         timeZone: settings.timeZone,

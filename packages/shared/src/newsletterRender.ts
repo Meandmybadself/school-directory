@@ -39,6 +39,10 @@ import { EVENTS_BLOCK_TYPE } from "./types.js";
 import { visibleEvents } from "./newsletterEvents.js";
 import { eventPath, type EventPathInput } from "./eventPath.js";
 import { htmlToText } from "./text.js";
+import {
+  newsletterLanguageLinks,
+  type NewsletterLanguageLink,
+} from "./newsletterTranslate.js";
 
 /** Resolves one events block to the events it should render. */
 export type EventsResolver = (attrs: NewsletterEventsBlockAttrs) => CalendarEventDTO[];
@@ -942,6 +946,29 @@ export interface NewsletterEmailInput extends NewsletterWrapperInput {
   webUrl: string;
 }
 
+/** The language bar: the issue's own languages, each in its own name.
+ *
+ *  Both surfaces render it from `newsletterLanguageLinks`, which is also what
+ *  decides whether there is a bar at all — see newsletterTranslate.ts for why
+ *  the email and the page carry two different link forms, and why neither may
+ *  appear on a token-reached page.
+ *
+ *  Emits no English (or any other) copy: the links are the language names, which
+ *  is the one label every reader of this row can read. */
+function languageBarHtml(issueUrl: string, accent: string): string {
+  const links = newsletterLanguageLinks(issueUrl, "param");
+  if (links.length === 0) return "";
+  const items = links.map((l) => languageItemHtml(l, accent)).join(" · ");
+  return `<div style="text-align:center;margin-top:6px;font-size:12px;font-family:${FONT};color:${MUTED}">${items}</div>`;
+}
+
+function languageItemHtml(l: NewsletterLanguageLink, accent: string): string {
+  const label = escapeHtml(l.label);
+  return l.isSource
+    ? `<span lang="${l.locale}" style="color:${MUTED}">${label}</span>`
+    : `<a lang="${l.locale}" hreflang="${l.locale}" href="${escapeHtml(l.href)}" style="color:${accent};text-decoration:none">${label}</a>`;
+}
+
 function masthead(branding: NewsletterBrandingDTO, accent: string): string {
   if (branding.logoUrl) {
     return `<img src="${escapeHtml(branding.logoUrl)}" alt="${escapeHtml(branding.newsletterTitle)}" style="display:block;max-width:220px;height:auto;margin:0 auto 6px" />`;
@@ -975,6 +1002,7 @@ export function renderNewsletterEmailHtml(input: NewsletterEmailInput): string {
 <tr><td style="padding:22px 28px 0">
 ${masthead(input.branding, accent)}
 <div style="text-align:center;margin-top:14px"><a href="${escapeHtml(input.webUrl)}" style="font-size:12px;color:${MUTED};font-family:${FONT}">View this in your browser</a></div>
+${languageBarHtml(input.webUrl, accent)}
 <div style="height:1px;background:${RULE};margin:16px 0 22px"></div>
 <h1 style="margin:0;font-size:26px;line-height:1.25;font-weight:700;color:${INK};font-family:${FONT}">${escapeHtml(input.title)}</h1>
 ${subtitle}
@@ -994,6 +1022,19 @@ ${body}
 </body></html>`;
 }
 
+/** The same bar for the text part: one "Name: url" line per language.
+ *
+ *  A sentence introducing them would have to be written in some one language,
+ *  which is the thing this feature exists to stop assuming — so there isn't one.
+ *  Empty string when there are no links, which `.filter()` at the call site
+ *  drops along with the other absent blocks. */
+function languageBarText(issueUrl: string): string {
+  return newsletterLanguageLinks(issueUrl, "param")
+    .filter((l) => !l.isSource)
+    .map((l) => `${l.label}: ${l.href}`)
+    .join("\n");
+}
+
 export function renderNewsletterEmailText(input: NewsletterEmailInput): string {
   const body = renderNewsletterText(input.doc, input.resolveEvents, {
     timeZone: input.timeZone,
@@ -1008,6 +1049,7 @@ export function renderNewsletterEmailText(input: NewsletterEmailInput): string {
     "",
     "—".repeat(24),
     `View in your browser: ${input.webUrl}`,
+    languageBarText(input.webUrl),
     footerTextOf(input.branding),
     input.mailingAddress,
     `${input.unsubscribeWording} ${input.unsubscribeUrl}`,
@@ -1051,6 +1093,15 @@ export interface NewsletterIssuePageInput extends NewsletterWrapperInput {
   /** Href of the print view, or "" to omit the link (the print view itself
    *  passes "", so the printed page never carries a link to itself). */
   printHref: string;
+  /** This page's own PUBLIC, absolute url — what the machine-translation links
+   *  are built from — or "" to render no language bar.
+   *
+   *  "" is not a formality: only a sent issue's `/n/:slug` may pass a value.
+   *  A translation link hands its url to Google's servers to fetch, so a
+   *  review-token url in one would post a live, revocable capability
+   *  (invariant 15) to a third party that caches. Every token-reached page and
+   *  every print view therefore passes "". See newsletterTranslate.ts. */
+  issueUrl: string;
 }
 
 /** The issue page body — masthead, title, date, rendered body, footer.
@@ -1096,9 +1147,24 @@ export function renderNewsletterIssuePageHtml(input: NewsletterIssuePageInput): 
     .filter(Boolean)
     .join("\n          ");
 
+  const languages = newsletterLanguageLinks(input.issueUrl, "proxy");
+  const langBar =
+    languages.length === 0
+      ? ""
+      : `<div class="nl-lang">${languages
+          .map((l) =>
+            l.isSource
+              ? `<span lang="${l.locale}" aria-current="true">${escapeHtml(l.label)}</span>`
+              : `<a lang="${l.locale}" hreflang="${l.locale}" rel="nofollow noopener" href="${escapeHtml(
+                  l.href,
+                )}">${escapeHtml(l.label)}</a>`,
+          )
+          .join(" · ")}</div>`;
+
   return `    <div class="nl-wrap">
       ${banner}
       <div class="nl-masthead">${masthead}</div>
+      ${langBar}
       <article class="nl-card">
         <h1 class="nl-title">${escapeHtml(input.title)}</h1>
         ${input.subtitle ? `<p class="nl-subtitle">${escapeHtml(input.subtitle)}</p>` : ""}
@@ -1174,6 +1240,10 @@ a{color:var(--nl-accent,${DEFAULT_ACCENT})}
 .nl-hp{position:absolute;left:-9999px;width:1px;height:1px;overflow:hidden}
 @media (max-width:520px){.nl-card{padding:22px 18px 26px}.nl-title{font-size:25px}}
 .nl-print-link{margin:8px 0 0}
+.nl-lang{text-align:center;margin:-10px 0 16px;font-size:13px;color:${MUTED}}
+.nl-lang a{text-decoration:none}
+.nl-lang a:hover{text-decoration:underline}
+.nl-lang span{color:${MUTED}}
 .nl-draft-banner{
   margin:0 0 16px;padding:10px 14px;border-radius:9px;
   background:#fff4d6;border-left:3px solid ${DEFAULT_ORANGE};
@@ -1192,7 +1262,7 @@ a{color:var(--nl-accent,${DEFAULT_ACCENT})}
    and most expensive to get wrong. */
 @media print{
   body{background:#fff}
-  .nl-site-foot,.nl-subscribe-cta,.nl-print-link,.nl-events-more{display:none}
+  .nl-site-foot,.nl-subscribe-cta,.nl-print-link,.nl-events-more,.nl-lang{display:none}
   .nl-wrap{max-width:none;padding:0}
   .nl-card{box-shadow:none;border-radius:0;padding:0}
   .nl-masthead{padding:0 0 14px}

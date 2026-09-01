@@ -4,3 +4,4 @@ export * from "./text.js";
 export * from "./eventPath.js";
 export * from "./newsletterEvents.js";
 export * from "./newsletterRender.js";
+export * from "./newsletterTranslate.js";

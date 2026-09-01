@@ -96,6 +96,9 @@ function build(
         ? formatIssueDate(issue.sentAt)
         : `Last edited ${formatIssueDate(issue.updatedAt)}`,
     isDraft: issue.status !== "sent",
+    // Nor a language bar: a print view is paper, and this one is behind an
+    // admin session for an issue that may not even be sent yet.
+    issueUrl: "",
     // No archive link and no link to a print view: this page IS the print view,
     // and it is reached from the editor rather than from a reader's journey.
     archiveHref: "",

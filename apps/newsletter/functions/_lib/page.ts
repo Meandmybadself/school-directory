@@ -198,6 +198,14 @@ export interface IssuePageOptions {
   cacheable: boolean;
   /** What the 404 page says when the issue isn't there. */
   notFoundHint: string;
+  /** This page's PUBLIC absolute url, for the machine-translation bar, or ""
+   *  for no bar. Only /n/:slug passes one — see newsletterTranslate.ts in
+   *  @sd/shared: these links are fetched BY Google, so a token url in one would
+   *  hand a live review capability (invariant 15) to a caching third party.
+   *  It is deliberately its own field rather than reusing `canonical`, which
+   *  the token pages also set. Required rather than defaulted for that reason:
+   *  a fifth issue-page route has to state its answer, and "" is a decision. */
+  issueUrl: string;
 }
 
 /** Load one issue and render it as a whole document, or as a 404.
@@ -248,6 +256,7 @@ export async function renderIssuePage(
     isDraft,
     archiveHref: opts.archiveHref,
     printHref: opts.printHref,
+    issueUrl: opts.issueUrl,
   });
 
   return send(

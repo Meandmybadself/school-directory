@@ -23,6 +23,9 @@ export const onRequestGet: PagesFunction<PagesEnv> = async (context) => {
     printHref: "",
     print: true,
     cacheable: true,
+    // No language bar on paper: it is navigation, and the print stylesheet
+    // hides it anyway.
+    issueUrl: "",
     notFoundHint: "That issue isn't available.",
   });
 };

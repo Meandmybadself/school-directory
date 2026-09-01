@@ -626,6 +626,55 @@ All three SPAs are separate Cloudflare Pages projects talking to the single
    which is what stops that one action readmitting the noise the allowlist
    exists to exclude.
 
+23. **A newsletter is translated by linking out, never by us — and only its
+   PUBLIC page may be linked.** Invariant 6 says member-entered content is never
+   translated, and an issue's body is exactly that: nobody here is going to
+   hand-write a Somali edition of every issue, so the honest offer is a free
+   machine translation the reader can clearly see is a machine's. The seam is
+   `packages/shared/src/newsletterTranslate.ts`, and it is a third-party
+   OUTBOUND boundary in invariant 22's sense with one difference that decides
+   everything: the proxy has to FETCH the url from Google's own servers, so the
+   url itself is what crosses. Invariant 10 already makes a sent issue's archive
+   page public and enumerable, so nothing crosses that wasn't on the open
+   internet — which is precisely why **a review-token url may never appear in
+   one** (invariant 15: the token IS the authorization, it is revocable, and its
+   pages are `no-store` so a cache can't outlive a revocation; posting one to a
+   caching proxy undoes that in a click). `renderNewsletterIssuePageHtml` takes
+   `issueUrl`, REQUIRED rather than defaulted so a fifth issue-page route has to
+   state its answer, and exactly one of the four surfaces passes a value:
+   `/n/:slug`. Both print views and both `/preview/:token` pages pass `""`.
+   `translateProxyUrl` is the second guard, and it refuses by construction
+   rather than by care — not-https, a port, credentials, a dotless host and a
+   relative path all return null, so local dev and the composer's preview drop
+   the bar instead of offering links a proxy could never fetch.
+   **The email and the page deliberately carry DIFFERENT link forms**, and this
+   is the part that looks like duplication and isn't. The email gets
+   `?lang=xx` on our own origin, because a sent issue is immutable and its links
+   are permanent (invariant 10): a url mailed today is clicked from an inbox in
+   two years and cannot be edited, so naming `translate.goog` in it would make
+   Google's url scheme a thing this project can never change. The redirect that
+   resolves it lives in `apps/newsletter/functions/n/[slug].ts` and is the one
+   place the service is chosen. The PAGE names the proxy outright, because it
+   must: **Google's fetcher forwards a proxied page's query string to the origin
+   verbatim** (measured against a request echo, not assumed — it strips only its
+   own `_x_tr_*`), so a `?lang=` link clicked from INSIDE the proxy would ask the
+   proxy to fetch a url that redirects back into the proxy. Same reason the
+   redirect's target carries no `lang` of its own. Google rewrites same-site
+   hrefs to keep a reader inside it but leaves external ones alone, so a
+   `translate.goog` href is what makes switching languages work in-proxy.
+   The bar emits **no copy at all** — its links are the language names from
+   `localeNames`, each in its own language. That is not a style choice: an
+   English label like "Read this in another language" is legible only to the
+   readers who least need it, and it would put hardcoded English on the one
+   surface aimed at people who don't read English. Adding a locale to `LOCALES`
+   adds a link for free, the way it adds a line to the front door's hero;
+   `PROXY_LANG` is the one place a locale's code has to be restated, since the
+   proxy names the script (`zh-CN`) where we name the language.
+   `test/newsletterTranslate.test.ts` pins the exclusions, and its last case is
+   deliberately the uncomfortable one: it asserts that a token url handed to
+   `translateProxyUrl` WOULD produce a link, so the `""` at the four call sites
+   is understood as load-bearing rather than tidy.
+
 ## Conventions
 
 - TypeScript strict everywhere. `verbatimModuleSyntax` is on — use

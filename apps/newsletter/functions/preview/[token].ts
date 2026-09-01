@@ -36,6 +36,10 @@ export const onRequestGet: PagesFunction<PagesEnv> = async (context) => {
     printHref: `${path}/print`,
     print: false,
     cacheable: false,
+    // Never on a token-reached page. These links are fetched BY Google, so
+    // one here would hand a live, revocable review capability (invariant 15) to
+    // a third party that caches — undoing the whole point of htmlPrivate().
+    issueUrl: "",
     notFoundHint: "This preview link is no longer active.",
   });
 };

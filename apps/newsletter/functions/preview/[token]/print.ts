@@ -16,6 +16,8 @@ export const onRequestGet: PagesFunction<PagesEnv> = async (context) => {
     printHref: "",
     print: true,
     cacheable: false,
+    // A token url, and a print view. Both answers are "".
+    issueUrl: "",
     notFoundHint: "This preview link is no longer active.",
   });
 };
