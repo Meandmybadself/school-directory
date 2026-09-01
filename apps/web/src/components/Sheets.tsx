@@ -1,4 +1,5 @@
-// Bottom sheets: active-Person switcher and language picker.
+// Bottom sheets: the account sheet (Person switcher + sign out) and the
+// language picker.
 import { useNavigate } from "react-router-dom";
 import { localeNames, LOCALES, type Locale } from "@sd/shared";
 import { Icon } from "./Icon.js";
@@ -30,10 +31,20 @@ export function LanguageButton({ onClick }: { onClick: () => void }) {
   );
 }
 
+/** The directory's account sheet. It is the Person switcher first — this app is
+ *  the one that IS Person-scoped, so "who am I acting as" is the question the
+ *  sheet exists to answer — with the account itself below it.
+ *
+ *  That second half is the distinction worth drawing here and nowhere else: the
+ *  calendar and newsletter have one identity per session, where this list is
+ *  full of Persons a member controls. Signing out ends the SESSION, not the
+ *  acting-as choice, and the two are one tap apart in the same sheet — so the
+ *  email says which account is about to end, and the row is separated from the
+ *  switcher rather than reading as one more Person to become. */
 export function PersonSwitcherSheet({ onClose }: { onClose: () => void }) {
   const { t } = useI18n();
   const navigate = useNavigate();
-  const { me, switchPerson } = useSession();
+  const { me, switchPerson, signOut } = useSession();
   if (!me) return null;
   return (
     <SheetOver onClose={onClose}>
@@ -74,6 +85,23 @@ export function PersonSwitcherSheet({ onClose }: { onClose: () => void }) {
             <Icon name="plus" size={20} />
           </div>
           <div style={{ fontSize: 15, fontWeight: 700 }}>{t("addPerson")}</div>
+        </button>
+      </div>
+
+      <div style={{ borderTop: "1px solid var(--line)", marginTop: 14, paddingTop: 14 }}>
+        <p className="sd-meta" style={{ marginBottom: 8 }}>{me.user.email}</p>
+        <button
+          type="button"
+          className="sd-row"
+          onClick={() => void signOut()}
+          style={{
+            gap: 12, padding: "13px 14px", borderRadius: 12, width: "100%", textAlign: "left",
+            font: "inherit", cursor: "pointer", border: "1px solid var(--line)",
+            background: "var(--paper)", color: "var(--warn)",
+          }}
+        >
+          <Icon name="lock" size={18} />
+          <span style={{ fontSize: 14.5, fontWeight: 700 }}>{t("signOut")}</span>
         </button>
       </div>
     </SheetOver>

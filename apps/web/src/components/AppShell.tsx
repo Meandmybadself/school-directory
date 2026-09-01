@@ -12,7 +12,9 @@ import { CALENDAR_APP_URL, NEWSLETTER_APP_URL } from "../lib/api.js";
 
 /** Renders whichever app-bar sheet the chrome context has open. Lives inside the
  *  ChromeProvider so it can read that state; the directory's "account" affordance
- *  is the active-Person switcher. */
+ *  is the active-Person switcher, which also carries sign out — this is the one
+ *  app where "who am I acting as" and "whose account is this" are different
+ *  questions, so they share a sheet rather than each getting one. */
 function ChromeSheets() {
   const chrome = useChrome();
   if (!chrome) return null;
