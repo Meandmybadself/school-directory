@@ -1,11 +1,12 @@
 // Persons & profiles — privacy-filtered reads, controller-gated writes.
 
 import { Hono } from "hono";
-import type { PersonPatchBody } from "@sd/shared";
+import type { PersonPatchBody, PersonRemovalImpactDTO } from "@sd/shared";
 import type { HonoEnv } from "../env.js";
 import { requireAuth } from "../middleware/session.js";
 import { buildProfile } from "../lib/serialize.js";
-import { isController } from "../lib/privacy.js";
+import { isController, personListableSql } from "../lib/privacy.js";
+import { clearActivePersonCookie } from "../lib/cookies.js";
 import { nowIso } from "../lib/time.js";
 import { ulid } from "../lib/ids.js";
 
@@ -160,4 +161,215 @@ persons.post("/:id/unlisted", async (c) => {
     detail: { op: body.unlisted ? "person.unlisted" : "person.relisted" },
   });
   return c.json({ ok: true, unlisted: body.unlisted });
+});
+
+// ── Removal ────────────────────────────────────────────────────────────────
+//
+// The one destructive act an ordinary member may perform, and unlike disabling
+// a User (invariant 17) it is permanent: there is no `deleted_at` to reverse,
+// because a Person nobody controls and nobody sees is not a thing worth keeping
+// a tombstone of. That makes the guards, the pre-count and the audit `detail`
+// the whole of the design.
+//
+// WHO MAY. A sole Controller, which is a narrower test than "whoever created
+// them" and the right one. `control` is many-to-many by design — two parents,
+// one child — so a Person another User also controls is not this user's to
+// take; that is invariant 17's rule for User deletion, and it applies unchanged
+// one level down. Reading it as "created" instead would have keyed on
+// `control.granted_by`, which is wrong in both directions: a co-parent left as
+// the only Controller after the other leaves could never clean up, and a Person
+// created by someone who has since been joined by a second Controller would
+// still look deletable.
+//
+// WHAT IT TAKES WITH IT. Everything that hangs off the Person and nothing that
+// belongs to the school. Contacts, shares (in both directions — as subject and
+// as target), memberships, capabilities, control rows, unconsumed invitations
+// and volunteer signups all go; groups do not, except a household left with no
+// members at all, which is the rule GET /admin/users/:id/impact already states.
+// `audit_log` is never touched, for invariant 5's reason: it is append-only and
+// hash-chained, and dropping rows would erase the record of the deletion along
+// with everything else the Person did.
+
+/** The guards and the counts, shared by the preview and the delete so the two
+ *  can never disagree about what is about to happen. */
+async function removalImpact(
+  env: HonoEnv["Bindings"],
+  userId: string,
+  personId: string,
+): Promise<PersonRemovalImpactDTO> {
+  const [others, contacts, groups, signups, orphanAdmin, emptied] = await Promise.all([
+    env.DB.prepare("SELECT COUNT(*) AS n FROM control WHERE person_id = ? AND user_id <> ?")
+      .bind(personId, userId)
+      .first<{ n: number }>(),
+    env.DB.prepare(
+      "SELECT COUNT(*) AS n FROM contact_item WHERE owner_kind = 'person' AND owner_id = ?",
+    )
+      .bind(personId)
+      .first<{ n: number }>(),
+    env.DB.prepare("SELECT COUNT(*) AS n FROM membership WHERE person_id = ?")
+      .bind(personId)
+      .first<{ n: number }>(),
+    env.DB.prepare("SELECT COUNT(*) AS n FROM volunteer_signup WHERE person_id = ?")
+      .bind(personId)
+      .first<{ n: number }>(),
+    // Households this Person is the ONLY admin of, that would still have other
+    // members afterwards. Removing them there leaves a group nobody can edit —
+    // recoverable only by a system admin, so it is refused rather than warned
+    // about. A household they alone occupy is not this case; it is `emptied`.
+    env.DB.prepare(
+      `SELECT COUNT(*) AS n FROM membership mine
+         JOIN grp g ON g.id = mine.group_id AND g.kind = 'household'
+        WHERE mine.person_id = ? AND mine.is_admin = 1
+          AND NOT EXISTS (SELECT 1 FROM membership o WHERE o.group_id = mine.group_id
+                            AND o.person_id <> mine.person_id AND o.is_admin = 1)
+          AND EXISTS (SELECT 1 FROM membership o WHERE o.group_id = mine.group_id
+                        AND o.person_id <> mine.person_id)`,
+    )
+      .bind(personId)
+      .first<{ n: number }>(),
+    env.DB.prepare(
+      `SELECT COUNT(*) AS n FROM membership mine
+         JOIN grp g ON g.id = mine.group_id AND g.kind = 'household'
+        WHERE mine.person_id = ?
+          AND NOT EXISTS (SELECT 1 FROM membership o WHERE o.group_id = mine.group_id
+                            AND o.person_id <> mine.person_id)`,
+    )
+      .bind(personId)
+      .first<{ n: number }>(),
+  ]);
+
+  const otherControllers = others?.n ?? 0;
+  const reason: PersonRemovalImpactDTO["reason"] =
+    otherControllers > 0 ? "shared" : (orphanAdmin?.n ?? 0) > 0 ? "household_admin" : undefined;
+
+  return {
+    personId,
+    allowed: reason === undefined,
+    ...(reason ? { reason } : {}),
+    otherControllers,
+    contactItems: contacts?.n ?? 0,
+    groups: groups?.n ?? 0,
+    volunteerSignups: signups?.n ?? 0,
+    emptiedHouseholds: emptied?.n ?? 0,
+    isActive: false,
+  };
+}
+
+/** GET /persons/:id/removal-impact — what DELETE would do, before doing it.
+ *
+ *  Its own route rather than a field on `PersonProfileDTO`: every profile view
+ *  in the app would otherwise pay for six counts nobody reads, where this is
+ *  fetched once, when someone opens the confirmation. */
+persons.get("/:id/removal-impact", async (c) => {
+  const auth = requireAuth(c);
+  const personId = c.req.param("id");
+  if (!(await isController(c.env, auth.userId, personId))) {
+    return c.json({ error: "forbidden" }, 403);
+  }
+  const impact = await removalImpact(c.env, auth.userId, personId);
+  return c.json({ ...impact, isActive: auth.activePersonId === personId });
+});
+
+/** DELETE /persons/:id — remove a Person and everything hanging off them. */
+persons.delete("/:id", async (c) => {
+  const auth = requireAuth(c);
+  const personId = c.req.param("id");
+  if (!(await isController(c.env, auth.userId, personId))) {
+    return c.json({ error: "forbidden" }, 403);
+  }
+
+  // Re-run rather than trust anything the client saw: the preview above is an
+  // explanation, not a permit, and a second Controller may have been added in
+  // between.
+  const impact = await removalImpact(c.env, auth.userId, personId);
+  if (!impact.allowed) return c.json({ error: impact.reason, impact }, 409);
+
+  // The name, for the audit row. Composed with the enumeration gate rather than
+  // an exemption: `personListableSql` admits a Person to anyone who controls
+  // them (invariant 21), which the isController check above has already
+  // established — so the guard costs nothing here and spends none of
+  // test/personListable.test.ts's remaining exemption budget.
+  const listable = personListableSql(auth.userId, auth.isSystemAdmin, "p");
+  const person = await c.env.DB.prepare(
+    `SELECT p.first_name, p.last_name, p.photo_object_key FROM person p
+      WHERE p.id = ? AND ${listable.sql}`,
+  )
+    .bind(personId, ...listable.binds)
+    .first<{ first_name: string; last_name: string | null; photo_object_key: string | null }>();
+  if (!person) return c.json({ error: "not_found" }, 404);
+
+  // Households that will be left empty, resolved to ids BEFORE the memberships
+  // go: afterwards there is nothing left to join them by.
+  const emptied = await c.env.DB.prepare(
+    `SELECT mine.group_id AS id FROM membership mine
+       JOIN grp g ON g.id = mine.group_id AND g.kind = 'household'
+      WHERE mine.person_id = ?
+        AND NOT EXISTS (SELECT 1 FROM membership o WHERE o.group_id = mine.group_id
+                          AND o.person_id <> mine.person_id)`,
+  )
+    .bind(personId)
+    .all<{ id: string }>();
+  const emptiedIds = emptied.results.map((r) => r.id);
+
+  // Children first, then the row itself — the same ordering `sheetCascade`
+  // takes for the same reason (invariant 13): a foreign key left dangling is
+  // either a constraint failure or, worse, a row invisible to every read.
+  const stmts = [
+    c.env.DB.prepare("DELETE FROM volunteer_signup WHERE person_id = ?").bind(personId),
+    // Shares in both directions. As SUBJECT, a share names either a contact
+    // item of theirs or the synthetic `person:{id}:last_name` field ref; as
+    // TARGET, it is someone else's field shared WITH them, which stops meaning
+    // anything the moment they are gone.
+    c.env.DB.prepare(
+      `DELETE FROM share WHERE (subject_kind = 'contact_item' AND subject_ref IN
+         (SELECT id FROM contact_item WHERE owner_kind = 'person' AND owner_id = ?))
+         OR (subject_kind = 'field' AND subject_ref LIKE ?)
+         OR (target_kind = 'person' AND target_id = ?)`,
+    ).bind(personId, `person:${personId}:%`, personId),
+    c.env.DB.prepare("DELETE FROM contact_item WHERE owner_kind = 'person' AND owner_id = ?").bind(personId),
+    c.env.DB.prepare("DELETE FROM capability_grant WHERE person_id = ?").bind(personId),
+    c.env.DB.prepare("DELETE FROM membership WHERE person_id = ?").bind(personId),
+    c.env.DB.prepare("DELETE FROM control WHERE person_id = ?").bind(personId),
+    // Invitations to co-manage them, and the tokens that would bind them. An
+    // unconsumed invite left behind is a live capability pointing at a row that
+    // no longer exists — /auth/callback would create a user for it and then
+    // grant control of nothing.
+    c.env.DB.prepare("DELETE FROM control_invite WHERE person_id = ?").bind(personId),
+    c.env.DB.prepare("DELETE FROM auth_token WHERE person_id = ?").bind(personId),
+    c.env.DB.prepare("DELETE FROM person WHERE id = ?").bind(personId),
+    ...emptiedIds.flatMap((groupId) => [
+      c.env.DB.prepare("DELETE FROM contact_item WHERE owner_kind = 'group' AND owner_id = ?").bind(groupId),
+      c.env.DB.prepare("DELETE FROM share WHERE target_kind = 'group' AND target_id = ?").bind(groupId),
+      c.env.DB.prepare("DELETE FROM grp WHERE id = ?").bind(groupId),
+    ]),
+  ];
+  await c.env.DB.batch(stmts);
+
+  if (person.photo_object_key) {
+    c.executionCtx.waitUntil(c.env.PHOTOS.delete(person.photo_object_key));
+  }
+  // A dangling cookie self-heals — resolveActivePerson falls back to the
+  // earliest Person still controlled — but clearing it means the next request
+  // doesn't have to.
+  if (auth.activePersonId === personId) clearActivePersonCookie(c);
+
+  // The name goes in `detail` because in a second nothing else will hold it,
+  // and an audit row saying a ULID was deleted is not a record of anything.
+  // It stays OUT of `notify` for invariant 22's reason — see the `person.deleted`
+  // comment on AuditAction: with the row gone there is no gated lookup left, so
+  // the action has no Slack formatter and says nothing to the channel at all.
+  c.var.audit.push({
+    action: "person.deleted",
+    entityKind: "person",
+    entityId: personId,
+    detail: {
+      firstName: person.first_name,
+      lastName: person.last_name,
+      contactItems: impact.contactItems,
+      groups: impact.groups,
+      volunteerSignups: impact.volunteerSignups,
+      emptiedHouseholds: emptiedIds,
+    },
+  });
+  return c.json({ ok: true, emptiedHouseholds: emptiedIds.length });
 });

@@ -1,0 +1,24 @@
+-- 0021_invite_household.sql — let an invite carry the family, not just one Person.
+--
+-- WHY. `control_invite` binds an invited email to exactly one `person_id`, and
+-- `bindInvite` grants control of exactly that Person. On the path the welcome
+-- wizard already builds — parent one adds the children, then invites their
+-- partner — that means parent two signs in controlling only THEMSELVES. They
+-- are a member of the household but not an admin of it, so GET /me/households
+-- returns nothing, `ensureHousehold` finds nothing to reuse, and their first
+-- "add a child" founds a SECOND household with duplicate children in it. The
+-- duplicate was reachable from the correct flow, not from a mistake.
+--
+-- The fix is to record which household the invitation is about. At bind time
+-- the invitee is granted control of every Person in that household the INVITER
+-- controls, so they arrive with a populated switcher and nothing to re-add.
+-- Nullable, and null on every invite issued before this: a person-only invite
+-- is still the right shape for "let the school nurse co-manage this child", and
+-- bulk import (which has no household context) keeps sending them.
+--
+-- It goes on BOTH tables because the two are read at different moments and
+-- neither can reach the other cheaply: `control_invite` is the record a member
+-- sees, `auth_token` is what /auth/callback resolves the click against, and
+-- that lookup is by `token_hash` alone.
+ALTER TABLE control_invite ADD COLUMN group_id TEXT REFERENCES grp(id);
+ALTER TABLE auth_token     ADD COLUMN group_id TEXT REFERENCES grp(id);

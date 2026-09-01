@@ -7,6 +7,7 @@ import type {
   ContactType,
   LastNameDisplay,
   PersonProfileDTO,
+  PersonRemovalImpactDTO,
   Visibility,
 } from "@sd/shared";
 import { Icon, type IconName } from "../components/Icon.js";
@@ -468,6 +469,15 @@ export function ProfileEdit() {
         </div>
       </div>
 
+      <RemovePersonCard
+        personId={p.id}
+        name={firstName || p.firstName}
+        onRemoved={async () => {
+          await refresh();
+          navigate("/", { replace: true });
+        }}
+      />
+
       {/* Always-reachable Save at the bottom of the form (the header Save can be
           scrolled out of view, especially after the add-contact deep link). */}
       <div className="sd-row" style={{ gap: 9, marginTop: 4 }}>
@@ -592,4 +602,127 @@ function typeLabel(tp: ContactType, t: ReturnType<typeof useI18n>["t"]): string 
     case "email": return t("email");
     case "url": return t("website");
   }
+}
+
+/** Permanent removal of a Person, offered only where the whole profile already
+ *  is: the edit screen of someone you control.
+ *
+ *  The impact is fetched when the confirmation OPENS rather than with the
+ *  profile, so an ordinary edit pays nothing for a button most people never
+ *  press. It is also the only honest way to write this copy — "this can't be
+ *  undone" is a warning, but "3 contact details, 2 groups and 1 volunteer
+ *  sign-up" is the actual answer to "what am I about to lose", and the server
+ *  is the only thing that knows it (invariant 13's rule for the calendar's
+ *  delete, applied here).
+ *
+ *  A refusal is rendered as an explanation, not an error. Both reasons the
+ *  server can give are things the member can act on — get the co-manager to
+ *  step back, or appoint another household manager — so the copy says which. */
+function RemovePersonCard({
+  personId,
+  name,
+  onRemoved,
+}: {
+  personId: string;
+  name: string;
+  onRemoved: () => void | Promise<void>;
+}) {
+  const { t } = useI18n();
+  const [open, setOpen] = useState(false);
+  const [impact, setImpact] = useState<PersonRemovalImpactDTO | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const openConfirm = async () => {
+    setError(null);
+    setOpen(true);
+    setImpact(null);
+    const r = await api.personRemovalImpact(personId).catch(() => null);
+    if (r) setImpact(r);
+    else setError(t("removePersonError"));
+  };
+
+  const remove = async () => {
+    setBusy(true);
+    setError(null);
+    try {
+      await api.deletePerson(personId);
+      await onRemoved();
+    } catch {
+      // Includes the 409 a race produces — a second Controller added while the
+      // confirmation was open. Re-reading is more use than a message about it.
+      setError(t("removePersonError"));
+      void openConfirm();
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  if (!open) {
+    return (
+      <div>
+        <button
+          className="sd-btn sd-btn-ghost block"
+          style={{ color: "var(--warn)", justifyContent: "flex-start", padding: 0, height: 38 }}
+          onClick={() => void openConfirm()}
+        >
+          <Icon name="x" size={17} />{t("removePerson")}
+        </button>
+      </div>
+    );
+  }
+
+  const blocked = impact !== null && !impact.allowed;
+
+  return (
+    <div className="sd-card sd-card-pad" style={{ borderColor: "var(--warn)" }}>
+      <div style={{ fontSize: 14.5, fontWeight: 700 }}>{t("removePersonTitle", { name })}</div>
+
+      {impact === null && !error && (
+        <div className="sd-meta" style={{ marginTop: 6 }}><span className="sd-spinner" /></div>
+      )}
+
+      {blocked && (
+        <div className="sd-meta" style={{ marginTop: 6, lineHeight: 1.45 }}>
+          {impact.reason === "shared"
+            ? t("removePersonShared", { name })
+            : t("removePersonHouseholdAdmin", { name })}
+        </div>
+      )}
+
+      {impact !== null && impact.allowed && (
+        <div className="sd-meta" style={{ marginTop: 6, lineHeight: 1.45, display: "flex", flexDirection: "column", gap: 4 }}>
+          <span>{t("removePersonBody", { name })}</span>
+          <span>
+            {t("removePersonCounts", {
+              contacts: String(impact.contactItems),
+              groups: String(impact.groups),
+            })}
+          </span>
+          {impact.volunteerSignups > 0 && (
+            <span>{t("removePersonSignups", { count: String(impact.volunteerSignups) })}</span>
+          )}
+          {impact.emptiedHouseholds > 0 && <span>{t("removePersonEmptied", { name })}</span>}
+        </div>
+      )}
+
+      {error && <div className="sd-meta" style={{ color: "var(--warn)", marginTop: 6 }}>{error}</div>}
+
+      <div className="sd-row" style={{ gap: 9, marginTop: 12 }}>
+        <Btn block kind="secondary" style={{ flex: 1 }} onClick={() => setOpen(false)} disabled={busy}>
+          {t("cancel")}
+        </Btn>
+        {impact !== null && impact.allowed && (
+          <button
+            className="sd-btn block"
+            style={{ flex: 1, background: "var(--warn)", color: "#fff", borderColor: "var(--warn)" }}
+            onClick={() => void remove()}
+            disabled={busy}
+          >
+            {t("removePersonConfirm")}
+          </button>
+        )}
+      </div>
+    </div>
+  );
 }

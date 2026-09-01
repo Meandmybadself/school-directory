@@ -2,6 +2,7 @@
 // the last-controller guard (FR-11, FR-12).
 
 import { Hono } from "hono";
+import type { InviteControllerBody } from "@sd/shared";
 import type { HonoEnv } from "../env.js";
 import { requireAuth } from "../middleware/session.js";
 import { isController } from "../lib/privacy.js";
@@ -13,16 +14,43 @@ import { inviteEmail, sendEmail } from "../lib/email.js";
 
 export const controllers = new Hono<HonoEnv>();
 
-/** POST /persons/:id/controllers { email } — invite a co-Controller. */
+/** POST /persons/:id/controllers { email, householdId? } — invite a co-Controller.
+ *
+ *  `householdId` widens what accepting the invitation grants: control of every
+ *  Person in that household the INVITER controls, plus admin of the household
+ *  itself. It is the difference between "help me manage this one child" and
+ *  "you are the other parent here", and only the second one stops a co-parent
+ *  arriving to an empty family and re-creating children who already exist — see
+ *  migration 0021. It is opt-in per call site rather than implied by the
+ *  Person's memberships, because widening someone's sight of a family is the
+ *  inviter's decision to make explicitly, not a side effect of where the Person
+ *  happens to belong. */
 controllers.post("/persons/:id/controllers", async (c) => {
   const auth = requireAuth(c);
   const personId = c.req.param("id");
   if (!(await isController(c.env, auth.userId, personId))) {
     return c.json({ error: "forbidden" }, 403);
   }
-  const body = await c.req.json<{ email: string }>().catch(() => null);
+  const body = await c.req.json<InviteControllerBody>().catch(() => null);
   const email = body?.email ? normalizeEmail(body.email) : "";
   if (!email.includes("@")) return c.json({ error: "invalid_email" }, 400);
+
+  // The same authority POST /me/persons requires to place someone in a
+  // household: you administer it, via a Person you control. Anything less would
+  // let a member hand out sight of a family that isn't theirs.
+  let householdId: string | null = null;
+  if (body?.householdId) {
+    const admins = await c.env.DB.prepare(
+      `SELECT 1 AS ok FROM grp g
+       JOIN membership m ON m.group_id = g.id AND m.is_admin = 1
+       JOIN control ctl ON ctl.person_id = m.person_id
+       WHERE g.id = ? AND g.kind = 'household' AND ctl.user_id = ? LIMIT 1`,
+    )
+      .bind(body.householdId, auth.userId)
+      .first<{ ok: number }>();
+    if (!admins) return c.json({ error: "forbidden_household" }, 403);
+    householdId = body.householdId;
+  }
 
   const token = randomToken();
   const tokenHash = await sha256(token);
@@ -31,13 +59,13 @@ controllers.post("/persons/:id/controllers", async (c) => {
   // Record both an invite (status) and a consumable auth_token (kind=invite).
   await c.env.DB.batch([
     c.env.DB.prepare(
-      `INSERT INTO control_invite (id, person_id, invited_by, to_email, status, token_hash, expires_at, created_at)
-       VALUES (?,?,?,?,'pending',?,?,?)`,
-    ).bind(inviteId, personId, auth.userId, email, tokenHash, isoPlus(INVITE_TTL), nowIso()),
+      `INSERT INTO control_invite (id, person_id, invited_by, to_email, status, token_hash, group_id, expires_at, created_at)
+       VALUES (?,?,?,?,'pending',?,?,?,?)`,
+    ).bind(inviteId, personId, auth.userId, email, tokenHash, householdId, isoPlus(INVITE_TTL), nowIso()),
     c.env.DB.prepare(
-      `INSERT INTO auth_token (id, email, kind, token_hash, person_id, invited_by, reg_open_at_issue, expires_at, created_at)
-       VALUES (?,?, 'invite', ?, ?, ?, 1, ?, ?)`,
-    ).bind(ulid(), email, tokenHash, personId, auth.userId, isoPlus(INVITE_TTL), nowIso()),
+      `INSERT INTO auth_token (id, email, kind, token_hash, person_id, invited_by, group_id, reg_open_at_issue, expires_at, created_at)
+       VALUES (?,?, 'invite', ?, ?, ?, ?, 1, ?, ?)`,
+    ).bind(ulid(), email, tokenHash, personId, auth.userId, householdId, isoPlus(INVITE_TTL), nowIso()),
   ]);
 
   // UNLISTED-EXEMPT: single row by id, already isController-gated above — a
@@ -60,10 +88,12 @@ controllers.post("/persons/:id/controllers", async (c) => {
     action: "invite.sent",
     entityKind: "person",
     entityId: personId,
-    detail: { email },
+    detail: { email, householdId },
     // The Person is `entityId`; the formatter resolves the name through the
-    // gate rather than being handed one (invariants 21 and 22).
-    notify: { email },
+    // gate rather than being handed one (invariants 21 and 22). `household` is
+    // a boolean rather than the id: a channel wants to know this invitation
+    // hands over a whole family, not which row it is.
+    notify: { email, household: householdId !== null },
   });
   return c.json({ ok: true, inviteId }, 201);
 });

@@ -202,6 +202,32 @@ export interface Strings {
   welcomePartnerEmail: string;
   welcomePartnerEmailNote: string;
   welcomeInviteFailed: string; // uses {name}
+  /** The family step's most useful line and the reason the second parent stops
+   *  producing duplicates: before the blank "add a child" form, it shows who is
+   *  ALREADY in the household. Nothing here is new sight — it is the roster the
+   *  group screen renders for the same viewer — so it leaks nothing while
+   *  answering the only question the blank form left open. */
+  welcomeExistingLabel: string;
+  welcomeExistingNote: string;
+  /** Shown to a co-parent whose invitation carried the household: the family is
+   *  already here, so the step is a review rather than a form. */
+  welcomeExistingLead: string;
+  /** The partner form's household checkbox — what the invitation hands over. */
+  welcomeInviteFamily: string;
+  welcomeInviteFamilyNote: string;
+
+  // Removing a Person. Permanent, member-initiated, and the copy has to say so
+  // before the tap rather than after it.
+  removePerson: string;
+  removePersonTitle: string; // uses {name}
+  removePersonBody: string; // uses {name}
+  removePersonConfirm: string;
+  removePersonCounts: string; // uses {contacts}, {groups}
+  removePersonSignups: string; // uses {count}
+  removePersonEmptied: string; // uses {name}
+  removePersonShared: string; // uses {name}
+  removePersonHouseholdAdmin: string; // uses {name}
+  removePersonError: string;
   /** Household names, composed on the client — the API has no locale. */
   householdAutoName: string; // uses {lastName}
   householdAutoNameFallback: string; // uses {firstName}
@@ -610,6 +636,26 @@ const en: Strings = {
     "We'll email them a link so they can manage their own profile.",
   welcomeInviteFailed:
     "{name} was added, but the invitation email didn't send. You can invite them later from their profile.",
+  welcomeExistingLabel: "Already in your household",
+  welcomeExistingNote: "Someone in your family already added these people. No need to add them again.",
+  welcomeExistingLead:
+    "Your family is already here — added by whoever set this up. Add anyone who's missing.",
+  welcomeInviteFamily: "Let them manage our whole household",
+  welcomeInviteFamilyNote:
+    "They'll be able to see and edit everyone here, so they don't have to add the family again.",
+  removePerson: "Remove from the directory",
+  removePersonTitle: "Remove {name}?",
+  removePersonBody:
+    "This permanently deletes {name} and everything on their profile. It can't be undone.",
+  removePersonConfirm: "Yes, remove permanently",
+  removePersonCounts: "{contacts} contact details and {groups} group memberships will be deleted.",
+  removePersonSignups: "{count} volunteer sign-ups will be cancelled.",
+  removePersonEmptied: "{name} is the last member of their household, so the household goes too.",
+  removePersonShared:
+    "Someone else also manages {name}, so they aren't yours alone to remove. Ask them to stop managing {name} first.",
+  removePersonHouseholdAdmin:
+    "{name} is the only manager of a household that still has other members. Add another manager there first.",
+  removePersonError: "Couldn't remove them. Try again.",
   householdAutoName: "The {lastName} family",
   householdAutoNameFallback: "{firstName}'s household",
   noGroupsCta: "Create your household",
@@ -1056,6 +1102,26 @@ const es: Strings = {
     "Le enviaremos un enlace para que administre su propio perfil.",
   welcomeInviteFailed:
     "Agregamos a {name}, pero no se pudo enviar la invitación. Puedes invitarla más tarde desde su perfil.",
+  welcomeExistingLabel: "Ya están en tu hogar",
+  welcomeExistingNote: "Alguien de tu familia ya agregó a estas personas. No hace falta agregarlas otra vez.",
+  welcomeExistingLead:
+    "Tu familia ya está aquí, agregada por quien configuró esto. Agrega a quien falte.",
+  welcomeInviteFamily: "Que pueda administrar todo nuestro hogar",
+  welcomeInviteFamilyNote:
+    "Podrá ver y editar a todos los del hogar, así no tiene que agregar a la familia de nuevo.",
+  removePerson: "Quitar del directorio",
+  removePersonTitle: "¿Quitar a {name}?",
+  removePersonBody:
+    "Esto elimina de forma permanente a {name} y todo lo de su perfil. No se puede deshacer.",
+  removePersonConfirm: "Sí, quitar permanentemente",
+  removePersonCounts: "Se eliminarán {contacts} datos de contacto y {groups} membresías de grupo.",
+  removePersonSignups: "Se cancelarán {count} inscripciones de voluntariado.",
+  removePersonEmptied: "{name} es la última persona de su hogar, así que el hogar también se elimina.",
+  removePersonShared:
+    "Otra persona también administra a {name}, así que no es solo tuya para quitarla. Pídele que deje de administrar a {name} primero.",
+  removePersonHouseholdAdmin:
+    "{name} es la única persona que administra un hogar que todavía tiene otros miembros. Agrega otra allí primero.",
+  removePersonError: "No se pudo quitar. Inténtalo de nuevo.",
   householdAutoName: "Familia {lastName}",
   householdAutoNameFallback: "Familia de {firstName}",
   noGroups: "Todavía no estás en ningún grupo",
@@ -1391,6 +1457,21 @@ const zh: Strings = {
   welcomePartnerEmailNote: "我们会给对方发送一个链接，让其自行管理资料。",
   welcomeInviteFailed:
     "已添加 {name}，但邀请邮件发送失败。你可以稍后在其资料页再次邀请。",
+  welcomeExistingLabel: "已在你的家庭中",
+  welcomeExistingNote: "家里已经有人添加过这些成员，不需要再添加一次。",
+  welcomeExistingLead: "你的家人已经在这里了，由设置此账户的人添加。请补充还缺的成员。",
+  welcomeInviteFamily: "让对方管理我们整个家庭",
+  welcomeInviteFamilyNote: "对方将能查看和编辑家里的所有成员，就不必重新添加家人。",
+  removePerson: "从通讯录中移除",
+  removePersonTitle: "移除 {name}？",
+  removePersonBody: "这将永久删除 {name} 及其资料页上的全部内容，且无法撤销。",
+  removePersonConfirm: "确认永久移除",
+  removePersonCounts: "将删除 {contacts} 条联系方式和 {groups} 个群组成员身份。",
+  removePersonSignups: "将取消 {count} 项志愿者报名。",
+  removePersonEmptied: "{name} 是其家庭的最后一名成员，该家庭也将一并删除。",
+  removePersonShared: "还有其他人也在管理 {name}，因此不能由你单独移除。请先请对方停止管理 {name}。",
+  removePersonHouseholdAdmin: "{name} 是某个仍有其他成员的家庭的唯一管理者。请先在该家庭中添加另一位管理者。",
+  removePersonError: "移除失败，请重试。",
   householdAutoName: "{lastName}家",
   householdAutoNameFallback: "{firstName}的家庭",
   noGroups: "你还没有加入任何群组",
@@ -1686,6 +1767,26 @@ const so: Strings = {
     "Waxaan u diri doonnaa link ay ku maamulaan profile-kooda.",
   welcomeInviteFailed:
     "{name} waa la daray, laakiin casuumaadda iimaylka ma dirsan. Markii dambe ayaad kaga casuumi kartaa profile-kooda.",
+  welcomeExistingLabel: "Horey ugu jira qoyskaaga",
+  welcomeExistingNote: "Qof qoyskaaga ka mid ah ayaa horey u daray dadkan. Uma baahnid inaad mar kale darto.",
+  welcomeExistingLead:
+    "Qoyskaagu horey buu halkan u joogay — waxaa daray qofkii bilaabay. Ku dar qofkii ka maqan.",
+  welcomeInviteFamily: "U ogolow inay maamulaan qoyskeenna oo dhan",
+  welcomeInviteFamilyNote:
+    "Way arki kartaa oo wax ka bedeli kartaa qof kasta oo halkan jooga, sidaas darteed uma baahna inay qoyska mar kale daraan.",
+  removePerson: "Ka saar buugga",
+  removePersonTitle: "Ma ka saaraysaa {name}?",
+  removePersonBody:
+    "Tan waxay si joogto ah u tirtiraysaa {name} iyo wax kasta oo profile-kooda ku jira. Lama soo celin karo.",
+  removePersonConfirm: "Haa, si joogto ah u saar",
+  removePersonCounts: "Waxaa la tirtiri doonaa {contacts} xiriir iyo {groups} xubinnimo koox.",
+  removePersonSignups: "Waxaa la joojin doonaa {count} isdiiwaangelin mutadawacnimo.",
+  removePersonEmptied: "{name} waa xubintii ugu dambaysay ee qoyskooda, sidaas darteed qoyskana waa la tirtirayaa.",
+  removePersonShared:
+    "Qof kale ayaa sidoo kale maamula {name}, markaa kaligaa ma saari kartid. Marka hore weydiiso inay joojiyaan maamulka {name}.",
+  removePersonHouseholdAdmin:
+    "{name} waa maamulaha kaliya ee qoys wali xubno kale leh. Marka hore halkaas ku dar maamule kale.",
+  removePersonError: "Lama saari karin. Isku day mar kale.",
   householdAutoName: "Qoyska {lastName}",
   householdAutoNameFallback: "Qoyska {firstName}",
   noGroupsCta: "Samee qoyskaaga",

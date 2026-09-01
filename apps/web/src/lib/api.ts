@@ -23,6 +23,7 @@ import type {
   PublicNewsletterArchiveDTO,
   PersonPatchBody,
   PersonProfileDTO,
+  PersonRemovalImpactDTO,
   ShareGranteeDTO,
   ShareTargetDTO,
 } from "@sd/shared";
@@ -111,11 +112,19 @@ export const api = {
     request<{ ok: true }>(`/contacts/${id}`, { method: "PATCH", body: JSON.stringify(body) }),
   deleteContact: (id: string) => request<{ ok: true }>(`/contacts/${id}`, { method: "DELETE" }),
 
-  inviteController: (personId: string, email: string) =>
+  /** `householdId` widens the invitation from "co-manage this Person" to "you
+   *  are the other parent here" — see the route's own comment. Passed only by
+   *  the welcome wizard's partner form, which is the one place that means it. */
+  inviteController: (personId: string, email: string, householdId?: string | null) =>
     request<{ ok: true; inviteId: string }>(`/persons/${personId}/controllers`, {
       method: "POST",
-      body: JSON.stringify({ email }),
+      body: JSON.stringify({ email, householdId: householdId ?? null }),
     }),
+
+  personRemovalImpact: (personId: string) =>
+    request<PersonRemovalImpactDTO>(`/persons/${personId}/removal-impact`),
+  deletePerson: (personId: string) =>
+    request<{ ok: true; emptiedHouseholds: number }>(`/persons/${personId}`, { method: "DELETE" }),
 
   neighbors: () => request<NeighborsResponse>("/home/neighbors"),
 

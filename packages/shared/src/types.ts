@@ -712,6 +712,46 @@ export interface MyHouseholdDTO {
   name: string;
 }
 
+/** Body for POST /persons/:id/controllers — invite a co-Controller by email. */
+export interface InviteControllerBody {
+  email: string;
+  /** Optional: the household this invitation is ABOUT. When given (and the
+   *  inviter administers it), accepting grants the invitee control of every
+   *  Person in that household the inviter controls — not just `:id` — and makes
+   *  them an admin of it. That is what stops a co-parent arriving to an empty
+   *  family and re-creating children who already exist. Omit it for the narrow
+   *  case the route was built for: letting one more adult co-manage one Person. */
+  householdId?: string | null;
+}
+
+/** What DELETE /persons/:id is about to remove, read before confirming it.
+ *
+ *  The same shape of promise `ManagedEventDTO.sheetCount`/`signupCount` make for
+ *  a calendar delete (invariant 13): count it BEFORE removing it, because none
+ *  of this is countable afterwards and none of it is recoverable. */
+export interface PersonRemovalImpactDTO {
+  personId: string;
+  /** False when a guard below refuses; `reason` says which. */
+  allowed: boolean;
+  /** `shared` — another User also controls them, so they are not yours alone to
+   *  take (invariant 17's rule, applied to a Person rather than a User).
+   *  `household_admin` — they are the only admin of a household that still has
+   *  other members, which would leave that household unmanageable. */
+  reason?: "shared" | "household_admin";
+  /** Other Users who control them; the count `shared` is about. */
+  otherControllers: number;
+  contactItems: number;
+  groups: number;
+  /** Volunteer spots that will be released. Named plainly because someone is
+   *  expecting them at the event. */
+  volunteerSignups: number;
+  /** Households that would be left with no members at all and are removed with
+   *  them, per the rule GET /admin/users/:id/impact states (invariant 17). */
+  emptiedHouseholds: number;
+  /** True when they are the Person the requester is currently acting as. */
+  isActive: boolean;
+}
+
 // ── Instance settings ──────────────────────────────────────────────────────
 
 /** How system admins hear about something that happened without them. `off` by
@@ -1069,6 +1109,16 @@ export type AuditAction =
    *  `bulk.import` already reports the batch, and one draft per row would make
    *  a 200-child import 200 entries saying nothing the summary doesn't. */
   | "person.created"
+  /** A Person was removed from the directory by a Controller, with everything
+   *  hanging off them (contacts, memberships, shares, volunteer spots). The one
+   *  member-initiated destructive act in this system, and unrecoverable, so the
+   *  row's `detail` carries the NAME and the counts — nothing else will hold
+   *  them a minute later. That detail is also why this action is deliberately
+   *  absent from `slackNotify`'s FORMATTERS: a formatter must resolve a name
+   *  through `personLabel` (invariant 22), and there is no longer a `person` row
+   *  for that gated lookup to find, so the only way to name them in a channel
+   *  would be to forward the unfiltered one from the draft. Silence is correct. */
+  | "person.deleted"
   | "person.updated"
   | "contact.created"
   | "contact.updated"

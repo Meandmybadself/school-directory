@@ -30,9 +30,9 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import type { Capability, MyHouseholdDTO } from "@sd/shared";
+import type { Capability, GroupMemberDTO, MyHouseholdDTO } from "@sd/shared";
 import { Icon } from "../components/Icon.js";
-import { Btn } from "../components/atoms.js";
+import { Avatar, Btn } from "../components/atoms.js";
 import { AppShell } from "../components/AppShell.js";
 import { Field } from "../components/parts.js";
 import { useI18n } from "../i18n/index.js";
@@ -219,6 +219,10 @@ function FamilyStep({
   // Shared across both mini-forms on purpose — see the file header.
   const [saving, setSaving] = useState(false);
   const [failed, setFailed] = useState<string | null>(null);
+  /** Household members that existed before this pass. Kept separate from
+   *  `added` so nobody is listed twice, and so the two can say different
+   *  things: one is "already here", the other is "you just added this". */
+  const [existing, setExisting] = useState<GroupMemberDTO[]>([]);
 
   /** Resume: an earlier, interrupted pass may already have founded the
    *  household, and reusing it is what keeps a dropped connection from leaving
@@ -230,9 +234,20 @@ function FamilyStep({
     if (lookupRef.current === null) {
       lookupRef.current = api
         .myHouseholds()
-        .then((r: { households: MyHouseholdDTO[] }) => {
+        .then(async (r: { households: MyHouseholdDTO[] }) => {
           if (householdRef.current === null && r.households.length > 0) {
             householdRef.current = r.households[0]!.id;
+          }
+          // Who is ALREADY here. The step used to open on a blank form, which
+          // answered "add your family" without answering "has anyone already?"
+          // — and a second parent arriving to a blank form re-creates children
+          // who exist. This is the same roster the group screen renders for the
+          // same viewer, through the same gated route, so it shows nothing they
+          // could not already see; it just shows it at the moment it decides
+          // something. Best-effort: a failure leaves the form exactly as it was.
+          if (householdRef.current) {
+            const g = await api.group(householdRef.current).catch(() => null);
+            if (g) setExisting(g.members);
           }
         })
         .catch(() => {
@@ -259,7 +274,13 @@ function FamilyStep({
     return id;
   };
 
-  const add = async (relation: Relation, firstName: string, lastName: string, email: string) => {
+  const add = async (
+    relation: Relation,
+    firstName: string,
+    lastName: string,
+    email: string,
+    shareHousehold: boolean,
+  ) => {
     setSaving(true);
     setFailed(null);
     try {
@@ -279,7 +300,12 @@ function FamilyStep({
       // a thing to retry later, not a reason to unwind anything.
       if (relation === "partner" && email.trim()) {
         try {
-          await api.inviteController(id, email.trim());
+          // The household travels with the invitation when the form says so.
+          // This is the whole fix for the duplicate: without it the partner
+          // accepts, controls only their own Person, administers no household,
+          // and their first "add a child" founds a second one — see migration
+          // 0021 and `bindInvite`.
+          await api.inviteController(id, email.trim(), shareHousehold ? groupId : null);
         } catch {
           setFailed(t("welcomeInviteFailed", { name }));
         }
@@ -304,7 +330,26 @@ function FamilyStep({
     <AppShell>
       <div className="sd-scroll" style={{ display: "flex", flexDirection: "column" }}>
         <div style={FORM_STYLE}>
-          <StepHeader icon="members" title={t("welcomeFamilyTitle")} lead={t("welcomeFamilyLead")} />
+          <StepHeader
+            icon="members"
+            title={t("welcomeFamilyTitle")}
+            // A co-parent who arrives to a populated household is reviewing,
+            // not filling in a blank — so the lead says that instead.
+            lead={existing.length > 1 ? t("welcomeExistingLead") : t("welcomeFamilyLead")}
+          />
+
+          {existing.length > 0 && (
+            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              <div className="sd-eyebrow">{t("welcomeExistingLabel")}</div>
+              {existing.map((m) => (
+                <div key={m.personId} className="sd-card sd-card-pad sd-row" style={{ gap: 10, padding: "10px 12px" }}>
+                  <Avatar name={m.displayName} img={m.photoUrl} size={28} />
+                  <span style={{ fontWeight: 600, fontSize: 14.5, flex: 1 }}>{m.displayName}</span>
+                </div>
+              ))}
+              <p className="sd-meta" style={{ lineHeight: 1.4 }}>{t("welcomeExistingNote")}</p>
+            </div>
+          )}
 
           {added.length > 0 && (
             <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
@@ -334,7 +379,7 @@ function FamilyStep({
               relation={open}
               saving={saving}
               onCancel={() => setOpen(null)}
-              onSubmit={(f, l, e) => void add(open, f, l, e)}
+              onSubmit={(f, l, e, share) => void add(open, f, l, e, share)}
             />
           )}
 
@@ -364,12 +409,17 @@ function MemberForm({
   relation: Relation;
   saving: boolean;
   onCancel: () => void;
-  onSubmit: (firstName: string, lastName: string, email: string) => void;
+  onSubmit: (firstName: string, lastName: string, email: string, shareHousehold: boolean) => void;
 }) {
   const { t } = useI18n();
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [email, setEmail] = useState("");
+  /** Default ON: the overwhelmingly common case is the other parent, and the
+   *  narrow "co-manage just this one Person" invitation is the exception. It is
+   *  still a checkbox rather than an assumption, because it decides how much of
+   *  a family somebody else can see. */
+  const [shareHousehold, setShareHousehold] = useState(true);
 
   return (
     <div className="sd-card sd-card-pad" style={{ display: "flex", flexDirection: "column", gap: 14 }}>
@@ -394,12 +444,30 @@ function MemberForm({
           />
         </Field>
       )}
+      {/* Only meaningful alongside an address — an unsent invitation grants
+          nothing — so it appears with the email rather than above it. */}
+      {relation === "partner" && email.trim() !== "" && (
+        <label className="sd-row" style={{ gap: 10, alignItems: "flex-start", cursor: "pointer" }}>
+          <input
+            type="checkbox"
+            checked={shareHousehold}
+            onChange={(e) => setShareHousehold(e.target.checked)}
+            style={{ marginTop: 3, flex: "0 0 auto" }}
+          />
+          <span>
+            <span style={{ fontSize: 14, fontWeight: 600 }}>{t("welcomeInviteFamily")}</span>
+            <span className="sd-meta" style={{ display: "block", lineHeight: 1.4 }}>
+              {t("welcomeInviteFamilyNote")}
+            </span>
+          </span>
+        </label>
+      )}
       <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
         <Btn
           block
           icon="plus"
           disabled={saving || !firstName.trim()}
-          onClick={() => onSubmit(firstName, lastName, email)}
+          onClick={() => onSubmit(firstName, lastName, email, shareHousehold)}
         >
           {t("welcomeAddSubmit")}
         </Btn>

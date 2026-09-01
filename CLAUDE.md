@@ -509,6 +509,19 @@ All three SPAs are separate Cloudflare Pages projects talking to the single
    Route-pinned tests only catch a listing somebody remembered to test; this
    catches the eighth one nobody did. It is detection, not prevention — a view or
    a dynamic table name would slip past, the same ceiling `verifyAuditChain` has.
+   **`DELETE FROM person` is excluded from the scan**, narrowly and on purpose:
+   it is the only write spelling the pattern ever matched (an UPDATE says
+   `UPDATE person`), and this rule is the wrong instrument for it.
+   `personListableSql` decides VISIBILITY — may this viewer see that a Person
+   exists — where a delete returns no rows and needs guarding by AUTHORITY, which
+   is `isController`'s job and is pinned by the route's own test. Composing it in
+   would read as a guard while restating something weaker somewhere else, and in
+   `DELETE /persons/:id` it would be actively WRONG: that statement runs in a
+   batch after the `control` rows are gone, so `id IN (SELECT person_id FROM
+   control …)` is false by then and an unlisted Person's row would survive the
+   delete meant to remove it. A guard that silently skips its own write is worse
+   than none — invariant 22's `"1"`-shaped predicate, reached from the other
+   direction. The exemption budget is unchanged at 7 of 8.
    **Group-level hiding is deliberately not built**, and two counts are the
    accepted price. `GET /groups` lets any member search every group's name and
    see a raw `member_count`, and a group detail's `children[].memberCount` is
@@ -674,6 +687,79 @@ All three SPAs are separate Cloudflare Pages projects talking to the single
    deliberately the uncomfortable one: it asserts that a token url handed to
    `translateProxyUrl` WOULD produce a link, so the `""` at the four call sites
    is understood as load-bearing rather than tidy.
+
+24. **A duplicate child is an onboarding bug, not a matching problem — so the
+   fix is a JOIN path, never a name lookup.** Two parents sign up; the second
+   re-creates children the first already entered. The tempting fix is a check at
+   create time ("a Milo Ruiz already exists — is this yours?") and it is
+   forbidden: it is invariant 18's oracle one URL along, lets any member probe
+   first names to enumerate the school's children, confirms a surname held at
+   `initial`, and surfaces an `unlisted_at` Person (invariant 21).
+   `personSearchSql` is the seam such a feature would have to compose, and it
+   would correctly return nothing useful. **Do not build it.**
+   What was actually broken was reachable from the CORRECT flow, which is why no
+   route test caught it. `Welcome.tsx` already invites the partner, but
+   `bindInvite` granted control of the invitee's own Person and nothing else. So
+   parent two signed in controlling one Person, a MEMBER of the household but
+   not an ADMIN of it — and `GET /me/households` filters `m.is_admin = 1`, so it
+   returned nothing, `ensureHousehold` found nothing to reuse, and their first
+   "add a child" founded a SECOND household with duplicate children in it.
+   **Migration 0021 puts `group_id` on `control_invite` AND `auth_token`** — both,
+   because neither can reach the other cheaply: one is the record a member sees,
+   the other is what `/auth/callback` resolves a click against, by `token_hash`
+   alone. When it is set, accepting grants control of every Person in that
+   household the INVITER controls, promotes the invitee's existing membership to
+   admin, and carries `household_admin` with it the way `POST /groups` does.
+   Three spellings are load-bearing. The grant is an `INSERT … SELECT` evaluated
+   against what the inviter controls NOW, not a list frozen at send time — a
+   child added in between is one the co-parent should get. It reads
+   `membership × control` and **never `person`**: the invitee is becoming a
+   Controller, which is one of the two audiences the gate admits, so applying it
+   would be the wrong predicate and would spend a scan exemption for nothing.
+   And it is **opt-in per call site** (`householdId` in the body, a checkbox on
+   the partner form), because "help me manage this one child" — a grandparent,
+   the school nurse — must not quietly become "see my whole family".
+   The other half is UI and leaks nothing: the wizard's family step now renders
+   **who is already in the household** before the blank form. It is the same
+   roster `GET /groups/:id` gives that viewer through the same gated route — no
+   new sight, just shown at the moment it decides something.
+   `test/inviteHousehold.test.ts` pins both sides.
+
+25. **Removing a Person is permanent, and sole control is the test.** `DELETE
+   /persons/:id` is the one destructive act an ordinary member may perform.
+   Unlike disabling a User (invariant 17) there is no `deleted_at`: a Person
+   nobody controls and nobody sees is not worth a tombstone. So the guards, the
+   pre-count and the audit `detail` are the whole design.
+   **Sole control, not authorship.** `control` is many-to-many by design — two
+   parents, one child — so a Person another User also controls is not this
+   user's to take; invariant 17's rule, one level down. Reading it as "created"
+   would key on `control.granted_by` and be wrong in both directions: a
+   co-parent left as the only Controller could never clean up, and a Person
+   since joined by a second Controller would still look deletable.
+   The second refusal is a household the Person **solely administers that still
+   has other members** — removing them there leaves a group nobody can edit.
+   A household they alone occupy is not that case; it is deleted with them, the
+   rule `GET /admin/users/:id/impact` already states.
+   **Count before removing**, like `deleteManagedEvent` (invariant 13): none of
+   it is countable afterwards and none of it is recoverable.
+   `GET /persons/:id/removal-impact` is its own route rather than a field on
+   `PersonProfileDTO` so an ordinary profile view doesn't pay for six counts
+   nobody reads; the DELETE re-runs the same helper rather than trusting what
+   the client saw, since a second Controller may have appeared in between.
+   The cascade is children-first and includes the row nobody thinks of: an
+   unconsumed **`auth_token`** aimed at the deleted Person is a live capability
+   pointing at nothing, and `/auth/callback` creates a user for any non-`signin`
+   kind (invariant 14's reasoning). Groups are the school's and stay.
+   **`audit_log` is never touched** — append-only and hash-chained (invariant 5),
+   and it is deliberately absent from `lib/sweep.ts` for the same reason.
+   The audit row carries the NAME, in `detail`, because in a second nothing else
+   in the system will hold it. That is also why `person.deleted` has **no Slack
+   formatter**: invariant 22 requires a formatter to resolve a name through
+   `personLabel`, and the row that gated lookup needs is gone by the time the
+   `waitUntil` flush runs — so the only way to name them in a channel would be to
+   forward the ungated one from the draft. Silence is the correct default here,
+   and it is the default `FORMATTERS` already gives an action with no entry.
+   `test/personRemoval.test.ts` pins the guards, the cascade order and both.
 
 ## Conventions
 

@@ -51,8 +51,30 @@ const SOURCES: Record<string, string> = import.meta.glob("../src/**/*.ts", {
   eager: true,
 });
 
-/** Every statement that reads the `person` table, however it joins it. */
-const READS_PERSON = /FROM person|JOIN person/g;
+/** Every statement that READS the `person` table, however it joins it.
+ *
+ *  `DELETE FROM person` is excluded, and the exclusion is narrow on purpose: it
+ *  is the only write spelling that matches this pattern at all (an UPDATE says
+ *  `UPDATE person`, which never did). The reason is not that a delete is
+ *  harmless — it is the most destructive statement in the codebase — but that
+ *  this rule is the wrong instrument for it, and answering it here would have
+ *  been a fake answer rather than a decision.
+ *
+ *  `personListableSql` decides VISIBILITY: may this viewer see that this Person
+ *  exists. A delete returns no rows, so it cannot be the oracle invariant 18
+ *  describes; what it needs guarding by is AUTHORITY — may this viewer act on
+ *  this Person — which is `isController`'s job and is pinned by the route's own
+ *  tests, not by a source scan. Composing the visibility predicate into a
+ *  delete's WHERE would read as a guard while restating, more weakly and in a
+ *  second place, something the route already established. Worse, in
+ *  `DELETE /persons/:id` it would be actively wrong: that statement runs in a
+ *  batch AFTER the `control` rows are gone, so `id IN (SELECT person_id FROM
+ *  control …)` is false by then and an unlisted Person's row would survive the
+ *  delete that was supposed to remove it. A guard that silently skips the write
+ *  it decorates is worse than no guard, and this is exactly the "`1`-shaped
+ *  predicate that reads like a gate and gates nothing" failure invariant 22
+ *  warns about, arrived at from the other direction. */
+const READS_PERSON = /(?<!DELETE )FROM person\b|JOIN person\b/g;
 
 /** The guard, written into the SQL text itself.
  *

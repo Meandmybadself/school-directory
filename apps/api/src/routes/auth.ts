@@ -5,6 +5,7 @@ import { Hono } from "hono";
 import type { Context } from "hono";
 import type { AuthStartBody } from "@sd/shared";
 import type { HonoEnv } from "../env.js";
+import type { AuditDraft } from "../lib/audit.js";
 import { ulid } from "../lib/ids.js";
 import { randomToken, randomSessionId, sha256 } from "../lib/crypto.js";
 import { isoPlus, isExpired, nowIso, MAGIC_LINK_TTL, SESSION_TTL } from "../lib/time.js";
@@ -167,7 +168,7 @@ auth.post("/callback", async (c) => {
 
   const tokenHash = await sha256(token);
   const row = await c.env.DB.prepare(
-    `SELECT id, email, kind, person_id, invited_by, reg_open_at_issue, expires_at, consumed_at, return_to
+    `SELECT id, email, kind, person_id, invited_by, group_id, reg_open_at_issue, expires_at, consumed_at, return_to
      FROM auth_token WHERE token_hash = ?`,
   )
     .bind(tokenHash)
@@ -177,6 +178,7 @@ auth.post("/callback", async (c) => {
       kind: string;
       person_id: string | null;
       invited_by: string | null;
+      group_id: string | null;
       reg_open_at_issue: number;
       expires_at: string;
       consumed_at: string | null;
@@ -264,7 +266,7 @@ auth.post("/callback", async (c) => {
 
   // Invite binding: grant control + close the invite.
   if (row.kind === "invite" && row.person_id) {
-    await bindInvite(c, user.id, row.person_id, row.invited_by, row.email);
+    await bindInvite(c, user.id, row.person_id, row.invited_by, row.email, row.group_id);
   }
 
   // Create the session.
@@ -352,12 +354,42 @@ function signInHandoffPage(token: string, school: string): string {
 </html>`;
 }
 
+/**
+ * Accept an invitation: grant control, close the invite.
+ *
+ * `groupId` is the household the invitation was ABOUT (migration 0021), and it
+ * is what turns "you may co-manage this one Person" into "you are the other
+ * parent here". Without it, the welcome wizard's own partner invite left the
+ * second parent controlling only themselves: a member of the household but not
+ * an admin of it, so GET /me/households returned nothing and their first "add a
+ * child" founded a SECOND household with duplicate children in it.
+ *
+ * Three things it does, and the reason each is spelled the way it is:
+ *
+ *   Control of the inviter's household Persons is granted by an
+ *   `INSERT … SELECT`, evaluated against what the INVITER controls right now
+ *   rather than a list frozen at send time. A child added between sending the
+ *   invitation and clicking it is a child the co-parent should get, and one the
+ *   inviter has since lost control of is not.
+ *
+ *   The Persons come from `membership` joined to `control`, never from `person`.
+ *   That is not incidental: the enumeration gate (invariant 21) would be the
+ *   wrong predicate to apply here — the invitee is becoming a Controller, which
+ *   is one of the two audiences the gate admits — and reading the table at all
+ *   would spend one of the scan's few remaining exemptions to no purpose.
+ *
+ *   Household admin is granted only where a membership already exists, so this
+ *   can never make someone an admin of a household they are not in. It carries
+ *   the `household_admin` capability with it for the same reason POST /groups
+ *   does: the badge and the authority are one fact.
+ */
 async function bindInvite(
   c: Context<HonoEnv>,
   userId: string,
   personId: string,
   invitedBy: string | null,
   email: string,
+  groupId: string | null,
 ): Promise<void> {
   const exists = await c.env.DB.prepare(
     "SELECT 1 AS ok FROM control WHERE user_id = ? AND person_id = ? LIMIT 1",
@@ -376,13 +408,84 @@ async function bindInvite(
   )
     .bind(personId, email)
     .run();
-  c.var.audit.push({ action: "invite.accepted", entityKind: "person", entityId: personId });
-  c.var.audit.push({
+  // Pushed here, before the household widening below, for invariant 22's
+  // ordering reason: the control that was just granted is a committed write and
+  // must have a record even if the widening throws. What the widening learns is
+  // merged into these same two objects afterwards, in place.
+  const accepted: AuditDraft = {
+    action: "invite.accepted",
+    entityKind: "person",
+    entityId: personId,
+    detail: { groupId },
+  };
+  const granted: AuditDraft = {
     action: "control.granted",
     entityKind: "person",
     entityId: personId,
     detail: { userId },
-  });
+    // No `self`, so this one SPEAKS: invariant 22 keeps control.granted quiet
+    // for the 22-of-22 self-grants and lets through exactly this case — a
+    // second parent gaining control by invitation, where who can see a family's
+    // data actually changed.
+    notify: { self: false },
+  };
+  c.var.audit.push(accepted);
+  c.var.audit.push(granted);
+
+  if (!groupId || !invitedBy) return;
+
+  // How many Persons this actually hands over, read BEFORE the insert: after it
+  // the `NOT EXISTS` is false for every row and the number is unrecoverable.
+  // It is the one thing worth keeping about a grant of this size.
+  const widened = await c.env.DB.prepare(
+    `SELECT COUNT(*) AS n FROM membership m
+      JOIN control inv ON inv.person_id = m.person_id AND inv.user_id = ?
+      WHERE m.group_id = ?
+        AND NOT EXISTS (SELECT 1 FROM control mine WHERE mine.person_id = m.person_id AND mine.user_id = ?)`,
+  )
+    .bind(invitedBy, groupId, userId)
+    .first<{ n: number }>();
+
+  await c.env.DB.batch([
+    c.env.DB.prepare(
+      `INSERT INTO control (user_id, person_id, granted_by, since)
+       SELECT ?, m.person_id, ?, ?
+         FROM membership m
+         JOIN control inv ON inv.person_id = m.person_id AND inv.user_id = ?
+        WHERE m.group_id = ?
+       ON CONFLICT (user_id, person_id) DO NOTHING`,
+    ).bind(userId, invitedBy, nowIso(), invitedBy, groupId),
+    // The INVITEE'S OWN Person, by id — never "everyone this user controls".
+    // The insert above has just made that set the whole household, so a
+    // `person_id IN (SELECT … FROM control WHERE user_id = ?)` here would read
+    // perfectly naturally and promote every CHILD in the family to household
+    // admin. Order inside a batch is what makes the difference, and the safe
+    // spelling is the one that doesn't depend on it.
+    //
+    // It also only promotes a membership that already EXISTS — never creates
+    // one — so this can't make someone an admin of a household they're not in.
+    c.env.DB.prepare(
+      "UPDATE membership SET is_admin = 1 WHERE group_id = ? AND person_id = ?",
+    ).bind(groupId, personId),
+    // The badge and the authority are one fact, as POST /groups has it.
+    c.env.DB.prepare(
+      `INSERT INTO capability_grant (person_id, capability)
+       SELECT ?, 'household_admin'
+        WHERE EXISTS (SELECT 1 FROM membership WHERE group_id = ? AND person_id = ?)
+       ON CONFLICT DO NOTHING`,
+    ).bind(personId, groupId, personId),
+  ]);
+
+  // The same objects the array already holds. Deliberately NOT a third draft
+  // keyed on the group: `control.granted`'s formatter resolves `entityId`
+  // through `personLabel`, so a draft carrying a GROUP id there would render as
+  // "A member" — the string that is supposed to mean "withheld", quietly
+  // reused to mean "wrong table". Enriching the person-scoped draft says the
+  // same thing truthfully.
+  const personsGranted = widened?.n ?? 0;
+  Object.assign(accepted.detail!, { personsGranted });
+  Object.assign(granted.detail!, { viaInvite: true, householdId: groupId, personsGranted });
+  Object.assign(granted.notify!, { personsGranted });
 }
 
 /** POST /auth/signout — revoke the current session. */
