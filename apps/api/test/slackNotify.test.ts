@@ -182,7 +182,7 @@ describe("the allowlist is closed by construction", () => {
       "contact.updated",
       "share.created",
       "share.revoked",
-      "newsletter.issue.updated", // fires on every autosave — the one real flood
+      "newsletter.issue.updated", // opening a draft is not news; the send is
       "calendar.managed.created", // vs calendar.event.created — the calendar, not an event on it
       "calendar.source.updated", // vs source.created/deleted — a re-fetch is not news
       "calendar.refreshed",

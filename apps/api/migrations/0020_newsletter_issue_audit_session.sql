@@ -1,0 +1,29 @@
+-- Stop the newsletter editor's autosave from being the loudest thing in the
+-- audit log.
+--
+-- `apps/newsletter`'s IssueEditor flushes a PATCH 1.2 seconds after the author
+-- stops typing, and every PATCH pushed a `newsletter.issue.updated` draft. In
+-- this instance's log that action is 108 rows out of ~450 — the single largest
+-- action, from ONE issue, and the count is a transcript of a debounce timer
+-- rather than a record of anything a reader of the log wants. Grouped by minute
+-- those 108 rows are about seven sittings at the keyboard.
+--
+-- The fix is not to delete rows: `audit_log` is append-only and hash-chained
+-- (invariant 5), and lib/sweep.ts spells out why it may never be swept. It is
+-- to stop MINTING a row per keystroke-burst, by recording the editing SESSION
+-- instead of the autosave. This column is that session's start: the PATCH route
+-- claims it with a guarded UPDATE (`meta.changes` is the answer, as with the
+-- volunteer overfill and last-admin guards — D1 has no read-then-write
+-- transaction), pushes the audit draft only when the claim succeeds, and stays
+-- silent for every save inside the window.
+--
+-- It lives here rather than being derived from a query over audit_log for two
+-- reasons: audit rows are written in `waitUntil` AFTER the response, so a
+-- lookup there would race the burst it is meant to collapse; and this way the
+-- claim folds into the batch the route already sends, adding no round trip to a
+-- request that fires every 1.2 seconds.
+--
+-- Nothing reads it outside that claim — it is bookkeeping, not issue state, and
+-- `detailOf`/`summaryOf` build the DTO field by field, so it reaches no client.
+
+ALTER TABLE newsletter_issue ADD COLUMN audit_session_at TEXT;

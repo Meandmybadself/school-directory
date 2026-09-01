@@ -185,6 +185,27 @@ All three SPAs are separate Cloudflare Pages projects talking to the single
    read by nothing for a long time, which is exactly why the fork went unnoticed
    — a hash nobody checks is not evidence. It's exposed at
    `GET /admin/audit/verify`. Rows appended before 0016 may legitimately fail it.
+   **Noise is fixed at the push site, never by deleting rows.** The chain is
+   append-only and `lib/sweep.ts` deliberately omits `audit_log`, so a log gone
+   loud has exactly one lever: what a route decides counts as an event.
+   `newsletter.issue.updated` is the worked example — the editor autosaves 1.2s
+   after the author stops typing, which made it the largest action in this
+   instance's log (108 rows out of ~450, from ONE issue) and a transcript of a
+   debounce timer rather than a record. `claimEditSession`
+   (`routes/newsletter.ts`, migration 0020) now mints one row per editing
+   SITTING: a guarded `UPDATE … WHERE audit_session_at < ?` on the issue row,
+   batched with the save it already sends, and the draft is pushed only when
+   `meta.changes` says this request opened the session. Same idiom as the
+   volunteer overfill and last-admin guards, for the same reason — D1 has no
+   read-then-write transaction. Nothing is lost that the system doesn't already
+   hold: the row carried no `detail`, and where the sitting ended is
+   `newsletter_issue.updated_at`. The state lives on the issue row rather than
+   being derived from `audit_log` because audit rows are written in `waitUntil`
+   AFTER the response, so a lookup there would race the burst it collapses.
+   Before applying this to another action, check it is actually machine-paced:
+   invariant 22's rule holds here too — **count first**
+   (`SELECT action, COUNT(*) FROM audit_log GROUP BY action`), because
+   coalescing a human-paced action loses real events for nothing.
 6. **UI copy comes from `@sd/shared` i18n dictionaries** — never hardcode user-
    facing English in a component. Member-entered content is never translated.
 7. **IDs are ULIDs** (`lib/ids.ts`); timestamps are ISO-8601 UTC strings.
@@ -576,8 +597,10 @@ All three SPAs are separate Cloudflare Pages projects talking to the single
    What stays out, and why: routine member FIELD edits (`person.updated`,
    `contact.*`, `share.*`) — a parent fixing their own phone number is not news;
    `auth.signin`/`auth.signout` — every visit, where `auth.registered` is the
-   one arrival; and `newsletter.issue.updated`, the single genuine flood at 47
-   in thirty days, because it fires on every autosave while someone types.
+   one arrival; and `newsletter.issue.updated` — once the loudest action in the
+   log because it fired on every autosave, now one row per editing sitting
+   (invariant 5, migration 0020) and still out, since opening a draft is not
+   news to a channel and the send already speaks.
    **One curated action deliberately declines most of its instances**:
    `control.granted` returns null when `notify.self` is true, because
    `person.created` reported the same act from the same request and 22 of 22

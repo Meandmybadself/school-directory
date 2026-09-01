@@ -200,8 +200,10 @@ function eventLink(env: Env, bag: NotifyBag): string {
 //   volunteer.position.*, newsletter.issue.updated — fires once per HTTP
 //   REQUEST, and the coalescing below only merges drafts within one request.
 //   Building a sheet with six positions is six requests, so it would be six
-//   messages however this file batches. newsletter.issue.updated is the worst
-//   of them: it fires on every autosave while someone is typing.
+//   messages however this file batches. newsletter.issue.updated was the worst
+//   of them, firing on every autosave; migration 0020 collapsed it to one row
+//   per editing sitting, and it stays out anyway — "an admin opened a draft" is
+//   not news to a channel, only the send is.
 //
 // `calendar.event.*` was in that second family and was moved OUT of it by an
 // explicit decision, against the advice above — the whole of an event's CRUD

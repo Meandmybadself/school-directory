@@ -57,6 +57,11 @@ export interface IssueRow {
    *  circulated keeps working and starts showing the sent issue. */
   preview_token_hash: string | null;
   preview_token_created_at: string | null;
+  /** Start of the editing session the last `newsletter.issue.updated` audit row
+   *  stands for (migration 0020). Audit bookkeeping, not issue state: only
+   *  `claimEditSession` in routes/newsletter.ts reads or moves it, and it
+   *  reaches no DTO. */
+  audit_session_at: string | null;
 }
 
 export type StartSendOutcome =

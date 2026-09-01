@@ -22,7 +22,7 @@ import { issueSlug, sanitizeNewsletterDoc, slugifyTitle } from "@sd/shared";
 import type { HonoEnv } from "../env.js";
 import { requireAuth } from "../middleware/session.js";
 import { ulid } from "../lib/ids.js";
-import { nowIso } from "../lib/time.js";
+import { MINUTES, nowIso } from "../lib/time.js";
 import { normalizeEmail } from "../lib/db.js";
 import { sendEmailResult } from "../lib/email.js";
 import { startSubscriberDigestWindow } from "../lib/notify.js";
@@ -112,6 +112,59 @@ async function detailOf(
   };
 }
 
+/**
+ * How long one uninterrupted sitting at the editor is taken to last.
+ *
+ * Sized from this instance's own log rather than guessed. Grouped by minute,
+ * the 108 `newsletter.issue.updated` rows are seven bursts: within a burst the
+ * gaps are seconds to a few minutes, and between bursts they are hours. Thirty
+ * minutes sits in that gap with room on both sides, and collapses those 108
+ * rows to about seven. Widen it and a genuine second visit is swallowed;
+ * narrow it and a pause to re-read a paragraph mints a new row.
+ */
+const EDIT_SESSION_MS = 30 * MINUTES;
+
+/**
+ * Claim the audit row for this editing session, or find it already claimed.
+ *
+ * The problem: the editor autosaves 1.2 seconds after the author stops typing
+ * (AUTOSAVE_MS in apps/newsletter's IssueEditor), and pushing an audit draft
+ * per PATCH made `newsletter.issue.updated` the largest action in the log — a
+ * transcript of a debounce timer, drowning the rows a reader actually came for.
+ *
+ * The answer is NOT to delete rows. `audit_log` is append-only and hash-chained
+ * (invariant 5); lib/sweep.ts says why it may never be swept, and a gap in
+ * `seq` is exactly what verifyAuditChain reports as tampering. Nothing about
+ * the chain changes here. What changes is what counts as an event worth
+ * recording: the SITTING, not the keystroke burst inside it. The first save of
+ * a sitting writes the row; the rest are the same event continuing.
+ *
+ * Nothing is lost that this system doesn't already hold. The row was pushed
+ * with no `detail` — 108 of them said only "an admin edited this draft", which
+ * is what one still says — and where the sitting ENDED is
+ * `newsletter_issue.updated_at`, which every save bumps and the DTO already
+ * carries.
+ *
+ * The claim is a guarded UPDATE and `meta.changes` is the answer, the same
+ * idiom as the volunteer overfill guard and the last-admin guard: D1 has no
+ * transaction around a read-then-write, and two saves really can be in flight
+ * together. Whoever moves the column owns the row; everyone else stays quiet.
+ * It is batched with the content UPDATE, so a request that fires every 1.2
+ * seconds pays no extra round trip.
+ *
+ * Deliberately keyed on the issue and not on the actor. Two admins editing one
+ * draft in the same half hour are one editing session on one document, and the
+ * `updated` row was never the thing that told you who — the send is.
+ */
+function claimEditSession(env: HonoEnv["Bindings"], id: string, now: string): D1PreparedStatement {
+  return env.DB.prepare(
+    `UPDATE newsletter_issue
+        SET audit_session_at = ?
+      WHERE id = ?
+        AND (audit_session_at IS NULL OR audit_session_at < ?)`,
+  ).bind(now, id, new Date(Date.now() - EDIT_SESSION_MS).toISOString());
+}
+
 // ── Issues ──────────────────────────────────────────────────────────────────
 
 /** GET /newsletter/issues — every issue, newest first. */
@@ -142,8 +195,9 @@ newsletter.post("/issues", async (c) => {
 
   await c.env.DB.prepare(
     `INSERT INTO newsletter_issue
-       (id, slug, title, subtitle, subject, content_json, status, created_by, created_at, updated_at)
-     VALUES (?,?,?,?,?,?, 'draft', ?,?,?)`,
+       (id, slug, title, subtitle, subject, content_json, status, created_by, created_at,
+        updated_at, audit_session_at)
+     VALUES (?,?,?,?,?,?, 'draft', ?,?,?,?)`,
   )
     .bind(
       id,
@@ -154,6 +208,10 @@ newsletter.post("/issues", async (c) => {
       JSON.stringify(content),
       auth.userId,
       now,
+      now,
+      // Creating a draft opens its first editing session, so the autosaves that
+      // follow the author straight into the editor say nothing on top of the
+      // `created` row that already reported them arriving.
       now,
     )
     .run();
@@ -216,27 +274,32 @@ newsletter.patch("/issues/:id", async (c) => {
     if (requested && requested !== row.slug) slug = await uniqueSlug(c.env, requested, id);
   }
 
-  await c.env.DB.prepare(
-    `UPDATE newsletter_issue
-        SET title = ?, subtitle = ?, subject = ?, slug = ?, content_json = ?, updated_at = ?
-      WHERE id = ?`,
-  )
-    .bind(
+  const now = nowIso();
+  const [, claim] = await c.env.DB.batch([
+    c.env.DB.prepare(
+      `UPDATE newsletter_issue
+          SET title = ?, subtitle = ?, subject = ?, slug = ?, content_json = ?, updated_at = ?
+        WHERE id = ?`,
+    ).bind(
       title,
       body.subtitle !== undefined ? (body.subtitle?.trim() || null) : row.subtitle,
       body.subject !== undefined ? (body.subject.trim() || title) : row.subject,
       slug,
       JSON.stringify(content),
-      nowIso(),
+      now,
       id,
-    )
-    .run();
+    ),
+    claimEditSession(c.env, id, now),
+  ]);
 
-  c.var.audit.push({
-    action: "newsletter.issue.updated",
-    entityKind: "newsletter_issue",
-    entityId: id,
-  });
+  // One row per SITTING, not per autosave. See claimEditSession.
+  if (claim?.meta.changes) {
+    c.var.audit.push({
+      action: "newsletter.issue.updated",
+      entityKind: "newsletter_issue",
+      entityId: id,
+    });
+  }
 
   const updated = await c.env.DB.prepare("SELECT * FROM newsletter_issue WHERE id = ?")
     .bind(id)

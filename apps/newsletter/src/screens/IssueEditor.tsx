@@ -27,7 +27,26 @@ import { StatusChip } from "./Issues.js";
 import { useIsDesktop } from "../lib/useIsDesktop.js";
 import { ApiError, api, errorMessage } from "../lib/api.js";
 
+/** Trailing debounce: how long after the last keystroke a save fires. Short,
+ *  because an author who stops typing and looks at the preview should see
+ *  "Saved" rather than wonder. */
 const AUTOSAVE_MS = 1200;
+
+/** Floor on the gap between two saves.
+ *
+ *  The debounce alone measures PAUSES, and writing prose is mostly pauses — in
+ *  this instance's log the editor managed 12 saves inside one minute, which is
+ *  a save every five seconds for a paragraph nobody would call twelve edits.
+ *  This bounds that: a burst of thinking is one write, not twelve.
+ *
+ *  The trade is deliberate and this is the only place it is made — up to this
+ *  much typing is unsaved if the tab dies. Navigating away and Send both
+ *  force-flush (see `flush`), so the exposure is a crash, and fifteen seconds
+ *  of it is a sentence. Do not raise this looking for a quieter AUDIT LOG:
+ *  that is settled server-side by claimEditSession, which holds however fast a
+ *  client chooses to PATCH. */
+const MIN_SAVE_GAP_MS = 15_000;
+
 const POLL_MS = 2000;
 
 interface Draft {
@@ -268,6 +287,9 @@ export function IssueEditor() {
 
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pendingDraft = useRef<Draft | null>(null);
+  /** When the last save was ISSUED, for the MIN_SAVE_GAP_MS floor. Starts at 0
+   *  so the first edit after opening the editor is never held back. */
+  const lastSaveAt = useRef(0);
   /** The save currently on the wire, if any. `pendingDraft` is cleared when a
    *  request is ISSUED, not when it lands, so it alone can't answer "is
    *  everything saved?" — Send would see nothing pending and race the PATCH
@@ -313,6 +335,7 @@ export function IssueEditor() {
     const next = pendingDraft.current;
     if (!next) return true;
     pendingDraft.current = null;
+    lastSaveAt.current = Date.now();
     setSaveState("saving");
 
     const run = (async () => {
@@ -356,7 +379,11 @@ export function IssueEditor() {
       });
       setSaveState("saving");
       if (timer.current) clearTimeout(timer.current);
-      timer.current = setTimeout(() => void flush(), AUTOSAVE_MS);
+      // Whichever is later: a beat after this keystroke, or the floor since the
+      // last save. Recomputed per keystroke, so the wait shrinks as the floor
+      // elapses and an isolated edit still lands in AUTOSAVE_MS.
+      const wait = Math.max(AUTOSAVE_MS, MIN_SAVE_GAP_MS - (Date.now() - lastSaveAt.current));
+      timer.current = setTimeout(() => void flush(), wait);
     },
     [flush],
   );
