@@ -31,7 +31,7 @@ export function IconBtn({
       }}
     >
       <Icon name={name} size={19} />
-      {badge && <span style={{ position: "absolute", top: 7, right: 7, width: 7, height: 7, borderRadius: 4, background: "var(--orange)", boxShadow: "0 0 0 2px #fff" }} />}
+      {badge && <span style={{ position: "absolute", top: 7, right: 7, width: 7, height: 7, borderRadius: 4, background: "var(--orange)", boxShadow: "0 0 0 2px var(--paper)" }} />}
     </button>
   );
 }

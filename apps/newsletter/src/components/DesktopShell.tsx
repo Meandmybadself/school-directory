@@ -20,7 +20,7 @@ function Sidebar({ active }: { active: NavKey }) {
     <aside className="sd-desknav">
       <div style={{ padding: "0 8px 18px" }}>
         <div className="sd-row" style={{ gap: 10 }}>
-          <div style={{ width: 34, height: 34, borderRadius: 10, background: "var(--blue)", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", flex: "0 0 auto" }}>
+          <div style={{ width: 34, height: 34, borderRadius: 10, background: "var(--blue)", color: "var(--on-brand)", display: "flex", alignItems: "center", justifyContent: "center", flex: "0 0 auto" }}>
             <Icon name="mail" size={19} stroke={1.9} />
           </div>
           <div style={{ lineHeight: 1.05 }}>

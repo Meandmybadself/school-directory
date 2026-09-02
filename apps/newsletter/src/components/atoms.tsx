@@ -39,9 +39,12 @@ export function Avatar({
     width: size,
     height: size,
     fontSize: Math.round(size * 0.38),
-    color: textColor || "#fff",
+    // White holds on a generated avColor (mid-dark in both themes); a
+    // caller-supplied brand colour is lifted in dark mode and needs the
+    // brand's own on-colour instead.
+    color: textColor || (color ? "var(--on-brand)" : "#fff"),
     background: img ? undefined : color || avColor(name),
-    boxShadow: ring ? `0 0 0 2px #fff, 0 0 0 ${ring}px ${color || avColor(name)}` : undefined,
+    boxShadow: ring ? `0 0 0 2px var(--paper), 0 0 0 ${ring}px ${color || avColor(name)}` : undefined,
     backgroundImage: img ? `url(${img})` : undefined,
   };
   return (

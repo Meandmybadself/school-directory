@@ -73,7 +73,7 @@ export function Preferences() {
           <div style={{
             width: 34, height: 34, borderRadius: 9, flex: "0 0 auto",
             background: subscribed ? "var(--blue)" : "var(--bg-2)",
-            color: subscribed ? "#fff" : "var(--ink-2)",
+            color: subscribed ? "var(--on-brand)" : "var(--ink-2)",
             display: "flex", alignItems: "center", justifyContent: "center",
           }}>
             <Icon name="mail" size={18} />

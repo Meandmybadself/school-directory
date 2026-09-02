@@ -772,6 +772,39 @@ All three SPAs are separate Cloudflare Pages projects talking to the single
   the handoff exactly: `--blue #0068A8`, `--orange #FAAB1C`, etc.
 - Visibility chip states: `members` (blue) / `private` (slate) / `shared` (orange).
   There is **no public state** anywhere in the UI.
+- **Dark mode is `prefers-color-scheme` only** — no toggle, nothing persisted, in
+  any app. The OS already carries the preference, and a control that can
+  disagree with it is a support question forever. It is a token
+  re-declaration and nothing else: no rule outside the `@media` block knows
+  which theme is on, so a component written with `var(--ink)` on `var(--paper)`
+  is correct in both, and anything that breaks is something that hardcoded a
+  colour. Four things to know before touching it:
+  · **`--on-brand` is why it works.** `--blue` cannot both read as text on a
+    dark card and carry white text as a button fill — lifted enough for the
+    first, white-on-it measures 2.7:1. So text/icons on a brand fill use
+    `--on-brand` (white in light, near-black in dark). Never write `#fff` on a
+    brand fill again; the exception is `.sd-avatar`, whose `avColor` palette is
+    mid-dark in both themes, which is why `Avatar` picks between them by whether
+    the caller supplied a colour.
+  · **`--blue-700` / `--blue-800` / `--orange-700` / `--orange-ink` INVERT.**
+    They are foregrounds on a tint, so "darker than the base" in light means
+    "lighter" in dark. Getting this backwards makes a chip's label vanish into
+    its own chip. The `-tint` colours likewise become deep low-chroma washes,
+    not pale ones.
+  · **Some surfaces are dark on purpose in both themes** and must be pinned to
+    literals rather than riding a token that inverts: the landing page's `.join`
+    band and the button inside it, `.banner-offline`, and the newsletter
+    composer's `.nlx-block-preview` (it previews an EMAIL, which is white
+    wherever it is read).
+  · **`@media print` now has to restate the light values it used to inherit**
+    (`NEWSLETTER_WEB_CSS`), or a reader in a dark system theme prints near-white
+    text onto white paper. Printing IS the PDF export (invariant 16), so it
+    cannot depend on the reader's theme; order is the precedence, so the print
+    block must stay BELOW the dark block. `test/newsletterIssuePage.test.ts`
+    pins both.
+  Contrast was measured rather than eyeballed; every text pair clears AA. The
+  three `tokens.css` copies got the same block — they are copies, so a change to
+  one is a decision about all three (see "Three front ends, one API").
 - **Mobile shell layout is load-bearing.** `.sd-app` is exactly `100dvh`, so an
   `AppShell` screen must put its scrolling content inside a `.sd-scroll` child —
   that element carries the `min-height: 0` that lets it shrink and actually

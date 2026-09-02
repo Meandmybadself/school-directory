@@ -25,6 +25,11 @@
 
   --ok: #1f8a5b;
   --warn: #b5562f;
+  /* Text and icons ON a brand fill (a primary button, a selected chip).
+     White in light; near-black in dark, where the brand colours are
+     lifted for legibility and can no longer carry white. */
+  --on-brand: #ffffff;
+  --scrim: rgba(16, 26, 36, 0.42);
 
   --r-card: 16px;
   --r-ctrl: 11px;
@@ -66,6 +71,10 @@ body,
    leaving a white canvas wherever a shell's own background didn't reach.
    Declaring it on :root puts it in scope; keep the value in step with `.sd`. */
 :root {
+  /* Tells the UA to render native controls, scrollbars and the
+     default canvas in whichever theme is active. Without it a dark page
+     still gets a white <select> and a white scrollbar. */
+  color-scheme: light dark;
   --bg: #f3f5f7;
 }
 body {
@@ -240,7 +249,7 @@ body {
 }
 .sd-btn-primary {
   background: var(--blue);
-  color: #fff;
+  color: var(--on-brand);
   box-shadow: 0 1px 0 rgba(0, 0, 0, 0.04);
 }
 .sd-btn-secondary {
@@ -518,7 +527,7 @@ body {
 .sd-chip.on {
   background: var(--blue);
   border-color: var(--blue);
-  color: #fff;
+  color: var(--on-brand);
 }
 
 /* banner */
@@ -555,7 +564,7 @@ body {
 .sd-scrim {
   position: fixed;
   inset: 0;
-  background: rgba(16, 26, 36, 0.42);
+  background: var(--scrim);
 }
 
 /* bottom nav */
@@ -778,4 +787,89 @@ body {
   border: 4px solid var(--blue-tint);
   border-top-color: var(--blue);
   animation: sd-spin 0.8s linear infinite;
+}
+
+/* ── Dark mode ──────────────────────────────────────────────────────────────
+   System-driven only: `prefers-color-scheme`, no toggle and nothing persisted.
+   The reader's OS already carries that preference, and a second control that
+   can DISAGREE with it is a support question ("the app is light but my phone is
+   dark") we'd have to answer forever.
+
+   Everything below is a token re-declaration. No rule outside this block knows
+   which theme is on, which is the property that keeps the two in step: a
+   component styled with `var(--ink)` on `var(--paper)` is correct in both, and
+   any component that would break here is one that hardcoded a colour instead —
+   which is why the whites that used to sit on brand fills are now `--on-brand`.
+
+   Two token families INVERT rather than darken, and getting that backwards is
+   the mistake to look out for:
+     · `--blue-700` / `--blue-800` / `--orange-700` / `--orange-ink` are
+       FOREGROUNDS on a tint, never fills. In light they run darker than the
+       base; in dark they must run LIGHTER, or a chip's label disappears into
+       its own chip.
+     · The `-tint` colours are washes of the hue toward the surface, so on dark
+       they are deep, low-chroma versions rather than pale ones.
+
+   `--blue` itself cannot serve both jobs on dark. Lifted enough to read as text
+   on a dark card, it is far too light to carry white text as a button fill —
+   the pair measures 2.7:1. That is the whole reason `--on-brand` exists: white
+   in light, near-black in dark, so a filled blue control flips its label
+   instead of losing it. Contrast was measured, not eyeballed; every text pair
+   here clears AA (most clear AAA). */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #0f151b;
+  }
+  .sd {
+    --blue: #4ea6dd;
+    /* Lighter than --blue, not darker: these are text on a tint. */
+    --blue-700: #84c6ee;
+    --blue-800: #addcf8;
+    --blue-tint: #152f45;
+    --blue-tint-2: #1d4160;
+    --orange: #f3ad2d;
+    --orange-700: #e59f22;
+    --orange-ink: #f6cb7c;
+    --orange-tint: #3a2a0b;
+    --orange-tint-2: #4f3a10;
+
+    --ink: #e8eef4;
+    --ink-2: #aab8c4;
+    --ink-3: #8494a1;
+    --line: #2c3946;
+    --line-2: #3a4855;
+    /* `--paper` sits ABOVE `--bg` here, where in light mode it sits below it:
+       on dark, elevation reads as lighter. A card that stayed pure #000 would
+       vanish into the canvas it is supposed to lift off. */
+    --paper: #19222c;
+    --bg: #0f151b;
+    --bg-2: #222d38;
+    --slate-tint: #222d38;
+
+    --ok: #4cc38a;
+    --warn: #f08a6c;
+    --on-brand: #12191f;
+
+    /* A 6%-black shadow is invisible on a dark canvas; depth here comes from
+       near-opaque black plus the lighter surface above. */
+    --sh-1: 0 1px 2px rgba(0, 0, 0, 0.4);
+    --sh-2: 0 1px 3px rgba(0, 0, 0, 0.45), 0 6px 18px rgba(0, 0, 0, 0.4);
+    --sh-pop: 0 8px 30px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(255, 255, 255, 0.06);
+    --scrim: rgba(0, 0, 0, 0.62);
+  }
+  /* Hover darkens a light button and would darken a dark one into the page. */
+  .sd-btn:hover:not(:disabled) {
+    filter: brightness(1.14);
+  }
+  .sd-sheet {
+    box-shadow: 0 -8px 40px rgba(0, 0, 0, 0.6);
+  }
+  /* The toggle knob is white in both themes, so the ON track cannot be the
+     lifted `--blue` — white on it measures 2.7:1 and the knob stops reading as
+     a knob. A deeper fill blue keeps the knob legible ON (5.0:1) while the OFF
+     track stays dark enough to show it too (7:1), which is actually better than
+     the light theme manages for its own off state. */
+  .sd-toggle.on {
+    background: #1f6fa8;
+  }
 }

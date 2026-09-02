@@ -558,7 +558,8 @@ function document(input: DocumentInput): string {
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <meta name="color-scheme" content="light" />
-    <meta name="theme-color" content="#ffffff" />
+    <meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#0f151b" media="(prefers-color-scheme: dark)" />
     <title>${escapeHtml(input.title)}</title>
     ${desc}
     <link rel="canonical" href="${escapeHtml(input.canonical)}" />

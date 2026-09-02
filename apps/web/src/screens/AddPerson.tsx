@@ -86,7 +86,7 @@ export function AddPerson() {
                       cursor: "pointer", font: "inherit",
                       border: "1px solid " + (on ? "var(--blue)" : "var(--line)"),
                       background: on ? "var(--blue)" : "var(--paper)",
-                      color: on ? "#fff" : "var(--ink-2)",
+                      color: on ? "var(--on-brand)" : "var(--ink-2)",
                     }}
                   >
                     {on && <Icon name="check" size={13} stroke={2.4} />}

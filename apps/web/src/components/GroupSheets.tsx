@@ -155,7 +155,7 @@ export function MemberSheet({
               </Btn>
               <button
                 className="sd-btn block"
-                style={{ flex: 1, background: "var(--warn)", color: "#fff", borderColor: "var(--warn)" }}
+                style={{ flex: 1, background: "var(--warn)", color: "var(--on-brand)", borderColor: "var(--warn)" }}
                 onClick={() => void remove()}
                 disabled={busy}
               >
@@ -451,7 +451,7 @@ export function EditGroupSheet({
                 </Btn>
                 <button
                   className="sd-btn block"
-                  style={{ flex: 1, background: "var(--warn)", color: "#fff", borderColor: "var(--warn)" }}
+                  style={{ flex: 1, background: "var(--warn)", color: "var(--on-brand)", borderColor: "var(--warn)" }}
                   onClick={() => void remove()}
                   disabled={busy}
                 >

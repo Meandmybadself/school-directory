@@ -128,7 +128,7 @@ export function VisibilitySheet({
             ))}
             {grantees.length === 0 && <div className="sd-meta">No one yet — add a person or group below.</div>}
           </div>
-          <button className="sd-btn sd-btn-sm block" style={{ marginTop: 11, background: "#fff", color: "var(--orange-ink)", border: "1px solid var(--orange-tint-2)" }} onClick={() => setPicker(true)}>
+          <button className="sd-btn sd-btn-sm block" style={{ marginTop: 11, background: "var(--paper)", color: "var(--orange-ink)", border: "1px solid var(--orange-tint-2)" }} onClick={() => setPicker(true)}>
             <Icon name="plus" size={16} />{t("addPeople")}
           </button>
         </div>

@@ -18,6 +18,27 @@ html{-webkit-text-size-adjust:100%}
   --paper:#fff; --bg:#f3f5f7; --bg-2:#eef1f4;
   --ff:"Hanken Grotesk","Noto Sans SC",system-ui,sans-serif;
   --ff-mono:"Spline Sans Mono",ui-monospace,monospace;
+  /* Native controls, scrollbars and the canvas behind the page follow the
+     system theme; without this a dark page keeps a white scrollbar. */
+  color-scheme:light dark;
+}
+
+/* Dark mode: system-driven, matching the three apps — no toggle and nothing
+   stored. This page has no client bundle, so a toggle would need one, and a
+   control that can disagree with the OS is a support question forever.
+   blue-700 and blue-800 INVERT rather than darken: they are foregrounds on
+   light surfaces here, so on dark they must run lighter or they vanish into
+   the card. The closing .join band is the exception and is pinned to literals
+   above, being dark on purpose in either theme. */
+@media (prefers-color-scheme:dark){
+  :root{
+    --blue:#4ea6dd; --blue-700:#84c6ee; --blue-800:#addcf8;
+    --blue-tint:#152f45; --blue-tint-2:#1d4160;
+    --orange:#f3ad2d; --orange-600:#ffbe4d;
+    --ink:#e8eef4; --ink-2:#aab8c4; --ink-3:#8494a1;
+    --line:#2c3946; --line-2:#3a4855;
+    --paper:#19222c; --bg:#0f151b; --bg-2:#222d38;
+  }
 }
 body{
   margin:0;background:var(--bg);color:var(--ink);
@@ -93,8 +114,10 @@ img{max-width:100%}
 .btn-primary:hover{background:var(--orange-600)}
 .btn-quiet{background:var(--paper);color:var(--ink);border-color:var(--line-2)}
 .btn-quiet:hover{border-color:var(--ink-3)}
-.btn-light{background:#fff;color:var(--blue-800)}
-.btn-light:hover{background:var(--blue-tint)}
+/* Lives inside .join, so it is on that permanently-dark band and keeps the
+   light-theme pairing in both themes. */
+.btn-light{background:#fff;color:#063f63}
+.btn-light:hover{background:#e6f1f9}
 .note{margin:15px 0 0;font-size:12.5px;line-height:1.55;color:var(--ink-3)}
 
 /* ── What's here: one tile per app, labelled with who may open it ────────── */
@@ -213,7 +236,10 @@ img{max-width:100%}
 .res li:hover .res-url,.res-url:hover{color:var(--blue-700)}
 
 /* ── Close: the one dark band, and the one thing it asks for ─────────────── */
-.join{background:var(--blue-800);color:#fff}
+/* Literal, not var(--blue-800): this band is dark BY DESIGN in either theme,
+   where the token inverts (it is text on light everywhere else). Riding on it
+   would turn the one dark band pale the moment the reader's OS went dark. */
+.join{background:#063f63;color:#fff}
 .join-in{padding-block:62px;display:grid;gap:28px;align-items:center}
 @media(min-width:880px){.join-in{grid-template-columns:1.15fr .85fr;gap:52px;padding-block:76px}}
 .join .eyebrow{color:rgba(255,255,255,.5)}

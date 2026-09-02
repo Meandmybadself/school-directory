@@ -226,7 +226,7 @@ export function ProfileView() {
   // are missing — and the Edit button lives inside it.
   const hidden = p.hiddenFromMembers ?? 0;
   const previewNotice = p.previewAsMember ? (
-    <div className="sd-row" style={{ background: "var(--ink)", color: "#fff", padding: "8px 14px", gap: 9, fontSize: 12.5, borderRadius: isDesktop ? 12 : 0, marginBottom: isDesktop ? 4 : 0 }}>
+    <div className="sd-row" style={{ background: "var(--ink)", color: "var(--paper)", padding: "8px 14px", gap: 9, fontSize: 12.5, borderRadius: isDesktop ? 12 : 0, marginBottom: isDesktop ? 4 : 0 }}>
       <Icon name="eye" size={16} style={{ flex: "0 0 auto" }} />
       <div style={{ flex: 1, lineHeight: 1.25 }}>
         <strong style={{ fontWeight: 700 }}>{t("previewingAsMember")}</strong>
@@ -715,7 +715,7 @@ function RemovePersonCard({
         {impact !== null && impact.allowed && (
           <button
             className="sd-btn block"
-            style={{ flex: 1, background: "var(--warn)", color: "#fff", borderColor: "var(--warn)" }}
+            style={{ flex: 1, background: "var(--warn)", color: "var(--on-brand)", borderColor: "var(--warn)" }}
             onClick={() => void remove()}
             disabled={busy}
           >

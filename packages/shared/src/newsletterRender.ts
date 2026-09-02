@@ -1250,6 +1250,26 @@ a{color:var(--nl-accent,${DEFAULT_ACCENT})}
   font-size:13.5px;line-height:1.5;color:#6b4d05;
 }
 
+/* Dark mode, and how far it deliberately goes: the BACKDROP and this page's
+   own chrome follow the system theme, while the issue CARD stays a light
+   document in both. An issue is one artifact rendered by one renderer
+   (invariant 9) into an email and into this page, the email is white wherever
+   it is read, and this page is the archived copy OF that email — inverting the
+   card would stop the archive matching what was mailed (invariant 10). There
+   is also one colour here we cannot re-map safely: the accent is set by an
+   admin per instance, so it is handed to us rather than chosen, and it could
+   be a deep navy that vanishes on a dark card. Keeping the card light keeps
+   that accent on the surface it was picked against. Most mail readers draw the
+   same line for the same reason. */
+@media (prefers-color-scheme:dark){
+  body{background:#0f151b;color:#e8eef4}
+  /* Only background and text: the CTA's left border is the instance's accent,
+     which is the one colour on this page we were handed rather than chose. */
+  .nl-subscribe-cta{background:#19222c;color:#e8eef4}
+  .nl-subscribe-cta span,.nl-site-foot,.nl-site-foot a,.nl-lang,.nl-lang span{color:#8494a1}
+  .nl-card{box-shadow:0 1px 3px rgba(0,0,0,.5)}
+}
+
 /* Printing IS the PDF export — there is no PDF renderer in this project, and a
    second one would be a second place for a newsletter's look to drift from the
    email (invariant 9). So the print stylesheet is part of the one stylesheet,
@@ -1261,7 +1281,13 @@ a{color:var(--nl-accent,${DEFAULT_ACCENT})}
    meeting table is exactly where "this went out already" is easiest to assume
    and most expensive to get wrong. */
 @media print{
-  body{background:#fff}
+  /* Restates the light values rather than assuming them. This block used to
+     inherit a light body for free; with a dark mode above it, printing from a
+     dark-themed browser would otherwise put near-white text on white paper —
+     and printing IS the PDF export (invariant 16), so it cannot be left to
+     whichever theme the reader happens to be in. */
+  body{background:#fff;color:${INK}}
+  .nl-subscribe-cta span,.nl-site-foot,.nl-site-foot a,.nl-lang,.nl-lang span{color:${MUTED}}
   .nl-site-foot,.nl-subscribe-cta,.nl-print-link,.nl-events-more,.nl-lang{display:none}
   .nl-wrap{max-width:none;padding:0}
   .nl-card{box-shadow:none;border-radius:0;padding:0}

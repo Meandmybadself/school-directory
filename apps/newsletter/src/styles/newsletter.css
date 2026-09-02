@@ -193,6 +193,9 @@
   border: 0;
   border-top: 1px solid var(--line);
   border-radius: 0 0 10px 10px;
+  /* Stays white in both themes: this frame previews the EMAIL, and an email is
+     a white document wherever it is read. Theming it would show the author a
+     page nobody receives. */
   background: #fff;
 }
 .nlx-event {
@@ -230,7 +233,7 @@
   text-transform: uppercase;
 }
 .nlx-status.draft { background: var(--bg-2); color: var(--ink-3); border: 1px solid var(--line); }
-.nlx-status.sending { background: #fff5e0; color: #8a5a00; border: 1px solid #f0d79a; }
+.nlx-status.sending { background: var(--orange-tint); color: var(--orange-ink); border: 1px solid var(--orange-tint-2); }
 .nlx-status.sent { background: var(--blue-tint); color: var(--blue-700); border: 1px solid var(--blue); }
 
 .nlx-warn {
@@ -239,9 +242,9 @@
   align-items: flex-start;
   padding: 11px 13px;
   border-radius: 10px;
-  background: #fff8e6;
-  border: 1px solid #f0d79a;
-  color: #7a5200;
+  background: var(--orange-tint);
+  border: 1px solid var(--orange-tint-2);
+  color: var(--orange-ink);
   font-size: 13px;
   line-height: 1.5;
 }

@@ -91,7 +91,10 @@ export class ErrorBoundary extends Component<Props, State> {
               borderRadius: 10,
               padding: "10px 20px",
               background: "var(--blue, #0068A8)",
-              color: "#fff",
+              // Same literal-fallback idiom as the colours above: the token is
+              // preferred so this follows the theme, and the literal keeps the
+              // button legible if the stylesheet itself is what failed.
+              color: "var(--on-brand, #fff)",
             }}
           >
             {t.appErrorReload}

@@ -205,6 +205,36 @@ describe("the print stylesheet", () => {
     const printBlock = NEWSLETTER_WEB_CSS.slice(NEWSLETTER_WEB_CSS.indexOf("@media print"));
     expect(printBlock).not.toContain("nl-draft-banner");
   });
+
+  it("undoes dark mode rather than inheriting it", () => {
+    // The failure this catches is silent and only happens to SOME readers: a
+    // browser in a dark system theme prints near-white body text onto white
+    // paper. Printing IS the PDF export here (invariant 16), so it cannot
+    // depend on which theme the reader happens to be in.
+    const printAt = NEWSLETTER_WEB_CSS.indexOf("@media print");
+    const darkAt = NEWSLETTER_WEB_CSS.indexOf("@media (prefers-color-scheme:dark)");
+    expect(darkAt).toBeGreaterThan(-1);
+    // Order IS the precedence — equal specificity, so the later block wins.
+    // Moving the dark block below print would silently un-fix this.
+    expect(printAt).toBeGreaterThan(darkAt);
+
+    const printBlock = NEWSLETTER_WEB_CSS.slice(printAt);
+    // Not just a white background: the text colour has to come back too.
+    expect(printBlock).toMatch(/body\{background:#fff;color:#[0-9A-Fa-f]{6}\}/);
+    // …and so do the muted greys the dark block lightened.
+    expect(printBlock).toContain(".nl-site-foot");
+  });
+
+  it("leaves the issue card, and the instance's accent, alone in dark mode", () => {
+    const darkAt = NEWSLETTER_WEB_CSS.indexOf("@media (prefers-color-scheme:dark)");
+    const darkBlock = NEWSLETTER_WEB_CSS.slice(darkAt, NEWSLETTER_WEB_CSS.indexOf("@media print"));
+    // The card stays a light document: the archive has to keep matching what
+    // was mailed (invariants 9 and 10). A background here would break that.
+    expect(darkBlock).not.toMatch(/\.nl-card\{[^}]*background/);
+    // And nothing re-maps --nl-accent, which an admin sets per instance and we
+    // have no safe substitute for.
+    expect(darkBlock).not.toContain("--nl-accent");
+  });
 });
 
 // ── The two routes that reach a page ────────────────────────────────────────

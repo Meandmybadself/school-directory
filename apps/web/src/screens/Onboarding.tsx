@@ -14,7 +14,7 @@ function Brand({ center }: { center?: boolean }) {
   const { t } = useI18n();
   return (
     <div className="sd-row" style={{ gap: 10, justifyContent: center ? "center" : "flex-start" }}>
-      <div style={{ width: 34, height: 34, borderRadius: 10, background: "var(--blue)", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", flex: "0 0 auto" }}>
+      <div style={{ width: 34, height: 34, borderRadius: 10, background: "var(--blue)", color: "var(--on-brand)", display: "flex", alignItems: "center", justifyContent: "center", flex: "0 0 auto" }}>
         <Icon name="school" size={19} stroke={1.9} />
       </div>
       <div style={{ lineHeight: 1.05 }}>
