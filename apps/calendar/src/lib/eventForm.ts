@@ -175,7 +175,22 @@ export function toInput(f: EventForm): ManagedEventInput {
     // the following midnight).
     end = dateToIso(shiftDate(f.endDate || f.startDate, 1));
   } else if (f.endTime) {
-    end = localToIso(f.endDate || f.startDate, f.endTime);
+    // A timed event's end belongs to the START's day, never to `f.endDate`.
+    // The timed editor shows ONE date input (bound to `startDate`) plus two
+    // times — there is no end-date field to change — but `formFromEvent` still
+    // fills `endDate` from the event being edited. Reading it here meant that
+    // moving an existing event's date sent the NEW start with the OLD end, and
+    // the API answered "End must be on or after the start." for every date
+    // change on a timed event. `endDate` stays in the form because the all-day
+    // branch above genuinely uses it.
+    end = localToIso(f.startDate, f.endTime);
+    // An end at or before the start on the same day is how a single date field
+    // has to express an event running past local midnight (21:00–01:00), which
+    // is the one case the old `endDate` was carrying correctly. Equal times stay
+    // a zero-length event rather than becoming a 24-hour one.
+    if (new Date(end).getTime() < new Date(start).getTime()) {
+      end = localToIso(shiftDate(f.startDate, 1), f.endTime);
+    }
   }
 
   return {

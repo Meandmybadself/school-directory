@@ -201,3 +201,64 @@ describe("formFromEvent", () => {
     expect(f.endDate).toBe("2026-09-18");
   });
 });
+
+// The bug this pins, reported from the admin UI: editing "PTO General Meeting -
+// Sept" to move it to 2026-09-28 answered "End must be on or after the start."
+//
+// The timed editor shows ONE date input, bound to `startDate`, plus a start and
+// end time. `formFromEvent` nevertheless fills `endDate` from the event being
+// edited, and `toInput` used to read it — so changing the date sent the NEW
+// start with the OLD end, and the API's range check refused it. There is no
+// end-date field for the admin to fix, which is what made it a dead end rather
+// than a nuisance. `validateForm` did not catch it either: its end-before-start
+// check is gated on `allDay`.
+describe("moving a timed event's date", () => {
+  const meeting: ManagedEventDTO = {
+    id: "01EVENT",
+    calendarId: "01CAL",
+    title: "PTO General Meeting - Sept",
+    location: null,
+    description: null,
+    start: localToIso("2026-09-14", "18:30"),
+    end: localToIso("2026-09-14", "20:00"),
+    allDay: false,
+    recurrence: null,
+  } as ManagedEventDTO;
+
+  it("carries the end onto the new date", () => {
+    const moved = { ...formFromEvent(meeting), startDate: "2026-09-28" };
+    const input = toInput(moved);
+    expect(isoToLocalDate(input.start)).toBe("2026-09-28");
+    // The whole bug: this used to come back as 2026-09-14.
+    expect(isoToLocalDate(input.end!)).toBe("2026-09-28");
+    expect(isoToLocalTime(input.end!)).toBe("20:00");
+    expect(new Date(input.end!).getTime()).toBeGreaterThan(new Date(input.start).getTime());
+  });
+
+  it("no longer builds a payload the API would refuse", () => {
+    // The server-side rule, restated here so this test fails for the reason the
+    // admin actually saw rather than only on a date string.
+    const moved = { ...formFromEvent(meeting), startDate: "2026-09-28" };
+    const input = toInput(moved);
+    expect(new Date(input.end!).getTime()).toBeGreaterThanOrEqual(new Date(input.start).getTime());
+  });
+
+  it("still lets a timed event run past local midnight", () => {
+    // The one case the old `endDate` handled correctly, and the reason the fix
+    // rolls forward a day instead of just clamping to the start's date.
+    const input = toInput(form({ startDate: "2026-09-18", startTime: "21:00", endTime: "01:00" }));
+    expect(isoToLocalDate(input.end!)).toBe("2026-09-19");
+    expect(new Date(input.end!).getTime()).toBeGreaterThan(new Date(input.start).getTime());
+  });
+
+  it("treats equal start and end times as zero-length, not 24 hours", () => {
+    const input = toInput(form({ startDate: "2026-09-18", startTime: "19:00", endTime: "19:00" }));
+    expect(input.end).toBe(input.start);
+  });
+
+  it("is unaffected for all-day events, which do own an end-date field", () => {
+    const input = toInput(form({ allDay: true, startDate: "2026-09-18", endDate: "2026-09-20" }));
+    // Exclusive end: the day after the inclusive last day.
+    expect(input.end).toBe("2026-09-21T00:00:00.000Z");
+  });
+});
