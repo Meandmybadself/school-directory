@@ -161,6 +161,23 @@ export const api = {
     request<{ ok: true }>(`/groups/${groupId}/members/${personId}`, { method: "PATCH", body: JSON.stringify(body) }),
   removeGroupMember: (groupId: string, personId: string) =>
     request<{ ok: true }>(`/groups/${groupId}/members/${personId}`, { method: "DELETE" }),
+  /** Place one of your OWN children in a classroom, moving them out of any other
+   *  — a Person sits in one room at a time. Keyed on the person, not the group,
+   *  because that is where the authority is (isController) and where the
+   *  single-valued rule lives; the classroom screen just happens to be where you
+   *  press it. */
+  setClassroom: (personId: string, groupId: string) =>
+    request<{ ok: true; moved: boolean }>(`/persons/${personId}/classroom`, {
+      method: "PUT",
+      body: JSON.stringify({ groupId }),
+    }),
+  /** Remove them from ONE room. The group is named rather than implied: a child
+   *  can hold more than one classroom membership (bulk import creates classrooms
+   *  by default), and "remove from this class" must not take the others. */
+  clearClassroom: (personId: string, groupId: string) =>
+    request<{ ok: true }>(`/persons/${personId}/classroom?groupId=${encodeURIComponent(groupId)}`, {
+      method: "DELETE",
+    }),
   addGroupContact: (groupId: string, body: ContactItemInput) =>
     request<{ id: string }>(`/groups/${groupId}/contacts`, { method: "POST", body: JSON.stringify(body) }),
   patchGroupContact: (groupId: string, contactId: string, body: Partial<ContactItemInput>) =>

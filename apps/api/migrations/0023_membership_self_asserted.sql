@@ -1,0 +1,28 @@
+-- 0023_membership_self_asserted.sql — tell a roster placement somebody ASSERTED
+-- apart from one somebody with authority GRANTED.
+--
+-- `PUT /persons/:id/classroom` (invariant 27) lets a parent put their own child
+-- in a classroom without administering it. That is the right roster outcome and
+-- the wrong trust outcome: before this column, the membership row it wrote was
+-- indistinguishable from one a teacher or an admin created, so it also conferred
+-- `viewerIsDirectMember` (the room's own private contacts and exact address) and
+-- rode into `effectiveGroupIdsForPerson`, which is what makes items other members
+-- SHARED with that room visible.
+--
+-- The "one classroom at a time" cap was supposed to bound that and does not: it
+-- bounds SIMULTANEOUS membership, where reading is a repeatable GET. A member can
+-- mint a Person with the `student` capability themselves (ASSIGNABLE_CAPABILITIES
+-- includes it, and POST /me/persons asks nobody), walk that one Person through
+-- all 34 rooms one PUT at a time, and read each in turn. Capping the set never
+-- capped the sequence.
+--
+-- So the fix is not a tighter cap, it is a weaker membership. A self-asserted row
+-- puts the child on the roster — which is the entire point, and costs nothing,
+-- since `GET /groups/:id` already serves every roster to any authenticated
+-- member — while `lib/privacy.ts` and `routes/groups.ts` both skip it when
+-- deciding what a viewer may READ. Being on a list and being trusted by the
+-- people on it are different things, and this column is where they part.
+--
+-- Default 0, so every row written by `POST /groups/:id/members` (which stays
+-- behind requireGroupAdmin) keeps meaning exactly what it meant.
+ALTER TABLE membership ADD COLUMN self_asserted INTEGER NOT NULL DEFAULT 0;

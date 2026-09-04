@@ -13,7 +13,7 @@ import { useI18n } from "../i18n/index.js";
 import { useIsDesktop } from "../lib/useIsDesktop.js";
 import { useSession } from "../lib/session.js";
 import { api, ApiError, mediaUrl } from "../lib/api.js";
-import { AddMemberSheet, MemberSheet, EditContactsSheet, CreateGroupSheet, EditGroupSheet } from "../components/GroupSheets.js";
+import { AddMemberSheet, MyChildrenSheet, MemberSheet, EditContactsSheet, CreateGroupSheet, EditGroupSheet } from "../components/GroupSheets.js";
 import type { GroupMemberDTO, GroupSummaryDTO } from "@sd/shared";
 
 const TYPE_ICON: Record<string, IconName> = { address: "pin", phone: "phone", email: "mail", url: "link" };
@@ -26,6 +26,11 @@ function visState(c: ContactItemDTO): VisState {
 
 export interface GroupActions {
   onAddMember: () => void;
+  /** Place your own child in this classroom. Present only on a classroom, and
+   *  only when the server offered candidates — it answers to `isController`, not
+   *  to roster admin, so it can appear for a viewer who has no other affordance
+   *  on this screen at all. */
+  onMyChildren?: () => void;
   onMember: (m: GroupMemberDTO) => void;
   onEditContacts: () => void;
   /** Rename / re-parent / delete the group itself. Present for group admins;
@@ -37,6 +42,7 @@ export interface GroupActions {
 
 type Sheet =
   | { type: "addMember" }
+  | { type: "myChildren" }
   | { type: "member"; member: GroupMemberDTO }
   | { type: "editContacts" }
   | { type: "editGroup" }
@@ -86,6 +92,9 @@ export function GroupDetail() {
   const canCreateGeneric = isSystemAdmin;
   const actions: GroupActions = {
     onAddMember: () => setSheet({ type: "addMember" }),
+    onMyChildren: g.kind === "classroom" && (g.viewerEnrollable?.length ?? 0) > 0
+      ? () => setSheet({ type: "myChildren" })
+      : undefined,
     onMember: (member) => setSheet({ type: "member", member }),
     onEditContacts: () => setSheet({ type: "editContacts" }),
     onEditGroup: g.viewerIsAdmin || me?.user.isSystemAdmin ? () => setSheet({ type: "editGroup" }) : undefined,
@@ -99,6 +108,9 @@ export function GroupDetail() {
       {/* Sheets render outside the screen's shell, so scope them to .sd for tokens. */}
       <div className="sd">
         {sheet?.type === "addMember" && <AddMemberSheet groupId={g.id} onClose={() => setSheet(null)} onChanged={onChanged} />}
+        {sheet?.type === "myChildren" && (
+          <MyChildrenSheet groupId={g.id} candidates={g.viewerEnrollable ?? []} onClose={() => setSheet(null)} onChanged={onChanged} />
+        )}
         {sheet?.type === "member" && <MemberSheet groupId={g.id} member={sheet.member} onClose={() => setSheet(null)} onChanged={onChanged} />}
         {sheet?.type === "editGroup" && (
           <EditGroupSheet
@@ -425,7 +437,15 @@ function MobileGroup({ g, actions }: { g: GroupDetailDTO; actions: GroupActions 
       <ScreenHeader
         title={groupKindLabel(g.kind, t)}
         onLeft={() => navigate("/groups")}
-        right={canManage ? <button className={`sd-btn sd-btn-${cls ? "orange" : "secondary"} sd-btn-sm`} onClick={actions.onAddMember}><Icon name="plus" size={15} />{t("addMember")}</button> : undefined}
+        right={
+          canManage ? (
+            <button className={`sd-btn sd-btn-${cls ? "orange" : "secondary"} sd-btn-sm`} onClick={actions.onAddMember}><Icon name="plus" size={15} />{t("addMember")}</button>
+          ) : actions.onMyChildren ? (
+            // A parent is not a roster admin, so this slot would otherwise be
+            // empty on the one screen where they DO have something to do.
+            <button className="sd-btn sd-btn-orange sd-btn-sm" onClick={actions.onMyChildren}><Icon name="plus" size={15} />{t("addMyChild")}</button>
+          ) : undefined
+        }
       />
       <div className="sd-scroll">
         {/* hero */}
@@ -484,6 +504,13 @@ function MobileGroup({ g, actions }: { g: GroupDetailDTO; actions: GroupActions 
               ))}
             </div>
           </div>
+
+          {/* Body button ONLY for an admin-parent, whose header slot is taken by
+              "Add member". A plain parent already has it in the header (above),
+              and rendering both put the same action on screen twice. */}
+          {canManage && actions.onMyChildren && (
+            <Btn block kind="secondary" icon="users3" onClick={actions.onMyChildren}>{t("addMyChild")}</Btn>
+          )}
 
           <Subgroups g={g} />
 
@@ -567,6 +594,12 @@ function DesktopGroup({ g, actions }: { g: GroupDetailDTO; actions: GroupActions
             )}
             {canManage && (
               <button className="sd-btn sd-btn-secondary sd-btn-sm" onClick={actions.onAddMember}><Icon name="plus" size={15} />{t("addMember")}</button>
+            )}
+            {/* Its own button, not a branch of the one above: a parent with no
+                roster authority still gets this, and an admin who is also a
+                parent gets both. */}
+            {actions.onMyChildren && (
+              <button className="sd-btn sd-btn-orange sd-btn-sm" onClick={actions.onMyChildren}><Icon name="users3" size={15} />{t("addMyChild")}</button>
             )}
             {actions.onCreateSubgroup && (
               <button className="sd-btn sd-btn-secondary sd-btn-sm" onClick={actions.onCreateSubgroup}><Icon name="plus" size={15} />{t("createSubgroup")}</button>

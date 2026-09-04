@@ -761,6 +761,91 @@ All three SPAs are separate Cloudflare Pages projects talking to the single
    and it is the default `FORMATTERS` already gives an action with no entry.
    `test/personRemoval.test.ts` pins the guards, the cascade order and both.
 
+26. *(Reserved.)* The store's invariant is written but not yet on `main`;
+   its code and tests already reference "invariant 26", so the number is held
+   rather than reused. Nothing else depends on this line.
+
+27. **A parent may edit ONE roster without administering it, and "one classroom
+   at a time" is what makes that safe.** `POST /groups/:id/members` is unchanged
+   and still behind `requireGroupAdmin` — authority over a ROSTER. `PUT /persons/
+   :id/classroom` (and its DELETE twin) is a narrower door with a different
+   hinge: `isController` — authority over a PERSON, the gate every other write in
+   `routes/persons.ts` uses. It exists because most classrooms have **no admin at
+   all**: teachers are not Persons in this instance, so without it a parent
+   cannot place their own child and a system admin has to do all 300 of them.
+   The URL is keyed on the person, not the group, because that is where both the
+   authority and the single-valued rule live; the classroom screen is merely
+   where the button sits.
+   **The containment is `self_asserted` (migration 0023), and the first design
+   of this feature got that wrong in a way worth recording.** Joining a group
+   widens two things — `viewerIsDirectMember` in `GET /groups/:id` (the room's own
+   private contacts and exact address) and `effectiveGroupIdsForPerson` →
+   `viewerGroupIds` (items other members SHARED with that room, reachable because
+   a Controller may switch active Person to the child via
+   `POST /me/active-person`). The original answer was "require `student`, and cap
+   a child at one room", and BOTH legs were rotten. `student` is not a
+   school-conferred fact: `ASSIGNABLE_CAPABILITIES` includes it and
+   `POST /me/persons` asks nobody, so any member can mint a Person holding it. And
+   a cap on SIMULTANEOUS membership bounds nothing when reading is a repeatable
+   GET — walk that one Person through all 34 rooms one `PUT` at a time and read
+   each in turn. Capping the set never capped the sequence.
+   So the fix is a **weaker membership, not a tighter cap**: the row carries
+   `self_asserted = 1`, which puts the child on the roster — the entire point, and
+   free, since `GET /groups/:id` already serves every roster to any authenticated
+   member — while both readers above skip it. Being ON a list and being trusted BY
+   it are different things, and that column is where they part. Both surfaces were
+   empty when this shipped (0 classroom-owned contact items, 0 rows in `share`),
+   which is the only time such a door is cheap to close; do not read that
+   emptiness as licence to reopen it, because a classroom contact item is exactly
+   what would populate it. `test/groupMembers.test.ts` pins the withholding
+   BEHAVIOURALLY — it reads a private contact back through the route and asserts
+   the same row is served to a member somebody with authority added, so a guard
+   that withheld from everyone could not pass.
+   Two further rules follow. **`student` is required**, so a roster keeps meaning
+   "the children in this room" — legibility, NOT confinement, per the above; a
+   room parent is still added the old way, by whoever administers the room. And
+   **an `is_admin = 1` membership is never touched**:
+   the route refuses outright if the Person holds one AND scopes every DELETE to
+   `is_admin = 0`, the guard and the belt, so it cannot unseat whoever runs a
+   classroom however it is later reordered. `title` and `is_admin` are SQL
+   literals in the INSERT, so no request body can mint either.
+   **The delete that enforces "one room at a time" re-derives its own set inside
+   the batch** (`kind = 'classroom' AND is_admin = 0 AND group_id <> ?`) rather
+   than naming the ids read a moment earlier. D1 has no read-then-write
+   transaction, so the id-list spelling was a read-then-write with no guard: two
+   concurrent `PUT`s for one child — two parents, or one parent in two tabs —
+   each saw an empty set, each deleted nothing and each inserted. Same reasoning
+   as invariants 13, 17 and 19; the batch is the transaction.
+   **The DELETE names its room** (`?groupId=`) and removes only that one. A child
+   can legitimately hold more than one classroom membership — `lib/bulkImport.ts`
+   defaults `groupKind` to `"classroom"`, so any group a roster import invents is
+   one — and a route that dropped them all while the UI said "remove from THIS
+   class" would silently take a placement nobody mentioned. For the same reason
+   `ClassroomCandidateDTO.currentClassrooms` is a LIST: a placement moves the
+   child out of all of them, so the copy names all of them.
+   A move is **one `classroom.enrolled` row** carrying the room left behind in
+   `detail`, not an unenroll and an enroll, because it is one act — and
+   `membership` keeps no history, so that row is the only thing that will
+   remember. Re-sending the same placement writes nothing and pushes no draft:
+   an append-only log (invariant 5) must not be paddable by a double tap. Neither
+   action is Slack-curated, for the reason invariant 22 keeps `person.updated`
+   out — a parent sorting their own child into the right room is routine, and it
+   fires about once per child per year.
+   The UI reads eligibility off **`viewerEnrollable`** on `GroupDetailDTO`, built
+   field by field for classrooms only and composing `personListableSql` even
+   though its join to `control` already restricts it to Persons the viewer
+   controls: a guarded read costs nothing there and spends none of
+   `test/personListable.test.ts`'s exemption budget, where an exemption would
+   have spent one to say "trust the join". It is TWO queries assembled in memory,
+   not correlated subqueries per field — the first draft asked for the current
+   room's id and its name as two independent unordered `LIMIT 1` subselects,
+   which nothing made agree, and derived `isHere` from that arbitrary pick. It is
+   deliberately NOT gated on `viewerCanManageMembers` — the two affordances answer
+   to different authorities, so they are separate buttons and a separate sheet.
+   `test/classroomPlacement.test.ts` pins the `self_asserted` literal, the
+   race-free delete, the room-scoped removal, both halves of the admin guard and
+   the silent no-op.
+
 ## Conventions
 
 - TypeScript strict everywhere. `verbatimModuleSyntax` is on — use

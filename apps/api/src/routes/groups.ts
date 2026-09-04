@@ -5,7 +5,7 @@
 
 import { Hono } from "hono";
 import type { Context } from "hono";
-import type { Capability, ContactItemDTO, ContactItemInput, ContactType, GroupDetailDTO, GroupMemberDTO, GroupRefDTO, GroupSummaryDTO, ShareTargetDTO, Visibility } from "@sd/shared";
+import type { Capability, ClassroomCandidateDTO, ContactItemDTO, ContactItemInput, ContactType, GroupDetailDTO, GroupMemberDTO, GroupRefDTO, GroupSummaryDTO, ShareTargetDTO, Visibility } from "@sd/shared";
 import type { HonoEnv } from "../env.js";
 import { requireAuth } from "../middleware/session.js";
 import { canSeeItem, displayName, personListableSql, personSearchSql, sharesForMany, sharesOf, viewerGroupIds, type ContactItemRow } from "../lib/privacy.js";
@@ -141,18 +141,20 @@ groups.get("/:id", async (c) => {
             MAX(CASE WHEN m.group_id = ? THEN m.title END) AS title,
             MAX(CASE WHEN m.group_id = ? THEN m.is_admin ELSE 0 END) AS is_admin,
             MAX(CASE WHEN m.group_id = ? THEN 1 ELSE 0 END) AS is_direct,
+            MIN(CASE WHEN m.group_id = ? THEN m.self_asserted ELSE 1 END) AS self_asserted,
             p.first_name, p.last_name, p.last_name_visibility, p.photo_object_key
      FROM membership m JOIN person p ON p.id = m.person_id
      WHERE m.group_id IN (${placeholders}) AND ${listable.sql}
      GROUP BY m.person_id
      ORDER BY is_admin DESC, p.first_name`,
   )
-    .bind(groupId, groupId, groupId, ...rosterGroupIds, ...listable.binds)
+    .bind(groupId, groupId, groupId, groupId, ...rosterGroupIds, ...listable.binds)
     .all<{
       person_id: string;
       title: string | null;
       is_admin: number;
       is_direct: number;
+      self_asserted: number;
       first_name: string;
       last_name: string | null;
       last_name_visibility: "full" | "initial";
@@ -172,7 +174,15 @@ groups.get("/:id", async (c) => {
   // exact address must NOT roll up — those stay gated on DIRECT membership so a
   // descendant member can't read a parent group's private contact info.
   const viewerIsMember = memberRows.results.some((m) => myPersonIds.has(m.person_id));
-  const viewerIsDirectMember = memberRows.results.some((m) => myPersonIds.has(m.person_id) && m.is_direct === 1);
+  // `self_asserted = 0` (migration 0023) is what stops this being self-service.
+  // A parent may place their own child in any classroom, so a membership the
+  // viewer wrote for themselves must not unlock the room's own private contacts
+  // or its exact address — the confidentiality this flag gates is the group's,
+  // and only somebody with authority over the group can hand it out. The child
+  // still renders on the roster; that was never the part worth withholding.
+  const viewerIsDirectMember = memberRows.results.some(
+    (m) => myPersonIds.has(m.person_id) && m.is_direct === 1 && m.self_asserted === 0,
+  );
   const viewerIsAdmin = memberRows.results.some((m) => myPersonIds.has(m.person_id) && m.is_admin === 1);
   // Group detail is readable by any authenticated member (names are already in
   // the directory). Non-(direct-)members see the roster + service-visibility
@@ -311,6 +321,83 @@ groups.get("/:id", async (c) => {
     }
   }
 
+  // The viewer's own children, offered for placement in THIS room — see the
+  // classroom block at the foot of routes/persons.ts for the rules this mirrors.
+  // Built only for a classroom, and deliberately not gated on
+  // `viewerCanManageMembers`: placing your own child is a Controller's right,
+  // not a roster admin's, so the two affordances answer to different authorities
+  // and are computed separately.
+  //
+  // TWO queries, assembled in memory, rather than correlated subqueries per
+  // field. The first draft asked for `cur_id` and `cur_name` as two independent
+  // `LIMIT 1` subselects with no ORDER BY — nothing made them pick the same row,
+  // so a Person in two rooms could be labelled with one room's id and another's
+  // name, and `isHere` (derived from that arbitrary pick) could read false for a
+  // room the child is already sitting in. Multi-room membership is not exotic:
+  // `lib/bulkImport.ts` defaults `groupKind` to "classroom", so any group a
+  // roster import invents is one.
+  let viewerEnrollable: ClassroomCandidateDTO[] | undefined;
+  if (group.kind === "classroom") {
+    // This composes `personListableSql` even though the join to `control` already
+    // restricts it to Persons this viewer controls — one of the two audiences the
+    // gate admits (invariant 21), making the predicate a no-op here. Written in
+    // anyway for the reason `DELETE /persons/:id` writes it in: a guarded read
+    // costs nothing and spends none of test/personListable.test.ts's remaining
+    // exemption budget, where an exemption would have spent one to say "trust
+    // the join above".
+    const enrollable = personListableSql(auth.userId, auth.isSystemAdmin, "p");
+    const kids = await c.env.DB.prepare(
+      `SELECT p.id, p.first_name, p.last_name, p.last_name_visibility
+         FROM control ctl JOIN person p ON p.id = ctl.person_id
+        WHERE ctl.user_id = ?
+          AND EXISTS (SELECT 1 FROM capability_grant cap
+                       WHERE cap.person_id = p.id AND cap.capability = 'student')
+          AND ${enrollable.sql}
+        ORDER BY p.first_name`,
+    )
+      .bind(auth.userId, ...enrollable.binds)
+      .all<{ id: string; first_name: string; last_name: string | null; last_name_visibility: "full" | "initial" }>();
+
+    const kidIds = kids.results.map((k) => k.id);
+    const roomsByPerson = new Map<string, { ref: GroupRefDTO; isAdmin: boolean }[]>();
+    if (kidIds.length) {
+      const roomRows = await c.env.DB.prepare(
+        `SELECT m.person_id, m.is_admin, g.id, g.name FROM membership m
+           JOIN grp g ON g.id = m.group_id
+          WHERE g.kind = 'classroom' AND m.person_id IN (${kidIds.map(() => "?").join(",")})
+          ORDER BY g.name`,
+      )
+        .bind(...kidIds)
+        .all<{ person_id: string; is_admin: number; id: string; name: string }>();
+      for (const r of roomRows.results) {
+        const arr = roomsByPerson.get(r.person_id) ?? [];
+        arr.push({ ref: { id: r.id, name: r.name, kind: "classroom" }, isAdmin: r.is_admin === 1 });
+        roomsByPerson.set(r.person_id, arr);
+      }
+    }
+
+    viewerEnrollable = kids.results
+      // A Person who ADMINISTERS a classroom is one `PUT /persons/:id/classroom`
+      // refuses outright (it will not shuffle whoever runs a room), so offering
+      // the button would only ever produce a 409. Drop them here rather than
+      // render a row that cannot work.
+      .filter((k) => !(roomsByPerson.get(k.id) ?? []).some((r) => r.isAdmin))
+      .map((k) => {
+        const rooms = (roomsByPerson.get(k.id) ?? []).filter((r) => !r.isAdmin);
+        return {
+          personId: k.id,
+          // `true` for the controller flag: these are the viewer's own Persons,
+          // so the last name is theirs to read whatever its display rule says.
+          displayName: displayName(k.first_name, k.last_name, k.last_name_visibility, true),
+          // ALL of them, not the first. A placement moves the child out of every
+          // room at once, so a single-valued field would have let the UI name one
+          // and silently drop the rest.
+          currentClassrooms: rooms.map((r) => r.ref),
+          isHere: rooms.some((r) => r.ref.id === groupId),
+        };
+      });
+  }
+
   const dto: GroupDetailDTO = {
     id: group.id,
     kind: group.kind,
@@ -324,6 +411,7 @@ groups.get("/:id", async (c) => {
     // Deliberately NOT folded into viewerIsAdmin: that flag also unlocks this
     // group's own private contacts and exact address, which stay on membership.
     viewerCanManageMembers: viewerIsAdmin || auth.isSystemAdmin,
+    viewerEnrollable,
     members,
     contacts,
     parentId: group.parent_id,

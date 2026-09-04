@@ -281,6 +281,18 @@ export interface Strings {
   classMember: string;
   teachThisClass: string;
   addMember: string;
+  /** Classroom self-service: a Controller placing their own child in the room.
+   *  Distinct from `addMember`, which is the roster-admin affordance — different
+   *  authority, different button, so different copy. */
+  myChildren: string;
+  addMyChild: string;
+  inThisClass: string;
+  /** uses {name} — the room(s) the child leaves when they are moved here. */
+  movesFrom: string;
+  notInAClass: string;
+  noStudentsToPlace: string;
+  classPlacementNote: string;
+  classPlacementFailed: string;
   setTitle: string;
   setTitles: string;
   editGroupInfo: string;
@@ -708,6 +720,14 @@ const en: Strings = {
   classMember: "Class member",
   teachThisClass: "You teach this class",
   addMember: "Add member",
+  myChildren: "My children",
+  addMyChild: "Add my child",
+  inThisClass: "In this class",
+  movesFrom: "Currently in {name} — this moves them.",
+  notInAClass: "Not in a class yet",
+  noStudentsToPlace: "None of your children are set up as students yet.",
+  classPlacementNote: "A child is in one class at a time. You can change it whenever it's wrong.",
+  classPlacementFailed: "Couldn't change their class. Try again.",
   setTitle: "Set title",
   setTitles: "Set titles",
   editGroupInfo: "Edit info",
@@ -865,6 +885,14 @@ const en: Strings = {
 
 const es: Strings = {
   ...en,
+  myChildren: "Mis hijos",
+  addMyChild: "Agregar a mi hijo/a",
+  inThisClass: "En esta clase",
+  movesFrom: "Actualmente en {name}: esto lo cambiará.",
+  notInAClass: "Todavía no está en una clase",
+  noStudentsToPlace: "Ninguno de sus hijos está registrado como estudiante todavía.",
+  classPlacementNote: "Un niño está en una clase a la vez. Puede cambiarlo cuando esté equivocado.",
+  classPlacementFailed: "No se pudo cambiar su clase. Inténtelo de nuevo.",
   brandSub: "Directorio de la PTO",
   brandSubCalendar: "Calendario de la PTO",
   done: "Listo",
@@ -1230,6 +1258,14 @@ const es: Strings = {
 
 const zh: Strings = {
   ...en,
+  myChildren: "我的孩子",
+  addMyChild: "添加我的孩子",
+  inThisClass: "在此班级",
+  movesFrom: "目前在 {name}——此操作会将其转出。",
+  notInAClass: "尚未加入班级",
+  noStudentsToPlace: "您的孩子尚未设置为学生。",
+  classPlacementNote: "每个孩子同时只能在一个班级。如有错误，您可以随时更改。",
+  classPlacementFailed: "无法更改其班级。请重试。",
   brandSub: "PTO 名录",
   brandSubCalendar: "PTO 日历",
   done: "完成",
@@ -1839,6 +1875,14 @@ const so: Strings = {
   classMember: "Xubin fasalka",
   teachThisClass: "Adigaa bara fasalkan",
   addMember: "Ku dar xubin",
+  myChildren: "Carruurtayda",
+  addMyChild: "Ku dar cunugayga",
+  inThisClass: "Fasalkan ayuu ku jiraa",
+  movesFrom: "Hadda wuxuu ku jiraa {name} — tani way u wareejinaysaa.",
+  notInAClass: "Weli fasal kuma jiro",
+  noStudentsToPlace: "Carruurtaada midna weli looma diyaarin inay arday yihiin.",
+  classPlacementNote: "Cunug hal fasal buu ku jiraa mar kasta. Waad bedeli kartaa marka ay khaldan tahay.",
+  classPlacementFailed: "Fasalkiisa lama beddeli karin. Isku day mar kale.",
   setTitle: "Deji darajada",
   setTitles: "Deji darajooyinka",
   editGroupInfo: "Wax ka beddel xogta",

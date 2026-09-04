@@ -38,7 +38,25 @@ interface Row {
  * decides whether the roster row for 01PERSON carries is_admin, which is the
  * only input `viewerIsAdmin` has.
  */
-function testEnv(opts: { viewerPersonIsAdmin?: boolean; controlled?: string; rows?: Row[] } = {}): HonoEnv["Bindings"] {
+function testEnv(
+  opts: {
+    viewerPersonIsAdmin?: boolean;
+    controlled?: string;
+    rows?: Row[];
+    /** The viewer's membership row was written by the viewer themselves
+     *  (`PUT /persons/:id/classroom`, migration 0023) rather than granted by
+     *  anyone with authority over the group. */
+    selfAsserted?: boolean;
+    /** Group-owned contact items to serve from the fake `contact_item` table. */
+    contacts?: {
+      id: string;
+      type: string;
+      label: string | null;
+      value: string;
+      visibility: string;
+    }[];
+  } = {},
+): HonoEnv["Bindings"] {
   const controlled = opts.controlled ?? "01PERSON";
   const rows = opts.rows ?? [];
   const mk = (sql: string) => ({
@@ -67,6 +85,7 @@ function testEnv(opts: { viewerPersonIsAdmin?: boolean; controlled?: string; row
               title: null,
               is_admin: opts.viewerPersonIsAdmin ? 1 : 0,
               is_direct: 1,
+              self_asserted: opts.selfAsserted ? 1 : 0,
               first_name: "Dana",
               last_name: "Ruiz",
               last_name_visibility: "full",
@@ -76,6 +95,18 @@ function testEnv(opts: { viewerPersonIsAdmin?: boolean; controlled?: string; row
         };
       }
       if (sql.includes("FROM control WHERE user_id = ?")) return { results: [{ person_id: controlled }] };
+      if (sql.includes("FROM contact_item WHERE owner_kind = 'group'")) {
+        return {
+          results: (opts.contacts ?? []).map((ci) => ({
+            ...ci,
+            owner_kind: "group",
+            owner_id: GROUP_ID,
+            neighbor_discoverable: 0,
+            geo_lat: null,
+            geo_lng: null,
+          })),
+        };
+      }
       return { results: [] };
     },
     async run() {
@@ -107,7 +138,11 @@ function appWith(auth: AuthContext | null): Hono<HonoEnv> {
 async function detail(auth: AuthContext, env: HonoEnv["Bindings"]) {
   const res = await appWith(auth).request(`/groups/${GROUP_ID}`, {}, env);
   expect(res.status).toBe(200);
-  return (await res.json()) as { viewerIsAdmin: boolean; viewerCanManageMembers?: boolean };
+  return (await res.json()) as {
+    viewerIsAdmin: boolean;
+    viewerCanManageMembers?: boolean;
+    contacts: { id: string; value: string }[];
+  };
 }
 
 describe("GET /groups/:id — viewerCanManageMembers", () => {
@@ -164,5 +199,41 @@ describe("member writes take the same authority the flag advertises", () => {
       env(),
     );
     expect(removed.status).toBe(200);
+  });
+});
+
+// A parent may put their own child on a classroom roster without administering
+// it (`PUT /persons/:id/classroom`, invariant 27). Being ON the roster is the
+// feature; being TRUSTED by it is not, and `self_asserted` (migration 0023) is
+// where the two part.
+//
+// This is the behavioural half of that guarantee. It matters more than the
+// route-side assertion that the flag is written: any member can mint a Person
+// holding `student` (POST /me/persons) and walk it through every classroom one
+// PUT at a time, so if this read honoured a self-written membership, every
+// room's private contacts and exact address would be readable by anyone who
+// asked 34 times.
+describe("a self-asserted membership is not direct membership", () => {
+  const PRIVATE_PHONE = { id: "01CI1", type: "phone", label: "Room", value: "555-0100", visibility: "private" };
+  const ADDRESS = { id: "01CI2", type: "address", label: "Room", value: "123 Main St", visibility: "service" };
+
+  it("withholds the group's private contacts from a self-placed member", async () => {
+    const dto = await detail(MEMBER, testEnv({ selfAsserted: true, contacts: [PRIVATE_PHONE] }));
+    expect(dto.contacts.map((c) => c.id)).not.toContain("01CI1");
+  });
+
+  it("still serves them to a member somebody with authority added", async () => {
+    // The control: the same row, the same reader, differing only in who wrote
+    // the membership. Without this the test above would pass on a route that
+    // withheld the contact from everyone.
+    const dto = await detail(MEMBER, testEnv({ selfAsserted: false, contacts: [PRIVATE_PHONE] }));
+    expect(dto.contacts.map((c) => c.id)).toContain("01CI1");
+  });
+
+  it("redacts the exact address value for a self-placed member", async () => {
+    const self = await detail(MEMBER, testEnv({ selfAsserted: true, contacts: [ADDRESS] }));
+    expect(self.contacts.find((c) => c.id === "01CI2")?.value).toBe("");
+    const granted = await detail(MEMBER, testEnv({ selfAsserted: false, contacts: [ADDRESS] }));
+    expect(granted.contacts.find((c) => c.id === "01CI2")?.value).toBe("123 Main St");
   });
 });

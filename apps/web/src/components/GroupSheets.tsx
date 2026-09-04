@@ -2,7 +2,7 @@
 // remove), and edit household-owned contact info.
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import type { ContactType, GroupDetailDTO, GroupKind, GroupMemberDTO, GroupRefDTO, ShareTargetDTO, Visibility } from "@sd/shared";
+import type { ClassroomCandidateDTO, ContactType, GroupDetailDTO, GroupKind, GroupMemberDTO, GroupRefDTO, ShareTargetDTO, Visibility } from "@sd/shared";
 import { Icon, type IconName } from "./Icon.js";
 import { Avatar, Btn } from "./atoms.js";
 import { SheetOver, OptionRow, ContactVis } from "./parts.js";
@@ -11,6 +11,99 @@ import { api, ApiError, mediaUrl } from "../lib/api.js";
 import { CONTACT_TYPE_ORDER, contactTypeName } from "../lib/contactTypes.js";
 
 const TYPE_ICON: Record<ContactType, IconName> = { address: "pin", phone: "phone", email: "mail", url: "link" };
+
+/** Classroom self-service: place (or remove) one of the viewer's OWN children.
+ *
+ *  Deliberately a separate sheet from `AddMemberSheet` rather than a mode of it.
+ *  That one searches every Person in the school behind `requireGroupAdmin`; this
+ *  one lists only your own children and needs no search at all, because the list
+ *  is two or three rows long. Folding them together would have meant one sheet
+ *  whose contents, gate and search behaviour all forked on who you are — and the
+ *  server keeps them apart for the same reason (authority over a roster vs.
+ *  authority over a person), so the UI matches the seam instead of blurring it.
+ *
+ *  Every eligibility rule is read off `viewerEnrollable`, never re-derived: the
+ *  server decides who may be placed, and a client that guessed would eventually
+ *  offer a button the API refuses. */
+export function MyChildrenSheet({
+  groupId,
+  candidates,
+  onClose,
+  onChanged,
+}: {
+  groupId: string;
+  candidates: ClassroomCandidateDTO[];
+  onClose: () => void;
+  onChanged: () => void;
+}) {
+  const { t } = useI18n();
+  const [busy, setBusy] = useState<string | null>(null);
+  const [failed, setFailed] = useState<string | null>(null);
+
+  const act = async (cand: ClassroomCandidateDTO) => {
+    setBusy(cand.personId);
+    setFailed(null);
+    try {
+      if (cand.isHere) await api.clearClassroom(cand.personId, groupId);
+      else await api.setClassroom(cand.personId, groupId);
+      onChanged();
+    } catch {
+      // The refusals this can hit are all server-side rules the list already
+      // mirrors (a Person who runs a room, a capability revoked in another tab),
+      // so there is nothing specific to say — surface that it didn't take and
+      // let the reload show the truth.
+      setFailed(cand.personId);
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  return (
+    <SheetOver onClose={onClose}>
+      <h2 className="sd-h2" style={{ marginBottom: 4 }}>{t("myChildren")}</h2>
+      <div className="sd-meta" style={{ marginBottom: 12 }}>{t("classPlacementNote")}</div>
+      <div style={{ display: "flex", flexDirection: "column", gap: 6, maxHeight: 340, overflowY: "auto" }}>
+        {candidates.map((cand) => (
+          <button
+            key={cand.personId}
+            type="button"
+            className="sd-row"
+            disabled={busy === cand.personId}
+            onClick={() => void act(cand)}
+            style={{ gap: 11, padding: "9px 8px", borderRadius: 10, border: 0, background: "transparent", width: "100%", textAlign: "left", font: "inherit", cursor: "pointer" }}
+          >
+            <Avatar name={cand.displayName} size={34} />
+            <span style={{ flex: 1, minWidth: 0 }}>
+              <span style={{ display: "block", fontSize: 14.5, fontWeight: 600 }}>{cand.displayName}</span>
+              <span className="sd-meta" style={{ display: "block" }}>
+                {failed === cand.personId
+                  ? t("classPlacementFailed")
+                  : cand.isHere
+                    ? t("inThisClass")
+                    : cand.currentClassrooms.length > 0
+                      // EVERY room they leave, not the first: the placement moves
+                      // them out of all of them, and a message naming one while
+                      // deleting two is the exact surprise this copy exists to
+                      // prevent.
+                      ? t("movesFrom", { name: cand.currentClassrooms.map((r) => r.name).join(", ") })
+                      : t("notInAClass")}
+              </span>
+            </span>
+            <Icon
+              name={cand.isHere ? "minus" : "plus"}
+              size={18}
+              style={{ color: "var(--ink-3)", flex: "0 0 auto" }}
+            />
+          </button>
+        ))}
+        {candidates.length === 0 && (
+          <div className="sd-meta" style={{ padding: "12px 0" }}>{t("noStudentsToPlace")}</div>
+        )}
+      </div>
+      <Btn block kind="secondary" style={{ marginTop: 12 }} onClick={onClose}>{t("done")}</Btn>
+    </SheetOver>
+  );
+}
 
 export function AddMemberSheet({ groupId, onClose, onChanged }: { groupId: string; onClose: () => void; onChanged: () => void }) {
   const { t } = useI18n();

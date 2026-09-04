@@ -127,6 +127,32 @@ export interface GroupMemberDTO {
   photoUrl: string | null;
 }
 
+/** One of the viewer's own Persons, offered for placement in a classroom.
+ *
+ *  Built only for a classroom group, and only from Persons the viewer controls
+ *  who hold `student` — the two halves of the rule `PUT /persons/:id/classroom`
+ *  enforces, surfaced so the UI never offers a button the server would refuse.
+ *  `currentClassrooms` is what makes the "one room at a time" rule legible: a
+ *  non-empty list means confirming MOVES the child out of those rooms, and the
+ *  client says so rather than letting the move be a surprise. */
+export interface ClassroomCandidateDTO {
+  personId: string;
+  /** Last-name rule applied, as everywhere else. */
+  displayName: string;
+  /** EVERY classroom this Person is in today, usually zero or one.
+   *
+   *  A list rather than a single room because placing them here moves them out
+   *  of ALL of them, and more than one is reachable without a system admin:
+   *  `lib/bulkImport.ts` defaults `groupKind` to "classroom", so a child imported
+   *  into "Room 12" and "Chorus" holds two. A single-valued field let the UI name
+   *  one room and delete the other without saying so. */
+  currentClassrooms: GroupRefDTO[];
+  /** True when this group is among `currentClassrooms` — the row renders as
+   *  "remove" rather than "add". Computed against this group by identity, never
+   *  by comparing against an arbitrarily-picked "current" one. */
+  isHere: boolean;
+}
+
 export interface GroupDetailDTO {
   id: string;
   kind: GroupKind;
@@ -147,6 +173,12 @@ export interface GroupDetailDTO {
    *  means "you run this group" for the badge and the group-owned contacts,
    *  which a system admin who isn't a member is not offered. */
   viewerCanManageMembers?: boolean;
+  /** Classrooms only, and deliberately NOT gated on `viewerCanManageMembers`:
+   *  placing your own child in a room is a Controller's right, not a roster
+   *  admin's. Empty (or absent) for every other kind of group, and for a viewer
+   *  who controls no student. The server owns the eligibility rule; the UI reads
+   *  the list rather than re-deriving who qualifies. */
+  viewerEnrollable?: ClassroomCandidateDTO[];
   members: GroupMemberDTO[];
   /** Group-owned contact items (e.g. household cascading address), filtered. */
   contacts: ContactItemDTO[];
@@ -1120,6 +1152,19 @@ export type AuditAction =
    *  would be to forward the unfiltered one from the draft. Silence is correct. */
   | "person.deleted"
   | "person.updated"
+  /** A Controller placed one of their own Persons in a classroom, or took them
+   *  out of one. The second and third member-initiated actions in this log,
+   *  after the volunteer signup pair, and recorded for the same reason: a child
+   *  appearing on or vanishing from a roster is exactly what someone asks about
+   *  later, and no other row would hold it — `membership` keeps no history.
+   *  A move is ONE `classroom.enrolled` carrying the rooms it left in `detail`,
+   *  not an unenroll and an enroll, because it is one act.
+   *  Neither is Slack-curated. A parent sorting their own child into the right
+   *  room is routine in invariant 22's sense — the same line that keeps
+   *  `person.updated` out — and it runs once per child per year, which is a
+   *  channel nobody reads. */
+  | "classroom.enrolled"
+  | "classroom.unenrolled"
   | "contact.created"
   | "contact.updated"
   | "contact.deleted"
