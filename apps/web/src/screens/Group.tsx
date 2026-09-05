@@ -310,8 +310,8 @@ export function GroupsIndex() {
         <thead>
           <tr>
             <th>{t("colName")}</th>
-            <th>{t("colType")}</th>
-            <th style={{ textAlign: "right" }}>{t("members")}</th>
+            <th style={{ width: 104 }}>{t("colType")}</th>
+            <th style={{ width: 78, textAlign: "right" }}>{t("members")}</th>
           </tr>
         </thead>
         <tbody>
@@ -327,7 +327,7 @@ export function GroupsIndex() {
                   <span style={{ fontWeight: 700, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{g.name}</span>
                 </div>
               </td>
-              <td style={{ color: "var(--ink-2)", textTransform: "capitalize", whiteSpace: "nowrap" }}>{groupKindLabel(g.kind, t)}</td>
+              <td style={{ color: "var(--ink-2)", textTransform: "capitalize", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{groupKindLabel(g.kind, t)}</td>
               <td style={{ textAlign: "right", color: "var(--ink-2)", whiteSpace: "nowrap" }}>{g.memberCount}</td>
             </tr>
             );
