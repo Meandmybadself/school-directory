@@ -142,7 +142,7 @@ app.notFound((c) => c.json({ error: "not_found" }, 404));
 //                  settings, so one may fire while the other doesn't.
 // The two never collide: */3 fires on even hours only.
 //
-// A third schedule WANTS to join them for the store:
+// A third schedule joins them for the store:
 //   */15 * * * *  — re-drive paid orders that never reached Printful. Fifteen
 //                   minutes rather than riding the 3-hourly refresh because the
 //                   thing being recovered is a CHARGED order that hasn't been
@@ -151,20 +151,11 @@ app.notFound((c) => c.json({ error: "not_found" }, 404));
 //                   died mid-flight. Overlapping fires are harmless — the
 //                   submission claim is a guarded UPDATE only one caller wins.
 //
-// It is NOT REGISTERED, because the Workers FREE plan caps an ACCOUNT at five
-// cron triggers and this one is the sixth: two here, three on unrelated Workers
-// in the same account. Asking for it fails the deploy at the trigger step —
-// after the code has already uploaded — so the wrangler.toml lists two.
-//
-// Until then `retryStuckOrders` rides the 3-hourly tick below. That is a real
-// downgrade and the comment above says why: a backstop that runs every three
-// hours can leave a charged order unprinted for three hours. It is bounded and
-// self-healing rather than lost, which is the only reason it is acceptable —
-// and it is acceptable ONLY while the shop cannot take money.
-//
-// BEFORE STRIPE GOES LIVE: put "*/15 * * * *" back in both [triggers] blocks in
-// wrangler.toml. That needs a cron freed elsewhere or Workers Paid. No code
-// change — the STORE_CRON branch below is still here and still correct.
+// Registering it took the account to its ceiling: the Workers FREE plan allows
+// five cron triggers per ACCOUNT, and these three plus bus-notify's two are all
+// five. A fourth schedule here will fail the deploy at the trigger step, after
+// the code has already uploaded — working code, broken-looking deploy. That is
+// the cost to weigh before adding one.
 const DIGEST_CRON = "0 13 * * *";
 const STORE_CRON = "*/15 * * * *";
 
@@ -192,10 +183,6 @@ const scheduled: ExportedHandlerScheduledHandler<Env> = (event, env, ctx) => {
   // A design discontinued upstream should stop being for sale without waiting
   // for an admin to notice. Never throws; one bad product doesn't stop the rest.
   ctx.waitUntil(refreshStoreCatalog(env));
-  // The stand-in for the unregistered */15 schedule — see the note above. Safe
-  // to run from two places: the claim inside submitOrder is a guarded UPDATE, so
-  // whichever tick gets there first is the only one that submits.
-  ctx.waitUntil(retryStuckOrders(env));
 };
 
 export default { fetch: app.fetch, scheduled };
