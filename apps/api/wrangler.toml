@@ -71,14 +71,15 @@ bucket_name = "school-directory-newsletter-media"
 #   0 */3 * * *  shared-calendar refresh — re-fetch all ICS feeds every 3 hours
 #   0 13 * * *   new-member digest (~8am Central); no-op unless notifications
 #                are set to "daily" in Admin → Notifications
-#   */15 * * * * store: re-drive paid orders that never reached Printful. Short,
-#                because what it recovers is a CHARGED order that hasn't been
-#                printed. Overlaps with the other two are harmless — the handler
-#                dispatches on event.cron, and the submission claim is a guarded
-#                UPDATE only one caller can win.
+# The store wants a third — "*/15 * * * *", to re-drive paid orders that never
+# reached Printful — but the Workers FREE plan caps the ACCOUNT at five cron
+# triggers and it is the sixth. Registering it fails the deploy AFTER the code
+# uploads, leaving triggers half-applied. Until a cron is freed or the account
+# moves to Workers Paid, that job rides the 3-hourly tick; src/index.ts explains
+# what that costs and says to restore this before Stripe goes live.
 # Mirrored under env.production below.
 [triggers]
-crons = ["0 */3 * * *", "0 13 * * *", "*/15 * * * *"]
+crons = ["0 */3 * * *", "0 13 * * *"]
 
 # Secrets (set via `wrangler secret put --env production`, or .dev.vars locally):
 #   RESEND_API_KEY    — Resend email API key (magic links / invites)
@@ -133,7 +134,7 @@ binding = "NEWSLETTER_MEDIA"
 bucket_name = "school-directory-newsletter-media"
 
 [env.production.triggers]
-crons = ["0 */3 * * *", "0 13 * * *", "*/15 * * * *"]
+crons = ["0 */3 * * *", "0 13 * * *"]
 
 # Custom domain — wrangler provisions the DNS record + cert on deploy (zone is
 # on this account).

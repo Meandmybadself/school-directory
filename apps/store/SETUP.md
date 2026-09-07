@@ -148,6 +148,30 @@ shipped" email. Everything else works.
 
 ## 2. Stripe
 
+> **Register the `*/15` cron before you finish this section.**
+>
+> `retryStuckOrders` is the backstop that re-drives a PAID order whose inline
+> submission to Printful died mid-flight. It is meant to run every fifteen
+> minutes. It is currently NOT registered: the Workers **free** plan caps an
+> account at five cron triggers, this one is the sixth, and asking for it fails
+> the deploy at the trigger step — after the code has already uploaded. So it
+> rides the 3-hourly calendar tick instead.
+>
+> That is tolerable only while nothing can be bought. The moment Stripe keys are
+> live, a charged order can sit unprinted for up to three hours, and the
+> customer has paid. To fix it: free a cron elsewhere in the account, or move to
+> Workers Paid, then put `"*/15 * * * *"` back in BOTH `[triggers]` blocks in
+> `apps/api/wrangler.toml`. No code change is needed — the `STORE_CRON` branch in
+> `src/index.ts` is still there and still correct.
+>
+> Check what the account is using:
+>
+> ```bash
+> curl -s -H "Authorization: Bearer $CF_TOKEN" \
+>   "https://api.cloudflare.com/client/v4/accounts/<account>/workers/scripts/<script>/schedules"
+> ```
+
+
 ### Keys
 
 Stripe → **Developers → API keys** → copy the **secret** key (`sk_test_…` or
@@ -379,9 +403,12 @@ screen — a `fulfillment_failed` order carries Printful's actual error text
 (usually a discontinued variant). Fix upstream, **Sync from Printful**, then
 **Retry submission**.
 
-**An order is stuck at `paid`.** The `*/15` cron re-drives it; give it fifteen
-minutes. Six failed attempts move it to `fulfillment_failed`, which is what
-raises the Slack alert and surfaces the retry button.
+**An order is stuck at `paid`.** The recovery sweep re-drives it. Six failed
+attempts move it to `fulfillment_failed`, which is what raises the Slack alert
+and surfaces the retry button.
+
+How long that takes depends on a cron that **is not currently registered** — see
+below.
 
 ---
 
