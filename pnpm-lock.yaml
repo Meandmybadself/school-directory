@@ -18,8 +18,8 @@ importers:
         specifier: workspace:*
         version: link:../../packages/shared
       hono:
-        specifier: ^4.6.14
-        version: 4.12.25
+        specifier: ^4.12.34
+        version: 4.12.34
       ical.js:
         specifier: ^2.2.1
         version: 2.2.1
@@ -1534,8 +1534,8 @@ packages:
     resolution: {integrity: sha512-3hN7NaskYvMDLQY55gnW3NQ+mesEAepTqlg+VEbj7zzqEMBVNhzcGYYeqFo/TlYz6eQiFcp1HcsCZO+nGgS8zg==}
     engines: {node: '>=6.9.0'}
 
-  hono@4.12.25:
-    resolution: {integrity: sha512-2NFaIyNVgJmBs/ecmtGzlmluTFs5cHEWGTdu0t1HBwYzoGXOL5nUQBRMXsXWla5i4KkG//QMzVP88m1+I3fdAQ==}
+  hono@4.12.34:
+    resolution: {integrity: sha512-GqXJqY/xJkJmuloTrnV1ZEXG3fqte+VjkUqoRNZXcrUidiUOP4fMSIHHY4tsqZBK++kVyWmt/AAfSUuy57/eSA==}
     engines: {node: '>=16.9.0'}
 
   ical.js@2.2.1:
@@ -2982,7 +2982,7 @@ snapshots:
 
   gensync@1.0.0-beta.2: {}
 
-  hono@4.12.25: {}
+  hono@4.12.34: {}
 
   ical.js@2.2.1: {}
 
