@@ -8,7 +8,7 @@
 // version over the admin's work.
 //
 // So the footer field asks this first and opens in HTML mode when the answer is
-// yes. Kept separate from FooterEditor.tsx because it's the load-bearing part
+// yes. Kept separate from FooterEditor.tsx because it's the part that decides,
 // and worth testing without mounting TipTap.
 
 /** Tags the rich toolbar can round-trip. A strict subset of FOOTER_TAGS. */

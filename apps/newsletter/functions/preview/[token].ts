@@ -2,8 +2,8 @@
 //
 // The point of the feature: an issue can be read before it is sent, by somebody
 // who has no directory account. Holding the token is the whole of the
-// authorization (migration 0015), so three things about this page are
-// load-bearing:
+// authorization (migration 0015), so three things about this page cannot be
+// changed casually:
 //
 //   It is served by htmlPrivate(), never html(). The shared cache is keyed on
 //   the URL, so caching this would let a revoked link keep being answered from

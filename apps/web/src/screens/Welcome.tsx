@@ -7,7 +7,7 @@
 // switcher and a group you did not have yet. The fix is to ask once, at the
 // only moment we know the member is willing to fill things in.
 //
-// Three things about the design are load-bearing:
+// Three things about the design carry the weight:
 //
 //   The step is derived from server truth, not stored. `me.persons.length`
 //   decides whether you see step one, so a reload mid-wizard resumes rather

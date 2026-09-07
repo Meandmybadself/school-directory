@@ -198,8 +198,8 @@ describe("the bar as rendered", () => {
   it("never puts a token url through the proxy even if one is handed to it", () => {
     // Defence in depth on the rule above: the callers pass "", but if a future
     // one passed the token page's own url, this is what it would produce — and
-    // the point is that it WOULD produce a link, so the "" is load-bearing and
-    // not merely tidy. Stated as a test so nobody re-derives it as safe.
+    // the point is that it WOULD produce a link, so the "" is a guard and not
+    // merely tidiness. Stated as a test so nobody re-derives it as safe.
     const tokenUrl = "https://newsletter.eisenhower.school/preview/abc123";
     expect(translateProxyUrl(tokenUrl, "es")).toContain("abc123");
     expect(page({ issueUrl: tokenUrl })).toContain("abc123");

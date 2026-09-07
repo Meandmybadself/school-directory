@@ -72,7 +72,7 @@ CREATE INDEX idx_managed_event_calendar ON managed_event (calendar_id);
 -- calendar_event gains the managed discriminators. source_id must become
 -- nullable, which SQLite can only do by rebuilding the table. This is a derived
 -- cache — the cron refresh rewrites every imported row every 3 hours anyway — so
--- the copy below is belt-and-braces rather than load-bearing.
+-- the copy below is belt-and-braces rather than something depended on.
 CREATE TABLE calendar_event_new (
   id                  TEXT PRIMARY KEY,                        -- ULID; NOT stable across refreshes
   source_id           TEXT REFERENCES calendar_source(id),     -- set for imported rows

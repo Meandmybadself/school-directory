@@ -1,5 +1,6 @@
 /* Design tokens + component CSS — ported from design_handoff/ds.jsx, scoped to .sd.
-   Calm-institutional style (the shipped direction). Tokens are final per the handoff. */
+   Calm-institutional style (the shipped direction). The handoff board this was
+   ported from has been removed, so this file IS the tokens' source of truth. */
 
 .sd {
   --blue: #0068a8;
@@ -140,7 +141,7 @@ body {
 .sd-scroll {
   flex: 1 1 auto;
   overflow-y: auto;
-  /* Load-bearing. Flex items default to min-height:auto, which refuses to
+  /* Do not remove. Flex items default to min-height:auto, which refuses to
      shrink below their content height — so `overflow-y: auto` never engages and
      this box grows the whole column instead of scrolling inside it. Every
      AppShell screen puts its content in here for that reason. */

@@ -96,7 +96,7 @@ export async function subtreeGroupIds(env: Env, groupId: string): Promise<string
 /** Effective group ids a Person belongs to (direct memberships + ancestors). */
 export async function effectiveGroupIdsForPerson(env: Env, personId: string): Promise<Set<string>> {
   const [direct, graph] = await Promise.all([
-    // `self_asserted = 0` is the load-bearing half (migration 0023). This set is
+    // `self_asserted = 0` is the half that matters (migration 0023). This set is
     // what `canSeeItem` reads to decide whether an item somebody SHARED with a
     // group reaches this viewer, so a membership the viewer wrote for themselves
     // must not appear in it: `PUT /persons/:id/classroom` lets a parent place

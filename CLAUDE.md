@@ -1,39 +1,54 @@
 # CLAUDE.md — working notes for agents in this repo
 
 Read this before making changes. It captures the non-obvious rules; the product
-spec is in `docs/` and the engineering plan in `PLAN.md`.
+spec is in `docs/` and an orientation for humans is in `README.md`.
+
+`PLAN.md` is the ORIGINAL build plan and covers M0–M4 (the identity core) only.
+Everything after it — the calendar, volunteer sheets, the newsletter, the store,
+the front door — landed without being tracked there. Read it as history; **this
+file and the tests are the current contract.**
 
 ## What this is
 
-Single-tenant, members-only **school directory**. Identity foundation for later
-services. Cloudflare-native: React/Vite (Pages) + Hono (Workers) + D1 + R2,
-Resend email, Nominatim geocoding.
+Single-tenant **school directory**, live in production. Identity foundation for
+the services that grew on top of it: a calendar with volunteer sign-ups, a
+newsletter, and a merch store. Cloudflare-native: React/Vite (Pages) + Hono
+(Workers) + D1 + R2, with Resend email, Nominatim geocoding, and — for the store
+— Stripe and Printful, plus an optional Slack webhook for system events.
+
+The directory is **members-only** and its visibility model has no public level.
+A handful of surfaces around it are deliberately open to the internet — the front
+door, the calendar agenda and event pages, volunteer COUNTS, the sent-newsletter
+archive, published ICS feeds, the storefront and an order's status page — and
+each is served through a hand-written projection (invariants 12, 13, 15, 26).
+Everything else, every volunteer NAME included, needs a session.
 
 ## Repository layout
 
 ```
-apps/home           One-page Worker owning the apex, eisenhower.school. Server-rendered, no bundle; the only surface here that wants to be indexed.
+apps/home           One-page Worker owning the apex, eisenhower.school. Server-rendered, no bundle; one of only two surfaces here that want to be indexed (apps/store's storefront is the other).
 apps/web            Directory SPA (Vite) → directory.eisenhower.school. Design system in src/components, screens in src/screens.
 apps/calendar       Calendar SPA (Vite) → calendar.eisenhower.school. Shares the API, D1 and session; design system is COPIED, not imported.
 apps/newsletter     Newsletter SPA (Vite) → newsletter.eisenhower.school. Admin authoring (TipTap) + a member preferences screen, PLUS Pages Functions serving the public archive. Design system COPIED.
-apps/api            Hono Worker → api-directory.eisenhower.school. Serves ALL THREE SPAs. Routes in src/routes, logic in src/lib, middleware in src/middleware.
+apps/store          Store SPA (Vite) → store.eisenhower.school. Cart + admin in the bundle, PLUS Pages Functions serving the PUBLIC, INDEXED storefront. Printful catalog, Stripe checkout. Design system COPIED. Vendor/DNS setup: SETUP.md.
+apps/api            Hono Worker → api-directory.eisenhower.school. Serves ALL FOUR SPAs. Routes in src/routes, logic in src/lib, middleware in src/middleware.
 apps/redirect       One-file Worker owning the retired directory.meandmybadself.com; 301s to the live host.
 apps/api/migrations Ordered D1 SQL migrations (NNNN_name.sql). Never edit an applied migration — add a new one.
 packages/shared     Domain types (types.ts) + i18n dictionaries (i18n.ts). Imported as `@sd/shared`.
 docs/               Product spec (PLAN/SRD/SDD). Source of truth for requirements.
-design_handoff_*/   Hi-fi design reference. NOT a build target — port, don't ship.
 ```
 
 ## The front door
 
 `apps/home` serves `eisenhower.school` (and 301s `www`). It is not a fourth SPA:
 one HTML document per request, rendered from the shared dictionaries, no client
-bundle and no API call. Three things about it are load-bearing:
+bundle and no API call. Three things about it cannot be changed casually:
 
-- **It is the only page in this project that asks to be indexed.** The three
-  SPAs send `noindex` because they are members-only. This one ships a
-  `robots.txt`, a sitemap and `hreflang` alternates, so nothing member-private
-  may ever appear on it.
+- **It is one of only two surfaces in this project that ask to be indexed**, the
+  other being the store's public storefront (invariant 26). The SPAs' bundles all
+  send `noindex` because they are members-only. This one ships a `robots.txt`, a
+  sitemap and `hreflang` alternates, so nothing member-private may ever appear on
+  it — and the same obligation now travels with the store.
 - **The hero greeting stack is the language picker**, and it is the one place
   that reads ACROSS `dictionaries` rather than within one locale — it shows all
   four `landingWelcome` strings at once, in `LOCALES` order, with the current
@@ -87,32 +102,34 @@ look for a resurrected rule in the `eisenhower.school` zone before debugging the
 Worker. People still arrive here looking for the district's site, which is why
 every rendering carries a link out to it in the header.
 
-## Three front ends, one API
+## Four front ends, one API
 
-All three SPAs are separate Cloudflare Pages projects talking to the single
+All four SPAs are separate Cloudflare Pages projects talking to the single
 `apps/api` Worker, and they share one session:
 
 - The `sd_session` cookie has **no `Domain`** — it's host-only to the API's own
-  hostname. All three SPAs are on `eisenhower.school` subdomains, so a credentialed
+  hostname. All four SPAs are on `eisenhower.school` subdomains, so a credentialed
   `fetch` to the API is same-site and the cookie rides along. Don't "fix" this by
   adding a `Domain` attribute.
 - **Every new front-end origin must be added to `ALLOWED_ORIGINS`** in
   `apps/api/wrangler.toml` (both `[vars]` and `[env.production.vars]`). That one
   list is also the allowlist of valid magic-link `returnTo` targets — same trust
   boundary, deliberately one variable.
-- `apps/calendar` and `apps/newsletter` **copy** `tokens.css`, `Icon.tsx`,
-  `atoms.tsx` and the generic half of `parts.tsx` from `apps/web` rather than
-  importing them. They're expected to drift. If you change a shared-looking
-  component, decide which copies need it. The nav item list is duplicated in each
-  app's `AppShell`/`DesktopShell`.
-- `apps/newsletter` is the only app with a `wrangler.toml` among the Pages
-  projects, because it's the only one with `functions/`. Those Pages Functions
-  server-render the public archive (`/` and `/n/:slug`) so a link pasted into a
-  text message gets a real preview and a reader never downloads the authoring
-  bundle. **Do not add a `_redirects` file there** — Pages 308s `/index.html` to
+- `apps/calendar`, `apps/newsletter` and `apps/store` **copy** `tokens.css`,
+  `Icon.tsx`, `atoms.tsx` and the generic half of `parts.tsx` from `apps/web`
+  rather than importing them. They're expected to drift. If you change a
+  shared-looking component, decide which of the four copies need it. The nav item
+  list is duplicated in each app's `AppShell`/`DesktopShell`.
+- `apps/newsletter` and `apps/store` are the Pages projects with a
+  `wrangler.toml`, because they're the ones with `functions/`. Those Pages
+  Functions server-render the public surfaces — the newsletter archive (`/` and
+  `/n/:slug`) and the storefront (`/`, `/p/:slug`, `/o/:token`) — so a link
+  pasted into a text message gets a real preview and a reader never downloads an
+  authoring bundle. **Do not add a `_redirects` file there** — Pages 308s `/index.html` to
   `/`, so an SPA-fallback rewrite sends `/admin` to the public archive instead of
   the app. Functions already take precedence over assets, and every other path
-  falls through to `index.html` on its own. See `apps/newsletter/ROUTING.md`.
+  falls through to `index.html` on its own. See `apps/newsletter/ROUTING.md` —
+  and `apps/store/ROUTING.md`, which restates the same trap for the same reason.
 - The calendar owns all calendar admin. `apps/web`'s Admin has no calendar tab —
   just a link out. `apps/web` keeps only `api.calendarEvents` (for Home's
   upcoming-events block); `/calendar` there is a redirect to the calendar site.
@@ -214,7 +231,7 @@ All three SPAs are separate Cloudflare Pages projects talking to the single
    ULIDs. Anything that needs a durable handle on an event must use a managed
    event's `(managed_event_id, starts_at)` pair — the
    ICS `UID` + `RECURRENCE-ID` convention, surfaced as `seriesId`/`recurrenceId`
-   on `CalendarEventDTO`. `volunteer_sheet` is the load-bearing consumer: it
+   on `CalendarEventDTO`. `volunteer_sheet` is what actually depends on that: it
    stores exactly that pair (`managed_event_id` + `occurrence_start`) and
    reads its event from `managed_event`, never from `calendar_event` — see
    invariant 13. `eventKey`
@@ -297,7 +314,7 @@ All three SPAs are separate Cloudflare Pages projects talking to the single
    on the open internet; `test/volunteersPublic.test.ts` asserts the exact key
    sets at all three levels AND that no name, note or person id survives.
    A sheet is READ on the event's page and nowhere else; `/v/:slug` forwards
-   there (see "Three front ends, one API" above), which is why the two endpoints
+   there (see "Four front ends, one API" above), which is why the two endpoints
    are now picked between by `screens/Event.tsx` and the redirect rather than by
    a page of the sheet's own. Three further rules follow from the design rather
    than from policy:
@@ -388,7 +405,7 @@ All three SPAs are separate Cloudflare Pages projects talking to the single
    yet execute.** `POST /admin/users/:id/disabled` is reversible and touches the
    `user` row alone — everything that matters already filters on `disabled_at`
    (session middleware, newsletter audience, masquerade), so nothing of theirs
-   needs removing to cut off access. Two guards are load-bearing and both were
+   needs removing to cut off access. Two guards hold this together, and both were
    found in review rather than by design: the session sweep matches
    `acting_admin_id` as well as `user_id`, because a masquerade session's
    `user_id` is the person being impersonated and a disabled admin would
@@ -461,7 +478,8 @@ All three SPAs are separate Cloudflare Pages projects talking to the single
    Where such a sweep's retention exceeds the counting window it is a SECURITY
    parameter, not housekeeping — see `lib/sweep.ts`, which is where all four
    growing tables are swept from, and which spells out which two of them are
-   load-bearing that way and why neither may key its age test on `expires_at`.
+   security parameters in that sense, and why neither may key its age test on
+   `expires_at`.
 
 20. **`/photos/:key` is members-only.** It is the only route serving `PHOTOS`,
    the objects are photographs of children, and a ULID key is not an access rule
@@ -686,7 +704,7 @@ All three SPAs are separate Cloudflare Pages projects talking to the single
    `test/newsletterTranslate.test.ts` pins the exclusions, and its last case is
    deliberately the uncomfortable one: it asserts that a token url handed to
    `translateProxyUrl` WOULD produce a link, so the `""` at the four call sites
-   is understood as load-bearing rather than tidy.
+   is understood as a guard rather than tidiness.
 
 24. **A duplicate child is an onboarding bug, not a matching problem — so the
    fix is a JOIN path, never a name lookup.** Two parents sign up; the second
@@ -710,7 +728,7 @@ All three SPAs are separate Cloudflare Pages projects talking to the single
    alone. When it is set, accepting grants control of every Person in that
    household the INVITER controls, promotes the invitee's existing membership to
    admin, and carries `household_admin` with it the way `POST /groups` does.
-   Three spellings are load-bearing. The grant is an `INSERT … SELECT` evaluated
+   Three spellings are exact for a reason. The grant is an `INSERT … SELECT` evaluated
    against what the inviter controls NOW, not a list frozen at send time — a
    child added in between is one the co-parent should get. It reads
    `membership × control` and **never `person`**: the invitee is becoming a
@@ -761,9 +779,85 @@ All three SPAs are separate Cloudflare Pages projects talking to the single
    and it is the default `FORMATTERS` already gives an action with no entry.
    `test/personRemoval.test.ts` pins the guards, the cascade order and both.
 
-26. *(Reserved.)* The store's invariant is written but not yet on `main`;
-   its code and tests already reference "invariant 26", so the number is held
-   rather than reused. Nothing else depends on this line.
+26. **A store order names a BUYER, not a Person — and nothing in the store's
+   schema may join `person`.** `store_order` captures a shipping name, address
+   and email typed fresh at checkout, even for a signed-in member; it links to
+   `user` by a nullable `user_id`, for "my orders", and to `person` not at all.
+   That is what makes it structurally impossible for a bug to hand Printful or
+   Stripe a member's private phone or address (invariants 1–3): the outbound
+   payloads — `PrintfulOrderRequest` (`lib/printful.ts`) and
+   `CheckoutSessionRequest` (`lib/stripe.ts`) — are hand-shaped types built only
+   from `store_order`'s own columns, with no field wide enough to carry a Person
+   row even by mistake. Same defence invariant 22 gets from a Slack formatter's
+   input type having no `detail` field, and Printful and Stripe are third parties
+   in exactly that invariant's sense: their own retention, their own breach
+   surface, so a value safe inside this system is not thereby safe to send them.
+   The Slack line for `store.order.paid` carries a total, an item count and a
+   town — never a name, a street or an email.
+   **Money correctness rests on three things, none of them a client's word.**
+   `store_product` is the only place a price is READ from, per VARIANT (Printful
+   charges more for 2XL, and one product price would mean eating that or
+   overcharging the small sizes). A **quote** freezes computed lines, a live
+   Printful shipping rate and a total, server-side, before Stripe is involved —
+   it exists because HOSTED Stripe Checkout cannot price shipping from an
+   address, which is also why the cart collects the address FIRST and why the
+   Session is created with `shipping_address_collection` off. And
+   `store_order.total_cents = subtotal_cents + shipping_cents` is a **CHECK
+   constraint**, not a convention.
+   The quote is an **HMAC-signed token, not a row** (`lib/storeQuote.ts`): it is
+   single-use, thirty minutes old, has one consumer, and nothing joins or counts
+   it — it fails every test the other domain tables pass. `sha256` would not do,
+   because here the attacker controls the plaintext. `STORE_SECRET` keys it, and
+   is the ONE optional secret in this codebase that does not degrade to "log it
+   instead": a guessable quote key is a guessable PRICE, so the dev fallback
+   exists only while `STRIPE_SECRET_KEY` is also absent. It keys the derived
+   order-status token too, under a different domain prefix — derived rather than
+   random so the confirmation email, built in a webhook long after the raw token
+   reached the browser, can rebuild the link while only the hash is stored.
+   **`checkout.session.completed` is not proof that money moved**, and treating
+   it as such is the most expensive mistake this feature offers. For a delayed
+   method — ACH, a bank transfer, a voucher — Stripe fires it the moment the
+   buyer finishes the form, with `payment_status: "unpaid"`, and settles days
+   later or never. `createCheckoutSession` does not restrict
+   `payment_method_types`, so that path is one dashboard toggle away from live
+   with no code change to notice it. `routes/storeWebhooks.ts` therefore gates
+   `completed` on `payment_status`, fulfils a delayed order only on
+   `async_payment_succeeded`, and closes one out on `async_payment_failed` —
+   which needed no new state, since such an order never left `awaiting_payment`.
+   Fulfilling on `completed` alone would print and ship, and bill the PTO to do
+   it, for a payment that may never arrive. `test/storeWebhook.test.ts` pins all
+   three, at the route, because the bug is in which event the router acts on and
+   is invisible in a card-only test account.
+   **Every state transition is a compare-and-swap on `status`**, never a read
+   then a write (D1 has no transaction), and that IS the idempotency mechanism:
+   a redelivered Stripe event finds the row already `paid` and changes nothing;
+   a redelivered Printful shipment finds it already `shipped` and mails nobody
+   twice. No ledger of processed event ids exists because there is no read to
+   race. The order row is minted BEFORE payment, which is the one place this
+   design spends a row on something that may never be bought — created from the
+   webhook instead, a webhook that never fires AND a buyer who never returns
+   would leave money taken and nothing here aware of it. `submitOrder`'s claim is
+   what stops the inline `waitUntil` and the `*/15` cron both printing the same
+   shirt. "Paid but not submitted" is therefore not a state to design around: it
+   is `status = 'paid'`, and the cron makes it self-healing.
+   **The storefront is the second indexed surface in this project**, after
+   `apps/home`, so everything that page's rules say applies: a `robots.txt`, a
+   sitemap, `hreflang` alternates honoured server-side (which is why
+   `functions/_lib/locale.ts` exists at all), and nothing member-private ever.
+   `publicProductOf` and `orderStatusOf` are the seams, built field by field like
+   `publicEventOf` — and both Printful ids stay server-side, which is what makes
+   re-pointing the catalog at the PTO's own Printful store an admin re-point
+   rather than a migration. `test/storePublicProjection.test.ts` pins the exact
+   key sets; `test/storeCheckout.test.ts` pins the quote, the webhook signature
+   and the CAS, behaviourally rather than textually.
+   **Connecting the vendors is a documented procedure, not folklore.**
+   `apps/store/SETUP.md` carries the exact Printful token scopes (two, and why
+   the other six stay off), the four Stripe webhook events, the ordering
+   constraint that `STORE_SECRET` must exist before `STRIPE_SECRET_KEY` or
+   checkout 503s, and the DNS record the Pages custom-domain API does NOT create
+   for you. It is written to be run twice — this instance starts on a personal
+   Printful and Stripe account and moves to the PTO's — and its "Changing
+   accounts" section is what keeps that a re-point rather than a migration.
 
 27. **A parent may edit ONE roster without administering it, and "one classroom
    at a time" is what makes that safe.** `POST /groups/:id/members` is unchanged
@@ -853,8 +947,10 @@ All three SPAs are separate Cloudflare Pages projects talking to the single
   imports (NodeNext/bundler ESM).
 - D1 access is raw prepared statements (ORM-agnostic per the SDD). Use `.bind()`,
   never string-interpolate values into SQL.
-- Design tokens are CSS variables under the `.sd` scope (see `apps/web`), matching
-  the handoff exactly: `--blue #0068A8`, `--orange #FAAB1C`, etc.
+- Design tokens are CSS variables under the `.sd` scope: `--blue #0068A8`,
+  `--orange #FAAB1C`, etc. `apps/web/src/styles/tokens.css` is the source of
+  truth (the hi-fi handoff board they were ported from has been deleted), and
+  the other three apps hold copies — see "Four front ends, one API".
 - Visibility chip states: `members` (blue) / `private` (slate) / `shared` (orange).
   There is **no public state** anywhere in the UI.
 - **Dark mode is `prefers-color-scheme` only** — no toggle, nothing persisted, in
@@ -888,9 +984,14 @@ All three SPAs are separate Cloudflare Pages projects talking to the single
     block must stay BELOW the dark block. `test/newsletterIssuePage.test.ts`
     pins both.
   Contrast was measured rather than eyeballed; every text pair clears AA. The
-  three `tokens.css` copies got the same block — they are copies, so a change to
-  one is a decision about all three (see "Three front ends, one API").
-- **Mobile shell layout is load-bearing.** `.sd-app` is exactly `100dvh`, so an
+  `tokens.css` copies got the same block — they are copies, so a change to one is
+  a decision about all four (see "Four front ends, one API"). The store's copy is
+  the fourth; its server-rendered storefront does NOT use it, and carries its own
+  small token subset in `apps/store/functions/_lib/styles.ts` — which repeats the
+  same `prefers-color-scheme` block, and is the fifth place a colour decision
+  lands.
+- **The mobile shell's layout has one rule you can't skip.** `.sd-app` is
+  exactly `100dvh`, so an
   `AppShell` screen must put its scrolling content inside a `.sd-scroll` child —
   that element carries the `min-height: 0` that lets it shrink and actually
   scroll. Content placed directly in `AppShell` will be clipped instead, and the
@@ -902,9 +1003,15 @@ All three SPAs are separate Cloudflare Pages projects talking to the single
 pnpm install
 cp apps/api/.dev.vars.example apps/api/.dev.vars
 pnpm db:migrate:local && pnpm db:seed:local
-pnpm dev          # web :5173, calendar :5174, newsletter :5175, api :8787
-pnpm dev:home     # the apex landing page (wrangler dev) on :5176
+pnpm dev          # every app in apps/* that has a dev script, in parallel:
+                  # web :5173, calendar :5174, newsletter :5175, home :5176,
+                  # store :5177, api :8787
+pnpm dev:home     # just the apex landing page (wrangler dev) on :5176
 ```
+
+`pnpm dev` is `pnpm --parallel --filter "./apps/*" dev`, so it picks up `apps/home`
+too — a second `wrangler dev` beside the API's, on its own port. `apps/redirect`
+has no `dev` script and is skipped; there is nothing to run locally there.
 
 Magic links print to the **API console** when `RESEND_API_KEY` is empty — which
 also means newsletter sends print there instead of mailing anyone. Demo login:
@@ -912,7 +1019,14 @@ also means newsletter sends print there instead of mailing anyone. Demo login:
 
 `vite dev` serves the newsletter SPA only; the public archive at `/` and
 `/n/:slug` is Pages Functions, so it exists in `wrangler pages dev` and in
-production, not in `pnpm dev`.
+production, not in `pnpm dev`. The store splits the same way — `/`, `/p/:slug`
+and `/o/:token` are Functions, so `pnpm dev` gives you the cart and the admin
+and a note where the shop would be.
+
+The store's vendor calls are off by default: with no `PRINTFUL_API_KEY` or
+`STRIPE_SECRET_KEY` the calls are logged rather than made, the same contract an
+empty `RESEND_API_KEY` has. `STORE_SECRET` is the one exception — see
+invariant 26.
 
 ## When adding a migration
 
@@ -923,4 +1037,14 @@ Create `apps/api/migrations/NNNN_description.sql` (next number). Update
 ## Commit / PR
 
 - Conventional-ish messages; keep commits scoped to one concern.
-- CI must pass `pnpm typecheck` and `pnpm test`. Deploy happens on merge to `main`.
+- CI must pass `pnpm typecheck` and `pnpm test`.
+- **Merging to `main` deploys to production**, and the deploy applies D1
+  migrations to the live database before it publishes anything. `deploy.yml`
+  gates on a `verify` job (typecheck + test + build) so a red build stops the
+  ship rather than racing it — but a migration that typechecks and still ruins
+  the data is not something that gate can catch. A migration is the one change
+  worth re-reading before merge.
+- The Worker deploys (`api`, `redirect`, `home`) and the four Pages projects
+  (`school-directory`, `school-calendar`, `school-newsletter`, `school-store`)
+  all ship from that one workflow. A new front end means a step there, an origin
+  in `ALLOWED_ORIGINS`, and a Pages custom domain attached by hand.

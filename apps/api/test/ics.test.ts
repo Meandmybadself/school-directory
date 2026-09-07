@@ -1,5 +1,5 @@
 // The ICS writer, and the round-trip that materializes managed occurrences.
-// The round-trip is the load-bearing property: lib/managedCalendar.ts expands an
+// The round-trip is the property everything rests on: lib/managedCalendar.ts expands an
 // authored event by rendering it here and parsing it back with parseIcs, so if
 // these agree, a member's agenda and a subscriber's feed cannot disagree.
 
@@ -222,7 +222,7 @@ describe("write → parse round trip (occurrence materialization)", () => {
 // /ics/source/:id.ics re-serves what we stored rather than proxying the upstream
 // feed, which is what lets the public agenda offer a download for EVERY calendar
 // without publishing an admin's pasted subscribe link. The UID rules below are
-// the load-bearing part: the rows are pre-expanded occurrences, so a naive
+// the part that matters: the rows are pre-expanded occurrences, so a naive
 // mirror would either collapse a series into one event or make every event look
 // new after each refresh.
 

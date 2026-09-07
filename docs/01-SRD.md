@@ -10,7 +10,7 @@ This is a **single-tenant** system (one school per deployment). Multi-tenancy is
 
 ## 2. Definitions
 
-These terms are load-bearing. Where this document capitalizes a word, it means the definition below, not the everyday sense.
+These terms are used precisely. Where this document capitalizes a word, it means the definition below, not the everyday sense.
 
 - **User** — a credential set. How a human logs in. Identified by a verified email address. A User is not a directory entry and is never listed in the directory.
 - **Person** — a directory entity with a profile (name, contacts, photo). The thing other members see. A Person may exist with no controlling User (e.g. a bulk-imported teacher who has not logged in, or a child).

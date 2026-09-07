@@ -406,7 +406,7 @@ persons.delete("/:id", async (c) => {
 //     is why the write re-derives the set to delete INSIDE the batch.
 //
 //  3. STUDENTS ONLY, so a classroom roster keeps meaning "the children in this
-//     room" and a bare adult account does not land on one. Load-bearing for
+//     room" and a bare adult account does not land on one. That is for
 //     legibility, NOT for confinement — see rule 1 for why it cannot be. A room
 //     parent is still added the old way, by whoever administers the room.
 //

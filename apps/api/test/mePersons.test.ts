@@ -1,6 +1,6 @@
 // POST /me/persons — the one endpoint that creates a directory Person.
 //
-// Two facts worth pinning, both newly load-bearing now that the welcome wizard
+// Two facts worth pinning, both newly depended on now that the welcome wizard
 // calls this route on a member's behalf for every child and partner they add:
 //
 //   Capabilities are filtered to the ASSIGNABLE set. `household_admin` is

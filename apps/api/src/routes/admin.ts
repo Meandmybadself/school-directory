@@ -142,7 +142,7 @@ admin.post("/users/:id/disabled", async (c) => {
   }
 
   if (body.disabled) {
-    // `OR acting_admin_id` is the load-bearing half. A masquerade session's
+    // `OR acting_admin_id` is the half that matters. A masquerade session's
     // user_id is the person being impersonated, NOT the admin doing it, so
     // matching on user_id alone would leave a disabled admin browsing as
     // somebody else until the masquerade aged out an hour later — the exact
