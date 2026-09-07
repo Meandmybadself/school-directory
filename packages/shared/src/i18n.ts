@@ -371,6 +371,10 @@ export interface Strings {
   // site footer
   footerBuiltBy: string; // uses {school}
   footerFeedback: string; // uses {email}
+  /** Label on the link to the public source repository (`SOURCE_URL`). The
+   *  repo is deliberately public, so this is an ordinary outbound link and not
+   *  a disclosure — but it is still member-facing copy, so it lives here. */
+  footerSource: string;
 
   // landing page (apps/home — the public front door at eisenhower.school).
   // That page is server-rendered by a Worker with no client bundle, so these
@@ -452,6 +456,56 @@ export interface Strings {
   masqViewingAs: string; // uses {name}
   masqReturn: string;
   signOut: string;
+
+  // store (apps/store) — the storefront's chrome only. Product titles, blurbs
+  // and variant labels are admin- and vendor-entered content and are never
+  // translated (invariant 6), the same rule a newsletter issue's body follows.
+  // The admin screens are deliberately English-only, as the calendar's and
+  // newsletter's are.
+  brandSubStore: string;
+  navStore: string;
+  storeTitle: string;
+  storeLead: string;
+  storeEmpty: string;
+  storeFrom: string; // uses {price}
+  storeSoldOut: string;
+  storeChooseOption: string;
+  storeAddToCart: string;
+  storeCart: string;
+  storeCartEmpty: string;
+  storeKeepShopping: string;
+  storeQty: string;
+  storeRemove: string;
+  storeSubtotal: string;
+  storeShipping: string;
+  storeTotal: string;
+  storeWhereTo: string;
+  storeFullName: string;
+  storeEmail: string;
+  storeAddress1: string;
+  storeAddress2: string;
+  storeCity: string;
+  storeState: string;
+  storePostalCode: string;
+  storeCountry: string;
+  storePhone: string;
+  storeGetShipping: string;
+  storeChooseShipping: string;
+  storeCheckout: string;
+  storeCheckoutNote: string;
+  storeOrderTitle: string;
+  storeOrderProcessing: string;
+  storeOrderShipped: string;
+  storeOrderProblem: string;
+  storeOrderProblemNote: string;
+  storeTracking: string;
+  storeOrderNotFound: string;
+  storeShipTo: string;
+  storePlaced: string;
+  storeMadeToOrder: string;
+  /** The store's tile on the front door (apps/home). */
+  landingStoreBody: string;
+  landingStoreMore: string;
 }
 
 const en: Strings = {
@@ -801,6 +855,7 @@ const en: Strings = {
 
   footerBuiltBy: "Site built by the {school}.",
   footerFeedback: "Feedback? Email {email}",
+  footerSource: "View the source on GitHub",
 
   landingWelcome: "Welcome",
   landingTitle: "{school} — directory, calendar and newsletter",
@@ -881,6 +936,51 @@ const en: Strings = {
   masqViewingAs: "Viewing as",
   masqReturn: "Return to admin",
   signOut: "Sign out",
+
+  brandSubStore: "Store",
+  navStore: "Store",
+  storeTitle: "School store",
+  storeLead: "Spirit wear, printed to order. Every purchase supports the PTO.",
+  storeEmpty: "Nothing's for sale just yet — check back soon.",
+  storeFrom: "from {price}",
+  storeSoldOut: "Sold out",
+  storeChooseOption: "Choose a size",
+  storeAddToCart: "Add to cart",
+  storeCart: "Cart",
+  storeCartEmpty: "Your cart is empty.",
+  storeKeepShopping: "Keep shopping",
+  storeQty: "Qty",
+  storeRemove: "Remove",
+  storeSubtotal: "Subtotal",
+  storeShipping: "Shipping",
+  storeTotal: "Total",
+  storeWhereTo: "Where should it go?",
+  storeFullName: "Full name",
+  storeEmail: "Email",
+  storeAddress1: "Street address",
+  storeAddress2: "Apartment, suite (optional)",
+  storeCity: "City",
+  storeState: "State",
+  storePostalCode: "ZIP code",
+  storeCountry: "Country",
+  storePhone: "Phone (optional)",
+  storeGetShipping: "Get shipping options",
+  storeChooseShipping: "Choose shipping",
+  storeCheckout: "Checkout",
+  storeCheckoutNote: "You'll pay securely on Stripe. We never see your card.",
+  storeOrderTitle: "Your order",
+  storeOrderProcessing: "We've got it — it's being made.",
+  storeOrderShipped: "On its way.",
+  storeOrderProblem: "Something needs a hand.",
+  storeOrderProblemNote:
+    "Your payment went through, but this order needs a person to look at it. We've been told, and we'll be in touch.",
+  storeTracking: "Tracking",
+  storeOrderNotFound: "We couldn't find that order.",
+  storeShipTo: "Shipping to",
+  storePlaced: "Placed",
+  storeMadeToOrder: "It's printed to order, so give it a few days before it ships.",
+  landingStoreBody: "Eisenhower spirit wear — tees, hoodies and more, printed to order and shipped to your door.",
+  landingStoreMore: "Every purchase supports the PTO. No account needed to buy.",
 };
 
 const es: Strings = {
@@ -1174,6 +1274,7 @@ const es: Strings = {
 
   footerBuiltBy: "Sitio creado por {school}.",
   footerFeedback: "¿Comentarios? Escribe a {email}",
+  footerSource: "Ver el código fuente en GitHub",
 
   landingWelcome: "Bienvenidos",
   landingTitle: "{school} — directorio, calendario y boletín",
@@ -1254,6 +1355,51 @@ const es: Strings = {
   masqViewingAs: "Viendo como",
   masqReturn: "Volver a admin",
   signOut: "Cerrar sesión",
+
+  brandSubStore: "Tienda",
+  navStore: "Tienda",
+  storeTitle: "Tienda escolar",
+  storeLead: "Ropa escolar, impresa por encargo. Cada compra apoya a la PTO.",
+  storeEmpty: "Todavía no hay nada a la venta — vuelve pronto.",
+  storeFrom: "desde {price}",
+  storeSoldOut: "Agotado",
+  storeChooseOption: "Elige una talla",
+  storeAddToCart: "Añadir al carrito",
+  storeCart: "Carrito",
+  storeCartEmpty: "Tu carrito está vacío.",
+  storeKeepShopping: "Seguir comprando",
+  storeQty: "Cant.",
+  storeRemove: "Quitar",
+  storeSubtotal: "Subtotal",
+  storeShipping: "Envío",
+  storeTotal: "Total",
+  storeWhereTo: "¿A dónde lo enviamos?",
+  storeFullName: "Nombre completo",
+  storeEmail: "Correo electrónico",
+  storeAddress1: "Dirección",
+  storeAddress2: "Apartamento, suite (opcional)",
+  storeCity: "Ciudad",
+  storeState: "Estado",
+  storePostalCode: "Código postal",
+  storeCountry: "País",
+  storePhone: "Teléfono (opcional)",
+  storeGetShipping: "Ver opciones de envío",
+  storeChooseShipping: "Elige el envío",
+  storeCheckout: "Pagar",
+  storeCheckoutNote: "Pagarás de forma segura en Stripe. Nunca vemos tu tarjeta.",
+  storeOrderTitle: "Tu pedido",
+  storeOrderProcessing: "Lo recibimos — se está preparando.",
+  storeOrderShipped: "En camino.",
+  storeOrderProblem: "Algo necesita atención.",
+  storeOrderProblemNote:
+    "Tu pago se procesó, pero este pedido necesita que alguien lo revise. Ya nos avisaron y te contactaremos.",
+  storeTracking: "Seguimiento",
+  storeOrderNotFound: "No encontramos ese pedido.",
+  storeShipTo: "Enviar a",
+  storePlaced: "Realizado",
+  storeMadeToOrder: "Se imprime por encargo, así que tardará unos días en enviarse.",
+  landingStoreBody: "Ropa escolar de Eisenhower — camisetas, sudaderas y más, impresas por encargo y enviadas a tu casa.",
+  landingStoreMore: "Cada compra apoya a la PTO. No necesitas cuenta para comprar.",
 };
 
 const zh: Strings = {
@@ -1530,6 +1676,7 @@ const zh: Strings = {
 
   footerBuiltBy: "本网站由{school}制作。",
   footerFeedback: "有意见或建议？请发送邮件至 {email}",
+  footerSource: "在 GitHub 上查看源代码",
 
   landingWelcome: "欢迎",
   landingTitle: "{school} — 名录、日历与通讯",
@@ -1607,6 +1754,50 @@ const zh: Strings = {
   masqViewingAs: "正在查看",
   masqReturn: "返回管理员",
   signOut: "退出登录",
+
+  brandSubStore: "商店",
+  navStore: "商店",
+  storeTitle: "学校商店",
+  storeLead: "校园服饰，按订单印制。每一笔购买都支持家长教师协会。",
+  storeEmpty: "暂时还没有商品 — 请稍后再来。",
+  storeFrom: "起价 {price}",
+  storeSoldOut: "已售罄",
+  storeChooseOption: "选择尺码",
+  storeAddToCart: "加入购物车",
+  storeCart: "购物车",
+  storeCartEmpty: "购物车是空的。",
+  storeKeepShopping: "继续购物",
+  storeQty: "数量",
+  storeRemove: "移除",
+  storeSubtotal: "小计",
+  storeShipping: "运费",
+  storeTotal: "合计",
+  storeWhereTo: "寄到哪里？",
+  storeFullName: "姓名",
+  storeEmail: "电子邮箱",
+  storeAddress1: "街道地址",
+  storeAddress2: "公寓、房间号（选填）",
+  storeCity: "城市",
+  storeState: "州",
+  storePostalCode: "邮政编码",
+  storeCountry: "国家",
+  storePhone: "电话（选填）",
+  storeGetShipping: "查看配送方式",
+  storeChooseShipping: "选择配送方式",
+  storeCheckout: "结账",
+  storeCheckoutNote: "你将在 Stripe 上安全付款。我们不会看到你的卡号。",
+  storeOrderTitle: "你的订单",
+  storeOrderProcessing: "已收到 — 正在制作中。",
+  storeOrderShipped: "已发货。",
+  storeOrderProblem: "有一个问题需要处理。",
+  storeOrderProblemNote: "你的付款已完成，但这笔订单需要人工处理。我们已收到通知，会与你联系。",
+  storeTracking: "物流查询",
+  storeOrderNotFound: "找不到该订单。",
+  storeShipTo: "寄送至",
+  storePlaced: "下单时间",
+  storeMadeToOrder: "商品按订单印制，发货前请预留几天时间。",
+  landingStoreBody: "Eisenhower 校园服饰 — T恤、卫衣等，按订单印制并直接寄到你家。",
+  landingStoreMore: "每一笔购买都支持家长教师协会。无需账户即可购买。",
 };
 
 const so: Strings = {
@@ -1956,6 +2147,7 @@ const so: Strings = {
 
   footerBuiltBy: "Bogga waxaa dhisay {school}.",
   footerFeedback: "Ma leedahay talo? Iimayl u dir {email}",
+  footerSource: "Ka eeg koodhka isha ee GitHub",
 
   landingWelcome: "Soo dhawoow",
   landingTitle: "{school} — tusmo, kalandar iyo warsidaha",
@@ -2037,6 +2229,52 @@ const so: Strings = {
   masqViewingAs: "Waxaad u eegaysaa sida",
   masqReturn: "Ku noqo maamulka",
   signOut: "Ka bax",
+
+  brandSubStore: "Dukaanka",
+  navStore: "Dukaanka",
+  storeTitle: "Dukaanka dugsiga",
+  storeLead: "Dhar dugsiga, la daabaco marka la dalbado. Iibsi kastaa wuxuu taageerayaa PTO-da.",
+  storeEmpty: "Wax iib ah weli ma jiraan — dib u eeg.",
+  storeFrom: "laga bilaabo {price}",
+  storeSoldOut: "Waa la wada iibiyay",
+  storeChooseOption: "Dooro cabbir",
+  storeAddToCart: "Ku dar gaadhiga",
+  storeCart: "Gaadhiga",
+  storeCartEmpty: "Gaadhigaagu waa madhan yahay.",
+  storeKeepShopping: "Sii wad iibsiga",
+  storeQty: "Tirada",
+  storeRemove: "Ka saar",
+  storeSubtotal: "Wadarta hoose",
+  storeShipping: "Rarid",
+  storeTotal: "Wadarta",
+  storeWhereTo: "Xaggee loo diro?",
+  storeFullName: "Magaca oo dhan",
+  storeEmail: "Iimaylka",
+  storeAddress1: "Cinwaanka jidka",
+  storeAddress2: "Guriga, qolka (ikhtiyaari)",
+  storeCity: "Magaalada",
+  storeState: "Gobolka",
+  storePostalCode: "Lambarka boostada",
+  storeCountry: "Dalka",
+  storePhone: "Telefoon (ikhtiyaari)",
+  storeGetShipping: "Eeg qaababka rarida",
+  storeChooseShipping: "Dooro rarida",
+  storeCheckout: "Bixi",
+  storeCheckoutNote: "Waxaad si ammaan ah ugu bixin doontaa Stripe. Weligeen ma aragno kaarkaaga.",
+  storeOrderTitle: "Dalabkaaga",
+  storeOrderProcessing: "Waan helnay — waa la diyaarinayaa.",
+  storeOrderShipped: "Waa socdaa.",
+  storeOrderProblem: "Wax caawimaad u baahan ayaa jira.",
+  storeOrderProblemNote:
+    "Lacag bixintaadu way dhammaatay, laakiin dalabkan wuxuu u baahan yahay qof eega. Waa nala ogeysiiyay, waana kula soo xiriiri doonnaa.",
+  storeTracking: "Raadraaca",
+  storeOrderNotFound: "Ma helin dalabkaas.",
+  storeShipTo: "Loo diro",
+  storePlaced: "La dalbaday",
+  storeMadeToOrder: "Waa la daabacaa marka la dalbado, sidaas darteed dhowr maalmood ka sug inta aan la dirin.",
+  landingStoreBody:
+    "Dharka dugsiga Eisenhower — funaanado, koodh iyo wax kale, la daabaco marka la dalbado oo albaabkaaga la keeno.",
+  landingStoreMore: "Iibsi kastaa wuxuu taageerayaa PTO-da. Xisaab uma baahnid inaad wax iibsato.",
 };
 
 export const dictionaries: Record<Locale, Strings> = { en, es, zh, so };

@@ -5,6 +5,7 @@
 // copied: it comes from the shared i18n dictionaries, so all three say the same
 // thing in all four languages.
 import type { CSSProperties } from "react";
+import { SOURCE_URL } from "@sd/shared";
 import { useI18n } from "../i18n/index.js";
 
 /** Where feedback goes. Config rather than copy — an instance that isn't
@@ -41,6 +42,11 @@ export function SiteFooter({ style }: { style?: CSSProperties }) {
         {before}
         <a className="sd-link" href={`mailto:${FEEDBACK_EMAIL}`}>{FEEDBACK_EMAIL}</a>
         {after}
+      </div>
+      <div>
+        <a className="sd-link" href={SOURCE_URL} target="_blank" rel="noreferrer noopener">
+          {t("footerSource")}
+        </a>
       </div>
     </footer>
   );

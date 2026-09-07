@@ -21,7 +21,7 @@
 // Translating them means giving these functions a locale of their own — worth
 // doing, but a larger change than duplicating two lines.
 
-import { formatIssueDate, NEWSLETTER_WEB_CSS, renderNewsletterIssuePageHtml } from "@sd/shared";
+import { formatIssueDate, NEWSLETTER_WEB_CSS, renderNewsletterIssuePageHtml, SOURCE_URL } from "@sd/shared";
 import type { NewsletterIssuePageDTO } from "@sd/shared";
 
 export interface PagesEnv {
@@ -93,6 +93,7 @@ ${input.body}
     <div class="nl-site-foot">
       <div>Site built by the Eisenhower PTO.</div>
       <div>Feedback? Email <a href="mailto:admin@eisenhower.school">admin@eisenhower.school</a></div>
+      <div><a href="${SOURCE_URL}">View the source on GitHub</a></div>
       <div style="margin-top:10px"><a href="/app">Members: sign in</a></div>
     </div>
 ${input.print ? PRINT_SCRIPT : ""}

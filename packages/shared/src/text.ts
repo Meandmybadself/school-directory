@@ -78,3 +78,28 @@ export function volunteerSheetSlug(title: string, occurrenceStartIso: string): s
   const head = slugifyTitle(title);
   return head ? `${head}-${date}` : date;
 }
+
+// ── Money ───────────────────────────────────────────────────────────────────
+
+/** Integer cents → "$24.00".
+ *
+ *  Every amount in the store is integer cents (migration 0022), and three
+ *  surfaces render one: the confirmation email, the server-rendered storefront,
+ *  and the cart. They live in three packages that cannot import each other, but
+ *  they can all import this — so a receipt, a price tag and a total can't
+ *  disagree about rounding. */
+export function formatMoney(cents: number, currency = "usd"): string {
+  const amount = (cents / 100).toFixed(2);
+  return currency.toLowerCase() === "usd" ? `$${amount}` : `${amount} ${currency.toUpperCase()}`;
+}
+
+/** Where this instance's source lives.
+ *
+ *  Every footer in the project links here — the four SPAs, the front door, the
+ *  storefront and the newsletter archive — so it is one constant rather than six
+ *  copies of a URL that would drift the day somebody forks this. It is safe to
+ *  print because the repository is deliberately PUBLIC: nothing member-private
+ *  has ever lived in it (secrets are wrangler secrets, and the seed data is
+ *  invented), which is the property to re-check before pointing this at a
+ *  different repo. */
+export const SOURCE_URL = "https://github.com/Meandmybadself/school-directory";
