@@ -17,6 +17,10 @@ export interface Env {
   NEWSLETTER_URL: string;
   /** Public calendar site. Events blocks in a newsletter link out to it. */
   CALENDAR_URL?: string;
+  /** Public origin of the store. Stripe's success/cancel URLs and the
+   *  order-status links in confirmation email point here, so it must be the
+   *  reader-facing host and not this API. */
+  STORE_URL: string;
   /** IANA zone used to name the day/time of events rendered server-side (email
    *  and public archive), which have no viewer to infer a zone from. */
   SCHOOL_TIMEZONE?: string;
@@ -37,6 +41,39 @@ export interface Env {
    *  absent RESEND_API_KEY does for mail. The value is a bearer capability to
    *  post into that channel, so it lives here as a secret and is never logged. */
   SLACK_WEBHOOK_URL?: string;
+  /** Printful v1 API key, and the store it acts on. Absent — the default, and
+   *  the case in local dev — turns the catalog and fulfilment calls off and
+   *  logs them instead, exactly as an absent RESEND_API_KEY does for mail, so
+   *  the whole storefront is still walkable without a Printful account.
+   *
+   *  Both are expected to CHANGE ONCE: this instance starts against a personal
+   *  Printful store and moves to the PTO's. Nothing durable is keyed on them —
+   *  see migration 0022 — so that day is a secret rotation plus an admin
+   *  re-point, not a migration. */
+  PRINTFUL_API_KEY?: string;
+  PRINTFUL_STORE_ID?: string;
+  /** Stripe secret key and the signing secret for the webhook endpoint at
+   *  /store-webhooks/stripe. Same absent-means-off contract; with no key the
+   *  cart is walkable right up to the redirect. Also expected to change once,
+   *  from a personal account to the PTO's — which is why every order freezes
+   *  its own totals and lines rather than being re-derived from Stripe. */
+  STRIPE_SECRET_KEY?: string;
+  STRIPE_WEBHOOK_SECRET?: string;
+  /** Shared secret Printful is configured to send with its webhooks. Printful's
+   *  v1 webhooks are not signed the way Stripe's are, so this is what the
+   *  shipment endpoint checks; see routes/storeWebhooks.ts for why a forged
+   *  call is bounded even without it. */
+  PRINTFUL_WEBHOOK_SECRET?: string;
+  /** Keys the store's own HMACs: the signed shipping quote and the derived
+   *  order-status token (lib/storeQuote.ts, lib/storeOrder.ts).
+   *
+   *  Unlike every other optional secret here it does NOT degrade gracefully in
+   *  production. A guessable quote key is a guessable PRICE, so the dev
+   *  fallback exists only while STRIPE_SECRET_KEY is also absent — the one
+   *  configuration where no card can be charged. Rotating it invalidates every
+   *  order-status link already emailed, which is why it is separate from
+   *  anything on the auth path. */
+  STORE_SECRET?: string;
 }
 
 /** Authenticated context attached to a request after session middleware. */

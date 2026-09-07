@@ -5,6 +5,8 @@ import { Hono } from "hono";
 import { cors } from "hono/cors";
 import type { Env, HonoEnv } from "./env.js";
 import { refreshAllSources } from "./lib/calendar.js";
+import { refreshStoreCatalog } from "./lib/store.js";
+import { retryStuckOrders, sweepAbandonedOrders } from "./lib/storeOrder.js";
 import { allowedOrigins } from "./lib/db.js";
 import { sendNewSubscriberDigest, sendNewUserDigest } from "./lib/notify.js";
 import { runDailySweeps } from "./lib/sweep.js";
@@ -30,6 +32,9 @@ import { newsletter } from "./routes/newsletter.js";
 import { newsletterPublic } from "./routes/newsletterPublic.js";
 import { volunteers } from "./routes/volunteers.js";
 import { volunteersPublic } from "./routes/volunteersPublic.js";
+import { store } from "./routes/store.js";
+import { storePublic } from "./routes/storePublic.js";
+import { storeWebhooks } from "./routes/storeWebhooks.js";
 
 const app = new Hono<HonoEnv>();
 
@@ -71,6 +76,11 @@ app.route("/newsletter", newsletter); // authoring — system admins only
 app.route("/newsletter-public", newsletterPublic); // archive + subscribe/unsubscribe — no auth by design
 app.route("/volunteers", volunteers); // signup reads with names + claims — members only
 app.route("/volunteers-public", volunteersPublic); // signup counts, no names — no auth by design
+app.route("/store", store); // admin catalog/orders, plus a member's own orders
+app.route("/store-public", storePublic); // catalog, cart pricing, checkout, order status — no auth by design
+// Vendor callbacks. Not "no auth by design" like the routers above: the trust
+// boundary is a signature, checked inside each handler against the RAW body.
+app.route("/store-webhooks", storeWebhooks);
 // share-targets is exposed under /shares/targets via the shares router.
 app.route("/", contacts); // /persons/:id/contacts + /contacts/:id
 app.route("/", controllers); // /persons/:id/controllers + /control-invites
@@ -131,9 +141,23 @@ app.notFound((c) => c.json({ error: "not_found" }, 404));
 //                  set that notification to "daily", and they are independent
 //                  settings, so one may fire while the other doesn't.
 // The two never collide: */3 fires on even hours only.
+//
+// A third schedule joins them for the store:
+//   */15 * * * *  — re-drive paid orders that never reached Printful. Fifteen
+//                   minutes rather than riding the 3-hourly refresh because the
+//                   thing being recovered is a CHARGED order that hasn't been
+//                   printed; the inline waitUntil handles it in seconds in the
+//                   normal case, and this is only the backstop for a Worker that
+//                   died mid-flight. Overlapping fires are harmless — the
+//                   submission claim is a guarded UPDATE only one caller wins.
 const DIGEST_CRON = "0 13 * * *";
+const STORE_CRON = "*/15 * * * *";
 
 const scheduled: ExportedHandlerScheduledHandler<Env> = (event, env, ctx) => {
+  if (event.cron === STORE_CRON) {
+    ctx.waitUntil(retryStuckOrders(env));
+    return;
+  }
   if (event.cron === DIGEST_CRON) {
     // Separately awaited inside their own try/catch, so one failing digest
     // can't swallow the other.
@@ -143,9 +167,16 @@ const scheduled: ExportedHandlerScheduledHandler<Env> = (event, env, ctx) => {
     // Two of them back a rate limit that counts rows, which makes their
     // retention a security parameter rather than tidiness — see lib/sweep.ts.
     ctx.waitUntil(runDailySweeps(env));
+    // Unpaid checkouts are marked `abandoned`, never deleted — see migration
+    // 0022. It rides the daily sweep rather than lib/sweep.ts because it is an
+    // UPDATE, and that file is deliberately only DELETEs of growing tables.
+    ctx.waitUntil(sweepAbandonedOrders(env));
     return;
   }
   ctx.waitUntil(refreshAllSources(env));
+  // A design discontinued upstream should stop being for sale without waiting
+  // for an admin to notice. Never throws; one bad product doesn't stop the rest.
+  ctx.waitUntil(refreshStoreCatalog(env));
 };
 
 export default { fetch: app.fetch, scheduled };

@@ -122,3 +122,19 @@ jobs:
         run: |
           pnpm build
           pnpm exec wrangler pages deploy --branch main
+
+      # Also ships Functions (the indexed storefront at / and /p/:slug, the
+      # order page at /o/:token, robots.txt and sitemap.xml), so like the
+      # newsletter it deploys from its own wrangler.toml rather than naming the
+      # output directory and project on the command line. See apps/store/ROUTING.md.
+      - name: Build & deploy store (Pages)
+        if: steps.guard.outputs.enabled == 'true'
+        working-directory: apps/store
+        env:
+          VITE_API_URL: https://api-directory.eisenhower.school
+          VITE_DIRECTORY_URL: https://directory.eisenhower.school
+          VITE_CALENDAR_URL: https://calendar.eisenhower.school
+          VITE_NEWSLETTER_URL: https://newsletter.eisenhower.school
+        run: |
+          pnpm build
+          pnpm exec wrangler pages deploy --branch main

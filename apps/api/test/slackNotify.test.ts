@@ -7,7 +7,7 @@
 // two guard a response to an anonymous reader inside the system, this one
 // guards a message to a third party with retention, search and export.
 //
-// Four properties are load-bearing here, and each has a test that fails loudly:
+// Four properties hold this seam together, and each has a test that fails loudly:
 //
 //   1. An action with no formatter sends nothing — including an action that
 //      does not exist yet, which is the case no route-pinned test can cover.
@@ -644,5 +644,82 @@ describe("someone new", () => {
       { action: "admin.action", entityId: "01U", notify: { op: "user.create", email: "a@b.edu", emailSent: false } },
     ]);
     expect(quiet).toContain("no invitation sent");
+  });
+});
+
+describe("the store", () => {
+  it("speaks a sale, with a total and a town and nothing else", async () => {
+    // What routes/storeWebhooks.ts actually puts in the bag. Note what is NOT
+    // there: no buyer name, no street address, no email. The channel is a third
+    // party with its own retention and membership list (invariant 22), and a
+    // sale is reportable where the person who made it is not.
+    const [line] = await lines([
+      {
+        action: "store.order.paid",
+        entityKind: "store_order",
+        entityId: "01ORDER",
+        detail: { email: "buyer@example.com", totalCents: 5395, itemCount: 2 },
+        notify: { totalCents: 5395, itemCount: 2, city: "Hopkins", state: "MN" },
+      },
+    ]);
+    expect(line).toContain("$53.95");
+    expect(line).toContain("2 items");
+    expect(line).toContain("Hopkins, MN");
+    // `detail` carries the buyer's address; the formatter cannot see it.
+    expect(line).not.toContain("buyer@example.com");
+  });
+
+  it("never emits the buyer's email even when only `detail` holds it", async () => {
+    // The same property calendar.source.created pins, restated for the store:
+    // a formatter starved of `notify` reaches for nothing.
+    const [line] = await lines([
+      {
+        action: "store.order.paid",
+        entityKind: "store_order",
+        entityId: "01ORDER",
+        detail: {
+          email: "buyer@example.com",
+          shipTo: "412 Maple Street, Hopkins MN",
+          stripeSessionId: "cs_live_secret",
+        },
+      },
+    ]);
+    expect(line).not.toContain("buyer@example.com");
+    expect(line).not.toContain("412 Maple Street");
+    expect(line).not.toContain("cs_live_secret");
+  });
+
+  it("raises a charged-but-unprinted order, because that one needs a person", async () => {
+    const [line] = await lines([
+      {
+        action: "store.order.fulfillment_failed",
+        entityKind: "store_order",
+        entityId: "01ORDER",
+        detail: { error: "Variant 4771000 is discontinued", attempts: 6 },
+        notify: { totalCents: 5395, attempts: 6 },
+      },
+    ]);
+    expect(line).toContain("01ORDER");
+    expect(line).toContain("$53.95");
+    expect(line).toContain("6 attempts");
+    // Printful's raw message lives in `detail` for the admin screen, not here.
+    expect(line).not.toContain("discontinued");
+  });
+
+  it("says nothing about catalog edits, a shipment, or an admin retry", async () => {
+    // All three stay out for the reasons that keep `person.updated` out. The
+    // catalog edit is an admin working in a screen they are already looking at;
+    // the shipment is already emailed to the only person who cares; and the
+    // retry is the expected response to a `fulfillment_failed` line the channel
+    // has ALREADY seen — saying it twice would make the alert worth less.
+    // Adding any of them is a decision to make after counting real volume
+    // (invariant 22's "count first"), not before.
+    expect(
+      await lines([
+        { action: "store.product.updated", entityId: "01P", detail: { op: "edited" } },
+        { action: "store.order.shipped", entityId: "01ORDER", detail: { carrier: "USPS" } },
+        { action: "store.order.retried", entityId: "01ORDER" },
+      ]),
+    ).toEqual([]);
   });
 });

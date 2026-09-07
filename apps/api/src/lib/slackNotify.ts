@@ -125,6 +125,12 @@ function num(bag: NotifyBag, key: string): number {
   return typeof v === "number" ? v : 0;
 }
 
+/** Integer cents → "$24.00". The store is the only thing here that talks about
+ *  money, and it is single-currency (migration 0022). */
+function money(cents: number): string {
+  return `$${(cents / 100).toFixed(2)}`;
+}
+
 /** " on Oct 17" — the date an event starts, or "" when the bag has no usable
  *  one. Read in SCHOOL_TIMEZONE, never the Worker's UTC: a 7pm event would
  *  otherwise report the following day for half the year. */
@@ -428,6 +434,40 @@ const FORMATTERS = {
     // No lookup possible: the row is gone by the time this runs, which is why
     // its route captures the name into `notify` before the delete.
     `:calendar: Calendar feed removed: *${str(notify, "name")}* — ${actor}.`,
+
+  // ── Store ──
+  //
+  // Two of the store's four actions, and the split is the one this whole
+  // allowlist keeps making: a sale is an arrival, and a charged-but-unprinted
+  // order needs a human. The other two stay out for the reasons that keep
+  // `person.updated` out — `store.product.updated` is an admin editing a screen
+  // they are already looking at, and `store.order.shipped` is already emailed to
+  // the person who actually cares.
+  //
+  // Note what these lines may NOT say. `notify` carries scalars a route named by
+  // hand, and neither of these routes put a buyer's name or street address in
+  // it. That is not restraint at the formatter — a formatter cannot see `detail`
+  // at all, so the name simply is not in scope here. A Slack channel has its own
+  // retention, export and membership list (invariant 22), and "a sale happened,
+  // this big, to this town" is the whole of what a PTO channel needs.
+  //
+  // There is no actor on either: a webhook and a cron are not people, so both
+  // are phrased as things that happened rather than things somebody did.
+
+  "store.order.paid": ({ notify }) => {
+    const where = [str(notify, "city", ""), str(notify, "state", "")].filter(Boolean).join(", ");
+    const items = num(notify, "itemCount");
+    return (
+      `:shopping_trolley: Store order — ${money(num(notify, "totalCents"))}` +
+      `, ${items} item${items === 1 ? "" : "s"}` +
+      (where ? ` — ${where}.` : ".")
+    );
+  },
+
+  "store.order.fulfillment_failed": ({ entityId, notify }) =>
+    `:rotating_light: Store order \`${esc(entityId ?? "(unknown)")}\` was PAID (${money(
+      num(notify, "totalCents"),
+    )}) but Printful refused it after ${num(notify, "attempts")} attempts — it needs a person.`,
 } satisfies Partial<Record<AuditAction, SlackFormatter>>;
 
 // ── Shared lookups ──────────────────────────────────────────────────────────

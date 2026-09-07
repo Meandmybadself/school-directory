@@ -12,6 +12,7 @@ const env: Env = {
   DIRECTORY_URL: "https://directory.eisenhower.school",
   CALENDAR_URL: "https://calendar.eisenhower.school",
   NEWSLETTER_URL: "https://newsletter.eisenhower.school",
+  STORE_URL: "https://store.eisenhower.school",
   SCHOOL_SITE_URL: "https://eisenhower.hopkinsschools.org/",
   FEEDBACK_EMAIL: "admin@eisenhower.school",
   SCHOOL_CITY: "Hopkins",

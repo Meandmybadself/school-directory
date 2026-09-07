@@ -1061,6 +1061,239 @@ export interface PublicNewsletterConfirmationDTO {
   email: string;
 }
 
+// ── Store ─────────────────────────────────────────────────────────────────
+
+/** One buyable size/colour of a product.
+ *
+ *  `id` is OURS — a ULID minted at first import and preserved across every
+ *  re-sync — not Printful's numeric variant id, which never leaves the server.
+ *  That is what lets the whole catalog be re-pointed at a different Printful
+ *  store (this instance starts on a personal one and moves to the PTO's)
+ *  without invalidating a cart someone left open or a line on a past order.
+ *
+ *  Price is per variant because Printful charges more for 2XL/3XL; a single
+ *  product price would mean eating that or charging small sizes for it. */
+export interface StoreVariantDTO {
+  id: string;
+  label: string;
+  imageUrl: string | null;
+  inStock: boolean;
+  priceCents: number;
+}
+
+/** Admin's view of one overlay row. */
+export interface StoreProductDTO {
+  id: string;
+  printfulSyncProductId: string;
+  slug: string;
+  /** Resolved: the admin's override, else Printful's own product name. */
+  title: string;
+  /** Printful's name, shown beside the override so an admin can see both. */
+  printfulTitle: string;
+  titleOverride: string | null;
+  blurb: string | null;
+  imageUrl: string | null;
+  published: boolean;
+  sortOrder: number;
+  variants: StoreVariantDTO[];
+  syncedAt: string;
+  updatedAt: string;
+}
+
+/** What a storefront visitor may see of a variant. Hand-written, not a `Pick<>`
+ *  of StoreVariantDTO, for the reason invariant 12 gives: a field added to the
+ *  admin shape must not reach an anonymous reader until someone edits this on
+ *  purpose. Today the two happen to match; that is not a licence to alias them. */
+export interface PublicStoreVariantDTO {
+  id: string;
+  label: string;
+  imageUrl: string | null;
+  inStock: boolean;
+  priceCents: number;
+}
+
+/** THE storefront projection — the companion to `publicEventOf`,
+ *  `publicSheetOf` and `issuePageOf`, built field by field by `publicProductOf`
+ *  and never by spreading a StoreProductDTO or a row.
+ *
+ *  Deliberately absent: `id` and `printfulSyncProductId` (a shopper addresses a
+ *  product by slug and a variant by our variant id — Printful's own ids are
+ *  server-side mapping, invariant 26), `published`/`sortOrder`/`syncedAt`
+ *  (merchandising bookkeeping), and anything about wholesale cost or margin,
+ *  which has no column here at all and therefore no path to one. */
+export interface PublicStoreProductDTO {
+  slug: string;
+  title: string;
+  blurb: string | null;
+  imageUrl: string | null;
+  variants: PublicStoreVariantDTO[];
+  /** Cheapest variant, so a catalog tile can say "from $24" without the caller
+   *  reducing over `variants` and getting it subtly different each time. */
+  fromPriceCents: number;
+}
+
+/** One line of a cart, a quote or an order. The same shape at all three stages
+ *  on purpose: a quote freezes the cart, an order freezes the quote, and a
+ *  shape that changed between them would be a place for a price to drift. */
+export interface StoreLineDTO {
+  productId: string;
+  variantId: string;
+  title: string;
+  variantLabel: string;
+  imageUrl: string | null;
+  unitPriceCents: number;
+  quantity: number;
+}
+
+/** What the client asks to be priced. Note what it does NOT carry: a price.
+ *  Every amount in a quote is read server-side from `store_product`. */
+export interface StoreCartItemInput {
+  variantId: string;
+  quantity: number;
+}
+
+export interface StoreAddressInput {
+  name: string;
+  line1: string;
+  line2?: string | null;
+  city: string;
+  /** Two-letter state/province code — Printful wants `state_code`. */
+  state: string;
+  postalCode: string;
+  /** ISO-3166-1 alpha-2. */
+  country: string;
+  phone?: string | null;
+}
+
+/** One shipping option Printful offered for this cart and address. */
+export interface StoreShippingRateDTO {
+  /** Printful's own rate id ("STANDARD"), echoed back verbatim at order time
+   *  so the method we quoted is the method we buy. */
+  id: string;
+  label: string;
+  amountCents: number;
+  /** Printful's own delivery estimate text, when it gave one. */
+  deliveryEstimate: string | null;
+}
+
+export interface StoreShippingRatesDTO {
+  lines: StoreLineDTO[];
+  subtotalCents: number;
+  rates: StoreShippingRateDTO[];
+  currency: string;
+}
+
+/** A priced, signed, single-use quote. `token` is opaque to the client — an
+ *  HMAC-signed payload it stores and echoes back at checkout, never inspects.
+ *  The other fields are the same numbers, unsigned, purely so the cart can
+ *  render a total without decoding anything. */
+export interface StoreQuoteDTO {
+  token: string;
+  expiresAt: string;
+  lines: StoreLineDTO[];
+  subtotalCents: number;
+  shippingLabel: string;
+  shippingCents: number;
+  totalCents: number;
+  currency: string;
+}
+
+/** POST /store-public/checkout — where to send the buyer. */
+export interface StoreCheckoutDTO {
+  checkoutUrl: string;
+}
+
+export type StoreOrderStatus =
+  | "awaiting_payment"
+  | "paid"
+  | "submitting"
+  | "submitted"
+  | "shipped"
+  | "fulfillment_failed"
+  | "abandoned";
+
+/** What a BUYER is told, which is not the internal enum. `submitting` and
+ *  `submitted` are the same fact to someone waiting for a parcel, and
+ *  `fulfillment_failed` must not read as "we lost your money" when the answer
+ *  is that a person is about to look at it. */
+export type PublicStoreOrderStatus = "processing" | "shipped" | "problem";
+
+/** The token-gated order page, built by `orderStatusOf`.
+ *
+ *  Never carries: the order id, `userId`, the Stripe session/payment-intent
+ *  ids, `printfulOrderId`, `submitAttempts`, `lastSubmitError`, Printful's raw
+ *  `fulfillmentStatus`, or the status-token hash. Same discipline as
+ *  `issuePageOf`, and for the same reason — the row holds a live bearer
+ *  capability, so a spread would publish it on an enumerable page. */
+export interface PublicStoreOrderDTO {
+  status: PublicStoreOrderStatus;
+  lines: StoreLineDTO[];
+  subtotalCents: number;
+  shippingLabel: string;
+  shippingCents: number;
+  totalCents: number;
+  currency: string;
+  /** Enough to recognise the parcel's destination, not the full address. */
+  shipTo: { name: string; city: string; state: string; postalCode: string };
+  trackingNumber: string | null;
+  trackingUrl: string | null;
+  carrier: string | null;
+  placedAt: string | null;
+  shippedAt: string | null;
+}
+
+/** Admin order list/detail. Hand-written too, for the same reason: the row
+ *  carries `status_token_hash`, and a spread would hand an admin screen a live
+ *  capability onto a buyer's order page. */
+export interface StoreOrderDTO {
+  id: string;
+  status: StoreOrderStatus;
+  userId: string | null;
+  email: string;
+  lines: StoreLineDTO[];
+  shippingAddress: StoreAddressInput;
+  subtotalCents: number;
+  shippingLabel: string;
+  shippingCents: number;
+  totalCents: number;
+  currency: string;
+  stripePaymentIntentId: string | null;
+  printfulOrderId: string | null;
+  submitAttempts: number;
+  lastSubmitError: string | null;
+  fulfillmentStatus: string | null;
+  trackingNumber: string | null;
+  trackingUrl: string | null;
+  carrier: string | null;
+  paidAt: string | null;
+  submittedAt: string | null;
+  shippedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/** One Printful sync product as the admin's import screen sees it, merged with
+ *  whether we already carry it. */
+export interface StorePrintfulCatalogItemDTO {
+  printfulSyncProductId: string;
+  name: string;
+  thumbnailUrl: string | null;
+  variantCount: number;
+  /** The store_product id, when this design is already imported. */
+  importedAs: string | null;
+}
+
+/** Body for PATCH /store/products/:id. Every field optional — an admin edits
+ *  one thing at a time and an absent key means "leave it". */
+export interface StoreProductPatchBody {
+  titleOverride?: string | null;
+  blurb?: string | null;
+  sortOrder?: number;
+  published?: boolean;
+  /** Per-variant prices, by our variant id. Variants omitted keep their price. */
+  variantPrices?: Record<string, number>;
+}
+
 // ── Audit ─────────────────────────────────────────────────────────────────
 
 /** Actions captured in the append-only audit log (FR-31). */
@@ -1168,4 +1401,34 @@ export type AuditAction =
   | "contact.created"
   | "contact.updated"
   | "contact.deleted"
+  /** Anything an admin changes about the catalog — an import, a publish or
+   *  unpublish, a price, a sort, a title or blurb. One action for all of it,
+   *  the same economy `newsletter.settings.updated` uses: these are edits to a
+   *  merchandising surface the admin is already looking at, and splitting them
+   *  five ways would say nothing `detail` doesn't. Not Slack-curated, for the
+   *  reason invariant 22 keeps `person.updated` out. */
+  | "store.product.updated"
+  /** Money arrived. The store's `auth.registered` — it fires once in an order's
+   *  life, where the transitions around it fire on machine schedules — and one
+   *  of only two store actions that reach Slack. Pushed from the Stripe webhook
+   *  the moment the guarded UPDATE claims the row, never after the reads that
+   *  build the confirmation email: those can fail on their own, and then a sale
+   *  that really happened would have no audit row (invariant 22's ordering
+   *  rule, and the reason test/storeCheckout.test.ts pins it). */
+  | "store.order.paid"
+  /** The parcel is moving, with tracking on it. Recorded even though
+   *  `store_order` already holds the status, because it is a real-world event
+   *  with an outbound email attached and the guarded transition that fires it
+   *  is what stops a redelivered Printful webhook mailing a buyer twice. */
+  | "store.order.shipped"
+  /** Charged and not printed, after the retry budget is spent. The only store
+   *  action that needs a human, and the second of the two that reach Slack. */
+  | "store.order.fulfillment_failed"
+  /** An admin cleared a given-up order for another attempt. Rare, deliberate,
+   *  and the one lever anybody has over a charged-but-unprinted order — so who
+   *  pressed it belongs in the log, exactly as `newsletter.issue.retried`
+   *  records the same shape of act. Not Slack-curated: the channel already said
+   *  the order failed, and an admin acting on that is the expected next step
+   *  rather than news. */
+  | "store.order.retried"
   | "admin.action";

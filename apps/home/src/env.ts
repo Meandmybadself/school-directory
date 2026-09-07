@@ -6,6 +6,7 @@ export interface Env {
   DIRECTORY_URL: string;
   CALENDAR_URL: string;
   NEWSLETTER_URL: string;
+  STORE_URL: string;
   /** The API, read once per render for the upcoming-events block and nothing
    *  else — the anonymous `/calendar-public/*` half of it. Unset means the
    *  block simply doesn't render; see `events.ts`. */

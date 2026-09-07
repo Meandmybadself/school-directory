@@ -1,0 +1,21 @@
+# Cloudflare Pages project for the store.
+#
+# apps/web and apps/calendar are pure static Pages deploys and have no
+# wrangler.toml at all. This one does, for the same reason apps/newsletter does:
+# it ships Pages Functions — the indexed storefront at / and /p/:slug, the
+# order-status page at /o/:token, robots.txt and sitemap.xml — and those need to
+# know where the API is at REQUEST time, which a Vite build-time variable can't
+# reach.
+#
+# Pages has exactly two environments: production (the main branch) and preview
+# (every other branch). There is only one API, so both point at it.
+
+name = "school-store"
+compatibility_date = "2025-01-01"
+pages_build_output_dir = "dist"
+
+[vars]
+API_BASE = "https://api-directory.eisenhower.school"
+
+[env.preview.vars]
+API_BASE = "https://api-directory.eisenhower.school"

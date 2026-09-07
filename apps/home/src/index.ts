@@ -34,6 +34,7 @@ const SHORTCUTS: Record<string, (env: Env) => string> = {
   "/directory": (env) => `${trimSlash(env.DIRECTORY_URL)}/`,
   "/calendar": (env) => `${trimSlash(env.CALENDAR_URL)}/`,
   "/newsletter": (env) => `${trimSlash(env.NEWSLETTER_URL)}/`,
+  "/store": (env) => `${trimSlash(env.STORE_URL)}/`,
   "/sign-in": (env) => `${trimSlash(env.DIRECTORY_URL)}/sign-in`,
   "/subscribe": (env) => `${trimSlash(env.NEWSLETTER_URL)}/subscribe`,
 };

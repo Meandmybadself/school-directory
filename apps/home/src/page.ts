@@ -19,6 +19,7 @@ import {
   eventPath,
   interpolate,
   localeNames,
+  SOURCE_URL,
   type Locale,
   type PublicCalendarEventDTO,
   type Strings,
@@ -192,6 +193,29 @@ export async function renderHome(
       more: escapeHtml(t("landingNewsMore")),
       membersOnly: false,
     },
+    // The store's tile is deliberately ABSENT while the shop is unannounced.
+    //
+    // The code ships and store.eisenhower.school is live, but nothing on this
+    // site points at it yet, and this grid is the one place that would — it is
+    // the front door's answer to "what's here". The vanity redirect at /store
+    // (index.ts) still resolves, since typing a path is not the same as being
+    // sent down it.
+    //
+    // To announce the shop, restore the tile:
+    //
+    //     {
+    //       // The second indexed surface in the project, and the only one
+    //       // anybody can buy from — so "open to all" here is literal.
+    //       title: t("storeTitle"),
+    //       href: appHref(env.STORE_URL, "/", locale),
+    //       host: hostOf(env.STORE_URL),
+    //       body: t("landingStoreBody"),
+    //       more: escapeHtml(t("landingStoreMore")),
+    //       membersOnly: false,
+    //     },
+    //
+    // Its four dictionary strings (storeTitle, landingStoreBody,
+    // landingStoreMore) are already translated and waiting.
   ];
 
   const tileHtml = tiles
@@ -283,6 +307,7 @@ export async function renderHome(
         <div>${escapeHtml(feedBefore)}<a href="mailto:${escapeHtml(
           env.FEEDBACK_EMAIL,
         )}">${escapeHtml(env.FEEDBACK_EMAIL)}</a>${escapeHtml(feedAfter)}</div>
+        <div><a href="${escapeHtml(SOURCE_URL)}">${escapeHtml(t("footerSource"))}</a></div>
       </div>
     </footer>`;
 

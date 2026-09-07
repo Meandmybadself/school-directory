@@ -3,8 +3,25 @@
 RESEND_API_KEY=
 # Sender address Resend is verified to send from.
 EMAIL_FROM="Eisenhower Directory <directory@example.com>"
-# Reserved for future HMAC/signing needs.
 # Slack Incoming Webhook for system-event notifications (invariant 22).
 # When empty — the default — the feature is off and messages are logged to the
 # console instead, the same way an empty RESEND_API_KEY logs magic links.
 SLACK_WEBHOOK_URL=
+
+# ── Store (apps/store) ──────────────────────────────────────────────────────
+# All optional. Empty means the same thing an empty RESEND_API_KEY means: the
+# call is logged rather than made, and the storefront is still walkable — you
+# just can't import a real product or complete a real payment.
+PRINTFUL_API_KEY=
+PRINTFUL_STORE_ID=
+STRIPE_SECRET_KEY=
+# From `stripe listen` locally, or the Dashboard endpoint in production. With it
+# empty the webhook route refuses to act on anything, since it can't verify.
+STRIPE_WEBHOOK_SECRET=
+# Echoed by Printful as ?s= on its shipment webhook.
+PRINTFUL_WEBHOOK_SECRET=
+# Keys the signed shipping quote and the derived order-status token. The one
+# secret here that does NOT degrade gracefully: leaving it empty is fine ONLY
+# while STRIPE_SECRET_KEY is also empty, because a guessable quote key is a
+# guessable price. Set both together or neither.
+STORE_SECRET=
