@@ -24,7 +24,8 @@ const base: IcsEventInput = {
 /** Expand a rendered event the same way lib/managedCalendar.ts does. */
 function roundTrip(e: IcsEventInput, windowEnd = "2027-01-01T00:00:00.000Z") {
   const ics = renderCalendar("Test", [e]);
-  return parseIcs(ics, new Date(e.start), new Date(windowEnd));
+  // "UTC" mirrors managedCalendar.ts: our writer emits Z-suffixed times.
+  return parseIcs(ics, new Date(e.start), new Date(windowEnd), "UTC");
 }
 
 describe("ics date formatting", () => {
@@ -310,7 +311,7 @@ describe("imported calendar mirror", () => {
 
   it("round-trips back to the occurrences it was built from", async () => {
     const out = (await renderImportedSourceIcs(mirrorEnv(source, [row()]), "01SRC"))!;
-    const parsed = parseIcs(out, new Date("2026-06-01T00:00:00.000Z"), new Date("2026-07-01T00:00:00.000Z"));
+    const parsed = parseIcs(out, new Date("2026-06-01T00:00:00.000Z"), new Date("2026-07-01T00:00:00.000Z"), "UTC");
     expect(parsed).toHaveLength(1);
     expect(parsed[0]).toMatchObject({
       title: "Early release",

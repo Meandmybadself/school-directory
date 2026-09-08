@@ -5,7 +5,7 @@
 // pattern) and hand the string to the parser.
 
 import ICAL from "ical.js";
-import { eventTitleSlug, shiftIsoDate } from "@sd/shared";
+import { DEFAULT_TIME_ZONE, eventTitleSlug, shiftIsoDate } from "@sd/shared";
 import type {
   CalendarEventDTO,
   CalendarEventKind,
@@ -47,6 +47,12 @@ export interface ParsedEvent {
   allDay: boolean;
 }
 
+/** The wall clock an unzoned feed time belongs to. Configured per instance,
+ *  because it is a property of where the school IS, not of where this code runs. */
+function schoolZone(env: Env): string {
+  return env.SCHOOL_TIMEZONE || DEFAULT_TIME_ZONE;
+}
+
 function userAgent(env: Env): string {
   return `${env.SCHOOL_NAME ?? "School"} School Directory (+https://github.com/Meandmybadself/school-directory)`;
 }
@@ -56,32 +62,122 @@ function titleOf(event: ICAL.Event): string {
   return (event.summary ?? "").trim() || "(untitled)";
 }
 
+/** The UTC instant of a wall-clock reading in a named IANA zone.
+ *
+ *  There is no built-in for this: `Intl` converts an instant INTO a zone, and we
+ *  need the inverse. So take the reading as if it were UTC, ask what that
+ *  instant looks like in the target zone, and subtract the difference. The
+ *  second pass matters only at a DST boundary, where the offset that applies to
+ *  the answer is not the offset that applied to the guess. */
+function zoneOffsetMs(instantMs: number, timeZone: string): number {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone,
+    hourCycle: "h23",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+  }).formatToParts(new Date(instantMs));
+  const f = (type: string) => Number(parts.find((p) => p.type === type)?.value ?? "0");
+  const asUtc = Date.UTC(f("year"), f("month") - 1, f("day"), f("hour"), f("minute"), f("second"));
+  return asUtc - instantMs;
+}
+
+function wallClockToUtcMs(
+  y: number,
+  mo: number,
+  d: number,
+  h: number,
+  mi: number,
+  sec: number,
+  timeZone: string,
+): number {
+  const guess = Date.UTC(y, mo - 1, d, h, mi, sec);
+  const first = guess - zoneOffsetMs(guess, timeZone);
+  const second = guess - zoneOffsetMs(first, timeZone);
+  return second;
+}
+
+/** Is this time FLOATING — a wall-clock reading with no zone attached?
+ *
+ *  RFC 5545 calls `DTSTART:20260914T183000` (no trailing Z, no TZID) a floating
+ *  time: 6:30pm on whatever clock is on the wall where the event happens. It is
+ *  also what ical.js falls back to for a TZID whose VTIMEZONE was never
+ *  registered — which is why `parseIcs` registers them before reading any date. */
+function isFloating(t: ICAL.Time): boolean {
+  return t.zone === ICAL.Timezone.localTimezone || t.zone?.tzid === "floating";
+}
+
 /** Normalize one ICAL.Time to an ISO-8601 UTC string.
  *
  *  All-day values (`VALUE=DATE`, no time and no timezone) are read from their
  *  calendar fields rather than via `toJSDate()`, which resolves a floating date
  *  in the *runtime's* local zone — that yields midnight UTC on Workers but shifts
  *  the timestamp by the host offset anywhere else, which can land the event on
- *  the wrong calendar day east of UTC. Timed values carry a real instant and
- *  convert directly. */
-function isoOf(t: ICAL.Time): string {
+ *  the wrong calendar day east of UTC.
+ *
+ *  A FLOATING timed value has the same problem and it is not theoretical: the
+ *  district's feeds publish every timed event that way, with no VTIMEZONE
+ *  anywhere in the file. `toJSDate()` resolves those against the RUNTIME's zone,
+ *  and a Worker runs in UTC — so "6:30pm" was stored as 18:30Z and rendered to a
+ *  Central reader as 1:30pm, a clean five-hour shift with the duration intact.
+ *  `floatingZone` is the wall the clock is on: the school's own timezone.
+ *
+ *  A value that carries a real zone (a trailing Z, or a TZID whose VTIMEZONE was
+ *  registered) is already an instant and converts directly. */
+function isoOf(t: ICAL.Time, floatingZone: string): string {
   if (t.isDate) return new Date(Date.UTC(t.year, t.month - 1, t.day)).toISOString();
+  if (isFloating(t)) {
+    return new Date(
+      wallClockToUtcMs(t.year, t.month, t.day, t.hour, t.minute, t.second, floatingZone),
+    ).toISOString();
+  }
   return t.toJSDate().toISOString();
 }
 
 /** Epoch ms for an ICAL.Time, normalized the same way as `isoOf` so window
  *  comparisons agree with what gets stored. */
-function msOf(t: ICAL.Time): number {
-  return new Date(isoOf(t)).getTime();
+function msOf(t: ICAL.Time, floatingZone: string): number {
+  return new Date(isoOf(t, floatingZone)).getTime();
 }
 
 /** Parse ICS text into a flat list of events, expanding recurrences within
- *  [windowStart, windowEnd]. Times are normalized to UTC ISO strings. */
-export function parseIcs(text: string, windowStart: Date, windowEnd: Date): ParsedEvent[] {
+ *  [windowStart, windowEnd]. Times are normalized to UTC ISO strings.
+ *
+ *  `floatingZone` is REQUIRED rather than defaulted, so every call site has to
+ *  state which wall clock an unzoned time belongs to. A default would be wrong
+ *  half the time and silently: for a third-party feed the answer is the school's
+ *  timezone, and for our own round-trip it is UTC, because `icsWriter` only ever
+ *  emits Z-suffixed times. Getting it wrong shifts every timed event by the
+ *  offset and nothing fails — see `isoOf`. */
+export function parseIcs(
+  text: string,
+  windowStart: Date,
+  windowEnd: Date,
+  floatingZone: string,
+): ParsedEvent[] {
   const out: ParsedEvent[] = [];
   const comp = new ICAL.Component(ICAL.parse(text));
   const startMs = windowStart.getTime();
   const endMs = windowEnd.getTime();
+
+  // Register this feed's own VTIMEZONE definitions BEFORE any date is read.
+  // ical.js resolves a TZID through a global registry, and an unregistered TZID
+  // does not error — it silently degrades to floating, which is how a Google or
+  // Outlook feed would land in the wrong zone with nothing to notice. The reset
+  // keeps one feed's definition of a tzid from leaking into the next one parsed
+  // in the same isolate.
+  ICAL.TimezoneService.reset();
+  for (const vt of comp.getAllSubcomponents("vtimezone")) {
+    try {
+      ICAL.TimezoneService.register(vt);
+    } catch {
+      // A malformed VTIMEZONE falls back to floating, which `isoOf` then reads
+      // in floatingZone — a better answer than failing the whole feed.
+    }
+  }
 
   for (const ve of comp.getAllSubcomponents("vevent")) {
     let event: ICAL.Event;
@@ -98,8 +194,8 @@ export function parseIcs(text: string, windowStart: Date, windowEnd: Date): Pars
         title: titleOf(event),
         location: (event.location ?? "").trim() || null,
         description: (event.description ?? "").trim() || null,
-        start: isoOf(start),
-        end: end ? isoOf(end) : null,
+        start: isoOf(start, floatingZone),
+        end: end ? isoOf(end, floatingZone) : null,
         allDay: start.isDate === true,
       });
     };
@@ -112,7 +208,7 @@ export function parseIcs(text: string, windowStart: Date, windowEnd: Date): Pars
       // long-past rule can't loop forever, but only STORE in-window occurrences.
       while ((next = iter.next()) && iterations < MAX_ITERATIONS) {
         iterations++;
-        const occMs = msOf(next);
+        const occMs = msOf(next, floatingZone);
         if (occMs > endMs) break;
         if (occMs < startMs) continue; // already past the window's start
         try {
@@ -123,7 +219,7 @@ export function parseIcs(text: string, windowStart: Date, windowEnd: Date): Pars
         }
       }
     } else {
-      const occMs = msOf(event.startDate);
+      const occMs = msOf(event.startDate, floatingZone);
       if (occMs >= startMs && occMs < endMs) push(event.startDate, event.endDate ?? null);
     }
   }
@@ -148,7 +244,7 @@ export async function refreshSource(env: Env, source: SourceRow): Promise<{ ok: 
     });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const text = await res.text();
-    const parsed = parseIcs(text, windowStart, windowEnd);
+    const parsed = parseIcs(text, windowStart, windowEnd, schoolZone(env));
     // Keep the earliest N upcoming events; bounds storage for pathological feeds.
     parsed.sort((a, b) => a.start.localeCompare(b.start));
     const events = parsed.slice(0, MAX_EVENTS_PER_SOURCE);

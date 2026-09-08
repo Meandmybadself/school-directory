@@ -254,7 +254,11 @@ export function expandEvent(id: string, e: NormalizedEvent): ParsedEvent[] {
     ? new Date(new Date(e.recurrence.until).getTime() + 24 * 60 * 60 * 1000)
     : new Date(startMs + 1);
 
-  const occurrences = parseIcs(ics, windowStart, windowEnd);
+  // "UTC" is the right answer here and not a placeholder: this ICS is one we
+  // just rendered, and `icsWriter.icsDate` emits every timed value Z-suffixed,
+  // so nothing in it is floating. A third-party feed is the opposite case — see
+  // parseIcs's own note.
+  const occurrences = parseIcs(ics, windowStart, windowEnd, "UTC");
   if (occurrences.length === 0) {
     // A rule whose UNTIL precedes its first occurrence, or an unparseable date.
     throw new ManagedEventError("That event doesn't produce any dates — check the start and repeat end.");
