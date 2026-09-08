@@ -11,6 +11,7 @@ import type {
   Locale,
   ManagedCalendarDTO,
   ManagedCalendarInput,
+  ManagedCalendarRemovalImpactDTO,
   ManagedEventDTO,
   ManagedEventInput,
   ManagedOccurrenceDTO,
@@ -138,6 +139,10 @@ export const api = {
     request<{ calendar: ManagedCalendarDTO }>("/admin/managed-calendars", { method: "POST", body: JSON.stringify(body) }),
   updateManagedCalendar: (id: string, body: Partial<ManagedCalendarInput>) =>
     request<{ calendar: ManagedCalendarDTO }>(`/admin/managed-calendars/${id}`, { method: "PATCH", body: JSON.stringify(body) }),
+  /** What deleting a calendar would take with it. Read when the confirmation
+   *  opens, not with the list — see the route's own note. */
+  managedCalendarRemovalImpact: (id: string) =>
+    request<{ impact: ManagedCalendarRemovalImpactDTO }>(`/admin/managed-calendars/${id}/removal-impact`),
   deleteManagedCalendar: (id: string) =>
     request<{ ok: true }>(`/admin/managed-calendars/${id}`, { method: "DELETE" }),
 

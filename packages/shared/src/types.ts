@@ -364,6 +364,26 @@ export interface ManagedCalendarInput {
   description?: string | null;
 }
 
+/** What deleting a calendar would take with it, read before it is done.
+ *
+ *  Its own DTO on its own route rather than fields on `ManagedCalendarDTO`
+ *  (the same trade `PersonRemovalImpactDTO` makes): the admin list would
+ *  otherwise pay four counts per row that nothing renders, where this is
+ *  fetched once, when the confirmation opens — and fetched THEN, so a sign-up
+ *  claimed since the list loaded is inside the number the admin is shown. */
+export interface ManagedCalendarRemovalImpactDTO {
+  calendarId: string;
+  /** Kept because after the delete the id resolves to nothing. */
+  name: string;
+  /** Authored series on this calendar. */
+  events: number;
+  /** Dates those series expand to — what comes off the agenda and the feed. */
+  occurrences: number;
+  sheets: number;
+  /** Claimed volunteer spots. Not recoverable, and nobody is told. */
+  signups: number;
+}
+
 /** One authored event and its recurrence rule — the editable master row. */
 export interface ManagedEventDTO {
   /** Durable series id: created once, never regenerated. */

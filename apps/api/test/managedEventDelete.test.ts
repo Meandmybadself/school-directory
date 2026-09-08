@@ -19,7 +19,11 @@
 // nothing (invariant 5).
 
 import { describe, expect, it } from "vitest";
-import { deleteManagedCalendar, deleteManagedEvent } from "../src/lib/managedCalendar.js";
+import {
+  deleteManagedCalendar,
+  deleteManagedEvent,
+  managedCalendarRemovalImpact,
+} from "../src/lib/managedCalendar.js";
 import type { Env } from "../src/env.js";
 
 interface Capture {
@@ -32,8 +36,10 @@ interface Capture {
 
 /** A D1 stand-in that answers the two reads these functions make (the row being
  *  deleted, and the volunteer footprint) and records everything else. */
-function captureEnv(opts: { event?: boolean; calendar?: boolean; sheets?: number; signups?: number } = {}): Capture {
-  const { event = true, calendar = true, sheets = 2, signups = 5 } = opts;
+function captureEnv(
+  opts: { event?: boolean; calendar?: boolean; sheets?: number; signups?: number; events?: number; occurrences?: number } = {},
+): Capture {
+  const { event = true, calendar = true, sheets = 2, signups = 5, events = 3, occurrences = 11 } = opts;
   const sql: string[] = [];
   const batched: string[] = [];
   const env = {
@@ -53,6 +59,7 @@ function captureEnv(opts: { event?: boolean; calendar?: boolean; sheets?: number
               return calendar ? { id: "01CAL", name: "PTA Events" } : null;
             }
             if (text.includes("AS signups")) return { sheets, signups };
+            if (text.includes("AS occurrences")) return { events, occurrences };
             return null;
           },
         };
@@ -146,5 +153,47 @@ describe("deleteManagedCalendar", () => {
     const { env, batched } = captureEnv({ calendar: false });
     expect(await deleteManagedCalendar(env, "01GONE")).toBeNull();
     expect(batched).toHaveLength(0);
+  });
+});
+
+describe("managedCalendarRemovalImpact", () => {
+  it("counts without deleting anything", async () => {
+    const { env, batched } = captureEnv();
+    const impact = await managedCalendarRemovalImpact(env, "01CAL");
+    expect(impact).toEqual({
+      calendarId: "01CAL",
+      name: "PTA Events",
+      events: 3,
+      occurrences: 11,
+      sheets: 2,
+      signups: 5,
+    });
+    // A preview that wrote would be the confirmation doing the thing it exists
+    // to ask about.
+    expect(batched).toHaveLength(0);
+  });
+
+  it("counts the same sheets the delete removes", async () => {
+    // The whole point of the step is that the number an admin agrees to is the
+    // number that goes. Two spellings of "the sheets on this calendar" — one in
+    // the preview, one in the cascade — could drift apart silently, and the
+    // symptom would be a confirmation that quietly understated the loss.
+    const preview = captureEnv();
+    await managedCalendarRemovalImpact(preview.env, "01CAL");
+    const deletion = captureEnv();
+    await deleteManagedCalendar(deletion.env, "01CAL");
+
+    const counted = preview.sql.find((t) => t.includes("AS signups"));
+    const deleted = deletion.batched.find((t) => t.includes("DELETE FROM volunteer_sheet"));
+    expect(counted).toBeDefined();
+    expect(deleted).toBeDefined();
+    const predicate = "managed_event_id IN (SELECT id FROM managed_event WHERE calendar_id = ?)";
+    expect(counted).toContain(predicate);
+    expect(deleted).toContain(predicate);
+  });
+
+  it("reports a missing calendar as nothing to confirm", async () => {
+    const { env } = captureEnv({ calendar: false });
+    expect(await managedCalendarRemovalImpact(env, "01GONE")).toBeNull();
   });
 });

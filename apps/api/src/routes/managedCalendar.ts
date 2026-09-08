@@ -21,6 +21,7 @@ import {
   deleteManagedEvent,
   listManagedCalendars,
   listManagedEvents,
+  managedCalendarRemovalImpact,
   loadCalendar,
   loadManagedEvent,
   ManagedEventError,
@@ -117,6 +118,22 @@ managedCalendar.patch("/managed-calendars/:id", async (c) => {
     if (bad) return c.json(bad, 400);
     throw err;
   }
+});
+
+/** GET /admin/managed-calendars/:id/removal-impact — what the DELETE below
+ *  would take with it, before it is done rather than after it is regretted.
+ *
+ *  Its own route rather than fields on ManagedCalendarDTO, for the reason
+ *  GET /persons/:id/removal-impact is its own route: the calendars list would
+ *  pay four counts a row that nothing renders. Read at the confirmation, so the
+ *  numbers are the ones true when the admin is looking at them — and re-counted
+ *  by the DELETE regardless, which trusts none of this. */
+managedCalendar.get("/managed-calendars/:id/removal-impact", async (c) => {
+  const auth = requireAuth(c);
+  if (!auth.isSystemAdmin) return c.json({ error: "forbidden" }, 403);
+  const impact = await managedCalendarRemovalImpact(c.env, c.req.param("id"));
+  if (!impact) return c.json({ error: "not_found" }, 404);
+  return c.json({ impact });
 });
 
 /** DELETE /admin/managed-calendars/:id — removes its events, their volunteer

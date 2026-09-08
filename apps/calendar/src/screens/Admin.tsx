@@ -4,19 +4,23 @@
 // directory's convention — member-facing copy still goes through i18n.
 import { useEffect, useState } from "react";
 import { Navigate, useNavigate } from "react-router-dom";
-import type { CalendarSourceDTO, ManagedCalendarDTO } from "@sd/shared";
+import type { CalendarSourceDTO, ManagedCalendarDTO, ManagedCalendarRemovalImpactDTO } from "@sd/shared";
 import { Icon } from "../components/Icon.js";
 import { Btn, Tag } from "../components/atoms.js";
 import { AppShell, BottomNav } from "../components/AppShell.js";
 import { DesktopShell } from "../components/DesktopShell.js";
-import { ScreenHeader, SectLabel } from "../components/parts.js";
+import { ScreenHeader, SectLabel, SheetOver } from "../components/parts.js";
 import {
+  ConfirmDelete,
   DEFAULT_COLOR,
   ErrorText,
   IcsLink,
+  SOURCE_UNDO_NOTE,
+  calendarDeleteLines,
   colorInputStyle,
   fmtTime,
   iconBtnStyle,
+  sourceDeleteLines,
 } from "../components/adminUi.js";
 import { useSession } from "../lib/session.js";
 import { useIsDesktop } from "../lib/useIsDesktop.js";
@@ -30,7 +34,7 @@ import { useI18n } from "../i18n/index.js";
 function SourceRow({ source: s, onSave, onRemove }: {
   source: CalendarSourceDTO;
   onSave: (id: string, patch: { name: string; url: string; color: string }) => Promise<void>;
-  onRemove: (id: string) => void;
+  onRemove: (source: CalendarSourceDTO) => void;
 }) {
   const [editing, setEditing] = useState(false);
   const [name, setName] = useState(s.name);
@@ -92,7 +96,7 @@ function SourceRow({ source: s, onSave, onRemove }: {
       <button aria-label="Edit" onClick={startEdit} style={iconBtnStyle}>
         <Icon name="pencil" size={16} />
       </button>
-      <button aria-label="Remove" onClick={() => onRemove(s.id)} style={iconBtnStyle}>
+      <button aria-label={`Remove ${s.name}`} onClick={() => onRemove(s)} style={iconBtnStyle}>
         <Icon name="x" size={18} />
       </button>
     </div>
@@ -108,6 +112,13 @@ function CalendarSourcesSection() {
   const [color, setColor] = useState(DEFAULT_COLOR);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Held until confirmed, like the calendars beside it. A smaller loss than
+  // theirs — nothing authored here, and no volunteer sheet can hang off an
+  // imported event — but two X buttons in one screen that behave differently is
+  // its own hazard, and the URL really does go with the row.
+  const [removing, setRemoving] = useState<CalendarSourceDTO | null>(null);
+  const [removeBusy, setRemoveBusy] = useState(false);
+  const [removeError, setRemoveError] = useState<string | null>(null);
 
   const load = () => void api.calendarSources().then((r) => setSources(r.sources)).catch(() => setSources([]));
   useEffect(load, []);
@@ -128,9 +139,18 @@ function CalendarSourcesSection() {
       setBusy(false);
     }
   };
-  const remove = async (id: string) => {
-    await api.deleteCalendarSource(id).catch(() => {});
-    load();
+  const remove = async () => {
+    if (!removing) return;
+    setRemoveBusy(true);
+    try {
+      await api.deleteCalendarSource(removing.id);
+      setRemoving(null);
+      load();
+    } catch (err) {
+      setRemoveError(errorMessage(err, "Couldn't remove that feed."));
+    } finally {
+      setRemoveBusy(false);
+    }
   };
   const save = async (id: string, patch: { name: string; url: string; color: string }) => {
     await api.updateCalendarSource(id, patch);
@@ -153,7 +173,15 @@ function CalendarSourcesSection() {
       </SectLabel>
       <div className="sd-card sd-card-pad" style={{ marginTop: 9 }}>
         {sources.map((s) => (
-          <SourceRow key={s.id} source={s} onSave={save} onRemove={remove} />
+          <SourceRow
+            key={s.id}
+            source={s}
+            onSave={save}
+            onRemove={(source) => {
+              setRemoving(source);
+              setRemoveError(null);
+            }}
+          />
         ))}
         {sources.length === 0 && <div className="sd-meta" style={{ padding: "8px 0" }}>No imported feeds yet.</div>}
         <form onSubmit={add} style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 10, borderTop: "1px solid var(--line)", paddingTop: 12 }}>
@@ -166,6 +194,20 @@ function CalendarSourcesSection() {
           {error && <ErrorText>{error}</ErrorText>}
         </form>
       </div>
+      {removing && (
+        <SheetOver onClose={removeBusy ? undefined : () => setRemoving(null)}>
+          <ConfirmDelete
+            heading={`Remove "${removing.name}"?`}
+            lines={sourceDeleteLines(removing)}
+            confirmLabel="Remove feed"
+            busy={removeBusy}
+            undoNote={SOURCE_UNDO_NOTE}
+            error={removeError}
+            onConfirm={() => void remove()}
+            onCancel={() => setRemoving(null)}
+          />
+        </SheetOver>
+      )}
     </div>
   );
 }
@@ -177,7 +219,7 @@ function CalendarSourcesSection() {
  *  anything in place. */
 function ManagedCalendarRow({ calendar: c, onRemove }: {
   calendar: ManagedCalendarDTO;
-  onRemove: (id: string) => void;
+  onRemove: (calendar: ManagedCalendarDTO) => void;
 }) {
   const navigate = useNavigate();
   const open = () => navigate(`/admin/calendars/${c.id}`);
@@ -196,7 +238,7 @@ function ManagedCalendarRow({ calendar: c, onRemove }: {
       <button aria-label={`Edit ${c.name}`} title="Edit calendar" onClick={open} style={iconBtnStyle}>
         <Icon name="pencil" size={16} />
       </button>
-      <button aria-label={`Remove ${c.name}`} title="Remove calendar" onClick={() => onRemove(c.id)} style={iconBtnStyle}>
+      <button aria-label={`Remove ${c.name}`} title="Remove calendar" onClick={() => onRemove(c)} style={iconBtnStyle}>
         <Icon name="x" size={18} />
       </button>
     </div>
@@ -211,6 +253,15 @@ function ManagedCalendarsSection() {
   const [color, setColor] = useState(DEFAULT_COLOR);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // The calendar an admin has asked to delete, held until they confirm it — the
+  // same step the event list takes, for a bigger delete: every event on it, all
+  // their dates, every volunteer sheet hanging off them and every claimed spot,
+  // none of it recoverable. `impact` is what those are, fetched when the sheet
+  // opens rather than carried on the row, and the confirm button waits for it.
+  const [removing, setRemoving] = useState<ManagedCalendarDTO | null>(null);
+  const [impact, setImpact] = useState<ManagedCalendarRemovalImpactDTO | null>(null);
+  const [removeBusy, setRemoveBusy] = useState(false);
+  const [removeError, setRemoveError] = useState<string | null>(null);
 
   const load = () => void api.managedCalendars().then((r) => setCalendars(r.calendars)).catch(() => setCalendars([]));
   useEffect(load, []);
@@ -230,9 +281,30 @@ function ManagedCalendarsSection() {
       setBusy(false);
     }
   };
-  const remove = async (id: string) => {
-    await api.deleteManagedCalendar(id).catch(() => {});
-    load();
+  const askRemove = (calendar: ManagedCalendarDTO) => {
+    setRemoving(calendar);
+    setImpact(null);
+    setRemoveError(null);
+    void api
+      .managedCalendarRemovalImpact(calendar.id)
+      .then((r) => setImpact(r.impact))
+      .catch((err) => setRemoveError(errorMessage(err, "Couldn't read what's on that calendar.")));
+  };
+
+  const remove = async () => {
+    if (!removing) return;
+    setRemoveBusy(true);
+    try {
+      await api.deleteManagedCalendar(removing.id);
+      setRemoving(null);
+      load();
+    } catch (err) {
+      // Shown rather than swallowed: there is somewhere to put it now, and an
+      // admin who taps Delete and watches the row stay has to be told why.
+      setRemoveError(errorMessage(err, "Couldn't delete that calendar."));
+    } finally {
+      setRemoveBusy(false);
+    }
   };
 
   return (
@@ -240,7 +312,7 @@ function ManagedCalendarsSection() {
       <SectLabel>Our calendars</SectLabel>
       <div className="sd-card sd-card-pad" style={{ marginTop: 9 }}>
         {calendars.map((c) => (
-          <ManagedCalendarRow key={c.id} calendar={c} onRemove={remove} />
+          <ManagedCalendarRow key={c.id} calendar={c} onRemove={askRemove} />
         ))}
         {calendars.length === 0 && <div className="sd-meta" style={{ padding: "8px 0" }}>No calendars yet. Create one to start adding events.</div>}
         <form onSubmit={add} style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 10, borderTop: "1px solid var(--line)", paddingTop: 12 }}>
@@ -252,6 +324,20 @@ function ManagedCalendarsSection() {
           {error && <ErrorText>{error}</ErrorText>}
         </form>
       </div>
+      {removing && (
+        <SheetOver onClose={removeBusy ? undefined : () => setRemoving(null)}>
+          <ConfirmDelete
+            heading={`Delete "${removing.name}"?`}
+            lines={impact ? calendarDeleteLines(impact) : ["Counting what's on it…"]}
+            confirmLabel="Delete calendar"
+            busy={removeBusy}
+            loading={!impact}
+            error={removeError}
+            onConfirm={() => void remove()}
+            onCancel={() => setRemoving(null)}
+          />
+        </SheetOver>
+      )}
     </div>
   );
 }

@@ -6,8 +6,14 @@
 // timed rule report the day AFTER the one the admin picked.
 
 import { describe, expect, it } from "vitest";
-import type { ManagedEventDTO } from "@sd/shared";
-import { describeEvent, occurrenceAction } from "./adminUi.js";
+import type { CalendarSourceDTO, ManagedCalendarRemovalImpactDTO, ManagedEventDTO } from "@sd/shared";
+import {
+  calendarDeleteLines,
+  describeEvent,
+  eventDeleteLines,
+  occurrenceAction,
+  sourceDeleteLines,
+} from "./adminUi.js";
 import { untilToIso } from "../lib/eventForm.js";
 
 const ev = (over: Partial<ManagedEventDTO>): ManagedEventDTO => ({
@@ -89,5 +95,71 @@ describe("occurrenceAction", () => {
         if (a === "editing") expect(row).toBe(open);
       }
     }
+  });
+});
+
+// What the three delete confirmations say.
+//
+// Copy, but not decoration: the numbers in these lines are the only warning an
+// admin gets before something irrecoverable, and the sign-up count is the one
+// nobody can look up afterwards. The tests worth having are that a loss is
+// never described as nothing, and that the two callers that share a sentence
+// keep sharing it.
+const impact = (over: Partial<ManagedCalendarRemovalImpactDTO> = {}): ManagedCalendarRemovalImpactDTO => ({
+  calendarId: "c", name: "PTA Events", events: 3, occurrences: 11, sheets: 0, signups: 0, ...over,
+});
+
+const source = (over: Partial<CalendarSourceDTO> = {}): CalendarSourceDTO => ({
+  id: "s", url: "https://upstream.example/a.ics", name: "District", color: "#0068A8",
+  enabled: true, lastFetchedAt: null, lastStatus: "ok", lastError: null, eventCount: 4, ...over,
+});
+
+describe("calendarDeleteLines", () => {
+  it("names the events and the dates under them", () => {
+    const out = calendarDeleteLines(impact()).join(" ");
+    expect(out).toContain("3 events");
+    expect(out).toContain("11 dates");
+  });
+
+  it("warns that subscribers lose the feed", () => {
+    // The loss with no equivalent one level down, and the one nobody is told
+    // about: a subscribed calendar app just stops showing these events.
+    expect(calendarDeleteLines(impact()).join(" ")).toContain(".ics");
+  });
+
+  it("says sign-ups are lost and the people are not told", () => {
+    const out = calendarDeleteLines(impact({ sheets: 2, signups: 5 })).join(" ");
+    expect(out).toContain("5 volunteer sign-ups");
+    expect(out).toContain("not told");
+  });
+
+  it("describes the same volunteer loss as an event's confirmation does", () => {
+    // One sentence, two callers. Two spellings would eventually disagree about
+    // what a delete does to the people who claimed a spot.
+    const cal = calendarDeleteLines(impact({ sheets: 2, signups: 5 }));
+    const ev2 = eventDeleteLines(ev({ sheetCount: 2, signupCount: 5 }));
+    const shared = cal.find((l) => l.includes("sign-up"));
+    expect(shared).toBeDefined();
+    expect(ev2).toContain(shared);
+  });
+
+  it("still says something when the calendar is empty", () => {
+    expect(calendarDeleteLines(impact({ events: 0, occurrences: 0 }))).toHaveLength(1);
+  });
+});
+
+describe("sourceDeleteLines", () => {
+  it("counts the events coming off the agenda", () => {
+    expect(sourceDeleteLines(source()).join(" ")).toContain("4 events");
+  });
+
+  it("warns that the URL goes with the row", () => {
+    // The only thing here that doesn't come back on its own — and it is on
+    // screen right above the button that removes it.
+    expect(sourceDeleteLines(source()).join(" ")).toContain("URL");
+  });
+
+  it("claims no volunteer loss, because an imported event can't carry one", () => {
+    expect(sourceDeleteLines(source()).join(" ")).not.toContain("volunteer");
   });
 });

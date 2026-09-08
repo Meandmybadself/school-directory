@@ -16,6 +16,7 @@
 import type {
   ManagedCalendarDTO,
   ManagedCalendarInput,
+  ManagedCalendarRemovalImpactDTO,
   ManagedEventDTO,
   ManagedEventInput,
   RecurFreq,
@@ -376,6 +377,43 @@ export async function updateManagedCalendar(
   return loadCalendar(env, id, apiOrigin);
 }
 
+/** Every volunteer sheet reachable from one calendar, as a WHERE on
+ *  `volunteer_sheet`. One constant rather than two spellings because the
+ *  preview below and the delete beneath it must select the same rows: a
+ *  confirmation that counted something narrower than what goes would understate
+ *  the loss, which is the one thing this step exists to prevent. */
+const CALENDAR_SHEETS = "managed_event_id IN (SELECT id FROM managed_event WHERE calendar_id = ?)";
+
+/** What deleting this calendar would take with it, counted while the rows are
+ *  still there. An explanation, never a permit — `deleteManagedCalendar` counts
+ *  again for its own audit row and trusts nothing the client was shown, since
+ *  an event or a sign-up can land in between (invariant 25's rule for a Person,
+ *  applied to a calendar). */
+export async function managedCalendarRemovalImpact(
+  env: Env,
+  id: string,
+): Promise<ManagedCalendarRemovalImpactDTO | null> {
+  const cal = await env.DB.prepare("SELECT id, name FROM managed_calendar WHERE id = ?")
+    .bind(id)
+    .first<{ id: string; name: string }>();
+  if (!cal) return null;
+
+  const counts = await env.DB.prepare(
+    `SELECT (SELECT COUNT(*) FROM managed_event WHERE calendar_id = ?) AS events,
+            (SELECT COUNT(*) FROM calendar_event WHERE managed_calendar_id = ?) AS occurrences`,
+  )
+    .bind(id, id)
+    .first<{ events: number; occurrences: number }>();
+  const footprint = await volunteerFootprint(env, CALENDAR_SHEETS, [id]);
+  return {
+    calendarId: cal.id,
+    name: cal.name,
+    events: counts?.events ?? 0,
+    occurrences: counts?.occurrences ?? 0,
+    ...footprint,
+  };
+}
+
 /** Delete a calendar, its events, their volunteer sheets, and their materialized
  *  occurrences. Explicit multi-statement delete, matching how calendar_source
  *  deletion works — nothing in this schema relies on FK cascade, which is
@@ -388,10 +426,9 @@ export async function deleteManagedCalendar(env: Env, id: string): Promise<Remov
     .first<{ id: string; name: string }>();
   if (!cal) return null;
 
-  const sheetWhere = "managed_event_id IN (SELECT id FROM managed_event WHERE calendar_id = ?)";
-  const footprint = await volunteerFootprint(env, sheetWhere, [id]);
+  const footprint = await volunteerFootprint(env, CALENDAR_SHEETS, [id]);
   const res = await env.DB.batch([
-    ...sheetCascade(env, sheetWhere, [id]),
+    ...sheetCascade(env, CALENDAR_SHEETS, [id]),
     env.DB.prepare("DELETE FROM calendar_event WHERE managed_calendar_id = ?").bind(id),
     env.DB.prepare("DELETE FROM managed_event WHERE calendar_id = ?").bind(id),
     env.DB.prepare("DELETE FROM managed_calendar WHERE id = ?").bind(id),
