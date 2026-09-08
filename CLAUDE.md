@@ -12,26 +12,30 @@ file and the tests are the current contract.**
 
 Single-tenant **school directory**, live in production. Identity foundation for
 the services that grew on top of it: a calendar with volunteer sign-ups, a
-newsletter, and a merch store. Cloudflare-native: React/Vite (Pages) + Hono
-(Workers) + D1 + R2, with Resend email, Nominatim geocoding, and — for the store
-— Stripe and Printful, plus an optional Slack webhook for system events.
+newsletter, a merch store, and the PTO's own site and planning boards.
+Cloudflare-native: React/Vite (Pages) + Hono (Workers) + D1 + R2, with Resend
+email, Nominatim geocoding, and — for the store — Stripe and Printful, plus an
+optional Slack webhook for system events.
 
 The directory is **members-only** and its visibility model has no public level.
 A handful of surfaces around it are deliberately open to the internet — the front
 door, the calendar agenda and event pages, volunteer COUNTS, the sent-newsletter
-archive, published ICS feeds, the storefront and an order's status page — and
-each is served through a hand-written projection (invariants 12, 13, 15, 26).
-Everything else, every volunteer NAME included, needs a session.
+archive, published ICS feeds, the storefront, an order's status page and the
+PTO's explanatory page — and each is served through a hand-written projection
+(invariants 12, 13, 15, 26) or, in the PTO page's case, through no member-scoped
+read at all (invariant 28). Everything else, every volunteer NAME included, needs
+a session.
 
 ## Repository layout
 
 ```
-apps/home           One-page Worker owning the apex, eisenhower.school. Server-rendered, no bundle; one of only two surfaces here that want to be indexed (apps/store's storefront is the other).
+apps/home           One-page Worker owning the apex, eisenhower.school. Server-rendered, no bundle; one of only THREE surfaces here that want to be indexed (apps/store's storefront and apps/pto's public page are the others).
 apps/web            Directory SPA (Vite) → directory.eisenhower.school. Design system in src/components, screens in src/screens.
 apps/calendar       Calendar SPA (Vite) → calendar.eisenhower.school. Shares the API, D1 and session; design system is COPIED, not imported.
 apps/newsletter     Newsletter SPA (Vite) → newsletter.eisenhower.school. Admin authoring (TipTap) + a member preferences screen, PLUS Pages Functions serving the public archive. Design system COPIED.
 apps/store          Store SPA (Vite) → store.eisenhower.school. Cart + admin in the bundle, PLUS Pages Functions serving the PUBLIC, INDEXED storefront. Printful catalog, Stripe checkout. Design system COPIED. Vendor/DNS setup: SETUP.md.
 apps/api            Hono Worker → api-directory.eisenhower.school. Serves ALL FOUR SPAs. Routes in src/routes, logic in src/lib, middleware in src/middleware.
+apps/pto            PTO SPA (Vite) → pto.eisenhower.school. Trello-like planning boards in the bundle (members AND PTO-board only), PLUS Pages Functions serving the PUBLIC, INDEXED explanatory page — who the PTO is, the year, how to help, how to donate. Design system COPIED. Routing: ROUTING.md.
 apps/redirect       One-file Worker owning the retired directory.meandmybadself.com; 301s to the live host.
 apps/api/migrations Ordered D1 SQL migrations (NNNN_name.sql). Never edit an applied migration — add a new one.
 packages/shared     Domain types (types.ts) + i18n dictionaries (i18n.ts). Imported as `@sd/shared`.
@@ -44,11 +48,12 @@ docs/               Product spec (PLAN/SRD/SDD). Source of truth for requirement
 one HTML document per request, rendered from the shared dictionaries, no client
 bundle and no API call. Three things about it cannot be changed casually:
 
-- **It is one of only two surfaces in this project that ask to be indexed**, the
-  other being the store's public storefront (invariant 26). The SPAs' bundles all
-  send `noindex` because they are members-only. This one ships a `robots.txt`, a
-  sitemap and `hreflang` alternates, so nothing member-private may ever appear on
-  it — and the same obligation now travels with the store.
+- **It is one of only three surfaces in this project that ask to be indexed**,
+  the others being the store's public storefront (invariant 26) and the PTO's
+  public page (invariant 28). The SPAs' bundles all send `noindex` because they
+  are members-only. This one ships a `robots.txt`, a sitemap and `hreflang`
+  alternates, so nothing member-private may ever appear on it — and the same
+  obligation now travels with the store and the PTO page.
 - **The hero greeting stack is the language picker**, and it is the one place
   that reads ACROSS `dictionaries` rather than within one locale — it shows all
   four `landingWelcome` strings at once, in `LOCALES` order, with the current
@@ -83,6 +88,11 @@ bundle and no API call. Three things about it cannot be changed casually:
   page is wrong the moment the school moves it, and this page has no editor.
   Rows link to `/e/:date/:slug` on the calendar, minted in `SCHOOL_TIMEZONE`
   since a Worker has no reader timezone.
+- **The tile grid leads with the PTO's page**, which is the front door's answer
+  to "what is this?" — the one tile that needs no account, no subscription and
+  nothing of the reader. `/pto` and `/donate` are vanity shortcuts to the same
+  place. The store's tile is still deliberately absent while the shop is
+  unannounced; see the comment in `page.ts`.
 - **It repeats the contacts and links a family reaches for**, transcribed from
   the district's back-to-school mailing into `apps/home/src/district.ts` — phone
   numbers, URLs and the bell times, since the words that label them are
@@ -102,34 +112,41 @@ look for a resurrected rule in the `eisenhower.school` zone before debugging the
 Worker. People still arrive here looking for the district's site, which is why
 every rendering carries a link out to it in the header.
 
-## Four front ends, one API
+## Five front ends, one API
 
-All four SPAs are separate Cloudflare Pages projects talking to the single
+All five SPAs are separate Cloudflare Pages projects talking to the single
 `apps/api` Worker, and they share one session:
 
 - The `sd_session` cookie has **no `Domain`** — it's host-only to the API's own
-  hostname. All four SPAs are on `eisenhower.school` subdomains, so a credentialed
+  hostname. All five SPAs are on `eisenhower.school` subdomains, so a credentialed
   `fetch` to the API is same-site and the cookie rides along. Don't "fix" this by
   adding a `Domain` attribute.
 - **Every new front-end origin must be added to `ALLOWED_ORIGINS`** in
   `apps/api/wrangler.toml` (both `[vars]` and `[env.production.vars]`). That one
   list is also the allowlist of valid magic-link `returnTo` targets — same trust
   boundary, deliberately one variable.
-- `apps/calendar`, `apps/newsletter` and `apps/store` **copy** `tokens.css`,
-  `Icon.tsx`, `atoms.tsx` and the generic half of `parts.tsx` from `apps/web`
-  rather than importing them. They're expected to drift. If you change a
-  shared-looking component, decide which of the four copies need it. The nav item
-  list is duplicated in each app's `AppShell`/`DesktopShell`.
-- `apps/newsletter` and `apps/store` are the Pages projects with a
+- `apps/calendar`, `apps/newsletter`, `apps/store` and `apps/pto` **copy**
+  `tokens.css`, `Icon.tsx`, `atoms.tsx` and the generic half of `parts.tsx` from
+  `apps/web` rather than importing them. They're expected to drift. If you change
+  a shared-looking component, decide which of the five copies need it. The nav
+  item list is duplicated in each app's `AppShell`/`DesktopShell`.
+- `apps/newsletter`, `apps/store` and `apps/pto` are the Pages projects with a
   `wrangler.toml`, because they're the ones with `functions/`. Those Pages
   Functions server-render the public surfaces — the newsletter archive (`/` and
-  `/n/:slug`) and the storefront (`/`, `/p/:slug`, `/o/:token`) — so a link
-  pasted into a text message gets a real preview and a reader never downloads an
-  authoring bundle. **Do not add a `_redirects` file there** — Pages 308s `/index.html` to
+  `/n/:slug`), the storefront (`/`, `/p/:slug`, `/o/:token`) and the PTO page
+  (`/`) — so a link pasted into a text message gets a real preview and a reader
+  never downloads an authoring bundle. **Do not add a `_redirects` file there** —
+  Pages 308s `/index.html` to
   `/`, so an SPA-fallback rewrite sends `/admin` to the public archive instead of
   the app. Functions already take precedence over assets, and every other path
   falls through to `index.html` on its own. See `apps/newsletter/ROUTING.md` —
-  and `apps/store/ROUTING.md`, which restates the same trap for the same reason.
+  and `apps/store/ROUTING.md` and `apps/pto/ROUTING.md`, which restate the same
+  trap for the same reason.
+- **The PTO app is the one whose public half reads nothing member-scoped.** Its
+  Function makes a single subrequest, to the anonymous `/calendar-public/events`
+  — the same read `apps/home` makes — and every `pto_*` table is reached only
+  through the bundle's credentialed `fetch` to `/pto/*`. There is no
+  `/pto-public/*` router and no public projection to review. See invariant 28.
 - The calendar owns all calendar admin. `apps/web`'s Admin has no calendar tab —
   just a link out. `apps/web` keeps only `api.calendarEvents` (for Home's
   upcoming-events block); `/calendar` there is a redirect to the calendar site.
@@ -314,7 +331,7 @@ All four SPAs are separate Cloudflare Pages projects talking to the single
    on the open internet; `test/volunteersPublic.test.ts` asserts the exact key
    sets at all three levels AND that no name, note or person id survives.
    A sheet is READ on the event's page and nowhere else; `/v/:slug` forwards
-   there (see "Four front ends, one API" above), which is why the two endpoints
+   there (see "Five front ends, one API" above), which is why the two endpoints
    are now picked between by `screens/Event.tsx` and the redirect rather than by
    a page of the sheet's own. Three further rules follow from the design rather
    than from policy:
@@ -940,6 +957,67 @@ All four SPAs are separate Cloudflare Pages projects talking to the single
    race-free delete, the room-scoped removal, both halves of the admin guard and
    the silent no-op.
 
+28. **The PTO's boards have no public half, and that absence is the design.**
+   Every other feature here was built around a public/private split — the
+   calendar has `publicEventOf`, volunteer sheets have `publicSheetOf`, the
+   newsletter has `issuePageOf`, the store has `publicProductOf`. The planning
+   boards (migration 0024) deliberately have none: there is **no
+   `/pto-public/*` router, no `publicBoardOf`, and no `Public*DTO` for any
+   `pto_*` table**, because a board carries vendor notes, money and
+   half-finished opinions about how an event went, and the cheapest way to
+   guarantee none of that is ever published is for the seam not to exist. If a
+   public surface is ever wanted it needs a hand-written projection built field
+   by field like its four siblings — the header of migration 0024 and the PTO
+   section of `packages/shared/src/types.ts` are where to start reading. Note
+   what this buys the app's own public page: it is INDEXED (the third such
+   surface, after `apps/home` and the storefront), and it makes exactly one
+   subrequest, to the ANONYMOUS `/calendar-public/events` that `apps/home`
+   already reads. There is nothing member-scoped on it to get wrong.
+   **The gate is `ptoAccess`** (`apps/api/src/lib/ptoBoard.ts`), called by
+   `requirePto` on every route in `routes/pto.ts` including the reads. A system
+   admin is always in; everyone else is in iff some Person they control sits on
+   the roster of the group named by the `pto_board_group_id` setting — a plain
+   `generic` group, so there is no second membership model — **with
+   `self_asserted = 0`**. That clause cannot be violated today, since only
+   classrooms can be self-asserted (invariant 27), which is exactly why it was
+   cheap to write: migration 0023 exists to separate being ON a list from being
+   TRUSTED by it, and a gate that ignored the column would go silently wrong the
+   day that door widens. With no group configured, ONLY system admins are in;
+   that is the bootstrap, not a hole.
+   `GET /pto/access` is the one route outside the gate, and must stay outside
+   it: a member who is not on the board still needs an answer, or the app has
+   nothing to render but a spinner.
+   **Names go through `ptoRosterOf`**, which composes `personListableSql`
+   (invariant 21) — so this feature spends none of
+   `test/personListable.test.ts`'s exemption budget, which was already 7 of 8.
+   An assignee the gate withholds is rendered as a generic label rather than
+   dropped, the answer `personLabel` gives a Slack channel (invariant 22) and
+   for both of its reasons: telling a withheld Person from a nonexistent one
+   would make a card an oracle for the flag, and dropping the entry would
+   advertise a claimed card as unclaimed. Note the two questions kept apart —
+   `ptoAccess` and `setAssignees` read `membership` and `control` and never
+   `person`, because "is this Person on the PTO board?" is AUTHORIZATION and
+   applying the enumeration gate there would make an unlisted board member
+   un-assignable by the people who can see them.
+   **`position` is a REAL and a move is last-write-wins**, which is the one
+   place in this codebase that is the right answer rather than a bug. A drag is
+   one `UPDATE` at the midpoint of its new neighbours, not a renumber — D1 has
+   no transaction, and a renumber is a read-then-write over N rows that two
+   simultaneous drags would scramble. Nothing is over-committed by losing a
+   drag race (contrast the guarded volunteer-overfill INSERT, invariant 13), and
+   a compare-and-swap would only snap a card back under someone's cursor.
+   Re-dropping a card where it already sits writes nothing and pushes no draft:
+   an append-only log must not be paddable by a jittery mouse — invariant 27's
+   rule for a repeated classroom placement.
+   **None of the `pto.*` actions are Slack-curated**, which is the default
+   `FORMATTERS` already gives an action with no entry, and the right one here
+   for the reason invariant 22 keeps `person.updated` out: cards move several
+   times a day while an event is being organised.
+   `test/ptoAccess.test.ts` is BEHAVIOURAL, not textual — its fake D1 evaluates
+   the guard AND its Controller exemption, so a predicate that collapsed to the
+   literal `"1"` fails it with a real name in the result, which the source scan
+   cannot see. `test/ptoRoutes.test.ts` pins that every route asks the gate.
+
 ## Conventions
 
 - TypeScript strict everywhere. `verbatimModuleSyntax` is on — use
@@ -950,7 +1028,7 @@ All four SPAs are separate Cloudflare Pages projects talking to the single
 - Design tokens are CSS variables under the `.sd` scope: `--blue #0068A8`,
   `--orange #FAAB1C`, etc. `apps/web/src/styles/tokens.css` is the source of
   truth (the hi-fi handoff board they were ported from has been deleted), and
-  the other three apps hold copies — see "Four front ends, one API".
+  the other four apps hold copies — see "Five front ends, one API".
 - Visibility chip states: `members` (blue) / `private` (slate) / `shared` (orange).
   There is **no public state** anywhere in the UI.
 - **Dark mode is `prefers-color-scheme` only** — no toggle, nothing persisted, in
@@ -985,11 +1063,12 @@ All four SPAs are separate Cloudflare Pages projects talking to the single
     pins both.
   Contrast was measured rather than eyeballed; every text pair clears AA. The
   `tokens.css` copies got the same block — they are copies, so a change to one is
-  a decision about all four (see "Four front ends, one API"). The store's copy is
-  the fourth; its server-rendered storefront does NOT use it, and carries its own
-  small token subset in `apps/store/functions/_lib/styles.ts` — which repeats the
-  same `prefers-color-scheme` block, and is the fifth place a colour decision
-  lands.
+  a decision about all five (see "Five front ends, one API"). The store's copy is
+  the fourth and the PTO's the fifth; neither app's server-rendered public page
+  uses it — each carries its own small token subset in
+  `functions/_lib/styles.ts`, and each repeats the same `prefers-color-scheme`
+  block. With `apps/pto/src/styles/board.css`, which adds the six label colours
+  on the same inversion rule, that makes EIGHT places a colour decision lands.
 - **The mobile shell's layout has one rule you can't skip.** `.sd-app` is
   exactly `100dvh`, so an
   `AppShell` screen must put its scrolling content inside a `.sd-scroll` child —
@@ -1005,7 +1084,7 @@ cp apps/api/.dev.vars.example apps/api/.dev.vars
 pnpm db:migrate:local && pnpm db:seed:local
 pnpm dev          # every app in apps/* that has a dev script, in parallel:
                   # web :5173, calendar :5174, newsletter :5175, home :5176,
-                  # store :5177, api :8787
+                  # store :5177, pto :5178, api :8787
 pnpm dev:home     # just the apex landing page (wrangler dev) on :5176
 ```
 
@@ -1021,7 +1100,18 @@ also means newsletter sends print there instead of mailing anyone. Demo login:
 `/n/:slug` is Pages Functions, so it exists in `wrangler pages dev` and in
 production, not in `pnpm dev`. The store splits the same way — `/`, `/p/:slug`
 and `/o/:token` are Functions, so `pnpm dev` gives you the cart and the admin
-and a note where the shop would be.
+and a note where the shop would be. So does the PTO app: `/` is a Function, so
+`pnpm dev` gives you the boards and a note where the public page would be.
+
+To see a server-rendered public page locally, run that app's own Pages dev:
+
+```bash
+pnpm --filter @sd/pto exec wrangler pages dev --port 5178
+```
+
+Note that it reads `API_BASE` from `apps/pto/wrangler.toml`, which points at the
+PRODUCTION API. That is harmless — the only thing it fetches is the anonymous
+events feed — but override it if you want the page reading your local calendar.
 
 The store's vendor calls are off by default: with no `PRINTFUL_API_KEY` or
 `STRIPE_SECRET_KEY` the calls are logged rather than made, the same contract an
@@ -1044,7 +1134,10 @@ Create `apps/api/migrations/NNNN_description.sql` (next number). Update
   ship rather than racing it — but a migration that typechecks and still ruins
   the data is not something that gate can catch. A migration is the one change
   worth re-reading before merge.
-- The Worker deploys (`api`, `redirect`, `home`) and the four Pages projects
-  (`school-directory`, `school-calendar`, `school-newsletter`, `school-store`)
-  all ship from that one workflow. A new front end means a step there, an origin
-  in `ALLOWED_ORIGINS`, and a Pages custom domain attached by hand.
+- The Worker deploys (`api`, `redirect`, `home`) and the five Pages projects
+  (`school-directory`, `school-calendar`, `school-newsletter`, `school-store`,
+  `school-pto`) all ship from that one workflow. A new front end means a step
+  there, an origin in `ALLOWED_ORIGINS`, a line in the root `build` script (CI's
+  `verify` job runs it, so an app missing from it is never built before it
+  ships), and a Pages project plus custom domain attached BY HAND — CI deploys
+  to those, it does not create them.

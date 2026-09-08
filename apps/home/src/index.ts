@@ -4,10 +4,12 @@
 // district's own site. It is now one server-rendered page that says what the
 // PTO runs here and asks a family to join it. Two consequences worth knowing:
 //
-//  - It is the ONLY surface in this project that wants to be indexed. The three
-//    SPAs send `noindex` because they are members-only; this page is the thing a
-//    search for "eisenhower school directory" should find, so it ships a
-//    robots.txt, a sitemap and hreflang alternates for all four languages.
+//  - It is one of THREE surfaces in this project that want to be indexed — the
+//    other two being the store's public storefront and the PTO's public page.
+//    Every SPA bundle sends `noindex` because they are members-only; this page
+//    is the thing a search for "eisenhower school directory" should find, so it
+//    ships a robots.txt, a sitemap and hreflang alternates for all four
+//    languages.
 //  - People still arrive here looking for the school district's site, because
 //    that is where this domain took them for years. Every rendering carries a
 //    link out to it in the header — see `landingSchoolSiteLabel`.
@@ -35,6 +37,8 @@ const SHORTCUTS: Record<string, (env: Env) => string> = {
   "/calendar": (env) => `${trimSlash(env.CALENDAR_URL)}/`,
   "/newsletter": (env) => `${trimSlash(env.NEWSLETTER_URL)}/`,
   "/store": (env) => `${trimSlash(env.STORE_URL)}/`,
+  "/pto": (env) => `${trimSlash(env.PTO_URL)}/`,
+  "/donate": (env) => `${trimSlash(env.PTO_URL)}/`,
   "/sign-in": (env) => `${trimSlash(env.DIRECTORY_URL)}/sign-in`,
   "/subscribe": (env) => `${trimSlash(env.NEWSLETTER_URL)}/subscribe`,
 };

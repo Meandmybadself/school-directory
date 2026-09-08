@@ -13,8 +13,9 @@ APP_URL = "http://localhost:5173"
 # Comma-separated origins allowed to call the API with credentials. Doubles as
 # the allowlist of valid magic-link return targets — same trust boundary.
 # 5173 = directory (apps/web), 5174 = calendar (apps/calendar),
-# 5175 = newsletter (apps/newsletter), 5177 = store (apps/store).
-ALLOWED_ORIGINS = "http://localhost:5173,http://localhost:5174,http://localhost:5175,http://localhost:5177"
+# 5175 = newsletter (apps/newsletter), 5177 = store (apps/store),
+# 5178 = pto (apps/pto).
+ALLOWED_ORIGINS = "http://localhost:5173,http://localhost:5174,http://localhost:5175,http://localhost:5177,http://localhost:5178"
 # Public origin of the newsletter app. Sent emails link here for "view in
 # browser" and unsubscribe, so it must be the reader-facing host, not the API.
 # Public calendar site. Newsletter events blocks link out to it ("See all
@@ -24,6 +25,9 @@ NEWSLETTER_URL = "http://localhost:5175"
 # Public origin of the store. Stripe's success/cancel URLs and the order-status
 # links in confirmation email point here, so it must be the reader-facing host.
 STORE_URL = "http://localhost:5177"
+# Public origin of the PTO site. The front door links here; nothing the API
+# sends by email points at it yet.
+PTO_URL = "http://localhost:5178"
 # Which Printful store the API key acts on (X-PF-Store-Id). Not a secret, but
 # expected to CHANGE ONCE, when this moves from a personal Printful store to the
 # PTO's — see migration 0022 on why that day is a re-point, not a migration.
@@ -109,17 +113,19 @@ crons = ["0 */3 * * *", "0 13 * * *", "*/15 * * * *"]
 # Calendar:   https://calendar.eisenhower.school   (Pages, apps/calendar)
 # Newsletter: https://newsletter.eisenhower.school (Pages, apps/newsletter)
 # Store:      https://store.eisenhower.school      (Pages, apps/store)
+# PTO:        https://pto.eisenhower.school        (Pages, apps/pto)
 # API:        https://api-directory.eisenhower.school (this Worker, custom domain below)
-# All four SPAs share this API, its D1, and its session cookie — the cookie is
+# All five SPAs share this API, its D1, and its session cookie — the cookie is
 # host-only to this Worker and same-site across eisenhower.school subdomains.
 # The former host (directory.meandmybadself.com) 301s here via apps/redirect.
 [env.production.vars]
 SCHOOL_NAME = "Eisenhower PTO"
 APP_URL = "https://directory.eisenhower.school"
-ALLOWED_ORIGINS = "https://directory.eisenhower.school,https://calendar.eisenhower.school,https://newsletter.eisenhower.school,https://store.eisenhower.school"
+ALLOWED_ORIGINS = "https://directory.eisenhower.school,https://calendar.eisenhower.school,https://newsletter.eisenhower.school,https://store.eisenhower.school,https://pto.eisenhower.school"
 CALENDAR_URL = "https://calendar.eisenhower.school"
 NEWSLETTER_URL = "https://newsletter.eisenhower.school"
 STORE_URL = "https://store.eisenhower.school"
+PTO_URL = "https://pto.eisenhower.school"
 SCHOOL_TIMEZONE = "America/Chicago"
 NOMINATIM_URL = "https://nominatim.openstreetmap.org/search"
 BOOTSTRAP_ADMIN_EMAILS = "meandmybadself@gmail.com"

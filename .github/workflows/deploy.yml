@@ -138,3 +138,24 @@ jobs:
         run: |
           pnpm build
           pnpm exec wrangler pages deploy --branch main
+
+      # The fifth front end, and the third that ships Functions: the indexed
+      # public page at /, robots.txt and sitemap.xml. Deploys from its own
+      # wrangler.toml, which is where those Functions get API_BASE. See
+      # apps/pto/ROUTING.md.
+      #
+      # The Pages project (`school-pto`) and the pto.eisenhower.school custom
+      # domain are created by hand once — CI deploys to them, it does not
+      # provision them. Same as every other front end here.
+      - name: Build & deploy pto (Pages)
+        if: steps.guard.outputs.enabled == 'true'
+        working-directory: apps/pto
+        env:
+          VITE_API_URL: https://api-directory.eisenhower.school
+          VITE_DIRECTORY_URL: https://directory.eisenhower.school
+          VITE_CALENDAR_URL: https://calendar.eisenhower.school
+          VITE_NEWSLETTER_URL: https://newsletter.eisenhower.school
+          VITE_STORE_URL: https://store.eisenhower.school
+        run: |
+          pnpm build
+          pnpm exec wrangler pages deploy --branch main

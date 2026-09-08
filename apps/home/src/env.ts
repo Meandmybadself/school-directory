@@ -7,6 +7,9 @@ export interface Env {
   CALENDAR_URL: string;
   NEWSLETTER_URL: string;
   STORE_URL: string;
+  /** The PTO site — who the PTO is, the year, and how to donate. Public and
+   *  indexed, like this page and the storefront. */
+  PTO_URL: string;
   /** The API, read once per render for the upcoming-events block and nothing
    *  else — the anonymous `/calendar-public/*` half of it. Unset means the
    *  block simply doesn't render; see `events.ts`. */
