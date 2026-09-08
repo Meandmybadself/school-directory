@@ -66,6 +66,28 @@ export function describeEvent(e: ManagedEventDTO): string {
 
 /** The published .ics URL with a copy button — what an admin hands to someone
  *  who wants to subscribe from Google or Apple Calendar. */
+/** What one occurrence row on the volunteer-signups screen can offer.
+ *
+ *  The third case is the one worth naming. When a row's sheet is ALREADY the one
+ *  loaded in the panel below, there is nothing left to do to it — and the screen
+ *  used to render a button reading "Open" whose handler re-fetched that same
+ *  sheet and set the same state. Clicking it produced no visible change, which
+ *  reads as a broken control rather than as "you are already here". The labels
+ *  were also inverted against their meaning: the row you could act on said
+ *  "Manage", and the row you could not said "Open".
+ *
+ *  So the actionable row now says "Open" — the verb for what it does — and the
+ *  current row states its state instead of offering a no-op. */
+export type OccurrenceAction = "create" | "open" | "editing";
+
+export function occurrenceAction(
+  rowSheetId: string | null | undefined,
+  openSheetId: string | null | undefined,
+): OccurrenceAction {
+  if (!rowSheetId) return "create";
+  return rowSheetId === openSheetId ? "editing" : "open";
+}
+
 export function IcsLink({ url }: { url: string }) {
   const [copied, setCopied] = useState(false);
   const copy = async () => {

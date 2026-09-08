@@ -7,7 +7,7 @@
 
 import { describe, expect, it } from "vitest";
 import type { ManagedEventDTO } from "@sd/shared";
-import { describeEvent } from "./adminUi.js";
+import { describeEvent, occurrenceAction } from "./adminUi.js";
 import { untilToIso } from "../lib/eventForm.js";
 
 const ev = (over: Partial<ManagedEventDTO>): ManagedEventDTO => ({
@@ -55,5 +55,39 @@ describe("describeEvent", () => {
   it("marks a non-recurring all-day event", () => {
     expect(describeEvent(ev({ allDay: true, start: "2026-09-25T00:00:00.000Z" }))).toContain("Sep 25, 2026");
     expect(describeEvent(ev({ allDay: true, start: "2026-09-25T00:00:00.000Z" }))).toContain("all day");
+  });
+});
+
+// The occurrence row's button on the volunteer-signups screen.
+//
+// Reported as "clicking Open does nothing". It was worse than a dead button: the
+// two labels were inverted against their meaning. The row you COULD act on read
+// "Manage", and the row already loaded in the panel read "Open" — whose handler
+// re-fetched that same sheet into the same state, so nothing changed on screen.
+describe("occurrenceAction", () => {
+  it("offers creation when the date has no sheet yet", () => {
+    expect(occurrenceAction(undefined, null)).toBe("create");
+    expect(occurrenceAction(null, "sheet-1")).toBe("create");
+  });
+
+  it("offers to open a sheet that is not the one loaded", () => {
+    expect(occurrenceAction("sheet-2", "sheet-1")).toBe("open");
+    expect(occurrenceAction("sheet-2", null)).toBe("open");
+  });
+
+  it("reports state, not an action, for the sheet already loaded", () => {
+    // The regression itself: this case used to render a button.
+    expect(occurrenceAction("sheet-1", "sheet-1")).toBe("editing");
+  });
+
+  it("never calls a row 'open' and 'editing' at once", () => {
+    const ids = ["a", "b", null, undefined] as const;
+    for (const row of ids) {
+      for (const open of ids) {
+        const a = occurrenceAction(row, open);
+        expect(["create", "open", "editing"]).toContain(a);
+        if (a === "editing") expect(row).toBe(open);
+      }
+    }
   });
 });

@@ -17,7 +17,7 @@ import { Avatar, Btn, Tag } from "../components/atoms.js";
 import { AppShell, BottomNav } from "../components/AppShell.js";
 import { DesktopShell } from "../components/DesktopShell.js";
 import { ScreenHeader, SectLabel, Field } from "../components/parts.js";
-import { ErrorText, iconBtnStyle } from "../components/adminUi.js";
+import { ErrorText, iconBtnStyle, occurrenceAction } from "../components/adminUi.js";
 import { useSession } from "../lib/session.js";
 import { useIsDesktop } from "../lib/useIsDesktop.js";
 import { api, errorMessage } from "../lib/api.js";
@@ -344,29 +344,34 @@ export function EventVolunteers() {
             This event has no dates on the calendar yet.
           </div>
         )}
-        {(occurrences ?? []).map((o) => (
-          <div key={o.start} className="sd-crow" style={{ alignItems: "center", gap: 10 }}>
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <div className="sd-row" style={{ gap: 7, flexWrap: "wrap" }}>
-                <span style={{ fontSize: 13.5, fontWeight: 600 }}>{fmtOccurrence(o)}</span>
-                {o.sheet && (
-                  <Tag tone={o.sheet.published ? "blue" : "line"}>
-                    {o.sheet.published ? "Published" : "Draft"} · {o.sheet.positionCount} positions
-                  </Tag>
-                )}
+        {(occurrences ?? []).map((o) => {
+          const action = occurrenceAction(o.sheet?.id, sheet?.id);
+          return (
+            <div key={o.start} className="sd-crow" style={{ alignItems: "center", gap: 10 }}>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div className="sd-row" style={{ gap: 7, flexWrap: "wrap" }}>
+                  <span style={{ fontSize: 13.5, fontWeight: 600 }}>{fmtOccurrence(o)}</span>
+                  {o.sheet && (
+                    <Tag tone={o.sheet.published ? "blue" : "line"}>
+                      {o.sheet.published ? "Published" : "Draft"} · {o.sheet.positionCount} positions
+                    </Tag>
+                  )}
+                </div>
               </div>
+              {action === "editing" && <span className="sd-meta">Editing below</span>}
+              {action === "open" && (
+                <Btn sm kind="primary" onClick={() => void openSheet(o.sheet!.id)}>
+                  Open
+                </Btn>
+              )}
+              {action === "create" && (
+                <Btn sm kind="secondary" icon="plus" disabled={busy} onClick={() => void create(o.start)}>
+                  Add signups
+                </Btn>
+              )}
             </div>
-            {o.sheet ? (
-              <Btn sm kind={sheet?.id === o.sheet.id ? "secondary" : "primary"} onClick={() => void openSheet(o.sheet!.id)}>
-                {sheet?.id === o.sheet.id ? "Open" : "Manage"}
-              </Btn>
-            ) : (
-              <Btn sm kind="secondary" icon="plus" disabled={busy} onClick={() => void create(o.start)}>
-                Add signups
-              </Btn>
-            )}
-          </div>
-        ))}
+          );
+        })}
       </div>
     </>
   );
