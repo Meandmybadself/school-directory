@@ -35,6 +35,7 @@ import { volunteersPublic } from "./routes/volunteersPublic.js";
 import { store } from "./routes/store.js";
 import { storePublic } from "./routes/storePublic.js";
 import { storeWebhooks } from "./routes/storeWebhooks.js";
+import { pto } from "./routes/pto.js";
 
 const app = new Hono<HonoEnv>();
 
@@ -81,6 +82,10 @@ app.route("/store-public", storePublic); // catalog, cart pricing, checkout, ord
 // Vendor callbacks. Not "no auth by design" like the routers above: the trust
 // boundary is a signature, checked inside each handler against the RAW body.
 app.route("/store-webhooks", storeWebhooks);
+// The PTO's planning boards. No `/pto-public/*` twin beside it, unlike every
+// other feature router above: a board has ONE audience and the public seam
+// deliberately does not exist (migration 0024).
+app.route("/pto", pto);
 // share-targets is exposed under /shares/targets via the shares router.
 app.route("/", contacts); // /persons/:id/contacts + /contacts/:id
 app.route("/", controllers); // /persons/:id/controllers + /control-invites

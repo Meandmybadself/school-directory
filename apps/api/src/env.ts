@@ -21,6 +21,9 @@ export interface Env {
    *  order-status links in confirmation email point here, so it must be the
    *  reader-facing host and not this API. */
   STORE_URL: string;
+  /** Public origin of the PTO site. Nothing this API sends by email points at
+   *  it yet — it is here so the origin has one home, beside its siblings. */
+  PTO_URL?: string;
   /** IANA zone used to name the day/time of events rendered server-side (email
    *  and public archive), which have no viewer to infer a zone from. */
   SCHOOL_TIMEZONE?: string;

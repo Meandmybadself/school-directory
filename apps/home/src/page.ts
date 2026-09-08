@@ -169,6 +169,19 @@ export async function renderHome(
   }).join("");
 
   const tiles: Tile[] = [
+    // FIRST, and deliberately. A stranger who lands on this domain is most often
+    // asking "what is this?" before "let me look someone up" — and unlike the
+    // three below, this one needs no account, no subscription and nothing of
+    // them at all. It is also the only tile that answers the question the school
+    // office gets asked most: how do I give money to the PTO.
+    {
+      title: t("ptoTitle"),
+      href: appHref(env.PTO_URL, "/", locale),
+      host: hostOf(env.PTO_URL),
+      body: t("landingPtoBody"),
+      more: escapeHtml(t("landingPtoMore")),
+      membersOnly: false,
+    },
     {
       title: t("navDir"),
       href: appHref(env.DIRECTORY_URL, "/", locale),

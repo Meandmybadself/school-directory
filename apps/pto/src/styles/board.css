@@ -1,0 +1,226 @@
+/* The board itself: a horizontal strip of columns.
+ *
+ * Local to this app rather than added to the copied `tokens.css`, deliberately.
+ * That file is the design SYSTEM and exists in five drifting copies (CLAUDE.md,
+ * "Four front ends, one API"), so putting a board-shaped layout in it would be a
+ * decision about five apps to serve one. Everything here is expressed in the
+ * system's tokens, so it inherits dark mode for free — no rule below knows which
+ * theme is on.
+ *
+ * THE SCROLLING RULE. `.sd-app` is exactly 100dvh and its scrolling child is
+ * `.sd-scroll`; a board adds a second axis inside that. `.pb-strip` is the one
+ * element allowed to scroll horizontally, and the page body must never — a board
+ * that made the whole document scroll sideways would take the bottom nav with
+ * it. Same obligation the wide-content rule states for tables.
+ */
+
+.pb-strip {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding: 4px 16px 20px;
+  /* Momentum scrolling lands on a column rather than between two. */
+  scroll-snap-type: x proximity;
+}
+.pb-strip > * {
+  scroll-snap-align: start;
+}
+
+.pb-col {
+  flex: 0 0 auto;
+  width: 272px;
+  max-height: 100%;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-2);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 10px 10px 8px;
+}
+/* On a phone a 272px column beside a 272px column is two half-columns. One at a
+   time, full width, is the honest mobile shape — the strip still scrolls. */
+@media (max-width: 560px) {
+  .pb-col {
+    width: calc(100vw - 56px);
+  }
+}
+
+.pb-col-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 2px 4px 8px;
+}
+.pb-col-title {
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: -0.1px;
+  flex: 1;
+  min-width: 0;
+  background: none;
+  border: 0;
+  color: inherit;
+  font-family: inherit;
+  padding: 2px 0;
+}
+.pb-col-title:focus {
+  outline: 2px solid var(--blue);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+.pb-col-count {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--ink-3);
+  background: var(--paper);
+  border-radius: 999px;
+  padding: 1px 7px;
+}
+
+.pb-cards {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  overflow-y: auto;
+  min-height: 24px;
+  padding: 2px;
+}
+
+.pb-card {
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 9px 11px;
+  text-align: left;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.pb-card:hover {
+  border-color: var(--blue);
+}
+.pb-card.dragging {
+  opacity: 0.4;
+}
+.pb-card-title {
+  font-size: 13.5px;
+  font-weight: 650;
+  line-height: 1.35;
+}
+.pb-card-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+  font-size: 11.5px;
+  color: var(--ink-3);
+  font-weight: 600;
+}
+.pb-card-meta .due.overdue {
+  color: var(--warn);
+}
+
+/* Where the card would land. A line rather than a gap: a gap reflows the column
+   under the cursor, which makes the target move as you approach it. */
+.pb-drop {
+  height: 2px;
+  border-radius: 2px;
+  background: var(--blue);
+  margin: -3px 2px;
+}
+
+/* Labels. `color` is a token NAME in the database, never a hex value, precisely
+   so it can answer to the theme here. */
+.pb-label {
+  display: inline-block;
+  font-size: 10.5px;
+  font-weight: 700;
+  padding: 2px 7px;
+  border-radius: 5px;
+  line-height: 1.4;
+}
+.pb-label.blue { color: var(--blue-700); background: var(--blue-tint); }
+.pb-label.orange { color: var(--orange-ink); background: var(--orange-tint); }
+.pb-label.green { color: var(--cat-fund-fg); background: var(--cat-fund-bg); }
+.pb-label.red { color: var(--cat-cult-fg); background: var(--cat-cult-bg); }
+.pb-label.purple { color: var(--cat-purple-fg); background: var(--cat-purple-bg); }
+.pb-label.slate { color: var(--cat-govn-fg); background: var(--cat-govn-bg); }
+
+/* The six label colours. Foregrounds on a tint, so they INVERT in dark mode the
+   way `--blue-700` does — "darker than the base" in light means "lighter" here.
+   Getting this backwards makes a label vanish into its own chip. */
+:root {
+  --cat-fund-fg: #1d6b4a; --cat-fund-bg: #e4f0e9;
+  --cat-cult-fg: #973c48; --cat-cult-bg: #f6e6e7;
+  --cat-purple-fg: #5b46a4; --cat-purple-bg: #ece8f8;
+  --cat-govn-fg: #515965; --cat-govn-bg: #eaecef;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --cat-fund-fg: #7cc7a2; --cat-fund-bg: #16302a;
+    --cat-cult-fg: #e39aa2; --cat-cult-bg: #321e21;
+    --cat-purple-fg: #b7a6e8; --cat-purple-bg: #241d38;
+    --cat-govn-fg: #a9b1bf; --cat-govn-bg: #242832;
+  }
+}
+
+.pb-assignee {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--ink-2);
+  background: var(--bg-2);
+  border-radius: 999px;
+  padding: 2px 8px;
+}
+/* An assignee the enumeration gate withheld (invariant 21). Rendered, never
+   dropped: a card that quietly lost its assignee would read as unclaimed. */
+.pb-assignee.withheld {
+  color: var(--ink-3);
+  font-style: italic;
+  font-weight: 600;
+}
+
+.pb-addcard {
+  margin-top: 8px;
+  width: 100%;
+  background: none;
+  border: 1px dashed var(--line);
+  border-radius: 9px;
+  padding: 7px 10px;
+  font: inherit;
+  font-size: 12.5px;
+  font-weight: 650;
+  color: var(--ink-3);
+  cursor: pointer;
+  text-align: left;
+}
+.pb-addcard:hover {
+  color: var(--blue-700);
+  border-color: var(--blue);
+}
+
+.pb-addcol {
+  flex: 0 0 auto;
+  width: 220px;
+  border: 1px dashed var(--line);
+  border-radius: 14px;
+  padding: 12px;
+  background: none;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--ink-3);
+  cursor: pointer;
+}
+.pb-addcol:hover {
+  color: var(--blue-700);
+  border-color: var(--blue);
+}

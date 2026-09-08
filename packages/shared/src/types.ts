@@ -1314,6 +1314,224 @@ export interface StoreProductPatchBody {
   variantPrices?: Record<string, number>;
 }
 
+// ── PTO planning boards ────────────────────────────────────────────────────
+//
+// A board per event or initiative, columns down it, cards in the columns, and
+// directory Persons assigned to the cards (migration 0024).
+//
+// THE THING TO KNOW ABOUT THIS SECTION: unlike the calendar, the newsletter and
+// the store, there is exactly ONE audience here and therefore exactly ONE set of
+// shapes. Every type below is members-and-PTO-board only. There is no
+// `PublicPtoBoardDTO`, no `/pto-public/*` router and no projection function, and
+// that absence is the design rather than an omission — a board carries vendor
+// notes, money and half-finished opinions, and the cheapest way to guarantee
+// none of it is ever published is for the public seam not to exist at all.
+// If a public surface is ever wanted, it needs a hand-written projection built
+// field by field the way `publicEventOf` and `publicSheetOf` are, and this
+// comment is where to start reading.
+
+/** A colour token from the small fixed label palette. A NAME, never a hex value:
+ *  the client maps it to CSS variables, so labels answer to dark mode like
+ *  everything else. */
+export type PtoLabelColor = "blue" | "orange" | "green" | "red" | "purple" | "slate";
+
+export const PTO_LABEL_COLORS: PtoLabelColor[] = [
+  "blue",
+  "orange",
+  "green",
+  "red",
+  "purple",
+  "slate",
+];
+
+/** Whether this caller may use the boards at all, and what they may do.
+ *
+ *  Resolved server-side by `ptoAccess` in apps/api/src/lib/ptoBoard.ts. The
+ *  client reads it to choose between the boards and the "you're not on the PTO
+ *  board" card; it is a UI convenience, and every route is independently gated. */
+export interface PtoAccessDTO {
+  /** True when the caller is a system admin, or controls a Person on the PTO
+   *  board group's roster. */
+  canUse: boolean;
+  /** System admins configure which group is the PTO board. */
+  isSystemAdmin: boolean;
+  /** Name of the configured group, for the "you're not on the PTO board" copy.
+   *  Null when no group has been configured yet — the bootstrap state, in which
+   *  only system admins are admitted. */
+  groupName: string | null;
+  /** Null until a system admin names a group. */
+  groupId: string | null;
+}
+
+/** Somebody a card can be assigned to. Always a directory Person, resolved
+ *  through the enumeration gate (invariant 21) — see `PtoCardDTO.assignees`. */
+export interface PtoPersonDTO {
+  id: string;
+  /** Last-name-rule-applied, like every other name that crosses the wire. */
+  displayName: string;
+  /** True when this is a Person the viewing User controls. */
+  isYou: boolean;
+}
+
+export interface PtoLabelDTO {
+  id: string;
+  name: string;
+  color: PtoLabelColor;
+}
+
+export interface PtoCommentDTO {
+  id: string;
+  body: string;
+  /** Who wrote it — their first controlled Person's display name, else their
+   *  email. Resolved server-side; a comment is speech by an account. */
+  authorName: string;
+  /** True when the viewer wrote it, and may therefore delete it. */
+  isYou: boolean;
+  createdAt: string;
+}
+
+export interface PtoCardDTO {
+  id: string;
+  listId: string;
+  title: string;
+  description: string | null;
+  /** ISO-8601 UTC, optional. */
+  dueAt: string | null;
+  position: number;
+  /** Who is doing it.
+   *
+   *  An assignee whose Person row the enumeration gate withholds still appears,
+   *  with `id: null` and a generic label — the same answer `personLabel` gives a
+   *  Slack channel (invariant 22). Reporting a withheld Person and a
+   *  nonexistent one identically is what stops this list becoming an oracle for
+   *  `unlisted_at`; dropping the entry entirely would instead advertise that a
+   *  claimed card is unclaimed, which is invariant 21's `filled`-count problem
+   *  in another costume. */
+  assignees: Array<PtoPersonDTO | { id: null; displayName: string; isYou: false }>;
+  labelIds: string[];
+  commentCount: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface PtoListDTO {
+  id: string;
+  title: string;
+  position: number;
+  cards: PtoCardDTO[];
+}
+
+/** A board in the index — no lists or cards, just enough to render a tile. */
+export interface PtoBoardDTO {
+  id: string;
+  slug: string;
+  title: string;
+  summary: string | null;
+  position: number;
+  archived: boolean;
+  /** Set when the board names a managed calendar event. The DATE is resolved
+   *  live from the series (invariant 8) and is never stored on the board. */
+  event: PtoBoardEventDTO | null;
+  cardCount: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/** The calendar event a board is about, as the board renders it.
+ *
+ *  `seriesId` is the durable `managed_event` id, which is safe here in a way it
+ *  is not in `PublicCalendarEventDTO` (invariant 12 withholds it from anonymous
+ *  responses precisely because it addresses member signup data) — this response
+ *  requires a session AND PTO-board membership.
+ *
+ *  `path` is minted by `eventPath` in @sd/shared against the SCHOOL's timezone,
+ *  because it is built server-side where there is no reader zone to use. */
+export interface PtoBoardEventDTO {
+  seriesId: string;
+  title: string;
+  /** ISO-8601 UTC start of the next occurrence at or after now; falls back to
+   *  the most recent one when the whole series is in the past. */
+  start: string | null;
+  allDay: boolean;
+  /** `/e/:date/:slug` on the calendar site, or null when no occurrence
+   *  resolves. */
+  path: string | null;
+}
+
+/** One board, with everything on it. Served in a single payload — a board is
+ *  tens of cards, and a per-list fetch would be several D1 round trips to
+ *  assemble a screen that is useless in pieces. */
+export interface PtoBoardDetailDTO extends PtoBoardDTO {
+  lists: PtoListDTO[];
+  labels: PtoLabelDTO[];
+}
+
+/** What a board delete is about to remove, counted BEFORE it happens.
+ *
+ *  Its own route rather than a field on `PtoBoardDetailDTO`, so opening a board
+ *  doesn't pay for four counts nobody reads — the shape invariant 25 settled on
+ *  for `GET /persons/:id/removal-impact`, and for the same reason: none of it
+ *  is countable afterwards. */
+export interface PtoBoardImpactDTO {
+  lists: number;
+  cards: number;
+  assignees: number;
+  comments: number;
+}
+
+// Request bodies.
+
+export interface PtoBoardInput {
+  title: string;
+  summary?: string | null;
+  managedEventId?: string | null;
+}
+
+export interface PtoBoardPatchBody {
+  title?: string;
+  summary?: string | null;
+  managedEventId?: string | null;
+  archived?: boolean;
+}
+
+export interface PtoListInput {
+  title: string;
+}
+
+export interface PtoCardInput {
+  listId: string;
+  title: string;
+  description?: string | null;
+  dueAt?: string | null;
+}
+
+export interface PtoCardPatchBody {
+  title?: string;
+  description?: string | null;
+  dueAt?: string | null;
+  labelIds?: string[];
+  archived?: boolean;
+}
+
+/** Where a card is going. The neighbours are named rather than an index, so the
+ *  server computes the midpoint itself and two clients working from slightly
+ *  stale copies of the column can't disagree about what "index 3" meant. */
+export interface PtoCardMoveBody {
+  listId: string;
+  /** The card this one should land AFTER, or null for the top of the column. */
+  afterCardId?: string | null;
+  /** The card this one should land BEFORE, or null for the bottom. */
+  beforeCardId?: string | null;
+}
+
+/** A managed event a board may be pointed at, for the picker. */
+export interface PtoEventOptionDTO {
+  seriesId: string;
+  title: string;
+  start: string;
+  calendarName: string;
+}
+
 // ── Audit ─────────────────────────────────────────────────────────────────
 
 /** Actions captured in the append-only audit log (FR-31). */
@@ -1451,4 +1669,43 @@ export type AuditAction =
    *  the order failed, and an admin acting on that is the expected next step
    *  rather than news. */
   | "store.order.retried"
+  /** The PTO's planning boards (migration 0024). One family, and NONE of it is
+   *  Slack-curated — `FORMATTERS` in lib/slackNotify.ts is a
+   *  `Partial<Record<AuditAction, …>>`, so an action with no entry already sends
+   *  nothing, and that default is the right answer here for the reason
+   *  invariant 22 keeps `person.updated` out: a board is where routine work
+   *  happens, cards move several times a day while an event is being organised,
+   *  and a channel that narrated it would be a channel nobody reads. The log
+   *  still wants the rows — "who archived the Read-A-Thon board" is exactly the
+   *  question asked six months later, and nothing else in the schema would hold
+   *  the answer, since a delete here is a real delete.
+   *
+   *  Card TITLES stay in `detail` and never reach `notify`, which is moot while
+   *  there is no formatter and deliberate anyway: `notify` is the bag a route
+   *  fills in by hand for export, and a board's contents are not for export. */
+  | "pto.board.created"
+  | "pto.board.updated"
+  | "pto.board.deleted"
+  | "pto.list.created"
+  | "pto.list.updated"
+  | "pto.list.deleted"
+  | "pto.card.created"
+  | "pto.card.updated"
+  /** A card changed column. Its own action rather than a `pto.card.updated`
+   *  carrying a `list_id`, because it is the one card event somebody
+   *  reconstructing a timeline actually looks for — the same reason
+   *  `classroom.enrolled` is one row for a move rather than an unenroll and an
+   *  enroll. Re-dropping a card where it already sits writes nothing and pushes
+   *  no draft: an append-only log must not be paddable by a jittery mouse. */
+  | "pto.card.moved"
+  | "pto.card.deleted"
+  /** The assignee SET was replaced. One row per PUT, not one per person added
+   *  or removed: the client sends the whole set, so that is the act. */
+  | "pto.card.assigned"
+  | "pto.comment.created"
+  | "pto.comment.deleted"
+  /** A system admin named (or re-named) the group whose roster may use the
+   *  boards. Rare, deliberate, and the single lever over who gets in — the
+   *  same shape of act `registration.toggled` records. */
+  | "pto.group.configured"
   | "admin.action";

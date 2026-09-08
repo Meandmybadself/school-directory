@@ -1,0 +1,246 @@
+// GET / — the public page: what the PTO does, who runs it, the year, and how to
+// help or give.
+//
+// This is the page a family is handed when they ask "what IS the PTO?", so it is
+// server-rendered with full OG tags and no bundle, and it is INDEXED — see
+// functions/_lib/page.ts on what that obliges. Everything on it is either
+// dictionary copy (invariant 6), a proper noun from `_lib/pto.ts`, or a row from
+// the anonymous calendar feed. Nothing member-private can reach it, because
+// nothing member-scoped is read.
+//
+// Structure, and why in this order: a family arriving cold wants to know what
+// this thing does before who runs it, and what it costs them before where to
+// give. So — what it does, who runs it, the year, what's next, how to help,
+// donate, where to find us.
+
+import type { PublicCalendarEventDTO, Locale, Strings } from "@sd/shared";
+import { eventPath } from "@sd/shared";
+import { CALENDAR_URL, STORE_URL, appHref, footer, header } from "./_lib/chrome.js";
+import { upcomingEvents } from "./_lib/events.js";
+import { langCookie, resolveLocale } from "./_lib/locale.js";
+import { escapeHtml, html, shell, translator, type PagesEnv } from "./_lib/page.js";
+import {
+  CATEGORY_LABEL,
+  DONATE,
+  MEETING_PLACE,
+  PROGRAMS,
+  SEATS,
+  SIGNUP,
+  SOCIAL,
+  WISHLISTS,
+  YEAR,
+  YEAR_ROUND,
+  monthName,
+} from "./_lib/pto.js";
+import { PTO_CSS } from "./_lib/styles.js";
+
+const SCHOOL = "Eisenhower PTO";
+/** Naming the day of an event rendered on a Worker, which has no reader
+ *  timezone to use. The same fallback lib/ptoBoard.ts applies. */
+const SCHOOL_TZ = "America/Chicago";
+
+type T = (key: keyof Strings, vars?: Record<string, string>) => string;
+
+/** A "what the PTO does" card. */
+function pillar(t: T, title: keyof Strings, body: keyof Strings): string {
+  return `        <div class="pt-card">
+          <h3>${escapeHtml(t(title))}</h3>
+          <p>${escapeHtml(t(body))}</p>
+        </div>`;
+}
+
+/** A board seat. Deliberately no name and no photo: the roster turns over every
+ *  October, and `roster.json` upstream leaves every holder null for that reason.
+ *  The directory is where the current people are. */
+function seatCard(t: T, title: keyof Strings, body: keyof Strings): string {
+  return `        <div class="pt-card">
+          <h3>${escapeHtml(t(title))}</h3>
+          <p>${escapeHtml(t(body))}</p>
+        </div>`;
+}
+
+/** One month of the year strip. Month names come from `Intl` in the reader's
+ *  language; the event names beside them are proper nouns and do not. */
+function monthRow(t: T, locale: Locale, month: number, events: { name: string; category: string }[]): string {
+  const tags = events
+    .map(
+      (e) =>
+        `<span class="pt-tag t-${escapeHtml(e.category)}">${escapeHtml(e.name)}</span>`,
+    )
+    .join("");
+  return `        <div class="pt-month">
+          <div class="m">${escapeHtml(monthName(month, locale))}</div>
+          <div class="evs">${tags}</div>
+        </div>`;
+}
+
+/** One upcoming event, linked to its own page on the calendar.
+ *
+ *  The day is minted in SCHOOL_TIMEZONE because this runs on a Worker with no
+ *  reader zone; `findEventByPath` searches ±1 day, so the two can disagree about
+ *  a boundary without breaking the link (invariant 8). */
+function eventRow(e: PublicCalendarEventDTO, locale: Locale): string {
+  const when = new Intl.DateTimeFormat(locale, {
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+    timeZone: SCHOOL_TZ,
+  }).format(new Date(e.start));
+  const href = `${CALENDAR_URL}${eventPath({ title: e.title, start: e.start, allDay: e.allDay }, SCHOOL_TZ)}?lang=${locale}`;
+  return `        <a class="pt-event" href="${escapeHtml(href)}">
+          <span class="when">${escapeHtml(when)}</span>
+          <span class="what">${escapeHtml(e.title)}</span>
+        </a>`;
+}
+
+/** A "way to help" card, each with the one link that actually does the thing. */
+function helpCard(t: T, title: keyof Strings, body: keyof Strings, href: string, label: string): string {
+  return `        <div class="pt-card">
+          <h3>${escapeHtml(t(title))}</h3>
+          <p>${escapeHtml(t(body))}</p>
+          <p><a href="${escapeHtml(href)}">${escapeHtml(label)} →</a></p>
+        </div>`;
+}
+
+export const onRequestGet: PagesFunction<PagesEnv> = async ({ request, env }) => {
+  const url = new URL(request.url);
+  const { locale, explicit } = resolveLocale(url, request);
+  const t = translator(locale, SCHOOL);
+  const events = await upcomingEvents(env);
+
+  const title = `${t("ptoTitle")} — ${SCHOOL}`;
+  const description = t("ptoLead");
+
+  const body = `    <div class="pt-wrap">
+${header(t, SCHOOL, locale)}
+
+      <section class="pt-hero">
+        <div class="pt-eyebrow">${PROGRAMS.map((p) => escapeHtml(p)).join('<span class="sep">◆</span>')}</div>
+        <h1 class="pt-h1">${escapeHtml(t("ptoTitle"))}</h1>
+        <p class="pt-lead">${escapeHtml(t("ptoLead"))}</p>
+        <div class="pt-cta">
+          <a class="pt-btn" href="#donate">${escapeHtml(t("ptoDonateTitle"))}</a>
+          <a class="pt-btn pt-btn-ghost" href="#help">${escapeHtml(t("ptoHelpTitle"))}</a>
+        </div>
+      </section>
+
+      <section class="pt-sec">
+        <h2 class="pt-h2">${escapeHtml(t("ptoWhatTitle"))}</h2>
+        <p class="pt-sub">${escapeHtml(t("ptoWhatBody"))}</p>
+        <div class="pt-grid">
+${pillar(t, "ptoPillarFund", "ptoPillarFundBody")}
+${pillar(t, "ptoPillarCommunity", "ptoPillarCommunityBody")}
+${pillar(t, "ptoPillarCulture", "ptoPillarCultureBody")}
+${pillar(t, "ptoPillarStaff", "ptoPillarStaffBody")}
+        </div>
+      </section>
+
+      <section class="pt-sec">
+        <h2 class="pt-h2">${escapeHtml(t("ptoBoardTitle"))}</h2>
+        <p class="pt-sub">${escapeHtml(t("ptoBoardLead"))}</p>
+        <div class="pt-grid">
+${SEATS.map((s) => seatCard(t, s.title, s.body)).join("\n")}
+        </div>
+        <div class="pt-note">
+          <b>${escapeHtml(t("ptoMeetingsTitle"))}.</b> ${escapeHtml(
+            // The room is DATA, interpolated into the sentence rather than
+            // baked into four translations of it — the rule the rest of this
+            // page follows, and the reason it isn't printed on a line of its
+            // own underneath.
+            t("ptoMeetingsBody", { place: MEETING_PLACE }),
+          )}
+        </div>
+      </section>
+
+      <section class="pt-sec">
+        <h2 class="pt-h2">${escapeHtml(t("ptoYearTitle"))}</h2>
+        <p class="pt-sub">${escapeHtml(t("ptoYearLead"))}</p>
+        <div class="pt-legend">
+${(Object.keys(CATEGORY_LABEL) as Array<keyof typeof CATEGORY_LABEL>)
+  .map(
+    (c) =>
+      `          <span class="pt-tag t-${c}">${escapeHtml(t(CATEGORY_LABEL[c]))}</span>`,
+  )
+  .join("\n")}
+        </div>
+        <div class="pt-year">
+${YEAR.map((m) => monthRow(t, locale, m.month, m.events)).join("\n")}
+        </div>
+        <div class="pt-note">
+          <b>${escapeHtml(t("ptoYearRound"))}</b> ${escapeHtml(YEAR_ROUND.join(" · "))}
+        </div>
+      </section>
+
+${
+    // Hidden entirely when the read failed or there is nothing coming up — the
+    // "degrade to empty" rule, so an API blip never leaves a stub heading over
+    // a blank space.
+    events.length === 0
+      ? ""
+      : `      <section class="pt-sec">
+        <h2 class="pt-h2">${escapeHtml(t("upcomingEvents"))}</h2>
+        <div class="pt-events">
+${events.map((e) => eventRow(e, locale)).join("\n")}
+        </div>
+        <p class="pt-sub" style="margin-top:14px">
+          <a href="${escapeHtml(appHref(CALENDAR_URL, "/", locale))}">${escapeHtml(t("calendarTitle"))} →</a>
+        </p>
+      </section>`
+  }
+
+      <section class="pt-sec" id="help">
+        <h2 class="pt-h2">${escapeHtml(t("ptoHelpTitle"))}</h2>
+        <p class="pt-sub">${escapeHtml(t("ptoHelpLead"))}</p>
+        <div class="pt-grid">
+${helpCard(t, "ptoHelpVolunteer", "ptoHelpVolunteerBody", appHref(CALENDAR_URL, "/", locale), t("calendarTitle"))}
+${helpCard(t, "ptoHelpMeeting", "ptoHelpMeetingBody", appHref(CALENDAR_URL, "/", locale), t("ptoMeetingsTitle"))}
+${helpCard(t, "ptoHelpWishlist", "ptoHelpWishlistBody", WISHLISTS[0]!.url, WISHLISTS[0]!.label)}
+${helpCard(t, "ptoHelpShop", "ptoHelpShopBody", appHref(STORE_URL, "/", locale), t("storeTitle"))}
+        </div>
+        <p class="pt-sub" style="margin-top:16px">
+          <a href="${escapeHtml(SIGNUP.url)}">${escapeHtml(SIGNUP.label)} →</a>
+          &nbsp;·&nbsp;
+          <a href="${escapeHtml(WISHLISTS[1]!.url)}">${escapeHtml(WISHLISTS[1]!.label)} →</a>
+        </p>
+      </section>
+
+      <section class="pt-sec" id="donate">
+        <div class="pt-donate">
+          <h2 class="pt-h2">${escapeHtml(t("ptoDonateTitle"))}</h2>
+          <p class="pt-sub" style="margin-bottom:18px">${escapeHtml(t("ptoDonateLead"))}</p>
+          <a class="pt-btn" href="${escapeHtml(DONATE.url)}">${escapeHtml(t("ptoDonateCta"))}</a>
+          <p class="pt-sub" style="margin:16px 0 0">${escapeHtml(t("ptoDonateNote"))}</p>
+        </div>
+      </section>
+
+      <section class="pt-sec">
+        <h2 class="pt-h2">${escapeHtml(t("ptoFindTitle"))}</h2>
+        <p class="pt-sub">${escapeHtml(t("ptoFindLead"))}</p>
+        <div class="pt-links">
+${SOCIAL.map(
+    (l) => `          <a class="pt-chip" href="${escapeHtml(l.url)}">${escapeHtml(l.label)}</a>`,
+  ).join("\n")}
+          <a class="pt-chip" href="${escapeHtml(appHref(CALENDAR_URL, "/", locale))}">${escapeHtml(t("calendarTitle"))}</a>
+          <a class="pt-chip" href="mailto:admin@eisenhower.school">admin@eisenhower.school</a>
+        </div>
+      </section>
+
+${footer("/", locale)}
+    </div>`;
+
+  return html(
+    shell({
+      title,
+      description,
+      canonical: `${url.origin}/`,
+      locale,
+      css: PTO_CSS,
+      alternatesFor: `${url.origin}/`,
+      body,
+    }),
+    200,
+    // Remembered only when they SAID so. A detected language never becomes a
+    // stored preference — see _lib/locale.ts.
+    explicit ? langCookie(locale) : undefined,
+  );
+};

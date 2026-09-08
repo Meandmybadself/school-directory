@@ -506,6 +506,93 @@ export interface Strings {
   /** The store's tile on the front door (apps/home). */
   landingStoreBody: string;
   landingStoreMore: string;
+
+  // pto (apps/pto) — the PUBLIC page at pto.eisenhower.school, plus the two
+  // things an ordinary member might read on the members-only half.
+  //
+  // The planning boards themselves are deliberately absent from this block.
+  // They are authoring chrome for eight volunteers, like the calendar's and the
+  // newsletter's admin screens, and stay English for the same reason. What IS
+  // here is the page a family reads and the card a member sees when the boards
+  // are not for them — both of which are member-facing copy in invariant 6's
+  // sense.
+  //
+  // EVENT AND PROGRAM NAMES ARE NOT HERE. "Read-A-Thon", "XinXing", "Juntos"
+  // and the rest are proper nouns and live in apps/pto/functions/_lib/pto.ts as
+  // DATA, the way school and district names live in apps/home/src/district.ts.
+  // Only the sentences around them are translated.
+  brandSubPto: string;
+  navPto: string;
+  ptoTitle: string;
+  ptoLead: string;
+  ptoWhatTitle: string;
+  ptoWhatBody: string;
+  ptoPillarFund: string;
+  ptoPillarFundBody: string;
+  ptoPillarCommunity: string;
+  ptoPillarCommunityBody: string;
+  ptoPillarCulture: string;
+  ptoPillarCultureBody: string;
+  ptoPillarStaff: string;
+  ptoPillarStaffBody: string;
+  ptoBoardTitle: string;
+  ptoBoardLead: string;
+  ptoRolePresident: string;
+  ptoRolePresidentBody: string;
+  ptoRoleVicePresident: string;
+  ptoRoleVicePresidentBody: string;
+  ptoRoleSecretary: string;
+  ptoRoleSecretaryBody: string;
+  ptoRoleTreasurer: string;
+  ptoRoleTreasurerBody: string;
+  ptoRoleFundraising: string;
+  ptoRoleFundraisingBody: string;
+  ptoRoleVolunteer: string;
+  ptoRoleVolunteerBody: string;
+  ptoRoleTeacherRep: string;
+  ptoRoleTeacherRepBody: string;
+  ptoRoleMemberAtLarge: string;
+  ptoRoleMemberAtLargeBody: string;
+  ptoYearTitle: string;
+  ptoYearLead: string;
+  /** Label on the strip of things that run all year, under the month list. */
+  ptoYearRound: string;
+  /** The six things an event on the year strip can be FOR. The event names
+   *  beside them are data; these labels are ours. */
+  ptoCatFundraiser: string;
+  ptoCatCommunity: string;
+  ptoCatCultural: string;
+  ptoCatAppreciation: string;
+  ptoCatEnrichment: string;
+  ptoCatGovernance: string;
+  ptoMeetingsTitle: string;
+  /** Uses {place} — the room is a proper noun and lives in
+   *  apps/pto/functions/_lib/pto.ts, like every other one on that page. */
+  ptoMeetingsBody: string; // uses {place}
+  ptoHelpTitle: string;
+  ptoHelpLead: string;
+  ptoHelpVolunteer: string;
+  ptoHelpVolunteerBody: string;
+  ptoHelpMeeting: string;
+  ptoHelpMeetingBody: string;
+  ptoHelpWishlist: string;
+  ptoHelpWishlistBody: string;
+  ptoHelpShop: string;
+  ptoHelpShopBody: string;
+  ptoDonateTitle: string;
+  ptoDonateLead: string;
+  ptoDonateCta: string;
+  ptoDonateNote: string;
+  ptoFindTitle: string;
+  ptoFindLead: string;
+  /** Shown to a signed-in member who is not on the PTO board. Translated
+   *  because an ordinary member is exactly who reads it. */
+  ptoNoAccessTitle: string;
+  ptoNoAccessBody: string;
+  ptoNoAccessNote: string;
+  /** The PTO's tile on the front door (apps/home). */
+  landingPtoBody: string;
+  landingPtoMore: string;
 }
 
 const en: Strings = {
@@ -981,6 +1068,101 @@ const en: Strings = {
   storeMadeToOrder: "It's printed to order, so give it a few days before it ships.",
   landingStoreBody: "Eisenhower spirit wear — tees, hoodies and more, printed to order and shipped to your door.",
   landingStoreMore: "Every purchase supports the PTO. No account needed to buy.",
+
+  // pto
+  brandSubPto: "PTO",
+  navPto: "PTO",
+  ptoTitle: "The Parent Teacher Organization",
+  ptoLead:
+    "Every Eisenhower family is already a member. The PTO raises the money the school budget doesn't stretch to, runs the events your kids remember, and looks after the staff who look after them.",
+  ptoWhatTitle: "What the PTO does",
+  ptoWhatBody:
+    "Eisenhower is three schools under one roof — the community school, XinXing Chinese immersion and Juntos Spanish immersion — and the PTO serves all three. It is run entirely by parent and staff volunteers. There is no paid position and no office; everything below is somebody's evening.",
+  ptoPillarFund: "Raises money",
+  ptoPillarFundBody:
+    "The Read-A-Thon, the book fairs, the spring plant sale, Popcorn Fridays and Give to the Max Day. What they bring in pays for field trips, classroom supplies, the outdoor learning space, and enrichment nothing else covers.",
+  ptoPillarCommunity: "Brings families together",
+  ptoPillarCommunityBody:
+    "Playground Night, Field Day, the Talent Show, the Imagination Fair, Bingo Night. Free or close to it, open to everyone, and the reason a family new in August knows a few faces by October.",
+  ptoPillarCulture: "Celebrates all three programs",
+  ptoPillarCultureBody:
+    "Chinese New Year, the Juntos gala and end-of-year fiesta, and the Spring Arts & Cultural Festival. Bingo numbers are called in English, Spanish and Chinese, by parents, every year.",
+  ptoPillarStaff: "Backs the staff",
+  ptoPillarStaffBody:
+    "Meals through the long conference days, Teacher Appreciation Week, a stocked staff lounge, and the Art Adventure and BRAVO lessons parents deliver in the classrooms each winter.",
+  ptoBoardTitle: "Who runs it",
+  ptoBoardLead:
+    "An elected board of parent volunteers, plus whoever raises a hand. Seats are voted on every October, so this page names the jobs rather than the people — the names are in the directory, where they stay current.",
+  ptoRolePresident: "President",
+  ptoRolePresidentBody:
+    "Runs the meetings, coordinates the events, approves reimbursements, books the buses and the vendors, runs the election, and speaks for the PTO to the district.",
+  ptoRoleVicePresident: "Vice President",
+  ptoRoleVicePresidentBody:
+    "Co-leads, and owns the book fair, the Read-A-Thon, the yearbook, teacher appreciation and the staff lounge.",
+  ptoRoleSecretary: "Secretary",
+  ptoRoleSecretaryBody:
+    "Minutes, the monthly PTO Corner newsletter, flyers, wishlists, and getting photos of the year taken and shared.",
+  ptoRoleTreasurer: "Co-Treasurers",
+  ptoRoleTreasurerBody:
+    "The treasurer's report, the budget, taxes, deposits and reimbursements. Two seats, because it is more than one evening a month.",
+  ptoRoleFundraising: "Fundraising Chair",
+  ptoRoleFundraisingBody:
+    "Restaurant nights, the Read-A-Thon, the plant sale and Give to the Max Day.",
+  ptoRoleVolunteer: "Volunteer Chair",
+  ptoRoleVolunteerBody:
+    "All volunteer coordination and sign-ups, merchandise, Bingo Night, and the thank-you at the end of the year.",
+  ptoRoleTeacherRep: "Teacher Representative",
+  ptoRoleTeacherRepBody:
+    "The bridge between the staff room and the PTO — brings classroom needs and grant opportunities to the table.",
+  ptoRoleMemberAtLarge: "Members-at-Large",
+  ptoRoleMemberAtLargeBody:
+    "The bench: flexible hands and per-event chairs, for whatever needs an owner this year.",
+  ptoYearTitle: "The year, month by month",
+  ptoYearLead:
+    "Everything the PTO runs, in the order it happens. Dates move — the calendar always has the current ones.",
+  ptoYearRound: "All year, in the background:",
+  ptoCatFundraiser: "Fundraiser",
+  ptoCatCommunity: "Community",
+  ptoCatCultural: "Cultural",
+  ptoCatAppreciation: "Appreciation",
+  ptoCatEnrichment: "Enrichment",
+  ptoCatGovernance: "Meeting",
+  ptoMeetingsTitle: "Meetings",
+  ptoMeetingsBody:
+    "Monthly, usually 6:30pm in the {place}, with a Zoom option. The October meeting holds the board election. Everyone is welcome, nothing is expected of you, and you do not have to say a word.",
+  ptoHelpTitle: "Ways to help",
+  ptoHelpLead:
+    "Nobody is asking for a year of your life. Most of what the PTO needs is two hours, once.",
+  ptoHelpVolunteer: "Take a shift",
+  ptoHelpVolunteerBody:
+    "Every event's sign-up sheet is on the calendar. Pick a two-hour slot — you are never the only one there.",
+  ptoHelpMeeting: "Come to a meeting",
+  ptoHelpMeetingBody:
+    "Once a month, about an hour, and the fastest way to find out what is actually going on.",
+  ptoHelpWishlist: "Send something",
+  ptoHelpWishlistBody:
+    "The staff lounge and the art room each keep a wishlist. Ordering one thing off it takes a minute.",
+  ptoHelpShop: "Buy the shirt",
+  ptoHelpShopBody:
+    "Spirit wear from the PTO store. Every order supports the school, and you don't need an account.",
+  ptoDonateTitle: "Donate",
+  ptoDonateLead:
+    "The PTO is entirely volunteer-run, so what is given goes back to the school almost undiminished — field trips, classroom supplies, the outdoor learning space, and the enrichment programs.",
+  ptoDonateCta: "Give through GiveMN",
+  ptoDonateNote:
+    "GiveMN is Minnesota's nonprofit giving platform, and where the PTO runs its Give to the Max Day campaign each November. You can give there any day of the year.",
+  ptoFindTitle: "Find us",
+  ptoFindLead:
+    "A question, an idea, or an hour to spare — any of these reaches a real person.",
+  ptoNoAccessTitle: "This part is for the PTO board",
+  ptoNoAccessBody:
+    "The planning boards are where the PTO organizes its events, and they are open to the people on the board's roster. Everything else on this site is open to you.",
+  ptoNoAccessNote:
+    "If you think you should have access, ask a board member — or come to the next meeting, which is genuinely how most people end up here.",
+  landingPtoBody:
+    "Who the PTO is, what it runs across the year, and how to lend an hour or give.",
+  landingPtoMore:
+    "Every family is already a member. Nothing to join, no account needed.",
 };
 
 const es: Strings = {
@@ -1400,6 +1582,101 @@ const es: Strings = {
   storeMadeToOrder: "Se imprime por encargo, así que tardará unos días en enviarse.",
   landingStoreBody: "Ropa escolar de Eisenhower — camisetas, sudaderas y más, impresas por encargo y enviadas a tu casa.",
   landingStoreMore: "Cada compra apoya a la PTO. No necesitas cuenta para comprar.",
+
+  // pto
+  brandSubPto: "PTO",
+  navPto: "PTO",
+  ptoTitle: "La Organización de Padres y Maestros",
+  ptoLead:
+    "Cada familia de Eisenhower ya es miembro. La PTO reúne el dinero que el presupuesto escolar no alcanza a cubrir, organiza los eventos que sus hijos recuerdan, y cuida al personal que los cuida a ellos.",
+  ptoWhatTitle: "Qué hace la PTO",
+  ptoWhatBody:
+    "Eisenhower son tres escuelas bajo un mismo techo — la escuela comunitaria, la inmersión en chino XinXing y la inmersión en español Juntos — y la PTO sirve a las tres. La llevan por completo padres y personal voluntarios. No hay ningún puesto pagado ni oficina; todo lo que sigue es la tarde de alguien.",
+  ptoPillarFund: "Reúne fondos",
+  ptoPillarFundBody:
+    "El Read-A-Thon, las ferias del libro, la venta de plantas de primavera, los viernes de palomitas y el Give to the Max Day. Lo que se recauda paga excursiones, materiales para las aulas, el espacio de aprendizaje al aire libre y programas que nada más cubre.",
+  ptoPillarCommunity: "Une a las familias",
+  ptoPillarCommunityBody:
+    "La Noche del Patio, el Día de Campo, el Show de Talentos, la Feria de la Imaginación, la Noche de Bingo. Gratis o casi, abiertos a todos, y la razón por la que una familia nueva en agosto ya conoce algunas caras en octubre.",
+  ptoPillarCulture: "Celebra los tres programas",
+  ptoPillarCultureBody:
+    "El Año Nuevo Chino, la gala de Juntos y la fiesta de fin de año, y el Festival de Arte y Cultura de primavera. Los números del bingo se cantan en inglés, español y chino, por padres de familia, todos los años.",
+  ptoPillarStaff: "Apoya al personal",
+  ptoPillarStaffBody:
+    "Comidas durante los largos días de conferencias, la Semana de Agradecimiento a los Maestros, una sala de personal bien surtida, y las clases de Art Adventure y BRAVO que los padres dan en las aulas cada invierno.",
+  ptoBoardTitle: "Quién la dirige",
+  ptoBoardLead:
+    "Una junta electa de padres voluntarios, más quien levante la mano. Los puestos se votan cada octubre, así que esta página nombra los cargos y no a las personas — los nombres están en el directorio, donde se mantienen al día.",
+  ptoRolePresident: "Presidencia",
+  ptoRolePresidentBody:
+    "Dirige las reuniones, coordina los eventos, aprueba los reembolsos, contrata autobuses y proveedores, organiza la elección y representa a la PTO ante el distrito.",
+  ptoRoleVicePresident: "Vicepresidencia",
+  ptoRoleVicePresidentBody:
+    "Co-dirige, y se encarga de la feria del libro, el Read-A-Thon, el anuario, el agradecimiento a los maestros y la sala de personal.",
+  ptoRoleSecretary: "Secretaría",
+  ptoRoleSecretaryBody:
+    "Las actas, el boletín mensual PTO Corner, los volantes, las listas de deseos, y hacer que las fotos del año se tomen y se compartan.",
+  ptoRoleTreasurer: "Co-Tesorerías",
+  ptoRoleTreasurerBody:
+    "El informe de tesorería, el presupuesto, los impuestos, los depósitos y los reembolsos. Dos puestos, porque es más de una tarde al mes.",
+  ptoRoleFundraising: "Coordinación de recaudación",
+  ptoRoleFundraisingBody:
+    "Las noches en restaurantes, el Read-A-Thon, la venta de plantas y el Give to the Max Day.",
+  ptoRoleVolunteer: "Coordinación de voluntarios",
+  ptoRoleVolunteerBody:
+    "Toda la coordinación e inscripción de voluntarios, la mercancía, la Noche de Bingo y el agradecimiento de fin de año.",
+  ptoRoleTeacherRep: "Representación docente",
+  ptoRoleTeacherRepBody:
+    "El puente entre la sala de maestros y la PTO — lleva a la mesa las necesidades del aula y las oportunidades de subvención.",
+  ptoRoleMemberAtLarge: "Vocales",
+  ptoRoleMemberAtLargeBody:
+    "La banca: manos flexibles y responsables de un evento, para lo que este año necesite dueño.",
+  ptoYearTitle: "El año, mes a mes",
+  ptoYearLead:
+    "Todo lo que organiza la PTO, en el orden en que ocurre. Las fechas cambian — el calendario siempre tiene las actuales.",
+  ptoYearRound: "Todo el año, de fondo:",
+  ptoCatFundraiser: "Recaudación",
+  ptoCatCommunity: "Comunidad",
+  ptoCatCultural: "Cultural",
+  ptoCatAppreciation: "Agradecimiento",
+  ptoCatEnrichment: "Enriquecimiento",
+  ptoCatGovernance: "Reunión",
+  ptoMeetingsTitle: "Reuniones",
+  ptoMeetingsBody:
+    "Cada mes, normalmente a las 6:30 p. m. en el {place}, con opción por Zoom. En la reunión de octubre se elige la junta. Todos son bienvenidos, no se espera nada de usted, y no tiene que decir ni una palabra.",
+  ptoHelpTitle: "Maneras de ayudar",
+  ptoHelpLead:
+    "Nadie le está pidiendo un año de su vida. Casi todo lo que la PTO necesita son dos horas, una vez.",
+  ptoHelpVolunteer: "Tome un turno",
+  ptoHelpVolunteerBody:
+    "La hoja de inscripción de cada evento está en el calendario. Elija un turno de dos horas — nunca estará solo ahí.",
+  ptoHelpMeeting: "Venga a una reunión",
+  ptoHelpMeetingBody:
+    "Una vez al mes, más o menos una hora, y la forma más rápida de enterarse de lo que realmente pasa.",
+  ptoHelpWishlist: "Mande algo",
+  ptoHelpWishlistBody:
+    "La sala de personal y el salón de arte tienen cada uno una lista de deseos. Pedir una cosa toma un minuto.",
+  ptoHelpShop: "Compre la camiseta",
+  ptoHelpShopBody:
+    "Ropa escolar de la tienda de la PTO. Cada pedido apoya a la escuela, y no necesita cuenta.",
+  ptoDonateTitle: "Donar",
+  ptoDonateLead:
+    "La PTO funciona enteramente con voluntarios, así que lo que se dona vuelve a la escuela casi intacto — excursiones, materiales para las aulas, el espacio de aprendizaje al aire libre y los programas de enriquecimiento.",
+  ptoDonateCta: "Donar a través de GiveMN",
+  ptoDonateNote:
+    "GiveMN es la plataforma de donaciones sin fines de lucro de Minnesota, y donde la PTO organiza su campaña del Give to the Max Day cada noviembre. Puede donar allí cualquier día del año.",
+  ptoFindTitle: "Encuéntrenos",
+  ptoFindLead:
+    "Una pregunta, una idea, o una hora libre — cualquiera de estos llega a una persona de verdad.",
+  ptoNoAccessTitle: "Esta parte es para la junta de la PTO",
+  ptoNoAccessBody:
+    "Los tableros de planificación son donde la PTO organiza sus eventos, y están abiertos a las personas de la lista de la junta. Todo lo demás en este sitio está abierto para usted.",
+  ptoNoAccessNote:
+    "Si cree que debería tener acceso, pregúntele a alguien de la junta — o venga a la próxima reunión, que es de verdad como llega aquí la mayoría.",
+  landingPtoBody:
+    "Quién es la PTO, qué organiza a lo largo del año, y cómo prestar una hora o donar.",
+  landingPtoMore:
+    "Cada familia ya es miembro. Nada que firmar, no hace falta cuenta.",
 };
 
 const zh: Strings = {
@@ -1798,6 +2075,94 @@ const zh: Strings = {
   storeMadeToOrder: "商品按订单印制，发货前请预留几天时间。",
   landingStoreBody: "Eisenhower 校园服饰 — T恤、卫衣等，按订单印制并直接寄到你家。",
   landingStoreMore: "每一笔购买都支持家长教师协会。无需账户即可购买。",
+
+  // pto
+  brandSubPto: "家长教师协会",
+  navPto: "家长会",
+  ptoTitle: "家长教师协会（PTO）",
+  ptoLead:
+    "每一个艾森豪威尔小学的家庭都已经是会员。家长会筹集学校预算无法覆盖的经费，举办孩子们记得住的活动，也照顾着照顾孩子的教职员工。",
+  ptoWhatTitle: "家长会做什么",
+  ptoWhatBody:
+    "艾森豪威尔小学是同一屋檐下的三所学校——社区学校、XinXing 中文沉浸式课程和 Juntos 西班牙语沉浸式课程——家长会为三者共同服务。它完全由家长和教职员志愿者运作，没有一个带薪职位，也没有办公室；下面的每一件事都是某个人的一个晚上。",
+  ptoPillarFund: "筹集经费",
+  ptoPillarFundBody:
+    "阅读马拉松、图书义卖、春季植物义卖、爆米花星期五和 Give to the Max Day。筹到的钱用于郊游、教室用品、户外学习空间，以及没有其他来源可以支付的充实课程。",
+  ptoPillarCommunity: "把家庭聚在一起",
+  ptoPillarCommunityBody:
+    "游乐场之夜、运动会、才艺表演、想象力集市、宾果之夜。免费或接近免费，人人可来——这也是八月刚来的家庭到了十月就认得几张面孔的原因。",
+  ptoPillarCulture: "为三个课程共同庆祝",
+  ptoPillarCultureBody:
+    "农历新年、Juntos 晚会与学年末联欢，以及春季艺术与文化节。宾果号码每年都由家长用英语、西班牙语和中文三种语言喊出。",
+  ptoPillarStaff: "支持教职员工",
+  ptoPillarStaffBody:
+    "家长会日的长时间供餐、教师感谢周、备足物资的教职员休息室，以及每年冬天由家长走进教室讲授的 Art Adventure 与 BRAVO 课程。",
+  ptoBoardTitle: "由谁负责",
+  ptoBoardLead:
+    "由家长志愿者选举产生的理事会，再加上任何愿意举手的人。席位每年十月改选，所以本页列出的是职务而不是姓名——姓名在通讯录里，那里才会随时更新。",
+  ptoRolePresident: "会长",
+  ptoRolePresidentBody:
+    "主持会议、统筹活动、批准报销、联系巴士与供应商、组织选举，并代表家长会与学区沟通。",
+  ptoRoleVicePresident: "副会长",
+  ptoRoleVicePresidentBody:
+    "协同主持，并负责图书义卖、阅读马拉松、年鉴、教师感谢周和教职员休息室。",
+  ptoRoleSecretary: "秘书",
+  ptoRoleSecretaryBody:
+    "会议记录、每月的 PTO Corner 通讯、宣传单、心愿清单，以及安排全年活动照片的拍摄与分享。",
+  ptoRoleTreasurer: "共同财务长",
+  ptoRoleTreasurerBody:
+    "财务报告、预算、报税、存款与报销。设两个席位，因为这不止是每月一个晚上的事。",
+  ptoRoleFundraising: "筹款负责人",
+  ptoRoleFundraisingBody: "餐厅之夜、阅读马拉松、植物义卖和 Give to the Max Day。",
+  ptoRoleVolunteer: "志愿者负责人",
+  ptoRoleVolunteerBody:
+    "所有志愿者的统筹与报名、纪念品、宾果之夜，以及学年末的答谢活动。",
+  ptoRoleTeacherRep: "教师代表",
+  ptoRoleTeacherRepBody:
+    "教师办公室与家长会之间的桥梁——把教室的需求和资助机会带到会上。",
+  ptoRoleMemberAtLarge: "理事",
+  ptoRoleMemberAtLargeBody:
+    "后备力量：机动人手与单项活动的负责人，哪件事今年需要有人负责就补上。",
+  ptoYearTitle: "一年，逐月来看",
+  ptoYearLead:
+    "家长会举办的全部活动，按发生的顺序排列。日期会变动——日历上永远是最新的。",
+  ptoYearRound: "全年进行中：",
+  ptoCatFundraiser: "筹款",
+  ptoCatCommunity: "社区",
+  ptoCatCultural: "文化",
+  ptoCatAppreciation: "致谢",
+  ptoCatEnrichment: "充实课程",
+  ptoCatGovernance: "会议",
+  ptoMeetingsTitle: "例会",
+  ptoMeetingsBody:
+    "每月一次，通常是晚上 6:30 在 {place}，也可以用 Zoom 参加。十月的例会进行理事会选举。欢迎每一个人，我们对您没有任何期待，您一句话不说也完全可以。",
+  ptoHelpTitle: "可以怎样帮忙",
+  ptoHelpLead: "没有人要占用您一整年。家长会需要的大多只是两个小时，一次就好。",
+  ptoHelpVolunteer: "认领一个班次",
+  ptoHelpVolunteerBody:
+    "每个活动的报名表都在日历上。挑一个两小时的班次——那里绝不会只有您一个人。",
+  ptoHelpMeeting: "来参加例会",
+  ptoHelpMeetingBody: "每月一次，大约一小时，也是了解实际情况最快的方式。",
+  ptoHelpWishlist: "寄点东西来",
+  ptoHelpWishlistBody:
+    "教职员休息室和美术教室各有一份心愿清单，下单买一样东西只要一分钟。",
+  ptoHelpShop: "买一件校服衫",
+  ptoHelpShopBody: "家长会商店的校园服饰。每一笔订单都支持学校，而且不需要账户。",
+  ptoDonateTitle: "捐款",
+  ptoDonateLead:
+    "家长会完全由志愿者运作，所以捐出的钱几乎原封不动地回到学校——郊游、教室用品、户外学习空间和各项充实课程。",
+  ptoDonateCta: "通过 GiveMN 捐款",
+  ptoDonateNote:
+    "GiveMN 是明尼苏达州的非营利捐赠平台，也是家长会每年十一月举办 Give to the Max Day 活动的地方。您全年任何一天都可以在那里捐款。",
+  ptoFindTitle: "联系我们",
+  ptoFindLead: "一个问题、一个想法，或者一小时的空闲——以下任何一种方式都能找到真人。",
+  ptoNoAccessTitle: "这部分是给家长会理事会的",
+  ptoNoAccessBody:
+    "规划看板是家长会筹办活动的地方，只对理事会名单上的人开放。本站的其他内容都对您开放。",
+  ptoNoAccessNote:
+    "如果您认为自己应该有权限，请找一位理事——或者来参加下一次例会，大多数人其实就是这样来的。",
+  landingPtoBody: "家长会是谁、全年举办哪些活动，以及如何出一小时力或捐款。",
+  landingPtoMore: "每个家庭都已经是会员。无需报名，也不需要账户。",
 };
 
 const so: Strings = {
@@ -2275,6 +2640,101 @@ const so: Strings = {
   landingStoreBody:
     "Dharka dugsiga Eisenhower — funaanado, koodh iyo wax kale, la daabaco marka la dalbado oo albaabkaaga la keeno.",
   landingStoreMore: "Iibsi kastaa wuxuu taageerayaa PTO-da. Xisaab uma baahnid inaad wax iibsato.",
+
+  // pto
+  brandSubPto: "PTO",
+  navPto: "PTO",
+  ptoTitle: "Ururka Waalidiinta iyo Macallimiinta",
+  ptoLead:
+    "Qoys kasta oo Eisenhower ah horeyba xubin buu u yahay. PTO-du waxay ururisaa lacagta miisaaniyadda dugsigu gaadhi kari weyday, waxay qabataa munaasabadaha carruurtaadu xasuusan doonto, waxayna daryeeshaa shaqaalaha carruurta daryeela.",
+  ptoWhatTitle: "Waxa PTO-du qabato",
+  ptoWhatBody:
+    "Eisenhower waa saddex dugsi oo hal saqaf hoos yaal — dugsiga bulshada, barnaamijka Shiinaha ee XinXing, iyo barnaamijka Isbaanishka ee Juntos — PTO-duna saddexdaba way u adeegtaa. Waxaa gebi ahaanba wada waalidiin iyo shaqaale iskaa wax u qabso ah. Ma jiro shaqo mushahar leh mana jiro xafiis; wax kasta oo hoos ku qoran waa fiid qof.",
+  ptoPillarFund: "Lacag ururisa",
+  ptoPillarFundBody:
+    "Read-A-Thon, suuqyada buugaagta, iibka geedaha guga, Jimcayaasha salool-la'aanta, iyo Give to the Max Day. Waxa la ururiyo waxaa lagu bixiyaa safarrada waxbarasho, qalabka fasalka, meesha waxbarashada bannaanka, iyo barnaamijyo aan meel kale laga heli karin.",
+  ptoPillarCommunity: "Qoysaska isu keena",
+  ptoPillarCommunityBody:
+    "Habeenka Garoonka, Maalinta Ciyaaraha, Bandhigga Hibada, Suuqa Male-awaalka, iyo Habeenka Bingo. Bilaash ama ku dhow, waana loo furan yahay qof walba — sidaas darteedna qoys Ogosto yimid Oktoobar wuxuu garanayaa dhawr weji.",
+  ptoPillarCulture: "Saddexda barnaamij oo dhan u dabaaldega",
+  ptoPillarCultureBody:
+    "Sannadka Cusub ee Shiinaha, xaflada Juntos iyo xaflada sannad-gunaanadka, iyo Bandhigga Farshaxanka iyo Dhaqanka ee guga. Lambarrada Bingo waxaa waalidiintu sannad kasta ku dhawaaqaan Ingiriisi, Isbaanish iyo Shiineys.",
+  ptoPillarStaff: "Shaqaalaha taageera",
+  ptoPillarStaffBody:
+    "Cunto maalmaha dheer ee shirarka waalidiinta, Toddobaadka Mahadnaqa Macallimiinta, qol shaqaale oo alaab buuxda, iyo casharrada Art Adventure iyo BRAVO ee waalidiintu fasallada ku dhex bixiyaan jiilaal kasta.",
+  ptoBoardTitle: "Cidda maamusha",
+  ptoBoardLead:
+    "Guddi la doortay oo waalidiin iskaa wax u qabso ah, iyo qof kasta oo gacan taaga. Kuraasta waxaa la doortaa Oktoobar kasta, sidaas darteed boggani wuxuu magacaabayaa shaqooyinka ee ma aha dadka — magacyadu waxay ku jiraan tusmada, halkaas oo ay ku cusboonaadaan.",
+  ptoRolePresident: "Guddoomiye",
+  ptoRolePresidentBody:
+    "Wuxuu hoggaamiyaa kulamada, isku duba ridaa munaasabadaha, ansixiyaa lacag-celinta, qabsadaa basaska iyo alaab-qeybiyeyaasha, qabtaa doorashada, wuxuuna PTO-da ka matalaa degmada.",
+  ptoRoleVicePresident: "Ku-xigeenka Guddoomiyaha",
+  ptoRoleVicePresidentBody:
+    "Wuu wada hoggaamiyaa, wuxuuna qabtaa suuqa buugaagta, Read-A-Thon, buugga sannadka, mahadnaqa macallimiinta iyo qolka shaqaalaha.",
+  ptoRoleSecretary: "Xoghaye",
+  ptoRoleSecretaryBody:
+    "Diiwaanka kulamada, wargeyska bishii mar ah ee PTO Corner, warqadaha, liisaska rabitaanka, iyo in sawirrada sannadka la qaado oo la wadaago.",
+  ptoRoleTreasurer: "Khasnajiyaal wadaag ah",
+  ptoRoleTreasurerBody:
+    "Warbixinta maaliyadda, miisaaniyadda, canshuuraha, kaydinta iyo lacag-celinta. Laba kursi, maxaa yeelay waa ka badan hal fiid bishii.",
+  ptoRoleFundraising: "Hoggaamiyaha ururinta lacagta",
+  ptoRoleFundraisingBody:
+    "Habeennada makhaayadaha, Read-A-Thon, iibka geedaha, iyo Give to the Max Day.",
+  ptoRoleVolunteer: "Hoggaamiyaha mutadawiciinta",
+  ptoRoleVolunteerBody:
+    "Isku duwidda iyo diiwaangelinta mutadawiciinta oo dhan, alaabta dugsiga, Habeenka Bingo, iyo mahadnaqa sannad-gunaanadka.",
+  ptoRoleTeacherRep: "Wakiilka Macallimiinta",
+  ptoRoleTeacherRepBody:
+    "Buundada u dhaxaysa qolka macallimiinta iyo PTO-da — wuxuu keenaa baahiyaha fasalka iyo fursadaha deeqaha.",
+  ptoRoleMemberAtLarge: "Xubno guud",
+  ptoRoleMemberAtLargeBody:
+    "Kaalinta kaydka: gacmo dabacsan iyo hoggaamiyeyaal munaasabad gaar ah, wixii sannadkan qof u baahan.",
+  ptoYearTitle: "Sannadka, bil bil",
+  ptoYearLead:
+    "Wax kasta oo PTO-du qabato, siday u dhacaan. Taariikhuhu way beddelmaan — kalandarku had iyo jeer wuxuu hayaa kuwa ugu dambeeyay.",
+  ptoYearRound: "Sannadka oo dhan, gadaasha:",
+  ptoCatFundraiser: "Ururin lacag",
+  ptoCatCommunity: "Bulsho",
+  ptoCatCultural: "Dhaqan",
+  ptoCatAppreciation: "Mahadnaq",
+  ptoCatEnrichment: "Barnaamij dheeraad ah",
+  ptoCatGovernance: "Kulan",
+  ptoMeetingsTitle: "Kulamada",
+  ptoMeetingsBody:
+    "Bishii mar, badanaa 6:30 galabnimo {place}, Zoom-na waa la heli karaa. Kulanka Oktoobar waxaa lagu qabtaa doorashada guddiga. Qof walba waa lagu soo dhaweynayaa, waxba lagaama filayo, hadalna uma baahnid inaad ku dhufato.",
+  ptoHelpTitle: "Siyaabaha aad ku caawin karto",
+  ptoHelpLead:
+    "Cidina kaama codsanayso sannad noloshaada ah. Inta badan waxa PTO-du u baahan tahay waa laba saacadood, hal mar.",
+  ptoHelpVolunteer: "Qaado hal wareeg",
+  ptoHelpVolunteerBody:
+    "Warqadda diiwaangelinta munaasabad kasta waxay ku taal kalandarka. Dooro wareeg laba saacadood ah — waligaa keligaa halkaas kuma noqon doontid.",
+  ptoHelpMeeting: "Kulan kaalay",
+  ptoHelpMeetingBody:
+    "Bishii mar, qiyaastii saacad, waana habka ugu dhaqsaha badan ee aad ku ogaan karto waxa dhab ahaan socda.",
+  ptoHelpWishlist: "Wax soo dir",
+  ptoHelpWishlistBody:
+    "Qolka shaqaalaha iyo qolka farshaxanka mid kastaa wuxuu hayaa liis rabitaan. Hal shay oo aad ka dalbato waxay qaadanaysaa daqiiqad.",
+  ptoHelpShop: "Iibso shaadhka",
+  ptoHelpShopBody:
+    "Dharka dugsiga oo laga helo dukaanka PTO-da. Dalab kastaa wuxuu taageeraa dugsiga, xisaabna uma baahnid.",
+  ptoDonateTitle: "Deeq bixi",
+  ptoDonateLead:
+    "PTO-da gebi ahaanba waxaa wada mutadawiciin, sidaas darteed wixii la deeqo waxay ku soo laabtaan dugsiga iyagoo ku dhawaad dhammaystiran — safarrada waxbarasho, qalabka fasalka, meesha waxbarashada bannaanka, iyo barnaamijyada dheeraadka ah.",
+  ptoDonateCta: "Ku deeq GiveMN",
+  ptoDonateNote:
+    "GiveMN waa madal deeq oo Minnesota ah oo loogu talagalay ururrada aan faa'iido doonka ahayn, waana meesha PTO-du Nofeembar kasta ku qabato ololaha Give to the Max Day. Maalin kasta oo sannadka ka mid ah ayaad halkaas ku deeqi kartaa.",
+  ptoFindTitle: "Halka naga heli karto",
+  ptoFindLead:
+    "Su'aal, fikrad, ama saacad aad hayso — mid kasta oo kuwan ka mid ah wuxuu gaadhayaa qof dhab ah.",
+  ptoNoAccessTitle: "Qaybtan waxaa leh guddiga PTO-da",
+  ptoNoAccessBody:
+    "Boodhadhka qorshaynta waa meesha PTO-du munaasabadaheeda ku abaabusho, waxayna u furan yihiin dadka ku jira liiska guddiga. Wax kasta oo kale oo goobtan ku jira adigaa u furan.",
+  ptoNoAccessNote:
+    "Haddaad u malaynayso inaad heli lahayd, weydii xubin guddiga ka mid ah — ama kaalay kulanka xiga, taasoo dhab ahaan ah sida dadka intooda badani halkan ku yimaadaan.",
+  landingPtoBody:
+    "Cidda PTO-du tahay, waxa ay sannadka oo dhan qabato, iyo sida aad saacad ugu deeqi karto ama lacag u bixin karto.",
+  landingPtoMore:
+    "Qoys kastaa horeyba xubin buu u yahay. Waxba lama saxiixo, xisaabna looma baahna.",
 };
 
 export const dictionaries: Record<Locale, Strings> = { en, es, zh, so };
