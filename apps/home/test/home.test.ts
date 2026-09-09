@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { LOCALES, dictionaries, localeNames, type PublicCalendarEventDTO } from "@sd/shared";
+import { LOCALES, SOURCE_URL, dictionaries, localeNames, type PublicCalendarEventDTO } from "@sd/shared";
 import worker from "../src/index.js";
 import { DISTRICT_PHONES, RESOURCES } from "../src/district.js";
 import type { Env } from "../src/env.js";
@@ -240,7 +240,9 @@ describe("the landing page", () => {
       const html = await body(`/?lang=${locale}`);
       expect(html).toContain(`https://pto.eisenhower.school/?lang=${locale}`);
       expect(html).toContain("mailto:admin@eisenhower.school");
-      expect(html).toContain(dictionaries[locale].footerSource);
+      // "GitHub" is a proper noun and reads the same in all four languages,
+      // which is why it is no longer a dictionary string at all.
+      expect(html).toContain(`<a href="${SOURCE_URL}">GitHub</a>`);
     }
   });
 

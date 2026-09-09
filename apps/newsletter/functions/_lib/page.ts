@@ -96,7 +96,7 @@ ${input.body}
         <span aria-hidden="true"> · </span>
         Feedback to <a href="mailto:admin@eisenhower.school">admin@eisenhower.school</a>
         <span aria-hidden="true"> · </span>
-        <a href="${SOURCE_URL}">GitHub source</a>
+        <a href="${SOURCE_URL}">GitHub</a>
       </div>
       <div style="margin-top:10px"><a href="/app">Members: sign in</a></div>
     </div>

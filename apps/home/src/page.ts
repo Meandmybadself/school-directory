@@ -322,7 +322,7 @@ export async function renderHome(
             env.FEEDBACK_EMAIL,
           )}">${escapeHtml(env.FEEDBACK_EMAIL)}</a>${escapeHtml(feedAfter)}
           <span aria-hidden="true"> · </span>
-          <a href="${escapeHtml(SOURCE_URL)}">${escapeHtml(t("footerSource"))}</a>
+          <a href="${escapeHtml(SOURCE_URL)}">GitHub</a>
         </div>
       </div>
     </footer>`;

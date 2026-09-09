@@ -37,7 +37,7 @@ function credit(t: (key: keyof Strings, vars?: Record<string, string>) => string
     `${escapeHtml(before)}<a href="mailto:${FEEDBACK_EMAIL}">${escapeHtml(
       FEEDBACK_EMAIL,
     )}</a>${escapeHtml(after)}`,
-    `<a href="${SOURCE_URL}">${escapeHtml(t("footerSource"))}</a>`,
+    `<a href="${SOURCE_URL}">GitHub</a>`,
   ].join('<span aria-hidden="true"> · </span>');
 }
 

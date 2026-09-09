@@ -20,6 +20,11 @@ const FEEDBACK_EMAIL = import.meta.env.VITE_FEEDBACK_EMAIL ?? "admin@eisenhower.
  *  whole of the first item rather than a word inside a sentence. */
 const SCHOOL_NAME = import.meta.env.VITE_SCHOOL_NAME ?? "Eisenhower PTO";
 
+/** The third item's label. A proper noun like the first one, so it is data
+ *  rather than a dictionary string — there is nothing in "GitHub" to translate,
+ *  and the link's destination says the rest. */
+const SOURCE_LABEL = "GitHub";
+
 /** Sentinel interpolated in place of the address, then split on.
  *
  *  The address has to be a `mailto:` link, so the sentence can't simply be
@@ -55,7 +60,7 @@ export function SiteFooter({ style }: { style?: CSSProperties }) {
         {after}
         <span aria-hidden="true"> · </span>
         <a className="sd-link" href={SOURCE_URL} target="_blank" rel="noreferrer noopener">
-          {t("footerSource")}
+          {SOURCE_LABEL}
         </a>
       </span>
     </footer>

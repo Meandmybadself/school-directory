@@ -21,7 +21,7 @@
 // find us.
 
 import type { Locale, Strings } from "@sd/shared";
-import { CALENDAR_URL, FEEDBACK_EMAIL, STORE_URL, appHref, footer, header } from "./_lib/chrome.js";
+import { CALENDAR_URL, FEEDBACK_EMAIL, appHref, footer, header } from "./_lib/chrome.js";
 import { langCookie, resolveLocale } from "./_lib/locale.js";
 import { escapeHtml, html, jsonLd, shell, translator } from "./_lib/page.js";
 import {
@@ -79,7 +79,12 @@ function monthRow(t: T, locale: Locale, month: number, events: { name: string; c
         </div>`;
 }
 
-/** A "way to help" card, each with the one link that actually does the thing. */
+/** A "way to help" card, each with the one link that actually does the thing.
+ *
+ *  Three of these are rendered, not four: "Buy the shirt" is out while the shop
+ *  is being built, alongside the header's store link and apps/home's store
+ *  tile. Its copy (`ptoHelpShop`, `ptoHelpShopBody`) is translated and waiting,
+ *  so restoring it is one line — see `_lib/chrome.ts`'s `header`. */
 function helpCard(t: T, title: keyof Strings, body: keyof Strings, href: string, label: string): string {
   return `        <div class="pt-card">
           <h3>${escapeHtml(t(title))}</h3>
@@ -199,7 +204,6 @@ ${YEAR.map((m) => monthRow(t, locale, m.month, m.events)).join("\n")}
 ${helpCard(t, "ptoHelpVolunteer", "ptoHelpVolunteerBody", appHref(CALENDAR_URL, "/", locale), t("calendarTitle"))}
 ${helpCard(t, "ptoHelpMeeting", "ptoHelpMeetingBody", appHref(CALENDAR_URL, "/", locale), t("ptoMeetingsTitle"))}
 ${helpCard(t, "ptoHelpWishlist", "ptoHelpWishlistBody", WISHLISTS[0]!.url, WISHLISTS[0]!.label)}
-${helpCard(t, "ptoHelpShop", "ptoHelpShopBody", appHref(STORE_URL, "/", locale), t("storeTitle"))}
         </div>
         <p class="pt-sub" style="margin-top:16px">
           <a href="${escapeHtml(WISHLISTS[1]!.url)}">${escapeHtml(WISHLISTS[1]!.label)} →</a>

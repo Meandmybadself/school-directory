@@ -38,7 +38,7 @@ function credit(t: (key: keyof Strings, vars?: Record<string, string>) => string
     `${escapeHtml(before)}<a href="mailto:${FEEDBACK_EMAIL}">${escapeHtml(
       FEEDBACK_EMAIL,
     )}</a>${escapeHtml(after)}`,
-    `<a href="${SOURCE_URL}">${escapeHtml(t("footerSource"))}</a>`,
+    `<a href="${SOURCE_URL}">GitHub</a>`,
   ].join('<span aria-hidden="true"> · </span>');
 }
 
@@ -52,6 +52,18 @@ export function appHref(base: string, path: string, locale: Locale): string {
   return `${base.replace(/\/$/, "")}${path}?${LANG_PARAM}=${locale}`;
 }
 
+/** The header, and the nav that is one link shorter than it looks.
+ *
+ *  THERE IS NO STORE LINK while the shop is being built — the same rule
+ *  apps/home's tile grid follows, for the same reason: nothing on this site
+ *  sends anybody to an unannounced shop, so the two are restored together.
+ *  `STORE_URL` above and the `navStore` string stay where they are, already
+ *  translated, waiting for that day. The vanity redirect at
+ *  eisenhower.school/store still resolves, since typing a path is not the same
+ *  as being sent down it.
+ *
+ *  Said here rather than in an HTML comment: this page is indexed, and a note
+ *  in the markup would announce the unannounced shop to anyone reading source. */
 export function header(t: (key: keyof Strings) => string, school: string, locale: Locale): string {
   return `    <header class="pt-head">
       <a class="pt-brand" href="/">
@@ -64,7 +76,6 @@ export function header(t: (key: keyof Strings) => string, school: string, locale
       <nav class="pt-navlinks">
         <a href="${escapeHtml(appHref(CALENDAR_URL, "/", locale))}">${escapeHtml(t("navCalendar"))}</a>
         <a href="${escapeHtml(appHref(NEWSLETTER_URL, "/", locale))}">${escapeHtml(t("navNewsletter"))}</a>
-        <a href="${escapeHtml(appHref(STORE_URL, "/", locale))}">${escapeHtml(t("navStore"))}</a>
         <a href="${escapeHtml(appHref(DIRECTORY_URL, "/", locale))}">${escapeHtml(t("navDir"))}</a>
       </nav>
     </header>`;

@@ -371,10 +371,6 @@ export interface Strings {
   // site footer — three items on one line, the same three everywhere: the PTO's
   // name (a proper noun, hence not here), where feedback goes, and the source.
   footerFeedback: string; // uses {email}
-  /** Label on the link to the public source repository (`SOURCE_URL`). The
-   *  repo is deliberately public, so this is an ordinary outbound link and not
-   *  a disclosure — but it is still member-facing copy, so it lives here. */
-  footerSource: string;
 
   // landing page (apps/home — the public front door at eisenhower.school).
   // That page is server-rendered by a Worker with no client bundle, so these
@@ -946,7 +942,6 @@ const en: Strings = {
   languageNote: "Changes the directory for you only.",
 
   footerFeedback: "Feedback to {email}",
-  footerSource: "GitHub source",
 
   landingWelcome: "Welcome",
   landingTitle: "{school} — directory, calendar and newsletter",
@@ -1462,7 +1457,6 @@ const es: Strings = {
   languageNote: "Cambia el directorio solo para ti.",
 
   footerFeedback: "Comentarios a {email}",
-  footerSource: "Código en GitHub",
 
   landingWelcome: "Bienvenidos",
   landingTitle: "{school} — directorio, calendario y boletín",
@@ -1961,7 +1955,6 @@ const zh: Strings = {
   languageNote: "仅更改你自己的目录显示。",
 
   footerFeedback: "意见反馈：{email}",
-  footerSource: "GitHub 源代码",
 
   landingWelcome: "欢迎",
   landingTitle: "{school} — 名录、日历与通讯",
@@ -2522,7 +2515,6 @@ const so: Strings = {
   languageNote: "Waxay tusmada u beddeshaa adiga oo keliya.",
 
   footerFeedback: "Talo u dir {email}",
-  footerSource: "Koodhka GitHub",
 
   landingWelcome: "Soo dhawoow",
   landingTitle: "{school} — tusmo, kalandar iyo warsidaha",
