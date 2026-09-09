@@ -65,6 +65,13 @@ export interface Strings {
   noEventsMatch: string;
   allDay: string;
   calendars: string;
+  /** Dismissible note above the calendar chips, explaining what the chips do.
+   *  Two spellings because an instance with one calendar has no show/hide —
+   *  `FilterBar` renders the chip as plain text there, so promising a toggle
+   *  would describe a control that isn't on the screen. */
+  calendarsHint: string;
+  calendarsHintOne: string;
+  hintDismiss: string;
   downloadIcs: string; // uses {name}
   downloadIcsNote: string;
   subscribeIcs: string; // uses {name}
@@ -656,6 +663,11 @@ const en: Strings = {
   noEventsMatch: "No events match your search.",
   allDay: "All day",
   calendars: "Calendars",
+  calendarsHint:
+    "Select a calendar to hide its events, and again to bring them back. The + adds one to the calendar app you already use, so new and changed dates arrive on their own.",
+  calendarsHintOne:
+    "The + adds this calendar to the app you already use, so new and changed dates arrive on their own.",
+  hintDismiss: "Dismiss",
   downloadIcs: "Download {name} (.ics)",
   downloadIcsNote:
     "A one-time copy of today's dates. It won't update when the school's plans change.",
@@ -1235,6 +1247,11 @@ const es: Strings = {
   noEventsMatch: "Ningún evento coincide con tu búsqueda.",
   allDay: "Todo el día",
   calendars: "Calendarios",
+  calendarsHint:
+    "Selecciona un calendario para ocultar sus eventos y vuelve a seleccionarlo para mostrarlos. El + lo agrega a la aplicación de calendario que ya usas, así las fechas nuevas y los cambios llegan solos.",
+  calendarsHintOne:
+    "El + agrega este calendario a la aplicación que ya usas, así las fechas nuevas y los cambios llegan solos.",
+  hintDismiss: "Cerrar",
   downloadIcs: "Descargar {name} (.ics)",
   downloadIcsNote:
     "Una copia única de las fechas de hoy. No se actualizará cuando cambien los planes de la escuela.",
@@ -1747,6 +1764,10 @@ const zh: Strings = {
   noEventsMatch: "没有符合搜索条件的活动。",
   allDay: "全天",
   calendars: "日历",
+  calendarsHint:
+    "点选某个日历可隐藏它的活动，再点一次即可恢复。点 + 可把日历添加到你常用的日历应用，新活动和改动会自动同步。",
+  calendarsHintOne: "点 + 可把此日历添加到你常用的日历应用，新活动和改动会自动同步。",
+  hintDismiss: "关闭",
   downloadIcs: "下载 {name}（.ics）",
   downloadIcsNote: "当前日期的一次性副本。学校安排变动时不会自动更新。",
   subscribeIcs: "订阅{name}",
@@ -2229,6 +2250,11 @@ const so: Strings = {
   noEventsMatch: "Ma jiraan dhacdooyin waafaqsan raadintaada.",
   allDay: "Maalinta oo dhan",
   calendars: "Kalandarrada",
+  calendarsHint:
+    "Dooro kalandar si aad u qariso dhacdooyinkiisa, mar kalena si aad u soo celiso. Calaamadda + waxay mid ku dartaa barnaamijka kalandarka ee aad hore u isticmaasho, sidaas taariikhaha cusub iyo kuwa isbeddelay iyagaa iskood u imanaya.",
+  calendarsHintOne:
+    "Calaamadda + waxay kalandarkan ku dartaa barnaamijka aad hore u isticmaasho, sidaas taariikhaha cusub iyo kuwa isbeddelay iyagaa iskood u imanaya.",
+  hintDismiss: "Xir",
   downloadIcs: "Soo dejiso {name} (.ics)",
   downloadIcsNote:
     "Waa koobi hal mar ah oo taariikhaha maanta ah. Ma cusboonaysiimayso marka qorshaha dugsigu isbeddelo.",

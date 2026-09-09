@@ -34,6 +34,10 @@ import {
 } from "../lib/calendar.js";
 
 const HIDDEN_KEY = "sd_cal_hidden";
+/** Separate from HIDDEN_KEY rather than a flag inside it: that value is a member's
+ *  filter choices and is deliberately shared in shape with the directory app's
+ *  copy, so nothing else belongs in it. */
+const HINT_KEY = "sd_cal_hint_dismissed";
 
 /** The agenda's day heading format. Shared by the day groups and the search
  *  index, so the two agree on what a given day is called — and matched by the
@@ -56,6 +60,18 @@ function loadHidden(): Set<string> {
     return new Set(raw ? (JSON.parse(raw) as string[]) : []);
   } catch {
     return new Set();
+  }
+}
+
+/** Whether the chips' explanatory note has already been dismissed. A browser
+ *  that refuses storage shows the note every visit rather than never, which is
+ *  the right way round: the failure of a hint is being missed, not being seen
+ *  twice. */
+function hintDismissed(): boolean {
+  try {
+    return localStorage.getItem(HINT_KEY) === "1";
+  } catch {
+    return false;
   }
 }
 
@@ -131,11 +147,53 @@ function EventRow({ e, locale, onOpen }: { e: PublicCalendarEventDTO; locale: st
 function FilterBar({ feeds, hidden, onToggle }: { feeds: PublicCalendarFeedDTO[]; hidden: Set<string>; onToggle: (id: string) => void }) {
   const { t } = useI18n();
   const [subscribing, setSubscribing] = useState<PublicCalendarFeedDTO | null>(null);
+  const [hintOff, setHintOff] = useState(hintDismissed);
   if (feeds.length === 0) return null;
   const canFilter = feeds.length >= 2;
+  const dismissHint = () => {
+    setHintOff(true);
+    try {
+      localStorage.setItem(HINT_KEY, "1");
+    } catch {
+      /* ignore quota/availability errors */
+    }
+  };
   return (
     <div>
       <SectLabel>{t("calendars")}</SectLabel>
+      {/* Above the chips, not below them: a reader who doesn't know the chips
+          are controls at all has no reason to look past them for a caption.
+          Both affordances are otherwise silent — a chip looks like a legend,
+          and the + could be read as "add a calendar" rather than "add this one
+          to yours". Dismissible because it earns its space once. */}
+      {!hintOff && (
+        <div
+          className="sd-row"
+          style={{
+            gap: 8, alignItems: "flex-start", marginTop: 9, padding: "8px 10px", borderRadius: 10,
+            background: "var(--blue-tint)", border: "1px solid var(--blue-tint-2)", color: "var(--blue-800)",
+          }}
+        >
+          <Icon name="info" size={15} stroke={2} style={{ flex: "0 0 auto", marginTop: 1.5 }} />
+          <div style={{ flex: 1, minWidth: 0, fontSize: 12.5, lineHeight: 1.45 }}>
+            {canFilter ? t("calendarsHint") : t("calendarsHintOne")}
+          </div>
+          <button
+            type="button"
+            onClick={dismissHint}
+            title={t("hintDismiss")}
+            aria-label={t("hintDismiss")}
+            style={{
+              display: "inline-flex", alignItems: "center", justifyContent: "center",
+              width: 22, height: 22, flex: "0 0 auto", marginTop: -1,
+              border: 0, borderRadius: 6, background: "transparent", color: "inherit",
+              cursor: "pointer", opacity: 0.75,
+            }}
+          >
+            <Icon name="x" size={14} stroke={2} />
+          </button>
+        </div>
+      )}
       <div className="sd-row" style={{ gap: 8, flexWrap: "wrap", marginTop: 9 }}>
         {feeds.map((f) => {
           const on = !hidden.has(f.id);
