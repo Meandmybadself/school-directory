@@ -3,29 +3,33 @@
 //
 // This is the page a family is handed when they ask "what IS the PTO?", so it is
 // server-rendered with full OG tags and no bundle, and it is INDEXED — see
-// functions/_lib/page.ts on what that obliges. Everything on it is either
-// dictionary copy (invariant 6), a proper noun from `_lib/pto.ts`, or a row from
-// the anonymous calendar feed. Nothing member-private can reach it, because
-// nothing member-scoped is read.
+// functions/_lib/page.ts on what that obliges.
+//
+// IT MAKES NO SUBREQUEST AT ALL. It is a pure function of the requested URL, the
+// Accept-Language header and the `sd_lang` cookie — every word on it is either
+// dictionary copy (invariant 6) or a proper noun from `_lib/pto.ts`. It briefly
+// had an upcoming-events block reading the anonymous `/calendar-public/events`,
+// the way apps/home still does, and dropping that leaves this page stronger than
+// the rule invariant 28 asks of it: there is no read to get wrong, nothing to
+// degrade when the API blips, and the calendar is one tap away in the nav for
+// anyone who wants dates. The month strip below says WHAT happens and roughly
+// when in the year, which is what a page with no editor can promise to keep true.
 //
 // Structure, and why in this order: a family arriving cold wants to know what
 // this thing does before who runs it, and what it costs them before where to
-// give. So — what it does, who runs it, the year, what's next, how to help,
-// donate, where to find us.
+// give. So — what it does, who runs it, the year, how to help, donate, where to
+// find us.
 
-import type { PublicCalendarEventDTO, Locale, Strings } from "@sd/shared";
-import { eventPath } from "@sd/shared";
+import type { Locale, Strings } from "@sd/shared";
 import { CALENDAR_URL, STORE_URL, appHref, footer, header } from "./_lib/chrome.js";
-import { upcomingEvents } from "./_lib/events.js";
 import { langCookie, resolveLocale } from "./_lib/locale.js";
-import { escapeHtml, html, shell, translator, type PagesEnv } from "./_lib/page.js";
+import { escapeHtml, html, shell, translator } from "./_lib/page.js";
 import {
   CATEGORY_LABEL,
   DONATE,
   MEETING_PLACE,
   PROGRAMS,
   SEATS,
-  SIGNUP,
   SOCIAL,
   WISHLISTS,
   YEAR,
@@ -35,9 +39,6 @@ import {
 import { PTO_CSS } from "./_lib/styles.js";
 
 const SCHOOL = "Eisenhower PTO";
-/** Naming the day of an event rendered on a Worker, which has no reader
- *  timezone to use. The same fallback lib/ptoBoard.ts applies. */
-const SCHOOL_TZ = "America/Chicago";
 
 type T = (key: keyof Strings, vars?: Record<string, string>) => string;
 
@@ -74,25 +75,6 @@ function monthRow(t: T, locale: Locale, month: number, events: { name: string; c
         </div>`;
 }
 
-/** One upcoming event, linked to its own page on the calendar.
- *
- *  The day is minted in SCHOOL_TIMEZONE because this runs on a Worker with no
- *  reader zone; `findEventByPath` searches ±1 day, so the two can disagree about
- *  a boundary without breaking the link (invariant 8). */
-function eventRow(e: PublicCalendarEventDTO, locale: Locale): string {
-  const when = new Intl.DateTimeFormat(locale, {
-    weekday: "short",
-    month: "short",
-    day: "numeric",
-    timeZone: SCHOOL_TZ,
-  }).format(new Date(e.start));
-  const href = `${CALENDAR_URL}${eventPath({ title: e.title, start: e.start, allDay: e.allDay }, SCHOOL_TZ)}?lang=${locale}`;
-  return `        <a class="pt-event" href="${escapeHtml(href)}">
-          <span class="when">${escapeHtml(when)}</span>
-          <span class="what">${escapeHtml(e.title)}</span>
-        </a>`;
-}
-
 /** A "way to help" card, each with the one link that actually does the thing. */
 function helpCard(t: T, title: keyof Strings, body: keyof Strings, href: string, label: string): string {
   return `        <div class="pt-card">
@@ -102,11 +84,10 @@ function helpCard(t: T, title: keyof Strings, body: keyof Strings, href: string,
         </div>`;
 }
 
-export const onRequestGet: PagesFunction<PagesEnv> = async ({ request, env }) => {
+export const onRequestGet: PagesFunction = ({ request }) => {
   const url = new URL(request.url);
   const { locale, explicit } = resolveLocale(url, request);
   const t = translator(locale, SCHOOL);
-  const events = await upcomingEvents(env);
 
   const title = `${t("ptoTitle")} — ${SCHOOL}`;
   const description = t("ptoLead");
@@ -171,23 +152,6 @@ ${YEAR.map((m) => monthRow(t, locale, m.month, m.events)).join("\n")}
         </div>
       </section>
 
-${
-    // Hidden entirely when the read failed or there is nothing coming up — the
-    // "degrade to empty" rule, so an API blip never leaves a stub heading over
-    // a blank space.
-    events.length === 0
-      ? ""
-      : `      <section class="pt-sec">
-        <h2 class="pt-h2">${escapeHtml(t("upcomingEvents"))}</h2>
-        <div class="pt-events">
-${events.map((e) => eventRow(e, locale)).join("\n")}
-        </div>
-        <p class="pt-sub" style="margin-top:14px">
-          <a href="${escapeHtml(appHref(CALENDAR_URL, "/", locale))}">${escapeHtml(t("calendarTitle"))} →</a>
-        </p>
-      </section>`
-  }
-
       <section class="pt-sec" id="help">
         <h2 class="pt-h2">${escapeHtml(t("ptoHelpTitle"))}</h2>
         <p class="pt-sub">${escapeHtml(t("ptoHelpLead"))}</p>
@@ -198,8 +162,6 @@ ${helpCard(t, "ptoHelpWishlist", "ptoHelpWishlistBody", WISHLISTS[0]!.url, WISHL
 ${helpCard(t, "ptoHelpShop", "ptoHelpShopBody", appHref(STORE_URL, "/", locale), t("storeTitle"))}
         </div>
         <p class="pt-sub" style="margin-top:16px">
-          <a href="${escapeHtml(SIGNUP.url)}">${escapeHtml(SIGNUP.label)} →</a>
-          &nbsp;·&nbsp;
           <a href="${escapeHtml(WISHLISTS[1]!.url)}">${escapeHtml(WISHLISTS[1]!.label)} →</a>
         </p>
       </section>

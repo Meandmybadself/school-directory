@@ -199,7 +199,14 @@ export const YEAR_ROUND = [
  *
  *  Venmo is deliberately absent. `links.json` carries `https://venmo.com/` with
  *  no handle on it — a placeholder, not an address — and a donate button that
- *  lands on Venmo's home page is worse than one that isn't there. */
+ *  lands on Venmo's home page is worse than one that isn't there.
+ *
+ *  SignUpGenius is absent too, and for a better reason: this instance HAS a
+ *  volunteer sign-up system of its own, on the calendar, where a shift is
+ *  claimed by a directory Person and the sheet lives on the event (invariant
+ *  13). Sending a family to a third-party sign-up from the page that explains
+ *  the PTO would point them away from the thing built to replace it. "Take a
+ *  shift" links to the calendar. */
 export interface PtoLink {
   /** The label is a proper noun or the service's own name, so it is data. */
   label: string;
@@ -209,11 +216,6 @@ export interface PtoLink {
 export const DONATE: PtoLink = {
   label: "GiveMN",
   url: "https://www.givemn.org/organization/Eisenhower-Xx-Juntos-Pto",
-};
-
-export const SIGNUP: PtoLink = {
-  label: "SignUpGenius",
-  url: "https://www.signupgenius.com/go/10C0F4EABA62FA6F5C25",
 };
 
 export const WISHLISTS: PtoLink[] = [

@@ -4,7 +4,7 @@
 // caching) and this one about what a reader sees. Both are plain strings — no
 // components, no bundle, nothing to hydrate.
 
-import { LOCALES, localeNames, SOURCE_URL, type Locale, type Strings } from "@sd/shared";
+import { LOCALES, localeNames, PTO_URL, SOURCE_URL, type Locale, type Strings } from "@sd/shared";
 import { escapeHtml } from "./page.js";
 import { LANG_PARAM } from "./locale.js";
 
@@ -53,7 +53,7 @@ export function footer(path: string, locale: Locale): string {
   }).join("");
 
   return `    <footer class="st-foot">
-      <div>Eisenhower PTO · <a href="${APEX_URL}">eisenhower.school</a></div>
+      <div><a href="${PTO_URL}">Eisenhower PTO</a> · <a href="${APEX_URL}">eisenhower.school</a></div>
       <div>Questions? Email <a href="mailto:admin@eisenhower.school">admin@eisenhower.school</a></div>
       <div><a href="${SOURCE_URL}">View the source on GitHub</a></div>
       <div class="st-langs">${langs}</div>

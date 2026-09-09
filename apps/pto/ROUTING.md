@@ -25,12 +25,19 @@ paragraphs of prose. Everything else is the PTO board's planning tool: gated on 
 session **and** on membership of the PTO board group, stateful, and useless to
 anyone else.
 
-That means this app has a property `apps/store` does not: **no Function here
-reads anything member-scoped.** The public page's only subrequest is to the
-anonymous `/calendar-public/events`, the same read `apps/home` makes. Every
-`pto_*` table is reached exclusively through the bundle's credentialed `fetch` to
-`/pto/*`. Keep it that way — if a Function ever needs board data, the answer is
-that it shouldn't have it.
+That means this app has a property `apps/store` and `apps/home` do not: **no
+Function here makes a subrequest at all.** The public page is a pure function of
+the requested URL, the `Accept-Language` header and the `sd_lang` cookie. It
+briefly read the anonymous `/calendar-public/events` for an upcoming-events
+block, the way `apps/home` still does; that block was dropped, and what is left
+is a page with no read to get wrong, nothing to degrade when the API blips, and
+no binding in its `wrangler.toml`. Every `pto_*` table is reached exclusively
+through the bundle's credentialed `fetch` to `/pto/*`.
+
+Keep it that way. If a Function here ever needs board data, the answer is that it
+shouldn't have it; if it needs calendar data, it takes the anonymous route and
+degrades to hiding the block, and that is a decision to re-make deliberately
+rather than a door left open.
 
 ## Do not add `public/_redirects`
 
