@@ -59,9 +59,13 @@ function sheetUrl(sheet: VolunteerSheetDTO): string {
  *  would make the PTO's own outbound mail a thing this system logs, retries and
  *  is blamed for.
  *
- *  One limit worth knowing: some mail clients truncate a `mailto:` past roughly
- *  2,000 characters, which is about 60 addresses. A school sheet is well short
- *  of that; a sheet that isn't would need the list copied instead. */
+ *  TWO limits worth knowing, and "Copy volunteer emails" beside this button is
+ *  the answer to both. A `mailto:` hands the message to a NATIVE mail client,
+ *  so on a machine where none is configured — which is most of them now that
+ *  mail lives in a browser tab — it opens nothing, or an app nobody uses. And
+ *  some clients truncate a `mailto:` past roughly 2,000 characters, about 60
+ *  addresses; a school sheet is well short of that, but a sheet that isn't
+ *  wants the clipboard rather than this. */
 function mailtoUrl(to: string, bcc: string[], subject: string): string {
   const params = new URLSearchParams({ bcc: bcc.join(","), subject });
   return [
@@ -238,6 +242,11 @@ export function EventVolunteers() {
   // after the composer opens, because the admin is now writing a message to a
   // list that isn't everyone and should be told so while they write it.
   const [unreachable, setUnreachable] = useState<number | null>(null);
+  /** How many addresses the last copy put on the clipboard — the button says so
+   *  for a moment, because a clipboard write is otherwise invisible. */
+  const [copiedEmails, setCopiedEmails] = useState<number | null>(null);
+  /** The list itself, shown only when the browser refused the clipboard. */
+  const [emailList, setEmailList] = useState<string | null>(null);
 
   const loadOccurrences = useCallback(async () => {
     const r = await api.eventOccurrences(id).catch(() => ({ occurrences: [] as ManagedOccurrenceDTO[] }));
@@ -261,6 +270,7 @@ export function EventVolunteers() {
   const openSheet = async (sheetId: string) => {
     setError(null);
     setUnreachable(null);
+    setEmailList(null);
     const r = await api.adminVolunteerSheet(sheetId).catch(() => null);
     if (r) setSheet(r.sheet);
   };
@@ -269,6 +279,7 @@ export function EventVolunteers() {
     setBusy(true);
     setError(null);
     setUnreachable(null);
+    setEmailList(null);
     try {
       const r = await api.addVolunteerSheet(id, { occurrenceStart });
       setSheet(r.sheet);
@@ -357,13 +368,14 @@ export function EventVolunteers() {
     }
   };
 
-  /** Gather the addresses, then hand them to the mail client. The read happens
-   *  on the click rather than with the sheet: it is the one thing on this screen
-   *  that is only ever wanted at the moment it is used. */
-  const emailVolunteers = async () => {
-    if (!sheet) return;
-    setBusy(true);
+  /** The addresses, read on the click rather than with the sheet: they are the
+   *  one thing on this screen that is only ever wanted at the moment they are
+   *  used. Returns null when there is nobody to write to, having already said
+   *  so — both buttons below want the same read and the same two refusals. */
+  const gatherEmails = async (): Promise<string[] | null> => {
+    if (!sheet) return null;
     setError(null);
+    setEmailList(null);
     try {
       const { emails, withoutEmail } = await api.volunteerSheetEmails(sheet.id);
       if (emails.length === 0) {
@@ -372,14 +384,52 @@ export function EventVolunteers() {
             ? `No email address on file for ${withoutEmail === 1 ? "the volunteer" : `any of the ${withoutEmail} volunteers`} on this sheet.`
             : "Nobody has signed up yet.",
         );
-        return;
+        return null;
       }
       setUnreachable(withoutEmail);
+      return emails;
+    } catch (err) {
+      setError(errorMessage(err, "Couldn't gather the volunteers' email addresses."));
+      return null;
+    }
+  };
+
+  const emailVolunteers = async () => {
+    setBusy(true);
+    try {
+      const emails = await gatherEmails();
+      if (!emails || !sheet) return;
       // Subject is the EVENT's title, not the sheet's date — it is what the
       // family recognises, and it is the only name a sheet has anyway.
       window.location.href = mailtoUrl(me?.user.email ?? "", emails, sheet.event.title);
-    } catch (err) {
-      setError(errorMessage(err, "Couldn't gather the volunteers' email addresses."));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  /** The other half of the same job, for the admin whose mail lives in a browser
+   *  tab. `mailto:` hands the message to a NATIVE client, and on a machine where
+   *  none is configured it opens nothing at all — or worse, an app the person
+   *  has never used. Copying the list costs them one paste into Gmail's or
+   *  Outlook's own Bcc field and needs no such handoff. */
+  const copyEmails = async () => {
+    setBusy(true);
+    try {
+      const emails = await gatherEmails();
+      if (!emails) return;
+      // Comma-separated: what every webmail recipient field parses, and what a
+      // spreadsheet splits on if the list is going somewhere else.
+      const text = emails.join(", ");
+      try {
+        await navigator.clipboard.writeText(text);
+        setCopiedEmails(emails.length);
+        setTimeout(() => setCopiedEmails(null), 2500);
+      } catch {
+        // A refused clipboard is exactly the case this button exists for, so it
+        // cannot fail silently the way the link above does: put the list on
+        // screen instead, where it can be selected by hand.
+        setEmailList(text);
+      }
     } finally {
       setBusy(false);
     }
@@ -474,6 +524,14 @@ export function EventVolunteers() {
           <Btn sm kind="secondary" icon="mail" disabled={busy} onClick={() => void emailVolunteers()}>
             Email volunteers
           </Btn>
+          {/* Beside it rather than instead of it: the two answer the same need
+              for two kinds of admin, and which one works is a fact about the
+              machine, not about the sheet. */}
+          <Btn sm kind="secondary" icon="copy" disabled={busy} onClick={() => void copyEmails()}>
+            {copiedEmails === null
+              ? "Copy volunteer emails"
+              : `Copied ${copiedEmails} ${copiedEmails === 1 ? "address" : "addresses"}`}
+          </Btn>
           <button aria-label="Delete this sheet" title="Delete this sheet" onClick={() => void removeSheet()} style={{ ...iconBtnStyle, marginLeft: "auto" }}>
             <Icon name="x" size={18} />
           </button>
@@ -496,12 +554,35 @@ export function EventVolunteers() {
           signed-in members only, and signing up requires an account.
         </div>
 
-        {/* Said after the composer opens rather than instead of opening it: the
-            message is still worth sending to everyone else. */}
+        {/* Said after the fact rather than instead of it: the message is still
+            worth sending to everyone else. Worded for either button, since both
+            leave the same people out. */}
         {!!unreachable && (
           <div className="sd-meta">
             {unreachable === 1 ? "One volunteer has" : `${unreachable} volunteers have`} no email address on
-            file and {unreachable === 1 ? "was" : "were"} left out of that draft.
+            file and {unreachable === 1 ? "was" : "were"} left out.
+          </div>
+        )}
+
+        {/* Only when the clipboard was refused. Selected on mount, so the one
+            thing left to do is the copy keystroke. */}
+        {emailList && (
+          <div>
+            <div className="sd-meta" style={{ marginBottom: 6 }}>
+              This browser wouldn't let the page write to the clipboard — copy the addresses from here.
+            </div>
+            <textarea
+              className="sd-input"
+              readOnly
+              rows={3}
+              style={{ height: "auto", resize: "vertical", width: "100%" }}
+              value={emailList}
+              // Focused once on mount and selected whenever it is, so the only
+              // thing left to do is the copy keystroke. A ref that re-selected
+              // on every render would fight the admin's own selection.
+              autoFocus
+              onFocus={(e) => e.currentTarget.select()}
+            />
           </div>
         )}
 

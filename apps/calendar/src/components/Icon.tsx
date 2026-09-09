@@ -6,7 +6,7 @@ export type IconName =
   | "chevright" | "chevleft" | "home" | "school" | "phone" | "mail" | "link"
   | "pin" | "x" | "wifioff" | "shield" | "search" | "arrowleft" | "bolt"
   | "upload" | "globe" | "gear" | "users3" | "file" | "table" | "swap"
-  | "dot3" | "star" | "minus" | "info" | "calendar" | "download";
+  | "dot3" | "star" | "minus" | "info" | "calendar" | "download" | "copy";
 
 const paths: Record<IconName, ReactNode> = {
   lock: <><rect x="5" y="11" width="14" height="9" rx="2" /><path d="M8 11V8a4 4 0 0 1 8 0v3" /></>,
@@ -43,6 +43,11 @@ const paths: Record<IconName, ReactNode> = {
   info: <><circle cx="12" cy="12" r="8.5" /><path d="M12 11v5M12 8h.01" /></>,
   calendar: <><rect x="4" y="5.5" width="16" height="14.5" rx="2" /><path d="M4 10h16M8 3.5v4M16 3.5v4" /></>,
   download: <><path d="M12 4v10M8 11l4 4 4-4" /><path d="M5 19h14" /></>,
+  // Two sheets, one behind the other — the copy-to-clipboard convention. Added
+  // for the volunteer sheet's "Copy volunteer emails"; the four sibling apps'
+  // copies of this file are expected to drift, so it lives here alone until one
+  // of them needs it (CLAUDE.md, "Five front ends, one API").
+  copy: <><rect x="9" y="9" width="11" height="11" rx="2" /><path d="M15 5.5A1.5 1.5 0 0 0 13.5 4h-7A2.5 2.5 0 0 0 4 6.5v7A1.5 1.5 0 0 0 5.5 15" /></>,
 };
 
 export function Icon({

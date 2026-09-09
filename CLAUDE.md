@@ -365,7 +365,16 @@ All five SPAs are separate Cloudflare Pages projects talking to the single
    signed-up Person plus a count of the ones it could not reach; the admin
    screen turns that into a draft in their own mail client with everyone Bcc'd
    (never To — a roster in a To line publishes every family's address to every
-   other family) and the EVENT's title as the subject. Two things are
+   other family) and the EVENT's title as the subject.
+   **"Copy volunteer emails" sits beside it and is not a nicety**: a `mailto:`
+   hands the message to a NATIVE client, so for the many admins whose mail
+   lives in a browser tab it opens nothing at all, or an app they have never
+   configured. The copy button puts the same list, comma-separated, on the
+   clipboard for one paste into Gmail's or Outlook's own Bcc field — and when
+   the BROWSER refuses the clipboard it shows the list on screen instead,
+   because a silent failure there would be a silent failure of the very
+   fallback. Both buttons share one read (`gatherEmails`) and one wording for
+   "nobody to write to". Two more things are
    deliberate. It is not a field on `VolunteerSignupDTO`: that shape is what
    every signed-in member reads on the event page, so an address hanging off it
    would publish the roster's contact details to the whole membership — the same
