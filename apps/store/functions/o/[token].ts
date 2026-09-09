@@ -52,7 +52,7 @@ ${header(t, SCHOOL)}
         <p>${escapeHtml(t("storeOrderNotFound"))}</p>
         <p><a href="/">${escapeHtml(t("storeKeepShopping"))}</a></p>
       </div>
-${footer("/", locale)}
+${footer(t, "/", locale)}
     </div>`,
       }),
       404,
@@ -106,7 +106,7 @@ ${lines}
           order.shipTo.city,
         )} ${escapeHtml(order.shipTo.state)} ${escapeHtml(order.shipTo.postalCode)}
       </p>
-${footer("/", locale)}
+${footer(t, "/", locale)}
     </div>`;
 
   return htmlPrivate(

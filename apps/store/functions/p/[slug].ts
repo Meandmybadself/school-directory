@@ -50,7 +50,7 @@ ${header(t, SCHOOL)}
         <p>${escapeHtml(t("storeEmpty"))}</p>
         <p><a href="/">${escapeHtml(t("storeKeepShopping"))}</a></p>
       </div>
-${footer(`/p/${slug}`, locale)}
+${footer(t, `/p/${slug}`, locale)}
     </div>`,
       }),
       404,
@@ -100,7 +100,7 @@ ${buy}
           )}</p>
         </div>
       </div>
-${footer(path, locale)}
+${footer(t, path, locale)}
     </div>`;
 
   return html(

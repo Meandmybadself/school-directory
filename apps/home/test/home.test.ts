@@ -224,14 +224,23 @@ describe("the landing page", () => {
   it("says where the school is, in every language", async () => {
     for (const locale of LOCALES) {
       const html = await body(`/?lang=${locale}`);
-      // The place name itself is configuration and stays in Latin script; only
-      // the sentence around it in the footer is translated.
+      // The place name is configuration and stays in Latin script. It used to
+      // be said a second time in the footer as well; the footer was cut to
+      // three items, and the two places a SEARCH ENGINE reads it — the
+      // description and the Place structured data below — are what actually
+      // carried that signal, so nothing was lost with the line.
       expect(html).toContain("Hopkins, Minnesota");
-      expect(html).toContain(
-        dictionaries[locale].landingLocatedIn
-          .replace("{school}", "Eisenhower PTO")
-          .replace("{city}", "Hopkins, Minnesota"),
-      );
+    }
+  });
+
+  it("carries the same three-item footer in every language", async () => {
+    // The one credit line, identical in all five apps and all four SSR public
+    // surfaces: who this is, where feedback goes, where the source is.
+    for (const locale of LOCALES) {
+      const html = await body(`/?lang=${locale}`);
+      expect(html).toContain(`https://pto.eisenhower.school/?lang=${locale}`);
+      expect(html).toContain("mailto:admin@eisenhower.school");
+      expect(html).toContain(dictionaries[locale].footerSource);
     }
   });
 

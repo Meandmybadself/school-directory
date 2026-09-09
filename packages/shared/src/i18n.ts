@@ -368,8 +368,8 @@ export interface Strings {
   language: string;
   languageNote: string;
 
-  // site footer
-  footerBuiltBy: string; // uses {school}
+  // site footer — three items on one line, the same three everywhere: the PTO's
+  // name (a proper noun, hence not here), where feedback goes, and the source.
   footerFeedback: string; // uses {email}
   /** Label on the link to the public source repository (`SOURCE_URL`). The
    *  repo is deliberately public, so this is an ordinary outbound link and not
@@ -390,7 +390,6 @@ export interface Strings {
    *  configuration (`SCHOOL_CITY`/`SCHOOL_REGION`) and stays in Latin script in
    *  every language, the way it is written on an envelope — only the sentence
    *  around it is translated. */
-  landingLocatedIn: string; // uses {school} {city}
   landingReadIn: string; // uses {language}
   landingCreateAccount: string;
   landingNoPassword: string;
@@ -946,9 +945,8 @@ const en: Strings = {
   language: "Language",
   languageNote: "Changes the directory for you only.",
 
-  footerBuiltBy: "Site built by the {school}.",
-  footerFeedback: "Feedback? Email {email}",
-  footerSource: "View the source on GitHub",
+  footerFeedback: "Feedback to {email}",
+  footerSource: "GitHub source",
 
   landingWelcome: "Welcome",
   landingTitle: "{school} — directory, calendar and newsletter",
@@ -956,7 +954,6 @@ const en: Strings = {
     "The directory, calendar, newsletter and volunteer sign-ups for {school} families in {city}. Available in {languages}.",
   landingLead:
     "Everything the {school} keeps for families, in one place — a directory of who's who, the school calendar, and the newsletter. One account opens all three.",
-  landingLocatedIn: "Serving {school} families in {city}.",
   landingReadIn: "Read this page in {language}",
   landingCreateAccount: "Create your account",
   landingNoPassword: "No password to remember — we email you a sign-in link.",
@@ -1464,9 +1461,8 @@ const es: Strings = {
   language: "Idioma",
   languageNote: "Cambia el directorio solo para ti.",
 
-  footerBuiltBy: "Sitio creado por {school}.",
-  footerFeedback: "¿Comentarios? Escribe a {email}",
-  footerSource: "Ver el código fuente en GitHub",
+  footerFeedback: "Comentarios a {email}",
+  footerSource: "Código en GitHub",
 
   landingWelcome: "Bienvenidos",
   landingTitle: "{school} — directorio, calendario y boletín",
@@ -1474,7 +1470,6 @@ const es: Strings = {
     "El directorio, el calendario, el boletín y las inscripciones de voluntarios para las familias de {school} en {city}. Disponible en {languages}.",
   landingLead:
     "Todo lo que {school} reúne para las familias, en un solo lugar: un directorio de quién es quién, el calendario escolar y el boletín. Una sola cuenta abre los tres.",
-  landingLocatedIn: "Al servicio de las familias de {school} en {city}.",
   landingReadIn: "Leer esta página en {language}",
   landingCreateAccount: "Crea tu cuenta",
   landingNoPassword: "Sin contraseña que recordar: te enviamos un enlace por correo.",
@@ -1965,9 +1960,8 @@ const zh: Strings = {
   language: "语言",
   languageNote: "仅更改你自己的目录显示。",
 
-  footerBuiltBy: "本网站由{school}制作。",
-  footerFeedback: "有意见或建议？请发送邮件至 {email}",
-  footerSource: "在 GitHub 上查看源代码",
+  footerFeedback: "意见反馈：{email}",
+  footerSource: "GitHub 源代码",
 
   landingWelcome: "欢迎",
   landingTitle: "{school} — 名录、日历与通讯",
@@ -1975,7 +1969,6 @@ const zh: Strings = {
     "{school} 为 {city} 的家庭提供的名录、日历、通讯和志愿者报名。提供 {languages} 版本。",
   landingLead:
     "{school} 为家庭准备的一切都在这里：一份「谁是谁」的名录、学校日历，以及通讯。一个账户，三处通用。",
-  landingLocatedIn: "为 {city} 的 {school} 家庭服务。",
   landingReadIn: "用{language}阅读本页",
   landingCreateAccount: "创建账户",
   landingNoPassword: "无需记住密码，我们会把登录链接发到你的邮箱。",
@@ -2528,9 +2521,8 @@ const so: Strings = {
   language: "Luqadda",
   languageNote: "Waxay tusmada u beddeshaa adiga oo keliya.",
 
-  footerBuiltBy: "Bogga waxaa dhisay {school}.",
-  footerFeedback: "Ma leedahay talo? Iimayl u dir {email}",
-  footerSource: "Ka eeg koodhka isha ee GitHub",
+  footerFeedback: "Talo u dir {email}",
+  footerSource: "Koodhka GitHub",
 
   landingWelcome: "Soo dhawoow",
   landingTitle: "{school} — tusmo, kalandar iyo warsidaha",
@@ -2538,7 +2530,6 @@ const so: Strings = {
     "Tusmada, kalandarka, warsidaha iyo isdiiwaangelinta mutadawaciinta ee qoysaska {school} ee {city}. Waxaa lagu heli karaa {languages}.",
   landingLead:
     "Wax kasta oo {school} qoysaska u haysato meel keliya: tusmo muujinaysa cidda dadku yihiin, kalandarka dugsiga, iyo warsidaha. Hal xisaab ayaa saddexdaba kuu furaysa.",
-  landingLocatedIn: "U adeegaya qoysaska {school} ee {city}.",
   landingReadIn: "Bogga ku akhri {language}",
   landingCreateAccount: "Xisaab samayso",
   landingNoPassword:

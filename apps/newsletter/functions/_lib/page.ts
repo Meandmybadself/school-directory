@@ -91,9 +91,13 @@ export function shell(input: ShellInput): string {
   <body>
 ${input.body}
     <div class="nl-site-foot">
-      <div>Site built by the <a href="${PTO_URL}">Eisenhower PTO</a>.</div>
-      <div>Feedback? Email <a href="mailto:admin@eisenhower.school">admin@eisenhower.school</a></div>
-      <div><a href="${SOURCE_URL}">View the source on GitHub</a></div>
+      <div>
+        <a href="${PTO_URL}">Eisenhower PTO</a>
+        <span aria-hidden="true"> · </span>
+        Feedback to <a href="mailto:admin@eisenhower.school">admin@eisenhower.school</a>
+        <span aria-hidden="true"> · </span>
+        <a href="${SOURCE_URL}">GitHub source</a>
+      </div>
       <div style="margin-top:10px"><a href="/app">Members: sign in</a></div>
     </div>
 ${input.print ? PRINT_SCRIPT : ""}

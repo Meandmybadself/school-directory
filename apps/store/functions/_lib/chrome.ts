@@ -12,6 +12,35 @@ export const DIRECTORY_URL = "https://directory.eisenhower.school";
 export const CALENDAR_URL = "https://calendar.eisenhower.school";
 export const APEX_URL = "https://eisenhower.school";
 
+/** Where feedback goes. One constant, used by the credit line below. */
+export const FEEDBACK_EMAIL = "admin@eisenhower.school";
+
+/** The organisation's name. A proper noun, so it is data and reads the same in
+ *  all four languages. */
+const SCHOOL_NAME = "Eisenhower PTO";
+
+/** Sentinel interpolated in place of the address, then split on — the same
+ *  trick the SPAs' SiteFooter uses. The address must be a `mailto:` link, so
+ *  the phrase can't simply be interpolated and printed, and splitting keeps the
+ *  address wherever the TRANSLATOR put it rather than where English puts it. */
+const SLOT = "\u0000";
+
+/** The credit line: whose site this is, where feedback goes, where the source
+ *  is. THREE ITEMS, one line, and the same three on every surface in this
+ *  project — the five SPAs' `SiteFooter`, apps/home, and the newsletter's
+ *  server-rendered twin. Translated here, unlike that last one, because these
+ *  pages already resolve a locale for their hreflang alternates. */
+function credit(t: (key: keyof Strings, vars?: Record<string, string>) => string): string {
+  const [before = "", after = ""] = t("footerFeedback", { email: SLOT }).split(SLOT);
+  return [
+    `<a href="${PTO_URL}">${escapeHtml(SCHOOL_NAME)}</a>`,
+    `${escapeHtml(before)}<a href="mailto:${FEEDBACK_EMAIL}">${escapeHtml(
+      FEEDBACK_EMAIL,
+    )}</a>${escapeHtml(after)}`,
+    `<a href="${SOURCE_URL}">${escapeHtml(t("footerSource"))}</a>`,
+  ].join('<span aria-hidden="true"> · </span>');
+}
+
 export function header(t: (key: keyof Strings) => string, school: string): string {
   return `    <header class="st-head">
       <a class="st-brand" href="/">
@@ -43,7 +72,11 @@ export function header(t: (key: keyof Strings) => string, school: string): strin
  * it: a stable per-language URL is what the hreflang alternates in page.ts point
  * at, and what somebody sharing a link in their own language needs to work.
  */
-export function footer(path: string, locale: Locale): string {
+export function footer(
+  t: (key: keyof Strings, vars?: Record<string, string>) => string,
+  path: string,
+  locale: Locale,
+): string {
   const langs = LOCALES.map((l) => {
     const href = `${path}?${LANG_PARAM}=${l}`;
     const name = escapeHtml(localeNames[l].native);
@@ -53,9 +86,7 @@ export function footer(path: string, locale: Locale): string {
   }).join("");
 
   return `    <footer class="st-foot">
-      <div><a href="${PTO_URL}">Eisenhower PTO</a> · <a href="${APEX_URL}">eisenhower.school</a></div>
-      <div>Questions? Email <a href="mailto:admin@eisenhower.school">admin@eisenhower.school</a></div>
-      <div><a href="${SOURCE_URL}">View the source on GitHub</a></div>
+      <div>${credit(t)}</div>
       <div class="st-langs">${langs}</div>
       <div style="margin-top:10px"><a href="/app">Members: sign in</a></div>
     </footer>`;

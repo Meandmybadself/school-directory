@@ -5,7 +5,7 @@
 // apps/store/functions/_lib/chrome.ts makes. Both are plain strings: no
 // components, no bundle, nothing to hydrate.
 
-import { LOCALES, SOURCE_URL, localeNames, type Locale, type Strings } from "@sd/shared";
+import { LOCALES, PTO_URL, SOURCE_URL, localeNames, type Locale, type Strings } from "@sd/shared";
 import { LANG_PARAM } from "./locale.js";
 import { escapeHtml } from "./page.js";
 
@@ -15,6 +15,32 @@ export const CALENDAR_URL = "https://calendar.eisenhower.school";
 export const NEWSLETTER_URL = "https://newsletter.eisenhower.school";
 export const STORE_URL = "https://store.eisenhower.school";
 export const FEEDBACK_EMAIL = "admin@eisenhower.school";
+
+/** The organisation's name. A proper noun, so it is data and reads the same in
+ *  all four languages. */
+const SCHOOL_NAME = "Eisenhower PTO";
+
+/** Sentinel interpolated in place of the address, then split on — the same
+ *  trick the SPAs' SiteFooter uses. The address must be a `mailto:` link, so
+ *  the phrase can't simply be interpolated and printed, and splitting keeps the
+ *  address wherever the TRANSLATOR put it rather than where English puts it. */
+const SLOT = "\u0000";
+
+/** The credit line: whose site this is, where feedback goes, where the source
+ *  is. THREE ITEMS, one line, and the same three on every surface in this
+ *  project — the five SPAs' `SiteFooter`, apps/home, and the newsletter's
+ *  server-rendered twin. Translated here, unlike that last one, because these
+ *  pages already resolve a locale for their hreflang alternates. */
+function credit(t: (key: keyof Strings, vars?: Record<string, string>) => string): string {
+  const [before = "", after = ""] = t("footerFeedback", { email: SLOT }).split(SLOT);
+  return [
+    `<a href="${PTO_URL}">${escapeHtml(SCHOOL_NAME)}</a>`,
+    `${escapeHtml(before)}<a href="mailto:${FEEDBACK_EMAIL}">${escapeHtml(
+      FEEDBACK_EMAIL,
+    )}</a>${escapeHtml(after)}`,
+    `<a href="${SOURCE_URL}">${escapeHtml(t("footerSource"))}</a>`,
+  ].join('<span aria-hidden="true"> · </span>');
+}
 
 /** A link into a sibling app, carrying the reader's language with it.
  *
@@ -57,7 +83,11 @@ export function header(t: (key: keyof Strings) => string, school: string, locale
  * it: a stable per-language URL is what the hreflang alternates in page.ts point
  * at, and what somebody sharing this page in their own language needs.
  */
-export function footer(path: string, locale: Locale): string {
+export function footer(
+  t: (key: keyof Strings, vars?: Record<string, string>) => string,
+  path: string,
+  locale: Locale,
+): string {
   const langs = LOCALES.map((l) => {
     const href = `${path}?${LANG_PARAM}=${l}`;
     const name = escapeHtml(localeNames[l].native);
@@ -67,9 +97,7 @@ export function footer(path: string, locale: Locale): string {
   }).join("");
 
   return `    <footer class="pt-foot">
-      <div>Eisenhower PTO · <a href="${APEX_URL}">eisenhower.school</a></div>
-      <div>Email <a href="mailto:${FEEDBACK_EMAIL}">${FEEDBACK_EMAIL}</a></div>
-      <div><a href="${SOURCE_URL}">View the source on GitHub</a></div>
+      <div>${credit(t)}</div>
       <div class="pt-langs">${langs}</div>
       <div style="margin-top:10px"><a href="/app">Board members: sign in</a></div>
     </footer>`;

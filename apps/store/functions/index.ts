@@ -46,7 +46,7 @@ ${
 ${products.map((p) => card(p, t("storeFrom").replace("{price}", money(p.fromPriceCents)))).join("\n")}
       </div>`
   }
-${footer("/", locale)}
+${footer(t, "/", locale)}
     </div>`;
 
   return html(

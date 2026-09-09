@@ -243,7 +243,7 @@ ${SOCIAL.map(
         </div>
       </section>
 
-${footer("/", locale)}
+${footer(t, "/", locale)}
     </div>`;
 
   return html(

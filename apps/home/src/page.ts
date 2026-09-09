@@ -315,12 +315,15 @@ export async function renderHome(
 
     <footer class="ft">
       <div class="wrap ft-in">
-        <div>${escapeHtml(t("landingLocatedIn", { school, city }))}</div>
-        <div>${escapeHtml(t("footerBuiltBy", { school }))}</div>
-        <div>${escapeHtml(feedBefore)}<a href="mailto:${escapeHtml(
-          env.FEEDBACK_EMAIL,
-        )}">${escapeHtml(env.FEEDBACK_EMAIL)}</a>${escapeHtml(feedAfter)}</div>
-        <div><a href="${escapeHtml(SOURCE_URL)}">${escapeHtml(t("footerSource"))}</a></div>
+        <div>
+          <a href="${escapeHtml(appHref(env.PTO_URL, "/", locale))}">${escapeHtml(school)}</a>
+          <span aria-hidden="true"> · </span>
+          ${escapeHtml(feedBefore)}<a href="mailto:${escapeHtml(
+            env.FEEDBACK_EMAIL,
+          )}">${escapeHtml(env.FEEDBACK_EMAIL)}</a>${escapeHtml(feedAfter)}
+          <span aria-hidden="true"> · </span>
+          <a href="${escapeHtml(SOURCE_URL)}">${escapeHtml(t("footerSource"))}</a>
+        </div>
       </div>
     </footer>`;
 
