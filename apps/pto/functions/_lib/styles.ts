@@ -168,19 +168,6 @@ a { color: var(--blue-700); }
 }
 .pt-note b { color: var(--ink); }
 
-/* upcoming events, read live from the calendar */
-.pt-events { display: flex; flex-direction: column; gap: 8px; }
-.pt-event {
-  display: flex; align-items: baseline; gap: 12px; text-decoration: none; color: inherit;
-  background: var(--paper); border: 1px solid var(--line); border-radius: var(--r-ctrl);
-  padding: 11px 14px;
-}
-.pt-event .when {
-  font-size: 12px; font-weight: 700; color: var(--blue-700);
-  min-width: 96px; flex: 0 0 auto;
-}
-.pt-event .what { font-size: 14.5px; font-weight: 650; }
-
 /* donate */
 .pt-donate {
   background: var(--blue-tint); border: 1px solid var(--line);

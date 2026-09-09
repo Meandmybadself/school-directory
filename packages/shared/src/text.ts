@@ -103,3 +103,13 @@ export function formatMoney(cents: number, currency = "usd"): string {
  *  invented), which is the property to re-check before pointing this at a
  *  different repo. */
 export const SOURCE_URL = "https://github.com/Meandmybadself/school-directory";
+
+/** The PTO's own site — who the PTO is, the year, and how to donate.
+ *
+ *  Here beside SOURCE_URL and for the same reason: every footer in the project
+ *  links to it, so it is one constant rather than six copies of a URL that would
+ *  drift. Unlike the sibling app origins in each app's `lib/api.ts`, this one is
+ *  not build-time configurable — it is the public face of the organisation that
+ *  runs this instance, in the same category as the source repository, and the
+ *  footer credit line is the one place every app says whose site this is. */
+export const PTO_URL = "https://pto.eisenhower.school";

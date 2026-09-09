@@ -1,20 +1,15 @@
 # Cloudflare Pages project for the PTO site.
 #
 # apps/web and apps/calendar are pure static Pages deploys and have no
-# wrangler.toml at all. This one does, for the reason apps/newsletter's and
-# apps/store's do: it ships Pages Functions — the indexed public page at /,
-# robots.txt and sitemap.xml — and those need to know where the API is at
-# REQUEST time, which a Vite build-time variable can't reach.
+# wrangler.toml at all. This one does because it ships Pages Functions — the
+# indexed public page at /, robots.txt and sitemap.xml — and `wrangler pages
+# deploy` needs to be told the output directory for a project that has them.
 #
-# Pages has exactly two environments: production (the main branch) and preview
-# (every other branch). There is only one API, so both point at it.
+# Unlike apps/newsletter's and apps/store's, it declares NO vars: these Functions
+# read no binding and make no subrequest (see functions/_lib/page.ts). Those two
+# need API_BASE at REQUEST time, which a Vite build-time variable can't reach;
+# this one has nothing to fetch.
 
 name = "school-pto"
 compatibility_date = "2025-01-01"
 pages_build_output_dir = "dist"
-
-[vars]
-API_BASE = "https://api-directory.eisenhower.school"
-
-[env.preview.vars]
-API_BASE = "https://api-directory.eisenhower.school"

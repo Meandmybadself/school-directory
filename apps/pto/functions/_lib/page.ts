@@ -27,11 +27,11 @@
 import { LOCALES, dictionaries, interpolate, type Locale, type Strings } from "@sd/shared";
 import { LANG_PARAM } from "./locale.js";
 
-export interface PagesEnv {
-  /** Origin of the API Worker, e.g. https://api-directory.eisenhower.school.
-   *  Read for the upcoming-events block and nothing else. */
-  API_BASE: string;
-}
+// No `PagesEnv` here, deliberately: these Functions read no binding and make no
+// subrequest. The app's wrangler.toml therefore declares no vars — compare
+// apps/store's, which needs API_BASE at REQUEST time for its catalog. If this
+// page ever grows a read, that is the moment to add both back, and the moment to
+// re-answer invariant 28's question about what it may read.
 
 export function escapeHtml(s: string): string {
   return s
@@ -109,19 +109,6 @@ export function shell(input: ShellInput): string {
 ${input.body}
   </body>
 </html>`;
-}
-
-/** Fetch JSON from the API. Returns null on any failure so the page renders
- *  without its events block rather than not at all — the "degrade to empty"
- *  rule apps/home's `events.ts` states and the storefront follows. */
-export async function apiJson<T>(env: PagesEnv, path: string): Promise<T | null> {
-  try {
-    const res = await fetch(`${env.API_BASE}${path}`, { headers: { accept: "application/json" } });
-    if (!res.ok) return null;
-    return (await res.json()) as T;
-  } catch {
-    return null;
-  }
 }
 
 /** Public, briefly cached.

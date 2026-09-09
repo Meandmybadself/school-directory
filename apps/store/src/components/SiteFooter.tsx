@@ -5,13 +5,18 @@
 // copied: it comes from the shared i18n dictionaries, so all three say the same
 // thing in all four languages.
 import type { CSSProperties } from "react";
-import { SOURCE_URL } from "@sd/shared";
+import { PTO_URL, SOURCE_URL } from "@sd/shared";
 import { useI18n } from "../i18n/index.js";
 
 /** Where feedback goes. Config rather than copy — an instance that isn't
  *  Eisenhower overrides it the way it overrides the school name, and the default
  *  keeps the deploy working without a new CI variable. */
 const FEEDBACK_EMAIL = import.meta.env.VITE_FEEDBACK_EMAIL ?? "admin@eisenhower.school";
+
+/** The organisation's name, as it reads in the credit line. Interpolated into
+ *  `footerBuiltBy` by the i18n provider everywhere else; named here because this
+ *  is the one place it has to be wrapped in a link. */
+const SCHOOL_NAME = import.meta.env.VITE_SCHOOL_NAME ?? "Eisenhower PTO";
 
 /** Sentinel interpolated in place of the address, then split on.
  *
@@ -25,6 +30,7 @@ const SLOT = "\u0000";
 export function SiteFooter({ style }: { style?: CSSProperties }) {
   const { t } = useI18n();
   const [before = "", after = ""] = t("footerFeedback", { email: SLOT }).split(SLOT);
+  const [builtBefore = "", builtAfter = ""] = t("footerBuiltBy", { school: SLOT }).split(SLOT);
   return (
     <footer
       style={{
@@ -37,7 +43,15 @@ export function SiteFooter({ style }: { style?: CSSProperties }) {
         ...style,
       }}
     >
-      <div>{t("footerBuiltBy")}</div>
+      {/* The credit line names the PTO and links to its site. `{school}` is
+          split on the same sentinel the address below uses, so the link lands
+          wherever the TRANSLATOR put the organisation's name rather than where
+          English puts it. */}
+      <div>
+        {builtBefore}
+        <a className="sd-link" href={PTO_URL}>{SCHOOL_NAME}</a>
+        {builtAfter}
+      </div>
       <div>
         {before}
         <a className="sd-link" href={`mailto:${FEEDBACK_EMAIL}`}>{FEEDBACK_EMAIL}</a>

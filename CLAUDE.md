@@ -22,9 +22,9 @@ A handful of surfaces around it are deliberately open to the internet — the fr
 door, the calendar agenda and event pages, volunteer COUNTS, the sent-newsletter
 archive, published ICS feeds, the storefront, an order's status page and the
 PTO's explanatory page — and each is served through a hand-written projection
-(invariants 12, 13, 15, 26) or, in the PTO page's case, through no member-scoped
-read at all (invariant 28). Everything else, every volunteer NAME included, needs
-a session.
+(invariants 12, 13, 15, 26) or, in the PTO page's case, through no read at all:
+it is a pure function of the URL and the request headers (invariant 28).
+Everything else, every volunteer NAME included, needs a session.
 
 ## Repository layout
 
@@ -142,11 +142,12 @@ All five SPAs are separate Cloudflare Pages projects talking to the single
   falls through to `index.html` on its own. See `apps/newsletter/ROUTING.md` —
   and `apps/store/ROUTING.md` and `apps/pto/ROUTING.md`, which restate the same
   trap for the same reason.
-- **The PTO app is the one whose public half reads nothing member-scoped.** Its
-  Function makes a single subrequest, to the anonymous `/calendar-public/events`
-  — the same read `apps/home` makes — and every `pto_*` table is reached only
-  through the bundle's credentialed `fetch` to `/pto/*`. There is no
-  `/pto-public/*` router and no public projection to review. See invariant 28.
+- **The PTO app is the one whose public half reads nothing at all.** Its Function
+  makes no subrequest and its `wrangler.toml` declares no vars: the page is a
+  pure function of the URL, `Accept-Language` and the `sd_lang` cookie. Every
+  `pto_*` table is reached only through the bundle's credentialed `fetch` to
+  `/pto/*`; there is no `/pto-public/*` router and no public projection to
+  review. See invariant 28.
 - The calendar owns all calendar admin. `apps/web`'s Admin has no calendar tab —
   just a link out. `apps/web` keeps only `api.calendarEvents` (for Home's
   upcoming-events block); `/calendar` there is a redirect to the calendar site.
@@ -970,9 +971,12 @@ All five SPAs are separate Cloudflare Pages projects talking to the single
    by field like its four siblings — the header of migration 0024 and the PTO
    section of `packages/shared/src/types.ts` are where to start reading. Note
    what this buys the app's own public page: it is INDEXED (the third such
-   surface, after `apps/home` and the storefront), and it makes exactly one
-   subrequest, to the ANONYMOUS `/calendar-public/events` that `apps/home`
-   already reads. There is nothing member-scoped on it to get wrong.
+   surface, after `apps/home` and the storefront) and it reads NOTHING — no
+   subrequest, no binding, a pure function of the URL and the request headers.
+   It briefly carried an upcoming-events block against the anonymous
+   `/calendar-public/events`, the way `apps/home` still does; dropping that left
+   the page stronger than this invariant asks, and adding a read back is a
+   decision to make on purpose rather than a door standing open.
    **The gate is `ptoAccess`** (`apps/api/src/lib/ptoBoard.ts`), called by
    `requirePto` on every route in `routes/pto.ts` including the reads. A system
    admin is always in; everyone else is in iff some Person they control sits on
