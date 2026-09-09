@@ -21,9 +21,9 @@
 // find us.
 
 import type { Locale, Strings } from "@sd/shared";
-import { CALENDAR_URL, STORE_URL, appHref, footer, header } from "./_lib/chrome.js";
+import { CALENDAR_URL, FEEDBACK_EMAIL, STORE_URL, appHref, footer, header } from "./_lib/chrome.js";
 import { langCookie, resolveLocale } from "./_lib/locale.js";
-import { escapeHtml, html, shell, translator } from "./_lib/page.js";
+import { escapeHtml, html, jsonLd, shell, translator } from "./_lib/page.js";
 import {
   CATEGORY_LABEL,
   DONATE,
@@ -35,7 +35,9 @@ import {
   WISHLISTS,
   YEAR,
   YEAR_ROUND,
+  cityStateZip,
   monthName,
+  phoneE164,
   telHref,
 } from "./_lib/pto.js";
 import { PTO_CSS } from "./_lib/styles.js";
@@ -84,6 +86,42 @@ function helpCard(t: T, title: keyof Strings, body: keyof Strings, href: string,
           <p>${escapeHtml(t(body))}</p>
           <p><a href="${escapeHtml(href)}">${escapeHtml(label)} →</a></p>
         </div>`;
+}
+
+/** The same facts the block under "Find us" prints, in the form a search engine
+ *  reads them — this is one of only three surfaces in the project that ask to be
+ *  indexed, and an organization's name, address and EIN is exactly what
+ *  schema.org describes.
+ *
+ *  It restates nothing: every value comes from `ORG`, `SOCIAL` or the dictionary
+ *  the visible block already renders, so the two copies cannot disagree. The
+ *  address is emitted in PARTS, which is why `ORG` holds it that way.
+ *
+ *  `nonprofitStatus` is deliberately absent. It would assert a 501(c)(3)
+ *  determination, which is a claim about the PTO's IRS status rather than a fact
+ *  transcribed from its registration — the same line the visible copy holds.
+ *  `NGO` says what is known; add the status when someone produces the letter. */
+function orgData(t: T, origin: string) {
+  return {
+    "@context": "https://schema.org",
+    "@type": "NGO",
+    name: SCHOOL,
+    legalName: ORG.legalName,
+    url: `${origin}/`,
+    description: t("ptoLead"),
+    email: FEEDBACK_EMAIL,
+    telephone: phoneE164(ORG.phone),
+    taxID: ORG.ein,
+    address: {
+      "@type": "PostalAddress",
+      streetAddress: ORG.street,
+      addressLocality: ORG.locality,
+      addressRegion: ORG.region,
+      postalCode: ORG.postalCode,
+      addressCountry: ORG.country,
+    },
+    sameAs: SOCIAL.map((l) => l.url),
+  };
 }
 
 export const onRequestGet: PagesFunction = ({ request }) => {
@@ -185,7 +223,7 @@ ${SOCIAL.map(
     (l) => `          <a class="pt-chip" href="${escapeHtml(l.url)}">${escapeHtml(l.label)}</a>`,
   ).join("\n")}
           <a class="pt-chip" href="${escapeHtml(appHref(CALENDAR_URL, "/", locale))}">${escapeHtml(t("calendarTitle"))}</a>
-          <a class="pt-chip" href="mailto:admin@eisenhower.school">admin@eisenhower.school</a>
+          <a class="pt-chip" href="mailto:${escapeHtml(FEEDBACK_EMAIL)}">${escapeHtml(FEEDBACK_EMAIL)}</a>
         </div>
         <!-- The nonprofit itself. Here rather than in the donate box on purpose:
              it answers "who legally is this?", which is a question about the
@@ -197,7 +235,7 @@ ${SOCIAL.map(
           <address>
             <b>${escapeHtml(ORG.legalName)}</b><br />
             ${escapeHtml(ORG.street)}<br />
-            ${escapeHtml(ORG.cityStateZip)}<br />
+            ${escapeHtml(cityStateZip())}<br />
             <a href="${escapeHtml(telHref(ORG.phone))}">${escapeHtml(ORG.phone)}</a>
           </address>
           <p class="ein">${escapeHtml(t("ptoOrgEin"))} <b>${escapeHtml(ORG.ein)}</b></p>
@@ -216,6 +254,7 @@ ${footer("/", locale)}
       locale,
       css: PTO_CSS,
       alternatesFor: `${url.origin}/`,
+      structuredData: jsonLd(orgData(t, url.origin)),
       body,
     }),
     200,

@@ -255,7 +255,17 @@ export const ORG = {
   /** Who a check is made out to, and the first line of an envelope. */
   legalName: "Parent Teacher Organization",
   street: "1001 Highway 7",
-  cityStateZip: "Hopkins, MN 55305-4723",
+  /** Held in PARTS rather than as one printed line, because the page publishes
+   *  the same address twice — once for a person to read and once as
+   *  schema.org `PostalAddress` — and a structured consumer needs the locality,
+   *  the region and the postal code apart. The printed line is derived from
+   *  these (`cityStateZip`), never the other way around, for the reason
+   *  `telHref` is derived: two spellings of one fact drift. */
+  locality: "Hopkins",
+  region: "MN",
+  postalCode: "55305-4723",
+  /** ISO 3166-1, for the structured copy. */
+  country: "US",
   /** As printed. The dialable href is derived, so the two cannot drift. */
   phone: "(952) 988-4300",
   /** What an employer's matching-gift form asks for, and what a donor keeps for
@@ -263,10 +273,22 @@ export const ORG = {
   ein: "41-1614554",
 };
 
+/** The second line of the envelope. US postal order in every language: an
+ *  address is read by the Postal Service, not by the reader. */
+export function cityStateZip(): string {
+  return `${ORG.locality}, ${ORG.region} ${ORG.postalCode}`;
+}
+
+/** E.164, which is what a structured consumer wants where a reader wants
+ *  `ORG.phone`. Derived from the same digits `telHref` dials. */
+export function phoneE164(printed: string): string {
+  return `+1${printed.replace(/\D/gu, "")}`;
+}
+
 /** A dialable href from a number as it is printed — the same derivation
  *  apps/home/src/district.ts makes, and for the same reason. */
 export function telHref(printed: string): string {
-  return `tel:+1${printed.replace(/\D/gu, "")}`;
+  return `tel:${phoneE164(printed)}`;
 }
 
 /** Month name in the reader's language. Twelve names the platform already has,

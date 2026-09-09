@@ -63,6 +63,22 @@ export interface ShellInput {
   /** Base URL (no query) the hreflang alternates are built from. */
   alternatesFor?: string | null;
   noindex?: boolean;
+  /** A schema.org object, serialized by `jsonLd` below. Never build this string
+   *  by hand — see that function for the `</script>` escape it applies. */
+  structuredData?: string | null;
+}
+
+/** Serialize a schema.org object for a `<script type="application/ld+json">`.
+ *
+ *  HTML escaping is the WRONG tool inside a script element — an `&amp;` there
+ *  is read literally and would corrupt the JSON — so the one sequence that can
+ *  end the block early is neutralized instead: `<` becomes its `<` escape,
+ *  which JSON reads back as the same character. Everything on this page is our
+ *  own data, so this is belt to `escapeHtml`'s braces rather than a live
+ *  defence; it is here so a value that later comes from somewhere else cannot
+ *  break out of the block. */
+export function jsonLd(data: unknown): string {
+  return JSON.stringify(data).replace(/</g, "\\u003c");
 }
 
 export function shell(input: ShellInput): string {
@@ -103,6 +119,11 @@ export function shell(input: ShellInput): string {
     ${input.noindex ? '<meta name="robots" content="noindex" />' : ""}
     ${alternates}
     ${og}
+    ${
+      input.structuredData
+        ? `<script type="application/ld+json">${input.structuredData}</script>`
+        : ""
+    }
     <style>${input.css}</style>
   </head>
   <body>
