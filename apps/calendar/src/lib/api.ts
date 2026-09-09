@@ -17,6 +17,7 @@ import type {
   ManagedOccurrenceDTO,
   MeDTO,
   PublicVolunteerSheetDTO,
+  VolunteerEmailsDTO,
   VolunteerPositionInput,
   VolunteerSheetDTO,
   VolunteerSheetInput,
@@ -191,6 +192,10 @@ export const api = {
     request<{ occurrences: ManagedOccurrenceDTO[] }>(`/admin/managed-events/${eventId}/occurrences`),
   adminVolunteerSheet: (sheetId: string) =>
     request<{ sheet: VolunteerSheetDTO }>(`/admin/volunteer-sheets/${sheetId}`),
+  // Read on the click, not with the sheet: a roster of addresses is the one
+  // thing on this screen worth fetching only when it is about to be used.
+  volunteerSheetEmails: (sheetId: string) =>
+    request<VolunteerEmailsDTO>(`/admin/volunteer-sheets/${sheetId}/emails`),
   addVolunteerSheet: (eventId: string, body: VolunteerSheetInput) =>
     request<{ sheet: VolunteerSheetDTO }>(`/admin/managed-events/${eventId}/sheets`, {
       method: "POST",

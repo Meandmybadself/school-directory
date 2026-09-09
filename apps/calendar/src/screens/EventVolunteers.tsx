@@ -44,6 +44,36 @@ function sheetUrl(sheet: VolunteerSheetDTO): string {
   return `${window.location.origin}${path}`;
 }
 
+/** A draft in the admin's own mail client, addressed to themselves with every
+ *  volunteer Bcc'd and the event's title as the subject.
+ *
+ *  **Bcc, never To.** A sheet's roster is a list of families; putting it in the
+ *  To line would hand every address on it to everyone else on it, which is the
+ *  same disclosure the directory spends invariant 1 preventing. The admin's own
+ *  address goes in To because a message with no visible recipient is one some
+ *  clients refuse to send.
+ *
+ *  Nothing is sent from here — this only opens a composer, so what actually goes
+ *  out is still the admin's to write and to send. That is the whole reason this
+ *  is a `mailto:` and not a route: the API has a mailer (Resend), and using it
+ *  would make the PTO's own outbound mail a thing this system logs, retries and
+ *  is blamed for.
+ *
+ *  One limit worth knowing: some mail clients truncate a `mailto:` past roughly
+ *  2,000 characters, which is about 60 addresses. A school sheet is well short
+ *  of that; a sheet that isn't would need the list copied instead. */
+function mailtoUrl(to: string, bcc: string[], subject: string): string {
+  const params = new URLSearchParams({ bcc: bcc.join(","), subject });
+  return [
+    // `encodeURIComponent` would spell the "@" as %40 — legal, and shown
+    // literally by enough clients to be worth undoing.
+    `mailto:${encodeURIComponent(to).replace(/%40/g, "@")}`,
+    // URLSearchParams spells a space as "+", which a subject line then shows as
+    // a plus sign; %20 is what a mail client reads back as a space.
+    params.toString().replace(/\+/g, "%20"),
+  ].join("?");
+}
+
 function fmtOccurrence(o: ManagedOccurrenceDTO): string {
   return new Date(o.start).toLocaleString(undefined, {
     ...(o.allDay ? { timeZone: "UTC" } : {}),
@@ -204,6 +234,10 @@ export function EventVolunteers() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  // How many volunteers the last "Email volunteers" click could not reach. Kept
+  // after the composer opens, because the admin is now writing a message to a
+  // list that isn't everyone and should be told so while they write it.
+  const [unreachable, setUnreachable] = useState<number | null>(null);
 
   const loadOccurrences = useCallback(async () => {
     const r = await api.eventOccurrences(id).catch(() => ({ occurrences: [] as ManagedOccurrenceDTO[] }));
@@ -226,6 +260,7 @@ export function EventVolunteers() {
 
   const openSheet = async (sheetId: string) => {
     setError(null);
+    setUnreachable(null);
     const r = await api.adminVolunteerSheet(sheetId).catch(() => null);
     if (r) setSheet(r.sheet);
   };
@@ -233,6 +268,7 @@ export function EventVolunteers() {
   const create = async (occurrenceStart: string) => {
     setBusy(true);
     setError(null);
+    setUnreachable(null);
     try {
       const r = await api.addVolunteerSheet(id, { occurrenceStart });
       setSheet(r.sheet);
@@ -321,6 +357,34 @@ export function EventVolunteers() {
     }
   };
 
+  /** Gather the addresses, then hand them to the mail client. The read happens
+   *  on the click rather than with the sheet: it is the one thing on this screen
+   *  that is only ever wanted at the moment it is used. */
+  const emailVolunteers = async () => {
+    if (!sheet) return;
+    setBusy(true);
+    setError(null);
+    try {
+      const { emails, withoutEmail } = await api.volunteerSheetEmails(sheet.id);
+      if (emails.length === 0) {
+        setError(
+          withoutEmail > 0
+            ? `No email address on file for ${withoutEmail === 1 ? "the volunteer" : `any of the ${withoutEmail} volunteers`} on this sheet.`
+            : "Nobody has signed up yet.",
+        );
+        return;
+      }
+      setUnreachable(withoutEmail);
+      // Subject is the EVENT's title, not the sheet's date — it is what the
+      // family recognises, and it is the only name a sheet has anyway.
+      window.location.href = mailtoUrl(me?.user.email ?? "", emails, sheet.event.title);
+    } catch (err) {
+      setError(errorMessage(err, "Couldn't gather the volunteers' email addresses."));
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const copyLink = async () => {
     if (!sheet) return;
     try {
@@ -404,6 +468,12 @@ export function EventVolunteers() {
           <Btn sm kind={sheet.published ? "secondary" : "primary"} disabled={busy} onClick={() => void togglePublished()}>
             {sheet.published ? "Unpublish" : "Publish"}
           </Btn>
+          {/* Shown whether or not anyone has signed up — a button that vanished
+              on an empty sheet would read as a missing feature, where one that
+              says "nobody has signed up yet" answers the question asked. */}
+          <Btn sm kind="secondary" icon="mail" disabled={busy} onClick={() => void emailVolunteers()}>
+            Email volunteers
+          </Btn>
           <button aria-label="Delete this sheet" title="Delete this sheet" onClick={() => void removeSheet()} style={{ ...iconBtnStyle, marginLeft: "auto" }}>
             <Icon name="x" size={18} />
           </button>
@@ -425,6 +495,15 @@ export function EventVolunteers() {
           Anyone with this link can see the positions and how many spots are filled. Names are shown to
           signed-in members only, and signing up requires an account.
         </div>
+
+        {/* Said after the composer opens rather than instead of opening it: the
+            message is still worth sending to everyone else. */}
+        {!!unreachable && (
+          <div className="sd-meta">
+            {unreachable === 1 ? "One volunteer has" : `${unreachable} volunteers have`} no email address on
+            file and {unreachable === 1 ? "was" : "were"} left out of that draft.
+          </div>
+        )}
 
         {error && <ErrorText>{error}</ErrorText>}
       </div>

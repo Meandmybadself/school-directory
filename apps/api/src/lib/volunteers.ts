@@ -20,6 +20,7 @@ import type {
   LastNameDisplay,
   ManagedOccurrenceDTO,
   PublicVolunteerSheetDTO,
+  VolunteerEmailsDTO,
   VolunteerPositionDTO,
   VolunteerPositionInput,
   VolunteerSheetDTO,
@@ -416,6 +417,119 @@ export async function listOccurrences(
   }
   out.sort((a, b) => a.start.localeCompare(b.start));
   return out;
+}
+
+// ── Reaching the volunteers (admin) ─────────────────────────────────────────
+//
+// One address per person who took a spot, for the admin's "Email volunteers"
+// button. Two rules decide which address, and both are chosen so that this
+// route discloses nothing a system admin cannot already read:
+//
+//   1. The Person's OWN email contact items, but only `visibility = 'service'`
+//      — the ones already visible to any signed-in member (lib/privacy.ts's
+//      `canSeeItem`). A `private` item is deliberately NOT read: `canSeeItem`
+//      grants a system admin no exemption from it, and this route is not the
+//      place to invent one.
+//   2. Failing that, the account emails of the Users who CONTROL them, which is
+//      how a child is reached at all — a nine-year-old on the snack table has no
+//      address of their own, and their parent's is the one that matters. Those
+//      are already listed to an admin at `GET /admin/users`, and are the same
+//      addresses the newsletter sends to.
+//
+// "The first" is therefore an ordering, not a guess: own items by `sort_order`,
+// then controllers by how long they have held control. A disabled User is
+// skipped, matching the newsletter audience — mail to an account that can no
+// longer sign in is mail to nobody.
+//
+// Nothing here reads `person`, and that is not an accident of spelling: the
+// question is "how do I reach the people already named on this sheet", which
+// `loadSheetForAdmin` has answered, not "who exists" — so invariant 21's gate
+// has nothing to decide and this spends none of its exemption budget.
+
+interface EmailRow {
+  person_id: string;
+  email: string;
+}
+
+/** The addresses behind one sheet's signups, or null if there is no such sheet.
+ *
+ *  The signup read needs no LIMIT: a sheet holds at most MAX_POSITIONS
+ *  positions of at most MAX_SLOTS people, and `claimSpot`'s guarded insert is
+ *  what makes the second half true. */
+export async function sheetVolunteerEmails(
+  env: Env,
+  sheetId: string,
+): Promise<VolunteerEmailsDTO | null> {
+  const sheet = await env.DB.prepare("SELECT id FROM volunteer_sheet WHERE id = ?")
+    .bind(sheetId)
+    .first<{ id: string }>();
+  if (!sheet) return null;
+
+  const signups = await env.DB.prepare(
+    `SELECT su.person_id
+       FROM volunteer_signup su
+       JOIN volunteer_position p ON p.id = su.position_id
+      WHERE p.sheet_id = ?
+      ORDER BY p.sort_order ASC, p.created_at ASC, su.created_at ASC`,
+  )
+    .bind(sheetId)
+    .all<{ person_id: string }>();
+
+  // Sheet order, first appearance wins — the same order the admin is reading
+  // the positions in, so a list they paste somewhere is not arbitrary.
+  const personIds: string[] = [];
+  for (const r of signups.results) {
+    if (!personIds.includes(r.person_id)) personIds.push(r.person_id);
+  }
+  if (personIds.length === 0) return { emails: [], withoutEmail: 0 };
+
+  const holes = personIds.map(() => "?").join(",");
+  const [own, controllers] = await Promise.all([
+    env.DB.prepare(
+      `SELECT owner_id AS person_id, value AS email
+         FROM contact_item
+        WHERE owner_kind = 'person' AND type = 'email' AND visibility = 'service'
+          AND owner_id IN (${holes})
+        ORDER BY sort_order ASC, created_at ASC`,
+    )
+      .bind(...personIds)
+      .all<EmailRow>(),
+    env.DB.prepare(
+      `SELECT c.person_id, u.email
+         FROM control c
+         JOIN user u ON u.id = c.user_id
+        WHERE c.person_id IN (${holes}) AND u.disabled_at IS NULL
+        ORDER BY c.since ASC, u.id ASC`,
+    )
+      .bind(...personIds)
+      .all<EmailRow>(),
+  ]);
+
+  // Own items are concatenated FIRST, so first-seen-per-person is the precedence
+  // rule above rather than whichever query happened to return a row.
+  const first = new Map<string, string>();
+  for (const r of [...own.results, ...controllers.results]) {
+    const email = r.email.trim();
+    if (email && !first.has(r.person_id)) first.set(r.person_id, email);
+  }
+
+  const emails: string[] = [];
+  const seen = new Set<string>();
+  let withoutEmail = 0;
+  for (const id of personIds) {
+    const email = first.get(id);
+    if (!email) {
+      withoutEmail++;
+      continue;
+    }
+    // Two children of one parent are one address, not two — a Bcc line that
+    // repeats it mails them twice.
+    const key = email.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    emails.push(email);
+  }
+  return { emails, withoutEmail };
 }
 
 // ── Sheet writes (admin) ────────────────────────────────────────────────────

@@ -35,6 +35,7 @@ import {
   deleteSheet,
   listOccurrences,
   loadSheetForAdmin,
+  sheetVolunteerEmails,
   updatePosition,
   updateSheet,
   VolunteerError,
@@ -333,6 +334,21 @@ managedCalendar.get("/volunteer-sheets/:id", async (c) => {
   const sheet = await loadSheetForAdmin(c.env, c.req.param("id"));
   if (!sheet) return c.json({ error: "not_found" }, 404);
   return c.json({ sheet });
+});
+
+/** GET /admin/volunteer-sheets/:id/emails — one address per volunteer, for the
+ *  admin's "Email volunteers" button.
+ *
+ *  A route of its own rather than a field on the sheet: VolunteerSheetDTO is
+ *  what every signed-in member reads on the event page, and an address carried
+ *  there would be published to all of them. Which address is chosen, and why
+ *  each is one a system admin can already read, is in `sheetVolunteerEmails`. */
+managedCalendar.get("/volunteer-sheets/:id/emails", async (c) => {
+  const auth = requireAuth(c);
+  if (!auth.isSystemAdmin) return c.json({ error: "forbidden" }, 403);
+  const result = await sheetVolunteerEmails(c.env, c.req.param("id"));
+  if (!result) return c.json({ error: "not_found" }, 404);
+  return c.json(result);
 });
 
 /** PATCH /admin/volunteer-sheets/:id { intro?, closesAt?, published? }.

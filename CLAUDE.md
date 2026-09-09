@@ -359,6 +359,33 @@ All five SPAs are separate Cloudflare Pages projects talking to the single
    `ManagedEventDTO.sheetCount`/`signupCount` are what the confirmation reads;
    they are admin-only, and adding them touched no public projection.
    `test/managedEventDelete.test.ts` pins the order and the pre-count.
+   **Emailing a sheet's volunteers is a `mailto:`, and the addresses are a
+   route of their own.** `GET /admin/volunteer-sheets/:id/emails` →
+   `sheetVolunteerEmails` is system-admin-only and returns one address per
+   signed-up Person plus a count of the ones it could not reach; the admin
+   screen turns that into a draft in their own mail client with everyone Bcc'd
+   (never To — a roster in a To line publishes every family's address to every
+   other family) and the EVENT's title as the subject. Two things are
+   deliberate. It is not a field on `VolunteerSignupDTO`: that shape is what
+   every signed-in member reads on the event page, so an address hanging off it
+   would publish the roster's contact details to the whole membership — the same
+   reason `GET /persons/:id/removal-impact` is a route rather than a field. And
+   the address is chosen so this discloses nothing a system admin cannot already
+   read: the Person's own email contact items **at `visibility = 'service'`
+   only** (already visible to any member — `canSeeItem` grants an admin no
+   exemption from `private`, and this route does not invent one), else the
+   account emails of the Users who CONTROL them, skipping disabled accounts the
+   way the newsletter audience does. "The first" is an ordering, not a guess:
+   own items by `sort_order`, then controllers by `since`. Nothing in it reads
+   `person` — the question is how to reach people the sheet already names, not
+   who exists — so it spends none of `test/personListable.test.ts`'s exemption
+   budget. `test/volunteerEmails.test.ts` is BEHAVIOURAL: its fake D1 evaluates
+   both WHERE clauses, so dropping either surfaces a private or disabled address
+   in the assertion rather than passing a scan.
+   Sending from the API instead was rejected: this project's mailer is for mail
+   the SYSTEM sends, and routing the PTO's own correspondence through it would
+   make every one of their messages something this codebase logs, retries and is
+   blamed for.
 14. **Public sign-up is double opt-in, and `POST /newsletter-public/subscribe`
    writes no subscription.** The form at `/subscribe` is anonymous, so the
    address it carries is an unproven claim by whoever typed it. That route only

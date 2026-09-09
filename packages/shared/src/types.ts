@@ -573,6 +573,25 @@ export interface VolunteerSignupInput {
   note?: string | null;
 }
 
+/** How to reach the people on one sheet — the admin's "Email volunteers"
+ *  button, and nothing else.
+ *
+ *  Deliberately its OWN response rather than a field on VolunteerSignupDTO.
+ *  That DTO is member-visible, so an address hanging off it would put every
+ *  volunteer's email in front of every signed-in reader of the event page; here
+ *  the whole payload is behind the system-admin gate and cannot reach a member
+ *  by being carried along. Same reasoning as `GET /persons/:id/removal-impact`
+ *  being a route of its own.
+ *
+ *  One address per volunteer, deduped, in the order they appear on the sheet —
+ *  see `sheetVolunteerEmails` for which address that is and why. */
+export interface VolunteerEmailsDTO {
+  emails: string[];
+  /** Signed-up Persons with no reachable address, so the admin is told rather
+   *  than left to assume the list is everyone. */
+  withoutEmail: number;
+}
+
 /** One occurrence of an authored event, for the admin's "which date?" picker.
  *  Read from the materialized agenda, so it lists exactly the dates a member
  *  can currently see. */
