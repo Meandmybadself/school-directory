@@ -236,6 +236,39 @@ export const PROGRAMS = ["Community", "XinXing", "Juntos"];
  *  is `ptoMeetingsBody`. */
 export const MEETING_PLACE = "Media Center";
 
+/** The nonprofit itself — the registration facts a donor or an employer asks
+ *  for, and the address a letter goes to.
+ *
+ *  Squarely inside this file's bar: an EIN is issued once and never reissued, a
+ *  legal name is a proper noun, and the address is the school's, which is the
+ *  registered one. Nothing here expires, so nothing here can go quietly stale
+ *  the way a board roster or a date would. The words that LABEL these lines are
+ *  dictionary keys (invariant 6), as everywhere else on this page.
+ *
+ *  The street is transcribed in ordinary case; the registry prints it in caps,
+ *  which is a filing convention rather than how the road is spelled. The phone
+ *  is the school office's — the same number apps/home's `SCHOOL_PHONES` carries,
+ *  which is not duplication to consolidate: that file transcribes the
+ *  DISTRICT's mailing, this one the PTO's own registration, and the day the PTO
+ *  gets a line of its own only one of them changes. */
+export const ORG = {
+  /** Who a check is made out to, and the first line of an envelope. */
+  legalName: "Parent Teacher Organization",
+  street: "1001 Highway 7",
+  cityStateZip: "Hopkins, MN 55305-4723",
+  /** As printed. The dialable href is derived, so the two cannot drift. */
+  phone: "(952) 988-4300",
+  /** What an employer's matching-gift form asks for, and what a donor keeps for
+   *  their own records. Public by nature — it is on every Form 990. */
+  ein: "41-1614554",
+};
+
+/** A dialable href from a number as it is printed — the same derivation
+ *  apps/home/src/district.ts makes, and for the same reason. */
+export function telHref(printed: string): string {
+  return `tel:+1${printed.replace(/\D/gu, "")}`;
+}
+
 /** Month name in the reader's language. Twelve names the platform already has,
  *  in every locale, so the dictionaries are not asked to carry them. */
 export function monthName(month: number, locale: string): string {

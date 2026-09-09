@@ -28,6 +28,7 @@ import {
   CATEGORY_LABEL,
   DONATE,
   MEETING_PLACE,
+  ORG,
   PROGRAMS,
   SEATS,
   SOCIAL,
@@ -35,6 +36,7 @@ import {
   YEAR,
   YEAR_ROUND,
   monthName,
+  telHref,
 } from "./_lib/pto.js";
 import { PTO_CSS } from "./_lib/styles.js";
 
@@ -184,6 +186,22 @@ ${SOCIAL.map(
   ).join("\n")}
           <a class="pt-chip" href="${escapeHtml(appHref(CALENDAR_URL, "/", locale))}">${escapeHtml(t("calendarTitle"))}</a>
           <a class="pt-chip" href="mailto:admin@eisenhower.school">admin@eisenhower.school</a>
+        </div>
+        <!-- The nonprofit itself. Here rather than in the donate box on purpose:
+             it answers "who legally is this?", which is a question about the
+             organization and not about giving — and the two people who need it,
+             someone writing a check and someone filing an employer's matching
+             form, both arrive looking for an address. -->
+        <div class="pt-org">
+          <h3>${escapeHtml(t("ptoOrgTitle"))}</h3>
+          <address>
+            <b>${escapeHtml(ORG.legalName)}</b><br />
+            ${escapeHtml(ORG.street)}<br />
+            ${escapeHtml(ORG.cityStateZip)}<br />
+            <a href="${escapeHtml(telHref(ORG.phone))}">${escapeHtml(ORG.phone)}</a>
+          </address>
+          <p class="ein">${escapeHtml(t("ptoOrgEin"))} <b>${escapeHtml(ORG.ein)}</b></p>
+          <p class="note">${escapeHtml(t("ptoOrgNote"))}</p>
         </div>
       </section>
 

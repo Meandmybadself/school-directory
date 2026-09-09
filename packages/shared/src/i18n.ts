@@ -585,6 +585,12 @@ export interface Strings {
   ptoDonateNote: string;
   ptoFindTitle: string;
   ptoFindLead: string;
+  /** The nonprofit's own registration facts — the block under "Find us". The
+   *  name, address, phone and EIN beside these labels are data, in
+   *  apps/pto/functions/_lib/pto.ts. */
+  ptoOrgTitle: string;
+  ptoOrgEin: string;
+  ptoOrgNote: string;
   /** Shown to a signed-in member who is not on the PTO board. Translated
    *  because an ordinary member is exactly who reads it. */
   ptoNoAccessTitle: string;
@@ -1154,6 +1160,10 @@ const en: Strings = {
   ptoFindTitle: "Find us",
   ptoFindLead:
     "A question, an idea, or an hour to spare — any of these reaches a real person.",
+  ptoOrgTitle: "The nonprofit",
+  ptoOrgEin: "EIN (tax ID)",
+  ptoOrgNote:
+    "The PTO is an independent nonprofit run by parents at the school. Mail reaches it at the school's address, and an employer's matching-gift program will ask for the EIN.",
   ptoNoAccessTitle: "This part is for the PTO board",
   ptoNoAccessBody:
     "The planning boards are where the PTO organizes its events, and they are open to the people on the board's roster. Everything else on this site is open to you.",
@@ -1668,6 +1678,10 @@ const es: Strings = {
   ptoFindTitle: "Encuéntrenos",
   ptoFindLead:
     "Una pregunta, una idea, o una hora libre — cualquiera de estos llega a una persona de verdad.",
+  ptoOrgTitle: "La organización",
+  ptoOrgEin: "EIN (número de identificación fiscal)",
+  ptoOrgNote:
+    "La PTO es una organización independiente sin fines de lucro dirigida por padres de la escuela. El correo llega a la dirección de la escuela, y el programa de donaciones equivalentes de una empresa le pedirá el EIN.",
   ptoNoAccessTitle: "Esta parte es para la junta de la PTO",
   ptoNoAccessBody:
     "Los tableros de planificación son donde la PTO organiza sus eventos, y están abiertos a las personas de la lista de la junta. Todo lo demás en este sitio está abierto para usted.",
@@ -2156,6 +2170,10 @@ const zh: Strings = {
     "GiveMN 是明尼苏达州的非营利捐赠平台，也是家长会每年十一月举办 Give to the Max Day 活动的地方。您全年任何一天都可以在那里捐款。",
   ptoFindTitle: "联系我们",
   ptoFindLead: "一个问题、一个想法，或者一小时的空闲——以下任何一种方式都能找到真人。",
+  ptoOrgTitle: "非营利组织",
+  ptoOrgEin: "EIN（税号）",
+  ptoOrgNote:
+    "家长会是由本校家长运作的独立非营利组织。信件请寄到学校地址；雇主的配捐计划会需要这个税号。",
   ptoNoAccessTitle: "这部分是给家长会理事会的",
   ptoNoAccessBody:
     "规划看板是家长会筹办活动的地方，只对理事会名单上的人开放。本站的其他内容都对您开放。",
@@ -2726,6 +2744,10 @@ const so: Strings = {
   ptoFindTitle: "Halka naga heli karto",
   ptoFindLead:
     "Su'aal, fikrad, ama saacad aad hayso — mid kasta oo kuwan ka mid ah wuxuu gaadhayaa qof dhab ah.",
+  ptoOrgTitle: "Ururka samafalka",
+  ptoOrgEin: "EIN (lambarka canshuurta)",
+  ptoOrgNote:
+    "PTO-du waa urur samafal oo madaxbannaan oo ay wadaan waalidiinta dugsiga. Boostadu waxay ku timaaddaa cinwaanka dugsiga, barnaamijka shirkaddu ku barbardhigto deeqdaaduna wuxuu ku weydiin doonaa EIN-ka.",
   ptoNoAccessTitle: "Qaybtan waxaa leh guddiga PTO-da",
   ptoNoAccessBody:
     "Boodhadhka qorshaynta waa meesha PTO-du munaasabadaheeda ku abaabusho, waxayna u furan yihiin dadka ku jira liiska guddiga. Wax kasta oo kale oo goobtan ku jira adigaa u furan.",

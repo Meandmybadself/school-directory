@@ -188,6 +188,25 @@ a { color: var(--blue-700); }
   font-size: 13.5px; font-weight: 650; text-decoration: none; color: var(--ink);
 }
 
+/* the nonprofit's own details, under the chips in "Find us" */
+.pt-org {
+  margin-top: 18px; max-width: 62ch;
+  background: var(--paper); border: 1px solid var(--line);
+  border-radius: var(--r-card); padding: 16px 17px;
+}
+.pt-org h3 { margin: 0 0 10px; font-size: 15.5px; font-weight: 800; letter-spacing: -.2px; }
+/* <address> is the right element and italics are not the right look. */
+.pt-org address { font-style: normal; font-size: 14px; line-height: 1.6; color: var(--ink-2); }
+.pt-org address b { color: var(--ink); }
+.pt-org address a { font-weight: 650; text-decoration: none; }
+.pt-org .ein {
+  margin: 12px 0 0; display: flex; gap: 8px; flex-wrap: wrap; align-items: baseline;
+  font-size: 13.5px; color: var(--ink-3);
+}
+/* Tabular figures: a tax ID is a number to copy, not prose to read. */
+.pt-org .ein b { color: var(--ink); font-variant-numeric: tabular-nums; letter-spacing: .3px; }
+.pt-org .note { margin: 12px 0 0; color: var(--ink-2); font-size: 13.5px; line-height: 1.55; }
+
 .pt-foot {
   border-top: 1px solid var(--line); margin-top: 52px; padding-top: 18px;
   color: var(--ink-3); font-size: 12.5px; line-height: 1.7;
