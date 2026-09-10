@@ -4,7 +4,7 @@ import worker from "../src/index.js";
 import { DISTRICT_PHONES, RESOURCES } from "../src/district.js";
 import type { Env } from "../src/env.js";
 import { localeFromAcceptLanguage, localeFromCookie } from "../src/locale.js";
-import { escapeHtml } from "../src/page.js";
+import { escapeHtml } from "../src/shell.js";
 
 const env: Env = {
   SCHOOL_NAME: "Eisenhower PTO",
@@ -492,5 +492,140 @@ describe("escaping", () => {
     expect(JSON.parse(json!).address.addressLocality).toBe(
       "</script><script>alert(1)</script>",
     );
+  });
+});
+
+// ── /faq ────────────────────────────────────────────────────────────────────
+//
+// The page that explains the site. Its own properties, plus the two it must
+// NOT break: it is a separate document from `/` with its own canonical set,
+// and its language picker has to keep the reader on `/faq`.
+
+describe("/faq", () => {
+  it("renders, and says what it is", async () => {
+    const res = await get("/faq");
+    expect(res.status).toBe(200);
+    expect(res.headers.get("content-type")).toContain("text/html");
+    const html = await res.text();
+    expect(html).toContain(escapeHtml(dictionaries.en.faqTitle));
+    expect(html).toContain(escapeHtml(dictionaries.en.faqGetInTitle));
+    expect(html).toContain(escapeHtml(dictionaries.en.faqPrivacyTitle));
+  });
+
+  it("makes no subrequest at all", async () => {
+    // The landing page reads the calendar; this one reads nothing, so an API
+    // outage cannot touch it. `stubCalendar` throws on any unexpected fetch and
+    // the beforeEach hands every test a working calendar — so the assertion
+    // that matters is the CALL COUNT, not that the render succeeded.
+    const spy = vi.fn(async () => {
+      throw new Error("the FAQ must not fetch anything");
+    });
+    vi.stubGlobal("fetch", spy);
+    const res = await get("/faq");
+    expect(res.status).toBe(200);
+    expect(spy).not.toHaveBeenCalled();
+  });
+
+  it("exists in every language, with no English left in the others", async () => {
+    for (const l of LOCALES) {
+      const html = await body(`/faq?lang=${l}`);
+      expect(html).toContain(`<html lang="${l}">`);
+      expect(html).toContain(escapeHtml(dictionaries[l].faqTitle));
+      expect(html).toContain(escapeHtml(dictionaries[l].faqNoPublicLead));
+      if (l !== "en") {
+        // The one sentence most likely to be left untranslated, because it is
+        // the one a developer writes last.
+        expect(html).not.toContain(escapeHtml(dictionaries.en.faqNoPublicLead));
+      }
+    }
+  });
+
+  it("keeps you on /faq when you switch language", async () => {
+    const html = await body("/faq");
+    for (const l of LOCALES) {
+      if (l === "en") continue;
+      // The picker's links, and the hreflang set, must both point at THIS path.
+      expect(html).toContain(`href="/faq?lang=${l}"`);
+      expect(html).toContain(`hreflang="${l}" href="https://eisenhower.school/faq?lang=${l}"`);
+    }
+    // A picker that sent the reader back to the front door would still contain
+    // the language codes, so assert the wrong destination is absent too.
+    expect(html).not.toContain('<ul class="langbar"><li><a lang="es" hreflang="es" href="/?lang=es"');
+  });
+
+  it("names every language in its own language, never the reader's", async () => {
+    const html = await body("/faq?lang=so");
+    for (const l of LOCALES) {
+      expect(html).toContain(escapeHtml(localeNames[l].native));
+    }
+    // "Somali" is what English calls it; a Somali reader is looking for
+    // "Soomaali". The English exonym must not appear as a picker label.
+    expect(html).not.toContain(">Somali<");
+  });
+
+  it("is its own indexed document, not a copy of the landing page's", async () => {
+    const html = await body("/faq");
+    expect(html).toContain('<link rel="canonical" href="https://eisenhower.school/faq" />');
+    expect(html).toContain(
+      '<link rel="alternate" hreflang="x-default" href="https://eisenhower.school/faq" />',
+    );
+    expect(html).not.toContain('name="robots"');
+  });
+
+  it("carries the explicit choice into the canonical, like the landing page", async () => {
+    const html = await body("/faq?lang=es");
+    expect(html).toContain('<link rel="canonical" href="https://eisenhower.school/faq?lang=es" />');
+  });
+
+  it("remembers a chosen language but never a detected one", async () => {
+    const chosen = await get("/faq?lang=so");
+    expect(chosen.headers.get("set-cookie")).toContain("sd_lang=so");
+    // Detection must not promote itself into a preference.
+    const detected = await get("/faq", { "accept-language": "so" });
+    expect(detected.headers.get("set-cookie")).toBeNull();
+    expect(await detected.text()).toContain('<html lang="so">');
+  });
+
+  it("is in the sitemap, once per language", async () => {
+    const xml = await body("/sitemap.xml");
+    expect(xml).toContain("<loc>https://eisenhower.school/faq</loc>");
+    for (const l of LOCALES) {
+      expect(xml).toContain(`<loc>https://eisenhower.school/faq?lang=${l}</loc>`);
+    }
+    // The landing page's entries must survive the change.
+    expect(xml).toContain("<loc>https://eisenhower.school/</loc>");
+  });
+
+  it("shows all three visibility states and never invents a fourth", async () => {
+    const html = await body("/faq");
+    for (const chip of ["visMembers", "visPrivate", "visShared"] as const) {
+      expect(html).toContain(escapeHtml(dictionaries.en[chip]));
+    }
+    // The directory has no public visibility anywhere in the UI, and this page
+    // is where a parent would most readily believe otherwise.
+    expect(html).not.toContain("chip-public");
+    expect(html.toLowerCase()).not.toContain(">public<");
+  });
+
+  it("trails no member-private surface onto an indexed page", async () => {
+    // The fourth surface here that asks to be indexed. It may name hosts and
+    // dictionary copy and nothing else — in particular no /admin route and no
+    // API origin, which is where a member's data actually lives.
+    const html = await body("/faq");
+    expect(html).not.toContain("api-directory.eisenhower.school");
+    expect(html).not.toContain("/admin");
+  });
+
+  it("still 404s an unknown path", async () => {
+    expect((await get("/faqs")).status).toBe(404);
+    expect((await get("/faq/extra")).status).toBe(404);
+  });
+});
+
+describe("the front door links to /faq", () => {
+  it("offers it from the hero, in the reader's language", async () => {
+    const html = await body("/?lang=es");
+    expect(html).toContain('href="/faq?lang=es"');
+    expect(html).toContain(escapeHtml(dictionaries.es.faqNav));
   });
 });

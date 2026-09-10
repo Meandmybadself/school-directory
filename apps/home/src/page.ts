@@ -37,89 +37,19 @@ import {
 } from "./district.js";
 import type { Env } from "./env.js";
 import { upcomingEvents } from "./events.js";
-import { STYLES } from "./styles.js";
-
-export function escapeHtml(s: string): string {
-  return s
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#39;");
-}
-
-/** Sentinel interpolated in place of a value that has to be wrapped in markup,
- *  then split on — the trick `SiteFooter` uses, for the same reason: it keeps
- *  the value wherever the TRANSLATOR put it in the sentence instead of assuming
- *  every language orders it the way English does. A NUL can never appear in a
- *  dictionary string, so the split is unambiguous. */
-const SLOT = "\u0000";
-
-/** The two halves of a sentence, either side of the slot. */
-function splitSlot(template: string, key: string): [string, string] {
-  const [before = "", after = ""] = interpolate(template, { [key]: SLOT }).split(SLOT);
-  return [before, after];
-}
-
-/** Interpolate a value into a sentence and wrap it in `<b>`, escaping both
- *  halves of the sentence and the value itself. */
-function emphasize(template: string, value: string): string {
-  const [before, after] = splitSlot(template, "feature");
-  return `${escapeHtml(before)}<b>${escapeHtml(value)}</b>${escapeHtml(after)}`;
-}
-
-/** Same trick, but the slot becomes a link out — used to name whoever published
- *  a fact and hand the reader their site in the same breath. */
-function linkSlot(template: string, key: string, label: string, href: string): string {
-  const [before, after] = splitSlot(template, key);
-  return `${escapeHtml(before)}<a href="${escapeHtml(href)}">${escapeHtml(
-    label,
-  )}</a>${escapeHtml(after)}`;
-}
-
-/** A link into one of the apps, carrying the reader's language with it.
- *
- *  `?lang=` is the deep-link parameter every SPA already honours: it applies
- *  the language, remembers it the way the picker would, and strips the
- *  parameter from the address bar. So a parent who picked Somali here lands in
- *  the directory in Somali without ever opening a setting. */
-function appHref(base: string, path: string, locale: Locale): string {
-  return `${base.replace(/\/$/, "")}${path}?lang=${locale}`;
-}
-
-/** Same-origin link that re-renders THIS page in another language. Unlike the
- *  SPAs, the parameter stays in the URL: there is no client here to remember a
- *  choice, and a stable per-language URL is what `hreflang` and a shared link
- *  both need. */
-function langHref(locale: Locale): string {
-  return `/?lang=${locale}`;
-}
-
-const FAVICON =
-  "data:image/svg+xml," +
-  encodeURIComponent(
-    '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">' +
-      '<rect width="64" height="64" rx="14" fill="#0068a8"/>' +
-      '<path d="M22 17h21.4v7.6H30.4v7.1h11.4v7.3H30.4v7.4h13.4V54H22z" fill="#fff"/>' +
-      "</svg>",
-  );
-
-/** Map pin for the hero's place-stamp. Inline because this Worker ships no
- *  asset of any kind, and `aria-hidden` because the place name beside it
- *  already says what it means in every language. */
-const PIN =
-  '<svg class="place-pin" width="11" height="11" viewBox="0 0 24 24" fill="none" ' +
-  'stroke="currentColor" stroke-width="2.6" stroke-linecap="round" ' +
-  'stroke-linejoin="round" aria-hidden="true">' +
-  '<path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/>' +
-  '<circle cx="12" cy="10" r="3"/></svg>';
-
-const FONTS =
-  "https://fonts.googleapis.com/css2" +
-  "?family=Hanken+Grotesk:wght@400;600;700;800" +
-  "&family=Noto+Sans+SC:wght@400;700" +
-  "&family=Spline+Sans+Mono:wght@400;600" +
-  "&display=swap";
+import {
+  PIN,
+  alternatesFor,
+  appHref,
+  document,
+  emphasize,
+  escapeHtml,
+  hostOf,
+  langHref,
+  linkSlot,
+  siteFooter,
+  siteHeader,
+} from "./shell.js";
 
 interface Tile {
   title: string;
@@ -251,18 +181,12 @@ export async function renderHome(
     )
     .join("");
 
-  const [feedBefore = "", feedAfter = ""] = t("footerFeedback", { email: SLOT }).split(SLOT);
-
+  // The hero card carries the only link to /faq. A page nothing links to is a
+  // page nobody reads, and this is where somebody hesitating over the sign-up
+  // button is actually standing. Deliberately a quiet link rather than a third
+  // button: the two acts above are what that card is for.
   const body = `
-    <header class="hd">
-      <div class="wrap hd-in">
-        <a class="mark" href="/?lang=${locale}">${escapeHtml(s.brand)}<i>.school</i></a>
-        <div class="hd-out">
-          <span class="lbl">${escapeHtml(t("landingSchoolSiteLabel"))}</span>
-          <a href="${escapeHtml(env.SCHOOL_SITE_URL)}">${escapeHtml(t("landingSchoolSiteLink"))}</a>
-        </div>
-      </div>
-    </header>
+    ${siteHeader(env, locale, s)}
 
     <main>
       <section class="hero">
@@ -282,6 +206,9 @@ export async function renderHome(
               )}">${escapeHtml(t("landingSeeCalendar"))}</a>
             </div>
             <p class="note">${escapeHtml(t("landingNoPassword"))}</p>
+            <a class="fq-link" href="${escapeHtml(langHref(locale, "/faq"))}">${escapeHtml(
+              t("faqNav"),
+            )} <span aria-hidden="true">&#8594;</span></a>
           </div>
         </div>
       </section>
@@ -313,34 +240,14 @@ export async function renderHome(
       </section>
     </main>
 
-    <footer class="ft">
-      <div class="wrap ft-in">
-        <div>
-          <a href="${escapeHtml(appHref(env.PTO_URL, "/", locale))}">${escapeHtml(school)}</a>
-          <span aria-hidden="true"> · </span>
-          ${escapeHtml(feedBefore)}<a href="mailto:${escapeHtml(
-            env.FEEDBACK_EMAIL,
-          )}">${escapeHtml(env.FEEDBACK_EMAIL)}</a>${escapeHtml(feedAfter)}
-          <span aria-hidden="true"> · </span>
-          <a href="${escapeHtml(SOURCE_URL)}">GitHub</a>
-        </div>
-      </div>
-    </footer>`;
-
-  const alternates = [
-    ...LOCALES.map(
-      (l) =>
-        `<link rel="alternate" hreflang="${l}" href="${escapeHtml(origin + langHref(l))}" />`,
-    ),
-    `<link rel="alternate" hreflang="x-default" href="${escapeHtml(origin)}/" />`,
-  ].join("\n    ");
+    ${siteFooter(env, locale, s)}`;
 
   return document({
     lang: locale,
     title,
     description,
     canonical: `${origin}${explicit ? langHref(locale) : "/"}`,
-    head: `${alternates}\n    ${jsonLd(env, description)}`,
+    head: `${alternatesFor(origin, "/")}\n    ${jsonLd(env, description)}`,
     body,
   });
 }
@@ -575,57 +482,4 @@ export function renderNotFound(env: Env, locale: Locale): string {
       <a class="btn btn-primary" href="${langHref(locale)}">${escapeHtml(s.landingWelcome)}</a>
     </main>`,
   });
-}
-
-interface DocumentInput {
-  lang: Locale;
-  title: string;
-  description: string;
-  canonical: string;
-  /** Pre-escaped markup for the end of `<head>`. */
-  head: string;
-  /** Pre-escaped markup for `<body>`. */
-  body: string;
-}
-
-function document(input: DocumentInput): string {
-  const desc = input.description
-    ? `<meta name="description" content="${escapeHtml(input.description)}" />
-    <meta property="og:description" content="${escapeHtml(input.description)}" />`
-    : "";
-  return `<!doctype html>
-<html lang="${input.lang}">
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-    <meta name="color-scheme" content="light" />
-    <meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)" />
-    <meta name="theme-color" content="#0f151b" media="(prefers-color-scheme: dark)" />
-    <title>${escapeHtml(input.title)}</title>
-    ${desc}
-    <link rel="canonical" href="${escapeHtml(input.canonical)}" />
-    <meta property="og:type" content="website" />
-    <meta property="og:title" content="${escapeHtml(input.title)}" />
-    <meta property="og:url" content="${escapeHtml(input.canonical)}" />
-    <meta property="og:locale" content="${input.lang}" />
-    <meta name="twitter:card" content="summary" />
-    <link rel="icon" href="${FAVICON}" />
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link rel="stylesheet" href="${FONTS}" />
-    ${input.head}
-    <style>${STYLES}</style>
-  </head>
-  <body>
-${input.body}
-  </body>
-</html>`;
-}
-
-function hostOf(url: string): string {
-  try {
-    return new URL(url).host;
-  } catch {
-    return url;
-  }
 }

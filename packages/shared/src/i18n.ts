@@ -410,6 +410,35 @@ export interface Strings {
   landingNewsMore: string;
   landingJoinTitle: string;
   landingJoinBody: string; // uses {school}
+  // faq — eisenhower.school/faq. The one page here that explains the site
+  // rather than being it, so it is written for somebody who has not signed in
+  // and may never have seen any of this before.
+  faqTitle: string;
+  faqDescription: string; // uses {school} {city} {languages}
+  faqLead: string; // uses {school}
+  faqNav: string;
+  faqVolunteerTitle: string;
+  faqVolunteerBody: string;
+  faqGetInTitle: string;
+  faqStep1Title: string; // uses {host}
+  faqStep1Body: string; // uses {action}
+  faqStep2Title: string;
+  faqStep2Body: string;
+  faqStep3Title: string;
+  faqStep3Body: string;
+  faqFamilyTitle: string;
+  faqFamilyBody: string;
+  faqPrivacyTitle: string;
+  faqNoPublicLead: string;
+  faqNoPublicBody: string; // uses {school}
+  faqKnowTitle: string;
+  faqAddressTitle: string;
+  faqAddressBody: string;
+  faqNeighborsTitle: string;
+  faqNeighborsBody: string;
+  faqUnlistedTitle: string;
+  faqUnlistedBody: string;
+
   landingSchoolSiteLabel: string;
   landingSchoolSiteLink: string;
 
@@ -984,6 +1013,40 @@ const en: Strings = {
   landingJoinTitle: "Join the directory",
   landingJoinBody:
     "It takes a couple of minutes. Nothing here is ever public — the directory is closed to everyone outside the {school} community, and you choose what the rest of it sees.",
+  faqTitle: "How this works",
+  faqDescription:
+    "What {school} keeps online for families in {city} — the directory, the calendar, volunteer sign-ups and the newsletter — how to get an account, and who can see what. Available in {languages}.",
+  faqLead:
+    "Everything the {school} keeps for families lives here: who's who, what's coming up, and what still needs hands. One account opens all of it, and there is no password to remember — we email you a sign-in link instead.",
+  faqNav: "How this works",
+  faqVolunteerTitle: "Volunteer sign-ups",
+  faqVolunteerBody:
+    "Every event page shows which spots are still open, and anyone can see the count. Claiming one needs an account, so the PTO knows who to expect.",
+  faqGetInTitle: "How to get in",
+  faqStep1Title: "Go to {host}",
+  faqStep1Body: "Choose {action}.",
+  faqStep2Title: "Enter your email",
+  faqStep2Body: "That's the whole form. We never ask for a password, because there isn't one.",
+  faqStep3Title: "Click the link we send you",
+  faqStep3Body:
+    "It arrives in a minute or two and is good for fifteen. Signing in later works exactly the same way.",
+  faqFamilyTitle: "Then add your family.",
+  faqFamilyBody:
+    "The setup asks who else is in your home so your family appears together — your children, and your partner, who gets their own sign-in and can manage the same family. You can do this later instead; nothing is locked in.",
+  faqPrivacyTitle: "Who sees what — you decide, detail by detail",
+  faqNoPublicLead: "There is no fourth setting.",
+  faqNoPublicBody:
+    "Nothing in the directory is ever public. It is closed to everyone outside the {school} community, and search engines are told to stay out. Your phone number, your email and your address each carry their own setting, so you can be findable without being reachable, or the reverse.",
+  faqKnowTitle: "Good to know",
+  faqAddressTitle: "Your street address stays yours",
+  faqAddressBody:
+    "Other members never see the exact address you enter — only the household it belongs to. Nobody outside the directory sees anything at all.",
+  faqNeighborsTitle: "Neighbors is opt-in",
+  faqNeighborsBody:
+    "Turn on \u201Cshow me as a neighbor\u201D for an address and member families within two miles can find you: a name and a rough distance, never a street address. Leave it off and you simply don't appear.",
+  faqUnlistedTitle: "You can step off the roster",
+  faqUnlistedBody:
+    "If you would rather not be listed at all, write to us and we'll take your family out of the directory. You keep your account, the calendar and the newsletter.",
   landingSchoolSiteLabel: "Looking for the school itself?",
   landingSchoolSiteLink: "Eisenhower Elementary website",
 
@@ -1504,6 +1567,40 @@ const es: Strings = {
   landingJoinTitle: "Únete al directorio",
   landingJoinBody:
     "Toma un par de minutos. Nada de esto es público: el directorio está cerrado a cualquiera fuera de la comunidad de {school}, y tú eliges qué ve el resto.",
+  faqTitle: "Cómo funciona",
+  faqDescription:
+    "Lo que {school} mantiene en línea para las familias de {city} — el directorio, el calendario, las inscripciones de voluntarios y el boletín —, cómo crear una cuenta y quién puede ver qué. Disponible en {languages}.",
+  faqLead:
+    "Todo lo que {school} guarda para las familias está aquí: quién es quién, qué viene y en qué hacen falta manos. Una sola cuenta lo abre todo, y no hay contraseña que recordar: le enviamos un enlace de acceso por correo.",
+  faqNav: "Cómo funciona",
+  faqVolunteerTitle: "Inscripciones de voluntarios",
+  faqVolunteerBody:
+    "Cada página de evento muestra qué lugares siguen libres, y cualquiera puede ver cuántos quedan. Apuntarse requiere una cuenta, para que la PTO sepa a quién esperar.",
+  faqGetInTitle: "Cómo entrar",
+  faqStep1Title: "Entre en {host}",
+  faqStep1Body: "Elija {action}.",
+  faqStep2Title: "Escriba su correo electrónico",
+  faqStep2Body: "Ese es todo el formulario. Nunca pedimos contraseña, porque no existe.",
+  faqStep3Title: "Abra el enlace que le enviamos",
+  faqStep3Body:
+    "Llega en uno o dos minutos y vale por quince. Volver a entrar más adelante funciona igual.",
+  faqFamilyTitle: "Después, agregue a su familia.",
+  faqFamilyBody:
+    "La configuración le pregunta quién más vive en su casa para que su familia aparezca junta: sus hijos y su pareja, que recibe su propio acceso y puede administrar la misma familia. También puede hacerlo más tarde; nada queda fijo.",
+  faqPrivacyTitle: "Quién ve qué: usted decide, dato por dato",
+  faqNoPublicLead: "No hay una cuarta opción.",
+  faqNoPublicBody:
+    "Nada del directorio es público jamás. Está cerrado a todo el que esté fuera de la comunidad de {school}, y a los buscadores se les pide que no entren. Su teléfono, su correo y su dirección llevan cada uno su propia opción, así que puede ser localizable sin ser contactable, o al revés.",
+  faqKnowTitle: "Conviene saber",
+  faqAddressTitle: "Su dirección sigue siendo suya",
+  faqAddressBody:
+    "Los demás miembros nunca ven la dirección exacta que usted escribe, solo el hogar al que pertenece. Fuera del directorio no la ve nadie.",
+  faqNeighborsTitle: "Vecinos es voluntario",
+  faqNeighborsBody:
+    "Active \u201Cmuéstrenme como vecino\u201D en una dirección y las familias miembros a menos de dos millas podrán encontrarle: un nombre y una distancia aproximada, nunca una dirección. Si lo deja apagado, sencillamente no aparece.",
+  faqUnlistedTitle: "Puede salir del listado",
+  faqUnlistedBody:
+    "Si prefiere no aparecer, escríbanos y sacamos a su familia del directorio. Conserva su cuenta, el calendario y el boletín.",
   landingSchoolSiteLabel: "¿Buscas la escuela?",
   landingSchoolSiteLink: "Sitio web de Eisenhower Elementary",
 
@@ -2005,6 +2102,39 @@ const zh: Strings = {
   landingJoinTitle: "加入名录",
   landingJoinBody:
     "只需几分钟。这里没有任何内容是公开的——名录不对 {school} 社区以外的任何人开放，其余内容由你决定谁能看到。",
+  faqTitle: "使用说明",
+  faqDescription:
+    "{school} 为 {city} 的家庭在线提供的内容——通讯录、日历、志愿者报名和通讯——如何注册账号，以及谁能看到哪些信息。提供 {languages}。",
+  faqLead:
+    "{school} 为家庭保存的一切都在这里：谁是谁、接下来有什么活动、哪里还缺人手。一个账号即可全部打开，而且无需记住密码——我们会用邮件发送登录链接。",
+  faqNav: "使用说明",
+  faqVolunteerTitle: "志愿者报名",
+  faqVolunteerBody:
+    "每个活动页面都会显示还有哪些名额空着，任何人都能看到数量。报名需要账号，这样家长会才知道会有谁来。",
+  faqGetInTitle: "如何加入",
+  faqStep1Title: "打开 {host}",
+  faqStep1Body: "选择{action}。",
+  faqStep2Title: "填写您的邮箱",
+  faqStep2Body: "整个表格就这一项。我们从不索取密码，因为根本没有密码。",
+  faqStep3Title: "点击我们发送的链接",
+  faqStep3Body: "一两分钟内送达，十五分钟内有效。以后再次登录也是同样的方式。",
+  faqFamilyTitle: "然后添加您的家人。",
+  faqFamilyBody:
+    "设置时会询问家里还有谁，好让一家人显示在一起——您的孩子，以及您的伴侣，对方会有自己的登录方式，并可管理同一个家庭。也可以以后再补，一切都能改。",
+  faqPrivacyTitle: "谁能看到什么——由您逐项决定",
+  faqNoPublicLead: "没有第四种设置。",
+  faqNoPublicBody:
+    "通讯录中的内容从不公开。它对 {school} 社区以外的所有人关闭，并且会要求搜索引擎不要收录。您的电话、邮箱和住址各有各的设置，因此您可以让别人找得到您却联系不到，或者反过来。",
+  faqKnowTitle: "值得了解",
+  faqAddressTitle: "您的住址仍然属于您",
+  faqAddressBody:
+    "其他成员看不到您填写的详细地址，只能看到它所属的家庭。通讯录之外没有人能看到任何内容。",
+  faqNeighborsTitle: "邻居功能需自行开启",
+  faqNeighborsBody:
+    "为某个地址开启\u201C把我显示为邻居\u201D后，两英里内的成员家庭就能找到您：只有姓名和大致距离，绝不会有街道地址。不开启就完全不会出现。",
+  faqUnlistedTitle: "您可以不出现在名册上",
+  faqUnlistedBody:
+    "如果您宁愿完全不被列出，请写信给我们，我们会把您一家从通讯录中移除。您的账号、日历和通讯都会保留。",
   landingSchoolSiteLabel: "在找学校官网？",
   landingSchoolSiteLink: "Eisenhower Elementary 官网",
 
@@ -2572,6 +2702,40 @@ const so: Strings = {
   landingJoinTitle: "Ku biir tusmada",
   landingJoinBody:
     "Waxay qaadanaysaa dhowr daqiiqo. Waxba halkan kuma jiraan wax dadweynuhu arki karo — tusmadu waa u xiran tahay qof kasta oo bulshada {school} ka baxsan, adigana waxaad dooranaysaa waxa inta kale arkayso.",
+  faqTitle: "Sida ay u shaqeyso",
+  faqDescription:
+    "Waxa {school} ay onlaynka ugu haysato qoysaska {city} — buugga xiriirka, jadwalka, isqorista mutadawiciinta iyo warsidaha — sida loo helo akoon, iyo cidda arki karta waxa. Waxaa lagu heli karaa {languages}.",
+  faqLead:
+    "Wax kasta oo {school} ay qoysaska u hayso halkan ayey ku yaalliin: cidda ay yihiin, waxa soo socda, iyo waxa weli gacmo u baahan. Hal akoon ayaa dhammaan furaya, mana jirto furaha sirta ah oo aad xasuusato — taa beddelkeeda waxaan emayl kuugu soo dirnaa xiriiriye aad ku gasho.",
+  faqNav: "Sida ay u shaqeyso",
+  faqVolunteerTitle: "Isqorista mutadawiciinta",
+  faqVolunteerBody:
+    "Bog kasta oo dhacdo ah wuxuu muujiyaa booskii weli bannaan, qof kastaana wuu arki karaa tiradooda. Inaad mid qaadato waxay u baahan tahay akoon, si PTO-du u ogaato cidda la filayo.",
+  faqGetInTitle: "Sida loo galo",
+  faqStep1Title: "Booqo {host}",
+  faqStep1Body: "Dooro {action}.",
+  faqStep2Title: "Geli emaylkaaga",
+  faqStep2Body: "Taasi waa foomka oo dhan. Weligeen furaha sirta ah ma weydiino, maxaa yeelay mid ma jiro.",
+  faqStep3Title: "Guji xiriiriyaha aan kuu soo dirno",
+  faqStep3Body:
+    "Wuxuu ku soo gaarayaa hal ama laba daqiiqo, shan iyo tobanka daqiiqo ee xigana wuu shaqeeyaa. Marka aad mar dambe soo gasho si la mid ah ayey u shaqeysaa.",
+  faqFamilyTitle: "Kadibna ku dar qoyskaaga.",
+  faqFamilyBody:
+    "Habayntu waxay ku weydiinaysaa cidda kale ee gurigaaga jooga si qoyskaagu wadajir u soo baxo — carruurtaada, iyo lammaanahaaga, oo hela gelitaan u gaar ah kuna maamuli kara isla qoyska. Waxaad mar dambe samayn kartaa; waxba ma xidhna.",
+  faqPrivacyTitle: "Cidda arki karta waxa — adigaa go'aamiya, mid mid",
+  faqNoPublicLead: "Ma jirto doorasho afraad.",
+  faqNoPublicBody:
+    "Waxba oo buugga xiriirka ku jira weligood dadweyne uma furna. Wuxuu u xidhan yahay qof kasta oo ka baxsan bulshada {school}, mashiinada raadintana waxaa laga codsaday inay ka fogaadaan. Taleefankaaga, emaylkaaga iyo cinwaankaagu mid kastaa wuxuu leeyahay doorashadiisa, sidaas darteed waa lagu heli karaa iyadoo aan lagula xidhiidhi karin, ama si ka soo horjeeda.",
+  faqKnowTitle: "Wax wanaagsan in la ogaado",
+  faqAddressTitle: "Cinwaankaagu adigaa iska leh",
+  faqAddressBody:
+    "Xubnaha kale weligood ma arkaan cinwaanka saxda ah ee aad gelisay — waxay arkaan oo keliya qoyska uu ka tirsan yahay. Buugga xiriirka dibaddiisa qofna waxba ma arko.",
+  faqNeighborsTitle: "Deriska waa ikhtiyaari",
+  faqNeighborsBody:
+    "U shid \u201Ci tus sida deris\u201D cinwaan, qoysaska xubnaha ah ee laba mayl gudaheeda joogaana way ku heli karaan: magac iyo masaafo qiyaasi ah, waligeed ma aha cinwaan waddo. Haddii aad damiso, si fudud ma soo baxdid.",
+  faqUnlistedTitle: "Waad ka bixi kartaa liiska",
+  faqUnlistedBody:
+    "Haddii aad doorbidayso inaan gabi ahaanba lagu liistin, noo soo qor waanan qoyskaaga ka saarnaa buugga xiriirka. Waxaad haysataa akoonkaaga, jadwalka iyo warsidaha.",
   landingSchoolSiteLabel: "Ma raadinaysaa dugsiga laftiisa?",
   landingSchoolSiteLink: "Bogga Eisenhower Elementary",
 

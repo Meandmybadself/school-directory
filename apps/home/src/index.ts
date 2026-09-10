@@ -27,6 +27,7 @@
 import { LOCALES } from "@sd/shared";
 import type { Env } from "./env.js";
 import { langCookie, resolveLocale } from "./locale.js";
+import { FAQ_PATH, renderFaq } from "./faq.js";
 import { renderHome, renderNotFound } from "./page.js";
 
 /** Vanity paths people type or get told over the phone ("go to
@@ -96,6 +97,18 @@ export default {
       return Response.redirect(`${shortcut(env)}?lang=${locale}`, 302);
     }
 
+    // The one other page on this host. Same language rules as the landing
+    // page, and the same cookie rule: a choice is remembered, a detection is
+    // not. It makes no subrequest, so unlike `/` it cannot be slowed or
+    // degraded by the API being down.
+    if (path === FAQ_PATH) {
+      return html(
+        renderFaq(env, locale, explicit),
+        200,
+        explicit ? langCookie(locale) : undefined,
+      );
+    }
+
     if (path !== "/") {
       return html(renderNotFound(env, locale), 404);
     }
@@ -117,11 +130,17 @@ function text(body: string): Response {
   });
 }
 
-/** One entry per language, since each `?lang=` URL is a distinct document with
- *  its own `hreflang` and its own canonical. */
+/** One entry per language PER PAGE, since each `?lang=` URL is a distinct
+ *  document with its own `hreflang` and its own canonical. A page added to this
+ *  host and not to this list is a page no search engine is told about. */
+const INDEXED_PATHS = ["/", FAQ_PATH];
+
 function sitemap(env: Env): Response {
   const origin = trimSlash(env.SITE_ORIGIN);
-  const urls = [`${origin}/`, ...LOCALES.map((l) => `${origin}/?lang=${l}`)]
+  const urls = INDEXED_PATHS.flatMap((path) => [
+    `${origin}${path}`,
+    ...LOCALES.map((l) => `${origin}${path}?lang=${l}`),
+  ])
     .map((loc) => `  <url><loc>${loc.replace(/&/g, "&amp;")}</loc></url>`)
     .join("\n");
   return new Response(

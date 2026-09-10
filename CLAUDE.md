@@ -46,11 +46,29 @@ docs/               Product spec (PLAN/SRD/SDD). Source of truth for requirement
 
 `apps/home` serves `eisenhower.school` (and 301s `www`). It is not a fourth SPA:
 one HTML document per request, rendered from the shared dictionaries, no client
-bundle and no API call. Three things about it cannot be changed casually:
+bundle and no API call.
 
-- **It is one of only three surfaces in this project that ask to be indexed**,
-  the others being the store's public storefront (invariant 26) and the PTO's
-  public page (invariant 28). The SPAs' bundles all send `noindex` because they
+It now serves **two** pages. `/` is the landing page (`page.ts`); `/faq` is the
+one that EXPLAINS the site rather than being it (`faq.ts`) — written for a
+parent handed the URL at back-to-school night, answering what is here, how to
+get in, and who can see what. The chrome they share — `<head>`, header, footer,
+the `?lang=` helpers — lives in `shell.ts` and is IMPORTED by both. The five
+SPAs copy their design system on purpose and are expected to drift; two routes
+inside one Worker have no such excuse, so a change to the header is a change to
+both pages by construction.
+Two things follow. `/faq` makes **no subrequest at all**, so unlike `/` it
+cannot be slowed or emptied by the API being down — the shape invariant 28
+praises in the PTO page. And it is the **fourth indexed surface** in the
+project, so `INDEXED_PATHS` in `index.ts` is what puts it in the sitemap: a page
+added to this host and not to that list is a page no search engine hears about.
+`langHref(locale, path)` takes a path precisely so `/faq`'s picker keeps the
+reader on `/faq`; a picker that loses your place is one people stop using.
+
+Three things about the landing page cannot be changed casually:
+
+- **It is one of only four surfaces in this project that ask to be indexed**,
+  the others being `/faq` beside it, the store's public storefront
+  (invariant 26) and the PTO's public page (invariant 28). The SPAs' bundles all send `noindex` because they
   are members-only. This one ships a `robots.txt`, a sitemap and `hreflang`
   alternates, so nothing member-private may ever appear on it — and the same
   obligation now travels with the store and the PTO page.

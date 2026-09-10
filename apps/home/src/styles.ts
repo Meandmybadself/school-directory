@@ -259,6 +259,114 @@ img{max-width:100%}
 .gone h1{margin:0 0 10px;font-size:clamp(2rem,6vw,3rem);font-weight:800;letter-spacing:-.04em}
 .gone p{margin:0 0 22px;font-size:16px;color:var(--ink-2)}
 
+/* ── /faq: the page that explains the site ──────────────────────────────── */
+/* Deliberately NOT a second landing page. The front door's hero is a 4.5rem
+   greeting stack that doubles as the language picker; here the reader already
+   chose to come, so the hero is a heading and the picker shrinks to a row of
+   language names. Everything else — tags, cards, the dark closing band, the
+   footer — is the landing page's, imported rather than restyled. */
+.fq-hero{padding:44px 0 30px}
+@media(min-width:920px){.fq-hero{padding:62px 0 38px}}
+.fq-hero h1{
+  margin:0 0 16px;max-width:15ch;
+  font-size:clamp(2.1rem,5.6vw,3.4rem);font-weight:800;
+  letter-spacing:-.04em;line-height:1.06;text-wrap:balance;
+}
+.fq-lead{margin:0;max-width:60ch;font-size:17px;line-height:1.6;color:var(--ink-2)}
+
+/* The compact language picker. Names, each in its own language, no label —
+   an English label is legible only to the readers who least need it. */
+.langbar{
+  display:flex;flex-wrap:wrap;align-items:baseline;gap:6px 16px;
+  list-style:none;margin:26px 0 0;padding:0;
+  font-size:15px;
+}
+.langbar a,.langbar strong{
+  text-decoration:underline;text-underline-offset:.22em;
+  text-decoration-thickness:1.5px;
+}
+.langbar a{color:var(--ink-3);text-decoration-color:var(--line-2);font-weight:600}
+.langbar a:hover,.langbar a:focus-visible{color:var(--blue);text-decoration-color:var(--blue)}
+.langbar strong{color:var(--ink);text-decoration-color:var(--orange);text-decoration-thickness:2.5px}
+
+.fq-sect{padding:0 0 52px}
+.fq-sect h2{
+  margin:0 0 18px;font-size:clamp(1.35rem,3vw,1.7rem);
+  font-weight:800;letter-spacing:-.03em;line-height:1.15;text-wrap:balance;
+}
+
+/* What's here. A list, not the landing page's tile grid: this reader is being
+   told what the places ARE, not asked to pick one. */
+.fq-places{list-style:none;margin:0;padding:0;display:grid;gap:0}
+.fq-places li{padding:16px 0;border-top:1px solid var(--line)}
+.fq-places li:first-child{border-top:0;padding-top:0}
+.fq-top{display:flex;flex-wrap:wrap;align-items:center;gap:10px}
+.fq-name{
+  font-size:17px;font-weight:800;letter-spacing:-.022em;
+  color:var(--ink);text-decoration:none;
+  border-bottom:1px solid var(--blue-tint-2);
+}
+.fq-name:hover{color:var(--blue-700);border-bottom-color:var(--blue)}
+.fq-places p{margin:6px 0 0;font-size:14.5px;line-height:1.55;color:var(--ink-2);max-width:62ch}
+.fq-places .host{margin:6px 0 0}
+
+.fq-split{display:grid;gap:38px;align-items:start}
+@media(min-width:920px){.fq-split{grid-template-columns:1fr 1fr;gap:48px}}
+
+/* How to get in — the one numbered sequence on the page. */
+.fq-steps{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:16px}
+.fq-steps li{display:grid;grid-template-columns:28px 1fr;gap:14px;align-items:start}
+.fq-step-n{
+  width:26px;height:26px;border-radius:999px;
+  background:var(--blue);color:#fff;
+  font-family:var(--ff-mono);font-size:12.5px;font-weight:600;
+  display:flex;align-items:center;justify-content:center;
+}
+.fq-step-t{margin:0;font-size:16px;font-weight:700;letter-spacing:-.015em;line-height:1.3}
+.fq-step-b{margin:3px 0 0;font-size:14px;line-height:1.55;color:var(--ink-2)}
+.fq-step-b b{color:var(--ink);font-weight:700}
+
+.fq-aside{
+  margin:22px 0 0;padding:14px 16px;
+  border-left:3px solid var(--orange);border-radius:0 10px 10px 0;
+  background:var(--bg-2);
+  font-size:14px;line-height:1.6;color:var(--ink-2);
+}
+.fq-aside b{color:var(--ink);font-weight:700}
+
+/* Who sees what — the one thing on this page lifted onto a card, because it is
+   the question that actually decides whether somebody joins. */
+.fq-privacy{padding:26px}
+.fq-privacy h2{margin-bottom:20px}
+.fq-viss{display:flex;flex-direction:column;gap:15px}
+.fq-vis{display:flex;flex-direction:column;gap:6px;align-items:flex-start}
+.fq-vis p{margin:0;font-size:14px;line-height:1.5;color:var(--ink-2)}
+/* The app's own three chip states, and deliberately no fourth. */
+.chip{font-size:12.5px;font-weight:700;padding:4px 12px;border-radius:999px}
+.chip-members{background:var(--blue-tint);color:var(--blue-800)}
+.chip-private{background:var(--bg-2);color:var(--ink-2)}
+.chip-shared{background:#fdf0d8;color:#8a5500}
+@media(prefers-color-scheme:dark){.chip-shared{background:#3a2a0b;color:#f6cb7c}}
+.fq-nopublic{
+  margin:20px 0 0;padding-top:17px;border-top:1px solid var(--line);
+  font-size:14px;line-height:1.62;color:var(--ink-2);
+}
+.fq-nopublic b{color:var(--ink);font-weight:700}
+
+/* Good to know. */
+.fq-notes{display:grid;gap:22px 36px}
+@media(min-width:720px){.fq-notes{grid-template-columns:repeat(3,1fr)}}
+.fq-notes h3{margin:0 0 5px;font-size:15px;font-weight:700;letter-spacing:-.015em;line-height:1.3}
+.fq-notes p{margin:0;font-size:13.8px;line-height:1.58;color:var(--ink-2)}
+
+/* A quiet way back to the front door's own explanation of itself. */
+.fq-link{
+  display:inline-flex;align-items:center;gap:7px;margin-top:14px;
+  font-size:14px;font-weight:700;color:var(--blue-700);text-decoration:none;
+}
+.fq-link span{transition:transform .16s}
+.fq-link:hover span{transform:translateX(3px)}
+
 /* ── Quality floor ───────────────────────────────────────────────────────── */
 a:focus-visible,.btn:focus-visible{outline:2px solid var(--blue);outline-offset:3px;border-radius:4px}
 .join a:focus-visible{outline-color:var(--orange)}
