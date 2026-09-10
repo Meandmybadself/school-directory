@@ -749,3 +749,26 @@ describe("the print stylesheet", () => {
     }
   });
 });
+
+describe("the printed sheet's type scale", () => {
+  // Pagination cannot be asserted from source — it needs a real printer, and
+  // the method is written above these rules in styles.ts. What a test CAN do is
+  // notice that the measured numbers changed, so a casual bump gets a failure
+  // that names the re-measurement rather than a stack of two-page handouts
+  // nobody discovers until they are being handed out.
+  it("holds the sizes that were measured to fit one page", async () => {
+    const print = (await body("/faq/print")).match(/@media print\{[\s\S]*$/)?.[0] ?? "";
+    expect(print).toContain("font-size:9pt;line-height:1.36");
+    expect(print).toContain(".pr-sheet h1{font-size:16pt");
+    expect(print).toContain(".fq-places p{font-size:8.2pt");
+    expect(print).toContain(".fq-step-b{font-size:8.2pt");
+    expect(print).toContain(".fq-notes p{font-size:8pt");
+  });
+
+  it("keeps each sheet on its own page and ejects no trailing blank", async () => {
+    const html = await body("/faq/print");
+    expect(html).toContain(".pr-sheet{");
+    expect(html).toContain("break-after:page");
+    expect(html).toContain(".pr-sheet:last-child{break-after:auto");
+  });
+});

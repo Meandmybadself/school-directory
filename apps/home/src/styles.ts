@@ -427,7 +427,7 @@ img{max-width:100%}
     --paper:#fff; --bg:#fff; --bg-2:#f0f2f4;
   }
   @page{margin:12mm}
-  body{background:#fff;color:#000;font-size:10pt;line-height:1.45}
+  body{background:#fff;color:#000;font-size:9pt;line-height:1.36}
   /* Chrome and Safari drop background fills by default, which would turn every
      tag and chip into unreadable dark-on-dark or invisible text. */
   *{-webkit-print-color-adjust:exact;print-color-adjust:exact}
@@ -438,23 +438,45 @@ img{max-width:100%}
   .wrap{max-width:none;padding:0}
   a{text-decoration:none}
 
-  /* ── One sheet per language ── */
+  /* ── One sheet per language ──
+     THE TYPE SCALE BELOW IS MEASURED, NOT CHOSEN. The first version of this
+     block was set by eye and printed two pages for English, Spanish and
+     Somali — only Chinese fit, because CJK sets far more content per line,
+     which is exactly what makes a word count a useless estimate here.
+
+     The binding case is SOMALI WITH THE WEB FONTS UNAVAILABLE: it is the
+     longest of the four texts, and a school laptop that cannot reach
+     fonts.googleapis.com falls back to system-ui, whose metrics are wider than
+     Hanken Grotesk's. A scale that fits Somali online can still spill offline,
+     and that version was measured too — it did.
+
+     Re-measure before growing anything here. Chrome prints headlessly, which
+     tests the real printer path rather than an estimate:
+
+       pnpm --filter @sd/home dev
+       "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" \
+         --headless --no-pdf-header-footer --print-to-pdf=out.pdf \
+         --host-resolver-rules="MAP fonts.googleapis.com 127.0.0.1:1, \
+                                MAP fonts.gstatic.com 127.0.0.1:1" \
+         "http://localhost:5176/faq/print?lang=so"
+
+     One page is the pass. /faq/print with no ?lang= must come to exactly four. */
   .pr{max-width:none;padding:0}
   .pr-sheet{
     border:0;border-radius:0;padding:0;margin:0;
     break-after:page;page-break-after:always;
   }
   .pr-sheet:last-child{break-after:auto;page-break-after:auto}
-  .pr-sheet h1{font-size:20pt;margin-bottom:6px}
-  .pr-lead{font-size:9.6pt;line-height:1.42}
-  .pr-head{margin-bottom:13px}
-  .pr-cols{grid-template-columns:1.08fr .92fr;gap:20px}
-  .pr-block{margin-top:14px}
-  .pr-block h2{font-size:8pt;margin-bottom:7px;padding-bottom:4px}
-  .pr-foot{margin-top:14px;padding-top:8px}
-  .pr-where{font-size:9pt}
-  .pr-url{font-size:8pt}
-  .pr-langs{font-size:8.5pt;gap:2px 14px}
+  .pr-sheet h1{font-size:16pt;margin-bottom:4px}
+  .pr-lead{font-size:9pt;line-height:1.38}
+  .pr-head{margin-bottom:9px}
+  .pr-cols{grid-template-columns:1.08fr .92fr;gap:16px}
+  .pr-block{margin-top:10px}
+  .pr-block h2{font-size:7.2pt;margin-bottom:5px;padding-bottom:3px}
+  .pr-foot{margin-top:10px;padding-top:6px}
+  .pr-where{font-size:8pt}
+  .pr-url{font-size:7pt}
+  .pr-langs{font-size:7.4pt;gap:1px 12px}
 
   /* Blocks that must not be split across two pieces of paper. */
   .pr-block,.pr-foot,.fq-places li,.fq-steps li,.fq-vis,.fq-notes>div,.fq-aside{
@@ -462,25 +484,25 @@ img{max-width:100%}
   }
 
   /* ── Shared section chrome, tightened for ink ── */
-  .fq-places li{padding:7px 0}
-  .fq-places .fq-name{font-size:11pt;border-bottom:0}
-  .fq-places p{font-size:9pt;line-height:1.4;margin-top:3px;max-width:none}
-  .host{font-size:7.6pt;margin:3px 0 0}
-  .tag{font-size:7pt;padding:2px 6px}
-  .fq-steps{gap:9px}
-  .fq-steps li{grid-template-columns:20px 1fr;gap:9px}
-  .fq-step-n{width:19px;height:19px;font-size:9pt}
-  .fq-step-t{font-size:10pt}
-  .fq-step-b{font-size:9pt;line-height:1.4;margin-top:1px}
-  .fq-aside{margin-top:12px;padding:8px 11px;font-size:8.8pt;line-height:1.45;border-radius:0 6px 6px 0}
+  .fq-places li{padding:4px 0}
+  .fq-places .fq-name{font-size:10pt;border-bottom:0}
+  .fq-places p{font-size:8.2pt;line-height:1.34;margin-top:2px;max-width:none}
+  .host{font-size:7.2pt;margin:2px 0 0}
+  .tag{font-size:6.2pt;padding:1px 5px}
+  .fq-steps{gap:6px}
+  .fq-steps li{grid-template-columns:17px 1fr;gap:8px}
+  .fq-step-n{width:16px;height:16px;font-size:7.6pt}
+  .fq-step-t{font-size:9.2pt}
+  .fq-step-b{font-size:8.2pt;line-height:1.34;margin-top:1px}
+  .fq-aside{margin-top:8px;padding:6px 9px;font-size:8pt;line-height:1.38;border-radius:0 5px 5px 0}
   .fq-privacy,.pr-privacy{padding:0;border:0;box-shadow:none}
-  .fq-viss{gap:10px}
-  .fq-vis p{font-size:8.8pt;line-height:1.4}
-  .chip{font-size:8.5pt;padding:2px 9px}
-  .fq-nopublic{margin-top:11px;padding-top:8px;font-size:9pt;line-height:1.45}
-  .fq-notes{grid-template-columns:repeat(3,1fr);gap:14px}
-  .fq-notes h3{font-size:9.5pt}
-  .fq-notes p{font-size:8.8pt;line-height:1.42}
+  .fq-viss{gap:7px}
+  .fq-vis p{font-size:8pt;line-height:1.34}
+  .chip{font-size:7.8pt;padding:1px 7px}
+  .fq-nopublic{margin-top:8px;padding-top:6px;font-size:8.2pt;line-height:1.38}
+  .fq-notes{grid-template-columns:repeat(3,1fr);gap:11px}
+  .fq-notes h3{font-size:8.8pt}
+  .fq-notes p{font-size:8pt;line-height:1.36}
 
   /* ── /faq printed on its own: one language, one sheet ── */
   .fq-hero{padding:0 0 12px}
