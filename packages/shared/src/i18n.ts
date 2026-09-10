@@ -414,6 +414,12 @@ export interface Strings {
   // rather than being it, so it is written for somebody who has not signed in
   // and may never have seen any of this before.
   faqTitle: string;
+  /** The printed sheet's heading. Uses {school}, which is a proper noun and
+   *  stays put; only the word around it is translated. Deliberately different
+   *  from `faqTitle`: on screen the reader arrived from the site and needs to
+   *  know what the PAGE is, while a sheet of paper handed to somebody has to
+   *  name the THING it is about before anything else. */
+  faqPrintTitle: string; // uses {school}
   faqDescription: string; // uses {school} {city} {languages}
   faqLead: string; // uses {school}
   faqNav: string;
@@ -1014,6 +1020,7 @@ const en: Strings = {
   landingJoinBody:
     "It takes a couple of minutes. Nothing here is ever public — the directory is closed to everyone outside the {school} community, and you choose what the rest of it sees.",
   faqTitle: "How this works",
+  faqPrintTitle: "{school} Website",
   faqDescription:
     "What {school} keeps online for families in {city} — the directory, the calendar, volunteer sign-ups and the newsletter — how to get an account, and who can see what. Available in {languages}.",
   faqLead:
@@ -1568,6 +1575,7 @@ const es: Strings = {
   landingJoinBody:
     "Toma un par de minutos. Nada de esto es público: el directorio está cerrado a cualquiera fuera de la comunidad de {school}, y tú eliges qué ve el resto.",
   faqTitle: "Cómo funciona",
+  faqPrintTitle: "Sitio web de {school}",
   faqDescription:
     "Lo que {school} mantiene en línea para las familias de {city} — el directorio, el calendario, las inscripciones de voluntarios y el boletín —, cómo crear una cuenta y quién puede ver qué. Disponible en {languages}.",
   faqLead:
@@ -2103,6 +2111,7 @@ const zh: Strings = {
   landingJoinBody:
     "只需几分钟。这里没有任何内容是公开的——名录不对 {school} 社区以外的任何人开放，其余内容由你决定谁能看到。",
   faqTitle: "使用说明",
+  faqPrintTitle: "{school} 网站",
   faqDescription:
     "{school} 为 {city} 的家庭在线提供的内容——通讯录、日历、志愿者报名和通讯——如何注册账号，以及谁能看到哪些信息。提供 {languages}。",
   faqLead:
@@ -2703,6 +2712,7 @@ const so: Strings = {
   landingJoinBody:
     "Waxay qaadanaysaa dhowr daqiiqo. Waxba halkan kuma jiraan wax dadweynuhu arki karo — tusmadu waa u xiran tahay qof kasta oo bulshada {school} ka baxsan, adigana waxaad dooranaysaa waxa inta kale arkayso.",
   faqTitle: "Sida ay u shaqeyso",
+  faqPrintTitle: "Websaydka {school}",
   faqDescription:
     "Waxa {school} ay onlaynka ugu haysato qoysaska {city} — buugga xiriirka, jadwalka, isqorista mutadawiciinta iyo warsidaha — sida loo helo akoon, iyo cidda arki karta waxa. Waxaa lagu heli karaa {languages}.",
   faqLead:

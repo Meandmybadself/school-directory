@@ -642,16 +642,40 @@ describe("/faq/print", () => {
     const html = await body("/faq/print");
     for (const l of LOCALES) {
       expect(html).toContain(`<article class="pr-sheet" lang="${l}">`);
-      expect(html).toContain(escapeHtml(dictionaries[l].faqTitle));
+      expect(html).toContain(
+        escapeHtml(dictionaries[l].faqPrintTitle.replace("{school}", "Eisenhower PTO")),
+      );
     }
     expect(html.match(/class="pr-sheet"/g)).toHaveLength(LOCALES.length);
+  });
+
+  it("names the site itself, not the page, and says it once", async () => {
+    // A sheet handed to somebody has to name the THING before anything else,
+    // where the screen page can assume you arrived from the site. So the print
+    // heading is the site's name and the brand eyebrow that used to sit above
+    // it is gone — it was saying "Eisenhower PTO" directly above a heading that
+    // now says "Eisenhower PTO Website".
+    const html = await body("/faq/print?lang=en");
+    expect(html).toContain("<h1>Eisenhower PTO Website</h1>");
+    expect(html).not.toContain("pr-brand");
+    // The screen page keeps its own heading; this changed the sheet only.
+    expect(html).not.toContain(escapeHtml(dictionaries.en.faqTitle));
+    expect(await body("/faq")).toContain(`<h1>${escapeHtml(dictionaries.en.faqTitle)}</h1>`);
+  });
+
+  it("puts the same name in the document title, which printers stamp on the page", async () => {
+    // Browsers print <title> into the margin by default. Leaving it as the
+    // screen page's heading would put two different names for one sheet on one
+    // piece of paper.
+    const html = await body("/faq/print?lang=es");
+    expect(html).toContain("<title>Sitio web de Eisenhower PTO</title>");
   });
 
   it("narrows to one language when asked", async () => {
     const html = await body("/faq/print?lang=so");
     expect(html.match(/class="pr-sheet"/g)).toHaveLength(1);
     expect(html).toContain('<article class="pr-sheet" lang="so">');
-    expect(html).toContain(escapeHtml(dictionaries.so.faqTitle));
+    expect(html).toContain("Websaydka Eisenhower PTO");
     expect(html).not.toContain(escapeHtml(dictionaries.en.faqNoPublicLead));
   });
 

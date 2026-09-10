@@ -318,7 +318,9 @@ export function renderFaqPrint(env: Env, only: Locale | null): string {
     // its own `lang`, which is what a screen reader and a hyphenation engine
     // actually need.
     lang: locales[0] ?? "en",
-    title: `${dictionaries[locales[0] ?? "en"].faqTitle} — ${env.SCHOOL_NAME}`,
+    title: interpolate(dictionaries[locales[0] ?? "en"].faqPrintTitle, {
+      school: env.SCHOOL_NAME,
+    }),
     description: "",
     canonical: `${env.SITE_ORIGIN.replace(/\/$/, "")}${FAQ_PRINT_PATH}`,
     // Not indexed: it is the same words as /faq in a shape meant for a printer,
@@ -349,8 +351,7 @@ function sheet(env: Env, locale: Locale): string {
   return `
     <article class="pr-sheet" lang="${locale}">
       <header class="pr-head">
-        <p class="pr-brand">${escapeHtml(school)}</p>
-        <h1>${escapeHtml(t("faqTitle"))}</h1>
+        <h1>${escapeHtml(t("faqPrintTitle", { school }))}</h1>
         <p class="pr-lead">${escapeHtml(t("faqLead", { school }))}</p>
       </header>
 

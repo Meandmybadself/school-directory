@@ -376,10 +376,6 @@ img{max-width:100%}
   padding:32px;margin-bottom:26px;
 }
 .pr-head{margin-bottom:20px}
-.pr-brand{
-  margin:0 0 8px;font-family:var(--ff-mono);font-size:10.5px;font-weight:600;
-  letter-spacing:.14em;text-transform:uppercase;color:var(--ink-3);
-}
 .pr-sheet h1{
   margin:0 0 10px;font-size:29px;font-weight:800;
   letter-spacing:-.035em;line-height:1.08;text-wrap:balance;
