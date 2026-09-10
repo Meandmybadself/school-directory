@@ -5,6 +5,7 @@ import type {
   Capability,
   ContactItemDTO,
   GroupSummaryDTO,
+  HouseholdMembersDTO,
   LastNameDisplay,
   PersonProfileDTO,
 } from "@sd/shared";
@@ -84,6 +85,116 @@ async function groupsFor(
 
 function photoUrl(key: string | null): string | null {
   return key ? `/photos/${key}` : null;
+}
+
+/**
+ * The other Persons in each of `personId`'s households, as `viewer` may see them.
+ *
+ * This exists because the schema records no kinship: `control` is User→Person
+ * (a credential relationship — invariant 24 is explicit that a grandparent or
+ * the school nurse can hold it), `capability_grant` says what someone IS rather
+ * than whose, and there is no Person→Person edge at all. Co-residence in a
+ * `household` group is the whole of what "family" means here, so this is the
+ * only rendering of one there can be.
+ *
+ * The enumeration gate is COMPOSED, not assumed from the household join. This
+ * is a listing — the viewer named the profile's subject, never these Persons —
+ * so an unlisted co-member must not appear on it, exactly as `GET /groups/:id`'s
+ * roster drops them. Note the deliberate asymmetry with `groupsFor`'s
+ * `member_count`, which stays an unfiltered `COUNT(*)` per invariant 21
+ * ("numbers, never identities"): this array can be shorter, which is why the
+ * profile stops rendering that count for any household it can show faces for.
+ * Putting the two side by side is what would turn the pair into an oracle.
+ *
+ * `asMember` degrades RENDERING only (the surname rule), never findability —
+ * the same split `buildProfile` draws between `opts.asMember` and
+ * `opts.isSystemAdmin`.
+ */
+export async function householdsFor(
+  env: Env,
+  viewer: Viewer,
+  personId: string,
+  opts: { isSystemAdmin: boolean; asMember: boolean },
+): Promise<HouseholdMembersDTO[]> {
+  const listable = personListableSql(viewer.userId, opts.isSystemAdmin, "p");
+  const rows = await env.DB.prepare(
+    `SELECT m.group_id, g.name AS group_name,
+            p.id, p.first_name, p.last_name, p.last_name_visibility, p.photo_object_key
+     FROM membership m
+     JOIN grp g ON g.id = m.group_id
+     JOIN person p ON p.id = m.person_id
+     WHERE g.kind = 'household'
+       AND m.group_id IN (SELECT group_id FROM membership WHERE person_id = ?)
+       AND m.person_id != ?
+       AND ${listable.sql}
+     ORDER BY g.name, p.first_name`,
+  )
+    .bind(personId, personId, ...listable.binds)
+    .all<{
+      group_id: string;
+      group_name: string;
+      id: string;
+      first_name: string;
+      last_name: string | null;
+      last_name_visibility: LastNameDisplay;
+      photo_object_key: string | null;
+    }>();
+  if (rows.results.length === 0) return [];
+
+  const ids = [...new Set(rows.results.map((r) => r.id))];
+  const ph = ids.map(() => "?").join(",");
+
+  // One capability read for the whole roster rather than `capabilitiesFor` per
+  // member: the tags are the point of the block (they are as close to "parent"
+  // and "child" as this schema gets), so they can't be dropped to save a query.
+  const capRows = await env.DB.prepare(
+    `SELECT person_id, capability FROM capability_grant WHERE person_id IN (${ph})`,
+  )
+    .bind(...ids)
+    .all<{ person_id: string; capability: Capability }>();
+  const caps = new Map<string, Capability[]>();
+  for (const r of capRows.results) {
+    const list = caps.get(r.person_id);
+    if (list) list.push(r.capability);
+    else caps.set(r.person_id, [r.capability]);
+  }
+
+  // Which of these the viewer controls, per member — the surname rule is theirs
+  // to be exempt from one Person at a time, not wholesale. Viewing a partner's
+  // profile must still spell out your own child's name in full.
+  const controlled = new Set<string>();
+  if (!opts.asMember) {
+    const mine = await env.DB.prepare(
+      `SELECT person_id FROM control WHERE user_id = ? AND person_id IN (${ph})`,
+    )
+      .bind(viewer.userId, ...ids)
+      .all<{ person_id: string }>();
+    for (const r of mine.results) controlled.add(r.person_id);
+  }
+
+  const byHousehold = new Map<string, HouseholdMembersDTO>();
+  for (const r of rows.results) {
+    let hh = byHousehold.get(r.group_id);
+    if (!hh) {
+      hh = { id: r.group_id, name: r.group_name, members: [] };
+      byHousehold.set(r.group_id, hh);
+    }
+    // Built field by field. A spread of the row would put `photo_object_key` and
+    // `last_name` on the wire beside the display name that exists to withhold it.
+    hh.members.push({
+      id: r.id,
+      displayName: displayName(
+        r.first_name,
+        r.last_name,
+        r.last_name_visibility,
+        controlled.has(r.id),
+      ),
+      firstName: r.first_name,
+      capabilities: caps.get(r.id) ?? [],
+      photoUrl: photoUrl(r.photo_object_key),
+    });
+  }
+  return [...byHousehold.values()];
 }
 
 export interface BuildProfileOptions {
@@ -251,6 +362,15 @@ export async function buildProfile(
     controlledByViewer: controlsPerson,
   };
   if (groupContacts.length) profile.groupContacts = groupContacts;
+  // Inline rather than a route of its own, unlike `GET /persons/:id/removal-impact`
+  // — that one is its own route so an ordinary profile view doesn't pay for six
+  // counts nobody reads, and it is opened rarely. This block is on screen every
+  // time, so the two queries belong where the rest of the profile is built.
+  const households = await householdsFor(env, viewer, personId, {
+    isSystemAdmin: opts.isSystemAdmin === true,
+    asMember: previewAsMember,
+  });
+  if (households.length) profile.households = households;
   // Safe to state plainly: anyone who reached this line already cleared the gate
   // above, so they are an admin or a Controller — the two audiences entitled to
   // know. A member never sees the field because they never see the profile.

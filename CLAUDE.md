@@ -603,6 +603,24 @@ All five SPAs are separate Cloudflare Pages projects talking to the single
    from the roster rows.) Numbers, never identities. `unlisted_at` withholds a
    Person, not a Group; extending it to `grp` is a second flag for when a real
    case asks, not before.
+   **A profile's household roster is where that accepted price stopped being
+   free**, and the answer is a swap rather than a new rule. `householdsFor`
+   (`lib/serialize.ts`) puts a Person's household co-members on their profile —
+   the closest thing to a family this schema can render, there being no
+   Person→Person edge in it at all (see the `membership.title` note below). It is
+   a LISTING: the viewer named the profile's subject, never these Persons, so it
+   composes the gate like any other and spends none of the exemption budget.
+   The new part is that its output would otherwise sit inches from
+   `GroupSummaryDTO.memberCount`, which is the unfiltered `COUNT(*)` this
+   paragraph accepts. A count and a gated roster are fine on separate screens and
+   are an arithmetic oracle side by side, so the profile renders **one or the
+   other, never both**: faces where the gate leaves someone to show, the count
+   where it doesn't. Households only — a classroom's roster is noise on a profile
+   and its membership is the weaker kind (invariant 27). A household the gate
+   empties is omitted rather than serialized with `members: []`, which is what
+   keeps the fallback from announcing itself. `test/profileHouseholds.test.ts` is
+   BEHAVIOURAL for invariant 22's reason: its fake D1 evaluates the predicate, so
+   a guard collapsed to the literal `"1"` fails it with a real name.
 
 22. **Slack is the first OUTBOUND boundary, and what may cross it is decided by
    a type, not by care.** Every projection above this one — `publicEventOf`,

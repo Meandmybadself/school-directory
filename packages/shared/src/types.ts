@@ -83,6 +83,17 @@ export interface PersonProfileDTO extends PersonSummaryDTO {
    *  privacy-filtered for the viewer. Read-only; carry `viaGroup`. */
   groupContacts?: ContactItemDTO[];
   groups: GroupSummaryDTO[];
+  /** The other Persons sharing each of this Person's households — the closest
+   *  thing this schema records to a family, there being no Person→Person edge
+   *  anywhere in it. Deliberately NOT folded into `GroupSummaryDTO`, which is
+   *  also Home's tiles, the group list and `GroupDetailDTO.children[]`: none of
+   *  those want a roster riding along.
+   *
+   *  Households only. A classroom's roster would be 25 names of noise on a
+   *  profile, and its membership is deliberately the weaker kind (invariant 27).
+   *  A household with nobody else in it is omitted rather than serialized empty,
+   *  so the array's presence means there is someone to show. */
+  households?: HouseholdMembersDTO[];
   /** True when the requesting User is a Controller of this Person. */
   controlledByViewer: boolean;
   /** Set when the profile was built with `?as=member`: a Controller asked to see
@@ -95,6 +106,20 @@ export interface PersonProfileDTO extends PersonSummaryDTO {
    *  for a viewer who already cleared the enumeration gate — a system admin or a
    *  Controller — because nobody else is served this profile at all. */
   unlisted?: boolean;
+}
+
+/** One of a Person's households and the co-members a given viewer may see.
+ *
+ *  `members` is enumeration-gated (invariant 21), so it can legitimately be
+ *  shorter than the household's `GroupSummaryDTO.memberCount` — that count is an
+ *  unfiltered `COUNT(*)` on purpose ("numbers, never identities"). The two are
+ *  never rendered beside each other: the profile drops the count for any
+ *  household it can show faces for. */
+export interface HouseholdMembersDTO {
+  id: string;
+  name: string;
+  /** Never empty — a household with nobody else in it isn't serialized at all. */
+  members: PersonSummaryDTO[];
 }
 
 export interface GroupSummaryDTO {

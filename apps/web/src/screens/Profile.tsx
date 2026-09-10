@@ -3,8 +3,11 @@
 import { Fragment, useEffect, useRef, useState, type ReactNode } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import type {
+  Capability,
   ContactItemDTO,
   ContactType,
+  GroupSummaryDTO,
+  HouseholdMembersDTO,
   LastNameDisplay,
   PersonProfileDTO,
   PersonRemovalImpactDTO,
@@ -164,18 +167,19 @@ export function ProfileView() {
         <div>
           <SectLabel>{t("groups")}</SectLabel>
           <div style={{ display: "flex", flexDirection: "column", gap: 9, marginTop: 9 }}>
-            {p.groups.map((g) => (
-              <div key={g.id} className="sd-card" style={{ padding: 13, display: "flex", alignItems: "center", gap: 11, cursor: "pointer" }} onClick={() => navigate(`/groups/${g.id}`)}>
-                <div style={{ width: 38, height: 38, borderRadius: 10, background: g.kind === "classroom" ? "var(--orange-tint)" : "var(--blue-tint)", color: g.kind === "classroom" ? "var(--orange-700)" : "var(--blue)", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                  <Icon name={g.kind === "classroom" ? "school" : "home"} size={20} />
-                </div>
-                <div style={{ flex: 1 }}>
-                  <div style={{ fontSize: 14.5, fontWeight: 700 }}>{g.name}</div>
-                  <div className="sd-meta">{g.memberCount} {t("members").toLowerCase()}</div>
-                </div>
-                <Icon name="chevright" size={18} style={{ color: "var(--ink-3)" }} />
-              </div>
-            ))}
+            {p.groups.map((g) => {
+              const roster = p.households?.find((h) => h.id === g.id);
+              return (
+                <GroupCard
+                  key={g.id}
+                  group={g}
+                  roster={roster}
+                  onOpenGroup={() => navigate(`/groups/${g.id}`)}
+                  onOpenPerson={(id) => navigate(`/persons/${id}`)}
+                  t={t}
+                />
+              );
+            })}
           </div>
         </div>
       )}
@@ -259,6 +263,102 @@ export function ProfileView() {
         <div className="sd-body" style={{ gap: 12 }}>{body}</div>
       </div>
     </AppShell>
+  );
+}
+
+/** What a co-member is, as a family reads it — `household_admin` is authority
+ *  over the group rather than a relation to the people in it. */
+const familyCaps = (caps: Capability[]): Capability[] => caps.filter((c) => c !== "household_admin");
+
+/** One group on a profile. A household the server could name co-members for
+ *  shows their faces instead of a member count — the count was only ever
+ *  standing in for the names.
+ *
+ *  It is a swap, never both, and that is a privacy decision rather than a layout
+ *  one: `memberCount` is an unfiltered `COUNT(*)` (invariant 21, "numbers, never
+ *  identities") while the roster is enumeration-gated, so rendering them side by
+ *  side would let anyone read off how many household members are hidden from
+ *  them. Where the gate leaves nobody to show, the card falls back to the count
+ *  — the same pairing the group page itself already serves, and no worse.
+ *
+ *  Nesting means the header can't stay the click target for the whole card, or
+ *  tapping a member would also open the group. So the header is its own button
+ *  and each member row is another. */
+function GroupCard({
+  group,
+  roster,
+  onOpenGroup,
+  onOpenPerson,
+  t,
+}: {
+  group: GroupSummaryDTO;
+  roster: HouseholdMembersDTO | undefined;
+  onOpenGroup: () => void;
+  onOpenPerson: (id: string) => void;
+  t: ReturnType<typeof useI18n>["t"];
+}) {
+  const classroom = group.kind === "classroom";
+  const header = (
+    <>
+      <div style={{ width: 38, height: 38, borderRadius: 10, background: classroom ? "var(--orange-tint)" : "var(--blue-tint)", color: classroom ? "var(--orange-700)" : "var(--blue)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+        <Icon name={classroom ? "school" : "home"} size={20} />
+      </div>
+      <div style={{ flex: 1, minWidth: 0, textAlign: "left" }}>
+        <div style={{ fontSize: 14.5, fontWeight: 700 }}>{group.name}</div>
+        {!roster && <div className="sd-meta">{group.memberCount} {t("members").toLowerCase()}</div>}
+      </div>
+      <Icon name="chevright" size={18} style={{ color: "var(--ink-3)" }} />
+    </>
+  );
+
+  if (!roster) {
+    return (
+      <div className="sd-card" style={{ padding: 13, display: "flex", alignItems: "center", gap: 11, cursor: "pointer" }} onClick={onOpenGroup}>
+        {header}
+      </div>
+    );
+  }
+
+  return (
+    <div className="sd-card" style={{ padding: 13, display: "flex", flexDirection: "column", gap: 11 }}>
+      <button
+        type="button"
+        onClick={onOpenGroup}
+        style={{ background: "none", border: 0, padding: 0, font: "inherit", color: "inherit", display: "flex", alignItems: "center", gap: 11, cursor: "pointer", width: "100%" }}
+      >
+        {header}
+      </button>
+      <div style={{ display: "flex", flexDirection: "column", gap: 2, borderTop: "1px solid var(--line)", paddingTop: 4 }}>
+        {roster.members.map((m) => {
+          const caps = familyCaps(m.capabilities);
+          return (
+          <button
+            key={m.id}
+            type="button"
+            onClick={() => onOpenPerson(m.id)}
+            style={{ background: "none", border: 0, font: "inherit", color: "inherit", display: "flex", alignItems: "center", gap: 10, cursor: "pointer", padding: "6px 0", textAlign: "left", width: "100%" }}
+          >
+            <Avatar name={m.displayName} size={30} img={mediaUrl(m.photoUrl)} />
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontSize: 14, fontWeight: 600, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{m.displayName}</div>
+              {/* The nearest thing this schema has to "parent" and "child": there
+                  is no Person→Person edge, so a capability is what makes the
+                  household read as a family rather than a list of names.
+                  `household_admin` is dropped because it is the one capability
+                  that answers a different question — it is a permission over
+                  this group, not a description of the person, and "Household
+                  admin · Parent" reads as a job title in a list of relatives.
+                  It still shows on their own hero, where the question IS what
+                  they may do. */}
+              {caps.length > 0 && (
+                <div className="sd-meta">{caps.map((c) => capLabel(t, c)).join(" · ")}</div>
+              )}
+            </div>
+          </button>
+          );
+        })}
+      </div>
+    </div>
   );
 }
 
