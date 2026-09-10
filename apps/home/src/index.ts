@@ -27,7 +27,7 @@
 import { LOCALES } from "@sd/shared";
 import type { Env } from "./env.js";
 import { langCookie, resolveLocale } from "./locale.js";
-import { FAQ_PATH, renderFaq } from "./faq.js";
+import { FAQ_PATH, FAQ_PRINT_PATH, renderFaq, renderFaqPrint } from "./faq.js";
 import { renderHome, renderNotFound } from "./page.js";
 
 /** Vanity paths people type or get told over the phone ("go to
@@ -95,6 +95,14 @@ export default {
     const shortcut = SHORTCUTS[path];
     if (shortcut) {
       return Response.redirect(`${shortcut(env)}?lang=${locale}`, 302);
+    }
+
+    // The handout: one sheet per language in a single document, so a stack of
+    // all four comes off ONE print run. `?lang=` narrows it to one. It is not
+    // indexed and keeps no cookie — nobody is choosing a language here, they
+    // are printing every language.
+    if (path === FAQ_PRINT_PATH) {
+      return html(renderFaqPrint(env, explicit ? locale : null), 200);
     }
 
     // The one other page on this host. Same language rules as the landing

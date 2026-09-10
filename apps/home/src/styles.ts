@@ -367,6 +367,139 @@ img{max-width:100%}
 .fq-link span{transition:transform .16s}
 .fq-link:hover span{transform:translateX(3px)}
 
+/* ── /faq/print: the handout ─────────────────────────────────────────────── */
+/* On screen this is a plain stack of sheets so you can check what you are about
+   to print; the rules that matter are in the @media print block below. */
+.pr{max-width:900px;margin:0 auto;padding:26px 22px 60px}
+.pr-sheet{
+  background:var(--paper);border:1px solid var(--line);border-radius:14px;
+  padding:32px;margin-bottom:26px;
+}
+.pr-head{margin-bottom:20px}
+.pr-brand{
+  margin:0 0 8px;font-family:var(--ff-mono);font-size:10.5px;font-weight:600;
+  letter-spacing:.14em;text-transform:uppercase;color:var(--ink-3);
+}
+.pr-sheet h1{
+  margin:0 0 10px;font-size:29px;font-weight:800;
+  letter-spacing:-.035em;line-height:1.08;text-wrap:balance;
+}
+.pr-lead{margin:0;font-size:14px;line-height:1.55;color:var(--ink-2);max-width:70ch}
+.pr-cols{display:grid;gap:26px}
+@media(min-width:720px){.pr-cols{grid-template-columns:1.08fr .92fr;gap:32px}}
+.pr-block{margin-top:22px}
+.pr-cols .pr-block{margin-top:0}
+.pr-block h2{
+  margin:0 0 12px;padding-bottom:7px;border-bottom:1px solid var(--line-2);
+  font-family:var(--ff-mono);font-size:10.5px;font-weight:600;
+  letter-spacing:.13em;text-transform:uppercase;color:var(--ink-3);
+}
+.pr-privacy .fq-viss{display:grid;gap:12px}
+@media(min-width:720px){.pr-privacy .fq-viss{grid-template-columns:repeat(3,1fr)}}
+.pr-foot{
+  margin-top:24px;padding-top:14px;border-top:1px solid var(--line-2);
+  display:flex;flex-wrap:wrap;gap:8px 24px;justify-content:space-between;align-items:baseline;
+}
+.pr-where{margin:0;font-size:13px;color:var(--ink-2)}
+.pr-url{font-family:var(--ff-mono);font-size:11.5px;color:var(--ink-3)}
+.pr-langs{
+  display:flex;flex-wrap:wrap;gap:4px 18px;list-style:none;margin:0;padding:0;
+  font-size:12.5px;color:var(--ink-2);
+}
+.pr-langs strong{color:var(--ink)}
+
+/* ── Print ───────────────────────────────────────────────────────────────── */
+/* Printing IS the export here (invariant 16): there is no PDF renderer in this
+   project and there must not be one. Two rules make that safe.
+
+   FIRST, this block RESTATES the light values rather than inheriting them. The
+   dark block above is a token re-declaration keyed on the reader's OS, so a
+   parent whose laptop is in dark mode would otherwise print near-white text
+   onto white paper. Order is precedence, so this must stay BELOW that block —
+   the same trap "NEWSLETTER_WEB_CSS" documents for the same reason.
+
+   SECOND, nothing on paper is clickable, so every link that carries meaning has
+   to write its address out. ".host" already prints the hostname of each app,
+   and "data-url" does it for the language picker. */
+@media print{
+  :root{
+    --blue:#005a92; --blue-700:#005a92; --blue-800:#003f66;
+    --blue-tint:#eaf2f8; --blue-tint-2:#dbe8f2;
+    --orange:#b07c10; --orange-600:#b07c10;
+    --ink:#000; --ink-2:#333; --ink-3:#555;
+    --line:#ccc; --line-2:#bbb;
+    --paper:#fff; --bg:#fff; --bg-2:#f0f2f4;
+  }
+  @page{margin:12mm}
+  body{background:#fff;color:#000;font-size:10pt;line-height:1.45}
+  /* Chrome and Safari drop background fills by default, which would turn every
+     tag and chip into unreadable dark-on-dark or invisible text. */
+  *{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+
+  /* Site chrome is navigation, and navigation does not survive the printer. */
+  .hd,.ft,.join,.langbar,.fq-link,.ev-sect,.help{display:none}
+
+  .wrap{max-width:none;padding:0}
+  a{text-decoration:none}
+
+  /* ── One sheet per language ── */
+  .pr{max-width:none;padding:0}
+  .pr-sheet{
+    border:0;border-radius:0;padding:0;margin:0;
+    break-after:page;page-break-after:always;
+  }
+  .pr-sheet:last-child{break-after:auto;page-break-after:auto}
+  .pr-sheet h1{font-size:20pt;margin-bottom:6px}
+  .pr-lead{font-size:9.6pt;line-height:1.42}
+  .pr-head{margin-bottom:13px}
+  .pr-cols{grid-template-columns:1.08fr .92fr;gap:20px}
+  .pr-block{margin-top:14px}
+  .pr-block h2{font-size:8pt;margin-bottom:7px;padding-bottom:4px}
+  .pr-foot{margin-top:14px;padding-top:8px}
+  .pr-where{font-size:9pt}
+  .pr-url{font-size:8pt}
+  .pr-langs{font-size:8.5pt;gap:2px 14px}
+
+  /* Blocks that must not be split across two pieces of paper. */
+  .pr-block,.pr-foot,.fq-places li,.fq-steps li,.fq-vis,.fq-notes>div,.fq-aside{
+    break-inside:avoid;page-break-inside:avoid;
+  }
+
+  /* ── Shared section chrome, tightened for ink ── */
+  .fq-places li{padding:7px 0}
+  .fq-places .fq-name{font-size:11pt;border-bottom:0}
+  .fq-places p{font-size:9pt;line-height:1.4;margin-top:3px;max-width:none}
+  .host{font-size:7.6pt;margin:3px 0 0}
+  .tag{font-size:7pt;padding:2px 6px}
+  .fq-steps{gap:9px}
+  .fq-steps li{grid-template-columns:20px 1fr;gap:9px}
+  .fq-step-n{width:19px;height:19px;font-size:9pt}
+  .fq-step-t{font-size:10pt}
+  .fq-step-b{font-size:9pt;line-height:1.4;margin-top:1px}
+  .fq-aside{margin-top:12px;padding:8px 11px;font-size:8.8pt;line-height:1.45;border-radius:0 6px 6px 0}
+  .fq-privacy,.pr-privacy{padding:0;border:0;box-shadow:none}
+  .fq-viss{gap:10px}
+  .fq-vis p{font-size:8.8pt;line-height:1.4}
+  .chip{font-size:8.5pt;padding:2px 9px}
+  .fq-nopublic{margin-top:11px;padding-top:8px;font-size:9pt;line-height:1.45}
+  .fq-notes{grid-template-columns:repeat(3,1fr);gap:14px}
+  .fq-notes h3{font-size:9.5pt}
+  .fq-notes p{font-size:8.8pt;line-height:1.42}
+
+  /* ── /faq printed on its own: one language, one sheet ── */
+  .fq-hero{padding:0 0 12px}
+  .fq-hero h1{font-size:20pt;max-width:none;margin-bottom:7px}
+  .fq-lead{font-size:9.6pt;line-height:1.42;max-width:none}
+  .fq-sect{padding:0 0 14px}
+  .fq-sect h2,.eyebrow{
+    font-size:8pt;margin:0 0 7px;
+    font-family:var(--ff-mono);font-weight:600;letter-spacing:.13em;
+    text-transform:uppercase;color:var(--ink-3);
+  }
+  .fq-split{grid-template-columns:1.08fr .92fr;gap:20px}
+  .place-pin{display:none}
+}
+
 /* ── Quality floor ───────────────────────────────────────────────────────── */
 a:focus-visible,.btn:focus-visible{outline:2px solid var(--blue);outline-offset:3px;border-radius:4px}
 .join a:focus-visible{outline-color:var(--orange)}

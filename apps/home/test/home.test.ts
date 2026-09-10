@@ -629,3 +629,99 @@ describe("the front door links to /faq", () => {
     expect(html).toContain(escapeHtml(dictionaries.es.faqNav));
   });
 });
+
+// ── /faq/print — the handout ────────────────────────────────────────────────
+//
+// One sheet per language from one print run. The properties that matter are
+// that all four are there, that each is its own page, and that a sheet is
+// standalone — somebody holding the English one has to be able to find the
+// Somali one, which on paper means an address rather than a link.
+
+describe("/faq/print", () => {
+  it("puts every language in one document", async () => {
+    const html = await body("/faq/print");
+    for (const l of LOCALES) {
+      expect(html).toContain(`<article class="pr-sheet" lang="${l}">`);
+      expect(html).toContain(escapeHtml(dictionaries[l].faqTitle));
+    }
+    expect(html.match(/class="pr-sheet"/g)).toHaveLength(LOCALES.length);
+  });
+
+  it("narrows to one language when asked", async () => {
+    const html = await body("/faq/print?lang=so");
+    expect(html.match(/class="pr-sheet"/g)).toHaveLength(1);
+    expect(html).toContain('<article class="pr-sheet" lang="so">');
+    expect(html).toContain(escapeHtml(dictionaries.so.faqTitle));
+    expect(html).not.toContain(escapeHtml(dictionaries.en.faqNoPublicLead));
+  });
+
+  it("breaks each sheet onto its own page, and does not strand a trailing blank", async () => {
+    const html = await body("/faq/print");
+    expect(html).toContain("break-after:page");
+    // Without this the last sheet ejects a blank page on most printers.
+    expect(html).toContain(".pr-sheet:last-child{break-after:auto");
+  });
+
+  it("gives every sheet the address of the others, since paper has no links", async () => {
+    const html = await body("/faq/print");
+    for (const l of LOCALES) {
+      // Named in its own language, and reachable — a parent handed the wrong
+      // sheet needs to be able to type their way to the right one.
+      expect(html).toContain(escapeHtml(localeNames[l].native));
+      expect(html).toContain(`eisenhower.school/faq?lang=${l}`);
+    }
+    // And an address to write to, on every sheet.
+    expect(html.match(/admin@eisenhower\.school/g)?.length).toBeGreaterThanOrEqual(LOCALES.length);
+  });
+
+  it("is not indexed — two copies of one text compete with each other", async () => {
+    const html = await body("/faq/print");
+    expect(html).toContain('<meta name="robots" content="noindex" />');
+    const xml = await body("/sitemap.xml");
+    expect(xml).not.toContain("/faq/print");
+  });
+
+  it("ships no script, keeping this hostname free of client JavaScript", async () => {
+    // The newsletter's /print twin auto-fires the dialog; this one deliberately
+    // does not, because that would be the first byte of JS this Worker serves.
+    const html = await body("/faq/print");
+    expect(html).not.toContain("<script");
+    expect(html.toLowerCase()).not.toContain("window.print");
+  });
+
+  it("makes no subrequest either", async () => {
+    const spy = vi.fn(async () => {
+      throw new Error("the handout must not fetch anything");
+    });
+    vi.stubGlobal("fetch", spy);
+    expect((await get("/faq/print")).status).toBe(200);
+    expect(spy).not.toHaveBeenCalled();
+  });
+});
+
+describe("the print stylesheet", () => {
+  it("restates the light palette, so a dark-themed reader still prints on paper", async () => {
+    // Printing IS the export (invariant 16), so it cannot depend on the OS
+    // theme. Order is precedence: the print block must come BELOW the dark one.
+    const html = await body("/faq");
+    const dark = html.indexOf("@media(prefers-color-scheme:dark)");
+    const print = html.indexOf("@media print");
+    expect(dark).toBeGreaterThan(-1);
+    expect(print).toBeGreaterThan(dark);
+    expect(html.slice(print)).toContain("--ink:#000");
+  });
+
+  it("drops the navigation, which does not survive a printer", async () => {
+    const html = await body("/faq");
+    const print = html.slice(html.indexOf("@media print"));
+    expect(print).toContain(".hd,.ft,.join,.langbar,.fq-link");
+  });
+
+  it("writes the language picker's addresses out, since paper has no links", async () => {
+    const html = await body("/faq");
+    for (const l of LOCALES) {
+      if (l === "en") continue;
+      expect(html).toContain(`data-url="eisenhower.school/faq?lang=${l}"`);
+    }
+  });
+});

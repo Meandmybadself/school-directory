@@ -166,7 +166,7 @@ export function siteFooter(env: Env, locale: Locale, s: Strings): string {
  *
  *  `localeNames` is read across dictionaries rather than within one, which is
  *  the same deliberate exception the landing hero's greeting stack makes. */
-export function langBar(locale: Locale, path: string): string {
+export function langBar(locale: Locale, path: string, origin = ""): string {
   const items = LOCALES.map((l) => {
     // The name in ITS OWN language, never translated into the current one: a
     // Somali reader scanning for "Soomaali" will not find "Somali". Read from
@@ -174,13 +174,18 @@ export function langBar(locale: Locale, path: string): string {
     // landing hero's greeting stack cannot disagree about what a language is
     // called.
     const name = escapeHtml(localeNames[l].native);
-    return l === locale
-      ? `<li><strong lang="${l}" aria-current="true">${name}</strong></li>`
-      : `<li><a lang="${l}" hreflang="${l}" href="${escapeHtml(
-          langHref(l, path),
-        )}" aria-label="${escapeHtml(
-          interpolate(dictionaries[l].landingReadIn, { language: localeNames[l].native }),
-        )}">${name}</a></li>`;
+    if (l === locale) {
+      return `<li><strong lang="${l}" aria-current="true">${name}</strong></li>`;
+    }
+    // `data-url` is inert on screen and is what the print stylesheet writes out
+    // after the name: on paper a link is not clickable, so a reader handed this
+    // page in the wrong language needs the address, not an anchor.
+    const url = origin ? `${hostOf(origin)}${langHref(l, path)}` : "";
+    return `<li><a lang="${l}" hreflang="${l}" href="${escapeHtml(
+      langHref(l, path),
+    )}"${url ? ` data-url="${escapeHtml(url)}"` : ""} aria-label="${escapeHtml(
+      interpolate(dictionaries[l].landingReadIn, { language: localeNames[l].native }),
+    )}">${name}</a></li>`;
   }).join("");
   return `<ul class="langbar">${items}</ul>`;
 }
