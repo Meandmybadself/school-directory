@@ -138,7 +138,7 @@ export const onRequestGet: PagesFunction = ({ request }) => {
   const description = t("ptoLead");
 
   const body = `    <div class="pt-wrap">
-${header(t, SCHOOL, locale)}
+${header(t, SCHOOL, locale, "/")}
 
       <section class="pt-hero">
         <div class="pt-eyebrow">${PROGRAMS.map((p) => escapeHtml(p)).join('<span class="sep">◆</span>')}</div>

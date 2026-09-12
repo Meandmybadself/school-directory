@@ -52,6 +52,22 @@ export function appHref(base: string, path: string, locale: Locale): string {
   return `${base.replace(/\/$/, "")}${path}?${LANG_PARAM}=${locale}`;
 }
 
+/** The language switcher's links: each language's name written in that language,
+ *  the current one bolded rather than linked. Emits NO copy of its own, the same
+ *  choice the footer and apps/home's hero make (see the footer comment below).
+ *  The links carry `?lang=` and KEEP it — a stable per-language URL is what the
+ *  hreflang alternates point at and what sharing this page in one language needs.
+ *  Shared by the footer and the header so the two can't drift. */
+function langLinks(path: string, locale: Locale): string {
+  return LOCALES.map((l) => {
+    const href = `${path}?${LANG_PARAM}=${l}`;
+    const name = escapeHtml(localeNames[l].native);
+    return l === locale
+      ? `<strong lang="${l}">${name}</strong>`
+      : `<a lang="${l}" href="${escapeHtml(href)}">${name}</a>`;
+  }).join("");
+}
+
 /** The header, and the nav that is one link shorter than it looks.
  *
  *  THERE IS NO STORE LINK while the shop is being built — the same rule
@@ -64,7 +80,12 @@ export function appHref(base: string, path: string, locale: Locale): string {
  *
  *  Said here rather than in an HTML comment: this page is indexed, and a note
  *  in the markup would announce the unannounced shop to anyone reading source. */
-export function header(t: (key: keyof Strings) => string, school: string, locale: Locale): string {
+export function header(
+  t: (key: keyof Strings) => string,
+  school: string,
+  locale: Locale,
+  path: string,
+): string {
   return `    <header class="pt-head">
       <a class="pt-brand" href="/">
         <span class="pt-mark">${escapeHtml(school.slice(0, 1) || "E")}</span>
@@ -78,6 +99,10 @@ export function header(t: (key: keyof Strings) => string, school: string, locale
         <a href="${escapeHtml(appHref(NEWSLETTER_URL, "/", locale))}">${escapeHtml(t("navNewsletter"))}</a>
         <a href="${escapeHtml(appHref(DIRECTORY_URL, "/", locale))}">${escapeHtml(t("navDir"))}</a>
       </nav>
+      <!-- The footer carries the language switcher on wide screens; on a phone
+           that is a long scroll away, so the same links ride in the header,
+           shown only at mobile widths (styles: .pt-head-langs). -->
+      <div class="pt-langs pt-head-langs">${langLinks(path, locale)}</div>
     </header>`;
 }
 
@@ -99,17 +124,9 @@ export function footer(
   path: string,
   locale: Locale,
 ): string {
-  const langs = LOCALES.map((l) => {
-    const href = `${path}?${LANG_PARAM}=${l}`;
-    const name = escapeHtml(localeNames[l].native);
-    return l === locale
-      ? `<strong lang="${l}">${name}</strong>`
-      : `<a lang="${l}" href="${escapeHtml(href)}">${name}</a>`;
-  }).join("");
-
   return `    <footer class="pt-foot">
       <div>${credit(t)}</div>
-      <div class="pt-langs">${langs}</div>
+      <div class="pt-langs">${langLinks(path, locale)}</div>
       <div style="margin-top:10px"><a href="/app">Board members: sign in</a></div>
     </footer>`;
 }

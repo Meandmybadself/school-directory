@@ -101,6 +101,11 @@ a { color: var(--blue-700); }
 }
 .pt-navlinks { margin-left: auto; display: flex; gap: 14px; align-items: center; flex-wrap: wrap; }
 .pt-navlinks a { font-size: 13.5px; font-weight: 600; text-decoration: none; }
+/* The language switcher rides in the header on phones (the footer one is a long
+   scroll away); hidden on wider screens, where the footer switcher serves. The
+   .pt-head prefix wins over .pt-langs's own display regardless of source order. */
+.pt-head .pt-head-langs { display: none; flex-basis: 100%; margin-top: 2px; }
+@media (max-width: 640px) { .pt-head .pt-head-langs { display: flex; } }
 
 /* hero */
 .pt-hero { padding: 46px 0 8px; }
