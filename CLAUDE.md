@@ -1151,6 +1151,16 @@ All five SPAs are separate Cloudflare Pages projects talking to the single
   that element carries the `min-height: 0` that lets it shrink and actually
   scroll. Content placed directly in `AppShell` will be clipped instead, and the
   bottom nav stays pinned only because the column can't outgrow the viewport.
+  **The corollary is that an overlay may not live inside that scroller**, which
+  is why `SheetOver` portals every bottom sheet to a `#sd-sheet-host` div on
+  `<body>` (all five copies). A `position: fixed` child of `.sd-scroll` is laid
+  out and clipped against the SCROLLER on iOS Safari rather than the viewport,
+  so the scrim stopped at the app bar and a tall sheet's last row — the button
+  that takes a volunteer spot — was cut off behind the bottom nav. Desktop
+  engines honour the `z-index` and looked fine, so this is a bug only a phone
+  shows. The host copies the app root's class list because the tokens live on
+  `.sd`: portal a sheet out of that scope without it and every `var(--…)` in it
+  computes to nothing.
 
 ## Local dev
 
