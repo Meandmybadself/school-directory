@@ -746,7 +746,8 @@ const en: Strings = {
   volunteerWithdraw: "Give up spot",
   volunteerWhoFor: "Who is signing up?",
   volunteerNote: "Note (optional)",
-  volunteerNeedPerson: "Add a family member first, then you can sign them up for a spot.",
+  volunteerNeedPerson:
+    "Add yourself or a family member first, then you can sign them up for a spot.",
   volunteerNotePlaceholder: "Anything the organizer should know",
   volunteerSignupsClosed: "Signups are closed.",
   volunteerNoPositions: "No positions have been posted yet.",
@@ -1366,7 +1367,8 @@ const es: Strings = {
   volunteerWithdraw: "Ceder mi lugar",
   volunteerWhoFor: "¿Quién se apunta?",
   volunteerNote: "Nota (opcional)",
-  volunteerNeedPerson: "Agrega primero a un familiar y luego podrás apuntarlo a un puesto.",
+  volunteerNeedPerson:
+    "Agrégate a ti o a un familiar primero y luego podrás apuntarlo a un puesto.",
   volunteerNotePlaceholder: "Algo que deba saber quien organiza",
   volunteerSignupsClosed: "Las inscripciones están cerradas.",
   volunteerNoPositions: "Todavía no se han publicado puestos.",
@@ -1914,7 +1916,7 @@ const zh: Strings = {
   volunteerWithdraw: "取消报名",
   volunteerWhoFor: "为谁报名？",
   volunteerNote: "备注（可选）",
-  volunteerNeedPerson: "请先添加一位家庭成员，然后即可为其报名。",
+  volunteerNeedPerson: "请先添加您本人或一位家庭成员，然后即可为其报名。",
   volunteerNotePlaceholder: "有什么需要组织者知道的",
   volunteerSignupsClosed: "报名已截止。",
   volunteerNoPositions: "尚未发布任何岗位。",
@@ -2440,7 +2442,8 @@ const so: Strings = {
   volunteerWithdraw: "Booska ka noqo",
   volunteerWhoFor: "Yaa is-diiwaangelinaya?",
   volunteerNote: "Xusuus-qor (ikhtiyaari)",
-  volunteerNeedPerson: "Marka hore ku dar xubin qoyska ka mid ah, ka dibna waad u diiwaan gelin kartaa meel.",
+  volunteerNeedPerson:
+    "Marka hore ku dar naftaada ama xubin qoyska ka mid ah, ka dibna waad u diiwaan gelin kartaa meel.",
   volunteerNotePlaceholder: "Wax kasta oo qabanqaabiyuhu u baahan yahay inuu ogaado",
   volunteerSignupsClosed: "Is-diiwaangelintu waa xiran tahay.",
   volunteerNoPositions: "Weli ma jiraan boosas la soo bandhigay.",

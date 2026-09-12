@@ -165,7 +165,10 @@ export function ProfileView() {
       </div>
       {p.groups.length > 0 && (
         <div>
-          <SectLabel>{t("groups")}</SectLabel>
+          {/* Not t("groups") — that reads "Your groups", and this screen
+              serves any Person, so on someone else's profile it would be a
+              lie. Home keeps the possessive; here the plain noun is right. */}
+          <SectLabel>{t("navGroups")}</SectLabel>
           <div style={{ display: "flex", flexDirection: "column", gap: 9, marginTop: 9 }}>
             {p.groups.map((g) => {
               const roster = p.households?.find((h) => h.id === g.id);
