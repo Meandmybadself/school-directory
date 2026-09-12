@@ -121,9 +121,14 @@ function NotificationsSection() {
  *  sheet exists so the shape of the damage is visible first — and because the
  *  honest answer is usually "less is exclusively theirs than you would think".
  *  A child with two parents belongs to both; a classroom belongs to the school. */
-function DeletionImpactSheet({ user, onClose }: { user: AdminUserDTO; onClose: () => void }) {
+function DeletionImpactSheet({
+  user, onClose, onDeleted,
+}: { user: AdminUserDTO; onClose: () => void; onDeleted: () => void }) {
   const [impact, setImpact] = useState<UserDeletionImpactDTO | null>(null);
   const [error, setError] = useState(false);
+  const [confirm, setConfirm] = useState("");
+  const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   useEffect(() => {
     let alive = true;
@@ -134,14 +139,38 @@ function DeletionImpactSheet({ user, onClose }: { user: AdminUserDTO; onClose: (
     return () => { alive = false; };
   }, [user.id]);
 
+  // Two gates before the button does anything: the account must already be
+  // disabled (the reversible step first), and the admin must type the email —
+  // friction to match an unrecoverable act. Both mirror the server's guards.
+  const emailMatches = confirm.trim().toLowerCase() === user.email.toLowerCase();
+  const canDelete = user.disabled && emailMatches && !deleting;
+
+  const del = async () => {
+    if (!canDelete) return;
+    setDeleting(true);
+    setDeleteError(null);
+    try {
+      await api.deleteUser(user.id);
+      onDeleted();
+    } catch (err) {
+      setDeleteError(
+        err instanceof ApiError && err.status === 409
+          ? "The account has to be disabled before it can be deleted."
+          : "Couldn't delete that account.",
+      );
+      setDeleting(false);
+    }
+  };
+
   return (
     <SheetOver onClose={onClose}>
       <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
         <div>
-          <h2 className="sd-h2">If {user.email} were deleted</h2>
+          <h2 className="sd-h2">Delete {user.email}</h2>
           <p className="sd-meta" style={{ marginTop: 4 }}>
-            Nothing is removed by opening this. Permanent deletion isn't built yet —
-            disabling the account is the reversible way to take it out of use.
+            {user.disabled
+              ? "Permanently removes the account and everything below. This can't be undone."
+              : "Disable the account first — permanent deletion is only offered once it's out of use."}
           </p>
         </div>
 
@@ -174,6 +203,21 @@ function DeletionImpactSheet({ user, onClose }: { user: AdminUserDTO; onClose: (
               note="Classrooms and school groups are never deleted with a member — but these would lose an admin."
               items={impact.retainedGroupsAdministered.map((g) => `${g.name} (${g.kind})`)}
             />
+            {(impact.volunteerClaimsWithdrawn > 0 || impact.boardCommentsDeleted > 0) && (
+              <ImpactBlock
+                tone="warn"
+                title="Account activity would be removed"
+                note="Tied to the account itself, so nothing else holds these."
+                items={[
+                  ...(impact.volunteerClaimsWithdrawn > 0
+                    ? [`${impact.volunteerClaimsWithdrawn} volunteer claim(s) given back`]
+                    : []),
+                  ...(impact.boardCommentsDeleted > 0
+                    ? [`${impact.boardCommentsDeleted} PTO board comment(s) deleted`]
+                    : []),
+                ]}
+              />
+            )}
             <p className="sd-meta" style={{ lineHeight: 1.5 }}>
               {impact.auditEntries} audit entr{impact.auditEntries === 1 ? "y" : "ies"} would be kept.
               The log is append-only and hash-chained, so removing rows would break
@@ -182,7 +226,37 @@ function DeletionImpactSheet({ user, onClose }: { user: AdminUserDTO; onClose: (
           </>
         )}
 
-        <Btn kind="secondary" block onClick={onClose}>Close</Btn>
+        {impact && !user.disabled && <Btn kind="secondary" block onClick={onClose}>Close</Btn>}
+
+        {impact && user.disabled && (
+          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            <label className="sd-meta" htmlFor="confirm-delete-email">
+              Type <b>{user.email}</b> to confirm
+            </label>
+            <input
+              id="confirm-delete-email"
+              className="sd-input"
+              type="email"
+              autoComplete="off"
+              value={confirm}
+              placeholder={user.email}
+              onChange={(e) => setConfirm(e.target.value)}
+            />
+            {deleteError && <p className="sd-meta" style={{ color: "var(--warn)" }}>{deleteError}</p>}
+            <div className="sd-row" style={{ gap: 8 }}>
+              <Btn kind="secondary" block onClick={onClose} disabled={deleting}>Cancel</Btn>
+              <button
+                type="button"
+                className="sd-btn sd-btn-primary block"
+                style={{ background: "var(--warn)", borderColor: "var(--warn)" }}
+                disabled={!canDelete}
+                onClick={() => void del()}
+              >
+                {deleting ? "Deleting…" : "Delete permanently"}
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     </SheetOver>
   );
@@ -498,8 +572,12 @@ export function Admin() {
                     )}
                     <IconBtn
                       name="info"
-                      label="What would be deleted?"
-                      title="Show what deleting this account would remove. Nothing is deleted by looking."
+                      label="Review or delete account"
+                      title={
+                        u.disabled
+                          ? "Review what deleting this account removes, then permanently delete it. Looking deletes nothing."
+                          : "Show what deleting this account would remove. Disable it first to delete; looking deletes nothing."
+                      }
                       onClick={() => setImpactFor(u)}
                     />
                     <IconBtn
@@ -528,7 +606,13 @@ export function Admin() {
         </div>
       </div>
 
-      {impactFor && <DeletionImpactSheet user={impactFor} onClose={() => setImpactFor(null)} />}
+      {impactFor && (
+        <DeletionImpactSheet
+          user={impactFor}
+          onClose={() => setImpactFor(null)}
+          onDeleted={() => { setImpactFor(null); loadUsers(); }}
+        />
+      )}
     </>
   );
 

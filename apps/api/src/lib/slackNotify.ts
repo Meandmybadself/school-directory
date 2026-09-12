@@ -388,6 +388,11 @@ const FORMATTERS = {
         return `:no_entry: *${email}* was removed from the directory — ${actor}.`;
       case "user.enabled":
         return `:white_check_mark: *${email}* was restored — ${actor}.`;
+      case "user.deleted":
+        // Permanent, so worth the channel — the email only, the same identifier
+        // the disable/enable lines carry and no name looked up (the Persons it
+        // took are gone by the time this renders anyway).
+        return `:wastebasket: *${email}* was permanently deleted — ${actor}.`;
       case "user.admin.granted":
         return `:key: *${email}* was made a system admin — ${actor}.`;
       case "user.admin.revoked":

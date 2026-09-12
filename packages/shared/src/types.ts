@@ -690,6 +690,14 @@ export interface UserDeletionImpactDTO {
    *  hash-chained, so removing entries would break tamper-evidence and erase
    *  the record of what they did. */
   auditEntries: number;
+  /** Volunteer spots this account claimed that a delete would give back — for
+   *  their own Persons and for co-controlled ones alike, since the claim is the
+   *  account's. */
+  volunteerClaimsWithdrawn: number;
+  /** PTO board comments this account authored that a delete would remove.
+   *  Comments are speech tied to the account, not a Person, so nothing else
+   *  holds them. */
+  boardCommentsDeleted: number;
 }
 
 /** One normalized row submitted to bulk import (client maps CSV columns to these). */
