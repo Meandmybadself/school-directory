@@ -3,9 +3,12 @@
 
 import { Hono } from "hono";
 import type { AuditEntryDTO, BulkImportRow, CalendarSourceDTO, CalendarSourceInput } from "@sd/shared";
+import { RESTORE_CONFIRM } from "@sd/shared";
 import type { Env, HonoEnv } from "../env.js";
 import { requireAuth } from "../middleware/session.js";
 import { verifyAuditChain } from "../lib/audit.js";
+import type { BackupDocument } from "../lib/backup.js";
+import { countRows, exportBackup, planRestore, runRestore } from "../lib/backup.js";
 import { runBulkImport } from "../lib/bulkImport.js";
 import { refreshSource, refreshAllSources } from "../lib/calendar.js";
 import { randomSessionId, randomToken, sha256 } from "../lib/crypto.js";
@@ -524,6 +527,132 @@ admin.post("/masquerade/stop", async (c) => {
 
   c.var.audit.push({ action: "masquerade.stop", entityKind: "user", entityId: auth.userId });
   return c.json({ ok: true });
+});
+
+
+// ── Backup / restore (system admins) ─────────────────────────────────────────
+
+/**
+ * GET /admin/backup — the whole database as one JSON file.
+ *
+ * Deliberately NOT a projection, and `lib/backup.ts` opens with why: every
+ * other outbound seam here narrows on purpose, and a backup that narrowed would
+ * be a backup that silently lost a column. So the file is the directory —
+ * coordinates, private contact items, addresses and all — and the controls are
+ * elsewhere: system admin only, never while masquerading, audited, and
+ * announced in Slack, because a complete copy of the school's data leaving the
+ * building is exactly the kind of event invariant 22's channel exists for.
+ *
+ * The masquerade refusal is not decoration. `isSystemAdmin` is the EFFECTIVE
+ * user's flag, so an admin acting as another admin passes the check above — and
+ * taking a full copy of the directory under somebody else's name is the last
+ * thing this route should allow.
+ */
+admin.get("/backup", async (c) => {
+  const auth = requireAuth(c);
+  if (!auth.isSystemAdmin) return c.json({ error: "forbidden" }, 403);
+  if (auth.isMasquerading) return c.json({ error: "forbidden_while_masquerading" }, 403);
+
+  const doc = await exportBackup(c.env);
+  const counts = countRows(doc);
+  const totalRows = counts.reduce((n, t) => n + t.rows, 0);
+
+  // Pushed before the response is built, like every other draft: the read has
+  // already happened by here, so there is nothing left that could fail and
+  // leave a copy of the directory taken with no row saying so.
+  c.var.audit.push({
+    action: "admin.action",
+    entityKind: "backup",
+    entityId: null,
+    detail: { op: "backup.exported", tables: counts.length, rows: totalRows },
+    // Counts only — the same numbers restated rather than shared with `detail`,
+    // so widening one can never widen the other (invariant 22).
+    notify: { op: "backup.exported", tables: counts.length, rows: totalRows },
+  });
+
+  const stamp = doc.generatedAt.slice(0, 19).replace(/[:T]/g, "-");
+  return new Response(JSON.stringify(doc), {
+    headers: {
+      "content-type": "application/json; charset=utf-8",
+      "content-disposition": `attachment; filename="school-directory-backup-${stamp}.json"`,
+      // Never a shared cache: this is the whole directory in one response.
+      "cache-control": "private, no-store",
+    },
+  });
+});
+
+/**
+ * POST /admin/restore { backup, dryRun?, confirm? } — replace the database with
+ * a backup file.
+ *
+ * The most destructive thing in this codebase, so it is guarded like it:
+ *
+ *  · system admin only, and never while masquerading;
+ *  · DRY RUN BY DEFAULT — `dryRun !== false`, the same safe default
+ *    /admin/bulk-import takes, so a client that forgets the flag validates
+ *    rather than destroys;
+ *  · a real restore additionally needs `confirm: "RESTORE"` in the body, which
+ *    no accidental replay of a dry-run request carries;
+ *  · everything that can be checked is checked BEFORE the first DELETE, because
+ *    a restore is not atomic across D1 batches (see `runRestore`);
+ *  · and the plan is re-derived here rather than trusted from whatever the
+ *    client saw in its dry run — the same reason DELETE /admin/users/:id
+ *    re-runs its own impact report (invariant 17).
+ *
+ * What it will not do: empty a table the file never mentions, write any of the
+ * four capability tables `EXCLUDED_TABLES` names, touch `audit_log`, or leave
+ * an instance with no enabled system admin. Those are refusals in
+ * `planRestore`, not conventions here.
+ */
+admin.post("/restore", async (c) => {
+  const auth = requireAuth(c);
+  if (!auth.isSystemAdmin) return c.json({ error: "forbidden" }, 403);
+  if (auth.isMasquerading) return c.json({ error: "forbidden_while_masquerading" }, 403);
+
+  const body = await c.req
+    .json<{ backup?: unknown; dryRun?: boolean; confirm?: string }>()
+    .catch(() => null);
+  if (!body || body.backup === undefined) return c.json({ error: "invalid_body" }, 400);
+
+  const dryRun = body.dryRun !== false;
+  const plan = await planRestore(c.env, body.backup, auth.realUserId);
+  if (plan.errors.length) return c.json({ dryRun, ...plan, restored: false }, 422);
+
+  if (dryRun) return c.json({ dryRun: true, ...plan, restored: false });
+
+  // The one thing a dry run's own request body cannot be replayed into.
+  if (body.confirm !== RESTORE_CONFIRM) {
+    return c.json(
+      { error: "confirm_required", message: `Send confirm: "${RESTORE_CONFIRM}" to actually restore.` },
+      400,
+    );
+  }
+
+  // Pushed BEFORE the write, which is the one place this file departs from
+  // invariant 22's "push the moment the write commits". A restore that dies
+  // half-way has still destroyed data, and the row that says an admin started
+  // one is the only thing that would explain the state afterwards. Nothing is
+  // lost by being early: `audit_log` is the one table a restore never touches,
+  // so this row survives the operation it describes.
+  c.var.audit.push({
+    action: "admin.action",
+    entityKind: "backup",
+    entityId: null,
+    detail: {
+      op: "backup.restored",
+      tables: plan.tables.filter((t) => !t.skipped).length,
+      rows: plan.totalRows,
+      generatedAt: (body.backup as { generatedAt?: string }).generatedAt ?? null,
+    },
+    notify: {
+      op: "backup.restored",
+      tables: plan.tables.filter((t) => !t.skipped).length,
+      rows: plan.totalRows,
+    },
+  });
+
+  const written = await runRestore(c.env, body.backup as BackupDocument);
+  return c.json({ dryRun: false, ...plan, restored: true, rowsWritten: written });
 });
 
 // ── Calendar sources (system admins) ─────────────────────────────────────────
