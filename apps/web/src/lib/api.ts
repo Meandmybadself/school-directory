@@ -216,6 +216,10 @@ export const api = {
   /** Dry run: what a permanent delete would remove. Writes nothing. */
   userDeletionImpact: (userId: string) =>
     request<UserDeletionImpactDTO>(`/admin/users/${userId}/impact`),
+  /** Permanently delete a (disabled) account and execute its impact report.
+   *  Irreversible. The server refuses unless the account is already disabled. */
+  deleteUser: (userId: string) =>
+    request<{ ok: true }>(`/admin/users/${userId}`, { method: "DELETE" }),
   setUserAdmin: (userId: string, isSystemAdmin: boolean) =>
     request<{ user: AdminUserDTO }>(`/admin/users/${userId}`, {
       method: "PATCH",

@@ -7,6 +7,7 @@ import { requireAuth } from "../middleware/session.js";
 import { buildProfile } from "../lib/serialize.js";
 import { isController, personListableSql } from "../lib/privacy.js";
 import { clearActivePersonCookie } from "../lib/cookies.js";
+import { personCascadeStmts } from "../lib/personDelete.js";
 import { nowIso } from "../lib/time.js";
 import { ulid } from "../lib/ids.js";
 
@@ -313,30 +314,12 @@ persons.delete("/:id", async (c) => {
 
   // Children first, then the row itself — the same ordering `sheetCascade`
   // takes for the same reason (invariant 13): a foreign key left dangling is
-  // either a constraint failure or, worse, a row invisible to every read.
+  // either a constraint failure or, worse, a row invisible to every read. The
+  // Person's own rows are `personCascadeStmts` (shared with user deletion,
+  // invariant 17); the emptied-household cleanup is appended here because only
+  // this caller knows the household is left with nobody.
   const stmts = [
-    c.env.DB.prepare("DELETE FROM volunteer_signup WHERE person_id = ?").bind(personId),
-    // Shares in both directions. As SUBJECT, a share names either a contact
-    // item of theirs or the synthetic `person:{id}:last_name` field ref; as
-    // TARGET, it is someone else's field shared WITH them, which stops meaning
-    // anything the moment they are gone.
-    c.env.DB.prepare(
-      `DELETE FROM share WHERE (subject_kind = 'contact_item' AND subject_ref IN
-         (SELECT id FROM contact_item WHERE owner_kind = 'person' AND owner_id = ?))
-         OR (subject_kind = 'field' AND subject_ref LIKE ?)
-         OR (target_kind = 'person' AND target_id = ?)`,
-    ).bind(personId, `person:${personId}:%`, personId),
-    c.env.DB.prepare("DELETE FROM contact_item WHERE owner_kind = 'person' AND owner_id = ?").bind(personId),
-    c.env.DB.prepare("DELETE FROM capability_grant WHERE person_id = ?").bind(personId),
-    c.env.DB.prepare("DELETE FROM membership WHERE person_id = ?").bind(personId),
-    c.env.DB.prepare("DELETE FROM control WHERE person_id = ?").bind(personId),
-    // Invitations to co-manage them, and the tokens that would bind them. An
-    // unconsumed invite left behind is a live capability pointing at a row that
-    // no longer exists — /auth/callback would create a user for it and then
-    // grant control of nothing.
-    c.env.DB.prepare("DELETE FROM control_invite WHERE person_id = ?").bind(personId),
-    c.env.DB.prepare("DELETE FROM auth_token WHERE person_id = ?").bind(personId),
-    c.env.DB.prepare("DELETE FROM person WHERE id = ?").bind(personId),
+    ...personCascadeStmts(c.env, personId),
     ...emptiedIds.flatMap((groupId) => [
       c.env.DB.prepare("DELETE FROM contact_item WHERE owner_kind = 'group' AND owner_id = ?").bind(groupId),
       c.env.DB.prepare("DELETE FROM share WHERE target_kind = 'group' AND target_id = ?").bind(groupId),

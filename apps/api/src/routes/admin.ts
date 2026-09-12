@@ -2,7 +2,7 @@
 // (CSV import, audit-log table, registration toggle UI) is M4.
 
 import { Hono } from "hono";
-import type { AuditEntryDTO, BulkImportRow, CalendarSourceDTO, CalendarSourceInput, GroupKind } from "@sd/shared";
+import type { AuditEntryDTO, BulkImportRow, CalendarSourceDTO, CalendarSourceInput } from "@sd/shared";
 import type { Env, HonoEnv } from "../env.js";
 import { requireAuth } from "../middleware/session.js";
 import { verifyAuditChain } from "../lib/audit.js";
@@ -13,6 +13,7 @@ import { ulid } from "../lib/ids.js";
 import { isoPlus, isExpired, nowIso, MAGIC_LINK_TTL, MASQUERADE_TTL, SESSION_TTL } from "../lib/time.js";
 import { setSessionCookie, clearActivePersonCookie } from "../lib/cookies.js";
 import { findUserByEmail, normalizeEmail } from "../lib/db.js";
+import { computeUserDeletionImpact, userDeletionStmts } from "../lib/userAdmin.js";
 import { magicLinkEmail, directoryInviteEmail, sendEmail } from "../lib/email.js";
 import type { QueuedInvite } from "../lib/bulkImport.js";
 
@@ -188,82 +189,67 @@ admin.post("/users/:id/disabled", async (c) => {
 admin.get("/users/:id/impact", async (c) => {
   const auth = requireAuth(c);
   if (!auth.isSystemAdmin) return c.json({ error: "forbidden" }, 403);
-  const id = c.req.param("id");
+  const impact = await computeUserDeletionImpact(c.env, c.req.param("id"));
+  if (!impact) return c.json({ error: "not_found" }, 404);
+  return c.json(impact);
+});
 
-  const user = await c.env.DB.prepare("SELECT id, email, disabled_at FROM user WHERE id = ?")
+/** DELETE /admin/users/:id — permanently delete an account and EXECUTE its
+ *  impact report (invariant 17: the report is the contract for what a delete may
+ *  touch, so the same helper computes it and the delete runs exactly it).
+ *
+ *  Irreversible, so it is guarded like nothing else here: system admin only,
+ *  never while masquerading, never yourself, and — deliberately — only once the
+ *  account is already DISABLED, so "take out of use" and "erase" can never be
+ *  the same click. Because the last enabled admin can never be disabled
+ *  (`/disabled` enforces it), a deletable account is never the last admin, so no
+ *  separate last-admin guard is needed here. */
+admin.delete("/users/:id", async (c) => {
+  const auth = requireAuth(c);
+  if (!auth.isSystemAdmin) return c.json({ error: "forbidden" }, 403);
+  if (auth.isMasquerading) return c.json({ error: "forbidden_while_masquerading" }, 403);
+
+  const id = c.req.param("id");
+  if (id === auth.userId) return c.json({ error: "cannot_delete_self" }, 400);
+
+  const target = await c.env.DB.prepare("SELECT id, email, disabled_at FROM user WHERE id = ?")
     .bind(id)
     .first<{ id: string; email: string; disabled_at: string | null }>();
-  if (!user) return c.json({ error: "not_found" }, 404);
-
-  // Every Person they control, with how many OTHER users also control them.
-  const people = await c.env.DB.prepare(
-    `SELECT p.id, p.first_name, p.last_name,
-            (SELECT COUNT(*) FROM control c2 WHERE c2.person_id = p.id AND c2.user_id <> ?) AS others
-       FROM control c
-       JOIN person p ON p.id = c.person_id -- UNLISTED-EXEMPT: system-admin route
-      WHERE c.user_id = ?
-      ORDER BY p.first_name`,
-  )
-    .bind(id, id)
-    .all<{ id: string; first_name: string; last_name: string | null; others: number }>();
-
-  const nameOf = (r: { first_name: string; last_name: string | null }) =>
-    [r.first_name, r.last_name].filter(Boolean).join(" ");
-
-  const orphanedPersons = people.results
-    .filter((r) => r.others === 0)
-    .map((r) => ({ id: r.id, name: nameOf(r) }));
-  const sharedPersons = people.results
-    .filter((r) => r.others > 0)
-    .map((r) => ({ id: r.id, name: nameOf(r), otherControllers: r.others }));
-
-  // Households whose every member is among the orphans — nobody would be left
-  // in them. A household that still has somebody in it stays, address and all.
-  const emptiedHouseholds: { id: string; name: string }[] = [];
-  if (orphanedPersons.length > 0) {
-    const marks = orphanedPersons.map(() => "?").join(",");
-    const ids = orphanedPersons.map((p) => p.id);
-    const rows = await c.env.DB.prepare(
-      `SELECT g.id, g.name
-         FROM grp g
-        WHERE g.kind = 'household'
-          AND EXISTS (SELECT 1 FROM membership m
-                       WHERE m.group_id = g.id AND m.person_id IN (${marks}))
-          AND NOT EXISTS (SELECT 1 FROM membership m2
-                           WHERE m2.group_id = g.id AND m2.person_id NOT IN (${marks}))
-        ORDER BY g.name`,
-    )
-      .bind(...ids, ...ids)
-      .all<{ id: string; name: string }>();
-    emptiedHouseholds.push(...rows.results);
+  if (!target) return c.json({ error: "not_found" }, 404);
+  if (target.disabled_at === null) {
+    return c.json(
+      { error: "not_disabled", message: "Disable the account first, then it can be deleted." },
+      409,
+    );
   }
 
-  // Classrooms and generic groups they administer. Reported, never deleted.
-  const retained = await c.env.DB.prepare(
-    `SELECT DISTINCT g.id, g.name, g.kind
-       FROM membership m
-       JOIN grp g ON g.id = m.group_id
-       JOIN control c ON c.person_id = m.person_id
-      WHERE c.user_id = ? AND m.is_admin = 1 AND g.kind <> 'household'
-      ORDER BY g.name`,
-  )
-    .bind(id)
-    .all<{ id: string; name: string; kind: GroupKind }>();
+  // Re-run the report rather than trust anything the client saw: a second
+  // controller may have been added, or a claim made, since the modal loaded.
+  const impact = await computeUserDeletionImpact(c.env, id);
+  if (!impact) return c.json({ error: "not_found" }, 404);
 
-  const audit = await c.env.DB.prepare(
-    "SELECT COUNT(*) AS n FROM audit_log WHERE actor_user_id = ? OR masquerading_as = ?",
-  )
-    .bind(id, id)
-    .first<{ n: number }>();
+  await c.env.DB.batch(userDeletionStmts(c.env, id, target.email, impact));
 
-  return c.json({
-    user: { id: user.id, email: user.email, disabled: user.disabled_at !== null },
-    orphanedPersons,
-    sharedPersons,
-    emptiedHouseholds,
-    retainedGroupsAdministered: retained.results,
-    auditEntries: audit?.n ?? 0,
+  // The counts go in `detail` because in a second nothing else will hold them.
+  // `notify` stays the op + email only (invariant 22): the email is the account
+  // identifier the disable/enable lines already carry, and no name is looked up.
+  c.var.audit.push({
+    action: "admin.action",
+    entityKind: "user",
+    entityId: id,
+    detail: {
+      op: "user.deleted",
+      email: target.email,
+      orphanedPersons: impact.orphanedPersons.length,
+      emptiedHouseholds: impact.emptiedHouseholds.length,
+      controlDropped: impact.sharedPersons.length,
+      volunteerClaimsWithdrawn: impact.volunteerClaimsWithdrawn,
+      boardCommentsDeleted: impact.boardCommentsDeleted,
+    },
+    notify: { op: "user.deleted", email: target.email },
   });
+
+  return c.json({ ok: true });
 });
 
 /** POST /admin/users { email, isSystemAdmin?, sendEmail? } — create a sign-in

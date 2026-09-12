@@ -197,11 +197,13 @@ describe("the deletion impact report", () => {
     expect(Object.keys(body).sort()).toEqual(
       [
         "auditEntries",
+        "boardCommentsDeleted",
         "emptiedHouseholds",
         "orphanedPersons",
         "retainedGroupsAdministered",
         "sharedPersons",
         "user",
+        "volunteerClaimsWithdrawn",
       ].sort(),
     );
     // Always reported, never removed — the log is hash-chained.
