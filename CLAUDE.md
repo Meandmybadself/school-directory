@@ -487,19 +487,36 @@ All five SPAs are separate Cloudflare Pages projects talking to the single
    other concurrently would otherwise leave an instance nobody can sign in to —
    with no route that clears `disabled_at` without an admin session, and a
    bootstrap-admin email re-granting the role but never un-disabling the row.
-   **Permanent deletion is deliberately not implemented.**
-   `GET /admin/users/:id/impact` is the only statement of what it would be
-   allowed to touch, and if it is ever built it must execute that report rather
-   than re-derive it. The rules exist because the obvious reading is wrong:
-   `control` is many-to-many by design (two parents, one child), so a Person
-   any *other* User controls is not this user's to take — only one left with no
-   controller at all is. `grp` records no creator, so "groups they created" is
-   not a thing this schema knows; a household is removed only when it would be
-   left with no members, and a classroom or school group is never removed with a
-   member, because it belongs to the school. `audit_log` is never deleted for
-   anyone: it is append-only and hash-chained (invariant 5), so dropping rows
-   both breaks tamper-evidence and erases the record of what the account did —
-   which is also why `audit_log` is deliberately absent from `lib/sweep.ts`.
+   **Permanent deletion is now built — `DELETE /admin/users/:id` — and it
+   EXECUTES the impact report rather than re-deriving it.** `computeUserDeletionImpact`
+   (`lib/userAdmin.ts`) is that report, shared by `GET /admin/users/:id/impact`
+   (which shows it) and the delete (which runs exactly it via `userDeletionStmts`),
+   so the two can never disagree about what goes. It is guarded harder than
+   disabling: system admin only, never while masquerading, never yourself, and —
+   deliberately — only once the account is already DISABLED, so "take out of use"
+   and "erase" are never one click (and a deletable account is therefore never
+   the last enabled admin, which is why no separate last-admin guard is needed).
+   The obvious reading is wrong, and the report encodes why: `control` is
+   many-to-many (two parents, one child), so a Person any *other* User controls
+   is not this user's to take — only one left with no controller at all is, and a
+   co-controlled one is KEPT, losing only this account's control. `grp` records
+   no creator, so "groups they created" is not a thing this schema knows; a
+   household is removed only when it would be left with no members, and a
+   classroom or school group is never removed with a member, because it belongs
+   to the school. `audit_log` is never deleted for anyone: it is append-only and
+   hash-chained (invariant 5), so dropping rows both breaks tamper-evidence and
+   erases the record of what the account did — which is also why `audit_log` is
+   deliberately absent from `lib/sweep.ts`.
+   D1 does not enforce foreign keys, so nothing is protected by the schema: the
+   delete cleans up by hand, DELETING account-owned rows nothing else holds (its
+   sessions, sign-in tokens, volunteer claims, board comments) and NULLing the
+   ones that merely attribute a surviving record to it (`created_by`,
+   `assigned_by`, a `store_order`'s buyer link — the order is a financial record
+   and stays). The per-Person cascade for an orphaned Person is `personCascadeStmts`
+   (`lib/personDelete.ts`), shared with `DELETE /persons/:id` (invariant 25) so
+   the two deletion paths can't drift. `test/userDeletion.test.ts` pins the
+   guards, the execute-the-report cascade, `audit_log` staying untouched, and the
+   Slack `notify` bag carrying the email only (invariant 22).
 
 18. **A search may not match on more than it renders.** `person.last_name` is
    shown as an initial when `last_name_visibility = 'initial'`, and a naked
