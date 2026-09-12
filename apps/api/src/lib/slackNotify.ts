@@ -406,6 +406,23 @@ const FORMATTERS = {
           `:heavy_plus_sign: *${email}* was added as a user — ${actor}` +
           `${notify.emailSent === false ? " (no invitation sent)" : ""}.`
         );
+      // Backup and restore. Both are rare, both are the loudest things an admin
+      // can do here, and neither carries anything but counts — the bag has no
+      // name, no email and no table contents in it, which is the point of
+      // `notify` being a second bag rather than `detail` (invariant 22).
+      case "backup.exported":
+        return (
+          `:floppy_disk: A full backup of the directory was downloaded ` +
+          `(${num(notify, "rows")} rows across ${num(notify, "tables")} tables) — ${actor}.`
+        );
+      case "backup.restored":
+        // The one line in this file worth waking somebody for: the database was
+        // replaced. Pushed before the write, so this fires even if the restore
+        // dies part-way — which is exactly when somebody needs to know.
+        return (
+          `:rotating_light: The database was RESTORED from a backup ` +
+          `(${num(notify, "rows")} rows across ${num(notify, "tables")} tables) — ${actor}.`
+        );
       case "group.create":
         return `:busts_in_silhouette: New ${str(notify, "kind", "group")} *${str(notify, "name")}* created — ${actor}.`;
       // Roster membership. `entityId` is the group; the Person travels as a

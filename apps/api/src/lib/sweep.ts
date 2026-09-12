@@ -18,6 +18,11 @@
 // `audit_log` is deliberately absent and must stay absent: it is append-only and
 // hash-chained (invariant 5), so deleting rows both breaks tamper-evidence and
 // erases the record of what an account did.
+//
+// One other file reads this list as a list: `lib/backup.ts` excludes exactly
+// these four tables from a backup, because "holds a live capability" and "is
+// swept on a schedule" turn out to be the same four rows. If a fifth table ever
+// joins this file, decide there too whether it belongs in a backup.
 
 import type { Env } from "../env.js";
 import { DAYS, nowIso } from "./time.js";

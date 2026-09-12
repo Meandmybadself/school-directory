@@ -735,6 +735,42 @@ export const BULK_IMPORT_FIELDS = [
 ] as const;
 export type BulkImportField = (typeof BULK_IMPORT_FIELDS)[number];
 
+// ── Backup / restore ────────────────────────────────────────────────────────
+
+/** The word `POST /admin/restore` requires in its body before it will write
+ *  anything. The dry run doesn't need it, so a dry-run request body replayed by
+ *  accident can never become a restore — the confirmation is a separate thing
+ *  the admin has to have typed, not a flag a client can flip. */
+export const RESTORE_CONFIRM = "RESTORE";
+
+/** A whole-database backup. The API writes it and reads it back; nothing else
+ *  should construct one by hand. `tables` is table name → rows, with each row a
+ *  plain column-keyed object — deliberately untyped per column, because the
+ *  point of this file is to survive columns the shared types don't know about. */
+export interface BackupDocument {
+  format: number;
+  generatedAt: string;
+  school: string;
+  tables: Record<string, Record<string, unknown>[]>;
+}
+
+/** What a restore would do, or did. Returned by both the dry run and the real
+ *  thing, so the screen renders one shape either way. */
+export interface RestoreReportDTO {
+  dryRun: boolean;
+  /** Row counts per table. `skipped` marks a table present in the file that
+   *  this restore will not write — `audit_log`, which is append-only and
+   *  survives the restore that would otherwise have erased it. */
+  tables: { table: string; rows: number; skipped: boolean }[];
+  totalRows: number;
+  /** Non-empty means nothing was written and nothing will be until it's fixed. */
+  errors: string[];
+  /** Worth reading before confirming; none of them stop a restore. */
+  warnings: string[];
+  restored: boolean;
+  rowsWritten?: number;
+}
+
 export interface AuditEntryDTO {
   id: string;
   action: AuditAction | string;

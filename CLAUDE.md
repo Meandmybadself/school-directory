@@ -758,8 +758,9 @@ All five SPAs are separate Cloudflare Pages projects talking to the single
    reason above. `person.created` is deliberately NOT pushed by `bulkImport.ts`:
    `bulk.import` already reports the batch, and one draft per row would make a
    200-child import 200 entries saying nothing the summary doesn't.
-   `admin.action` speaks **six** of its ~15 ops (the four user/admin ones plus
-   `user.create` and `group.create`); the rest — renames, reparents, roster
+   `admin.action` speaks **twelve** of its ~17 ops (the four user/admin ones,
+   `user.create`, `group.create`, the three roster `member.*` ones, `user.deleted`,
+   and the two backup ones invariant 29 adds); the rest — renames, reparents, roster
    edits, `bootstrap_admin` — fall through its switch's default and say nothing,
    which is what stops that one action readmitting the noise the allowlist
    exists to exclude.
@@ -1110,6 +1111,74 @@ All five SPAs are separate Cloudflare Pages projects talking to the single
    the guard AND its Controller exemption, so a predicate that collapsed to the
    literal `"1"` fails it with a real name in the result, which the source scan
    cannot see. `test/ptoRoutes.test.ts` pins that every route asks the gate.
+
+29. **A backup is the one seam here that deliberately does NOT narrow, and the
+   restore is the one write that deliberately does not touch everything.**
+   `GET /admin/backup` dumps the whole database as JSON; `POST /admin/restore`
+   reads one back. `lib/backup.ts` is both halves and its header is the long
+   version; four things about it are load-bearing.
+   **The default is include, and the seam is an EXCLUDED list.** Every other
+   outbound shape in this file — `publicEventOf`, `publicSheetOf`,
+   `issuePageOf`, `publicProductOf`, `slackLinesOf` — is hand-built field by
+   field so a column added next year reaches nobody until someone decides it
+   should. A backup inverts that property, because there the unremembered
+   column is one silently MISSING from the file, discovered on the day somebody
+   restores. So tables are discovered from `sqlite_master` (a migration's new
+   table is backed up by construction) and the reviewable list is the short one
+   of what is left out. The file therefore holds `geo_lat`/`geo_lng`, which
+   invariant 2 keeps out of every DTO, and every `private` contact item: it is
+   the directory, not a view of it, and a file with the coordinates stripped
+   would quietly turn neighbour discovery off for every family on restore. The
+   controls are elsewhere — system admin only, never while masquerading,
+   audited, and announced in Slack, since a complete copy of the school's data
+   leaving the building is what that channel is for.
+   **`EXCLUDED_TABLES` is exactly `lib/sweep.ts`'s four**, and for a related
+   reason: each holds a live capability. `session.id` IS the cookie value in the
+   clear, so a file containing it signs its holder in as anyone logged in when
+   it was taken — nothing else in this schema is like that. `auth_token`,
+   `newsletter_confirmation` and `control_invite` store hashes, so the file
+   leaks nothing, but RESTORING one resurrects a spent capability: a magic link
+   consumed since the snapshot comes back with `consumed_at` null and works
+   again, defeating the single-use guarantee invariant 19 exists to make. Two
+   of them also back row-counting caps whose retention is a security parameter.
+   The practical consequences are worth saying: pending invitations are not
+   restored and get re-sent, and — the useful half — every current session is
+   left alone, which is why the admin performing a restore is still signed in
+   when it lands.
+   **`audit_log` is exported and never written back** (`RESTORE_SKIPPED_TABLES`).
+   It is append-only and hash-chained, which is why invariant 5 keeps it out of
+   `lib/sweep.ts` and invariant 17 keeps it out of a user deletion; a restore
+   that emptied it would break the chain AND erase the record of the restore. So
+   the chain runs continuously across a restore and the `admin.action` row this
+   operation appends is the one thing a restore cannot erase — which is also why
+   that draft is pushed BEFORE the write rather than after it, the one
+   deliberate departure from invariant 22's ordering rule: a restore that dies
+   half-way has still destroyed data, and the row is what explains the state.
+   **Three refusals, all in `planRestore`, all before the first DELETE** (a
+   restore is not atomic across D1 batches, so everything checkable is checked
+   while there is still something to lose). A table or column the live schema
+   doesn't have — which is the schema-drift check and, since identifiers cannot
+   be bound, the injection guard. A live table the FILE doesn't mention, because
+   emptying something nobody named is invariant 27's failure; the error names
+   the table and says to add `"x": []` to mean it. And a file with no enabled
+   system admin in `user`, which is invariant 17's last-admin guard reached from
+   the other direction; not being in it yourself is a warning, not a refusal,
+   since sessions survive and another admin in the file can sign back in.
+   Dry run is the default (`dryRun !== false`, like `/admin/bulk-import`) and a
+   real restore additionally needs `confirm: "RESTORE"`, which no accidentally
+   replayed dry-run body carries.
+   Two limits to know. This is **D1 only** — `PHOTOS` and `NEWSLETTER_MEDIA` are
+   R2, so a restored `photo_object_key` points at an object that still has to be
+   there; restoring into a fresh bucket gives broken portraits, not a corrupt
+   directory. And the read is the statement the invariant-21 source scan cannot
+   see, because the table name is interpolated — the blind spot that test names
+   in its own header — so the `UNLISTED-EXEMPT` note lives at `readTable` where
+   a reader will find it: composing the gate would omit every unlisted Person
+   from the file, and the restore would then DELETE those families.
+   `test/backup.test.ts` is BEHAVIOURAL for invariant 22's reason — its fake D1
+   records statements where they EXECUTE, including inside `batch()`, so a
+   restore that deleted `audit_log` or wrote a session row fails it with a
+   statement rather than passing a scan.
 
 ## Conventions
 

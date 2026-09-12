@@ -3,6 +3,7 @@ import type {
   AdminUserDTO,
   UserDeletionImpactDTO,
   AuditEntryDTO,
+  BackupDocument,
   BulkImportResult,
   BulkImportRow,
   CalendarEventDTO,
@@ -24,9 +25,11 @@ import type {
   PersonPatchBody,
   PersonProfileDTO,
   PersonRemovalImpactDTO,
+  RestoreReportDTO,
   ShareGranteeDTO,
   ShareTargetDTO,
 } from "@sd/shared";
+import { RESTORE_CONFIRM } from "@sd/shared";
 
 export const API_BASE = import.meta.env.VITE_API_URL ?? "http://localhost:8787";
 /** The calendar app's origin. The calendar moved to its own site, so nav and the
@@ -237,6 +240,38 @@ export const api = {
   },
   bulkImport: (rows: BulkImportRow[], dryRun: boolean, sendInvites = false) =>
     request<BulkImportResult>("/admin/bulk-import", { method: "POST", body: JSON.stringify({ rows, dryRun, sendInvites }) }),
+
+  /** Download the whole database as one JSON file.
+   *
+   *  Fetched rather than linked. A plain <a href> would work — the session
+   *  cookie is same-site to the API — but it gives no way to show an error, and
+   *  a silent no-op on the one screen whose job is "make sure you have a copy"
+   *  is the worst possible failure. This resolves to the parsed document, and
+   *  the caller decides whether to save it.
+   *
+   *  Note what comes back: the directory itself, coordinates and private
+   *  contact items included. See apps/api/src/lib/backup.ts for why a backup
+   *  deliberately doesn't narrow the way every other outbound seam does. */
+  downloadBackup: async (): Promise<BackupDocument> => {
+    const res = await fetch(`${API_BASE}/admin/backup`, { credentials: "include" });
+    if (!res.ok) throw new ApiError(res.status, await res.text());
+    return (await res.json()) as BackupDocument;
+  },
+  /** Validate a backup file without writing anything. Always call this first —
+   *  the API defaults to a dry run anyway, so an omitted flag validates rather
+   *  than destroys. */
+  restorePreview: (backup: unknown) =>
+    request<RestoreReportDTO>("/admin/restore", {
+      method: "POST",
+      body: JSON.stringify({ backup, dryRun: true }),
+    }),
+  /** Replace the database. Irreversible; the API refuses without the confirm
+   *  word, which is deliberately not something a replayed dry-run body has. */
+  restoreBackup: (backup: unknown) =>
+    request<RestoreReportDTO>("/admin/restore", {
+      method: "POST",
+      body: JSON.stringify({ backup, dryRun: false, confirm: RESTORE_CONFIRM }),
+    }),
   getRegistration: () => request<{ open: boolean }>("/settings/registration"),
   setRegistration: (open: boolean) =>
     request<{ open: boolean }>("/settings/registration", { method: "PUT", body: JSON.stringify({ open }) }),

@@ -1,9 +1,17 @@
-// Admin console: registration toggle, masquerade (user list), and the
-// append-only audit log. CSV bulk import + co-manager invite UI remain M4.
+// Admin console: registration toggle, masquerade (user list), the append-only
+// audit log, and whole-database backup/restore. CSV bulk import + co-manager invite UI remain M4.
 // Admin chrome is intentionally English-only (operator tooling).
 import { useEffect, useState } from "react";
 import { Navigate, useNavigate } from "react-router-dom";
-import type { AdminUserDTO, AuditEntryDTO, NewUserNotify, UserDeletionImpactDTO } from "@sd/shared";
+import type {
+  AdminUserDTO,
+  AuditEntryDTO,
+  BackupDocument,
+  NewUserNotify,
+  RestoreReportDTO,
+  UserDeletionImpactDTO,
+} from "@sd/shared";
+import { RESTORE_CONFIRM } from "@sd/shared";
 import { Icon } from "../components/Icon.js";
 import { Avatar, Btn, Tag } from "../components/atoms.js";
 import { AppShell, BottomNav } from "../components/AppShell.js";
@@ -325,6 +333,199 @@ function CreateUserForm({ onCreated }: { onCreated: () => void }) {
   );
 }
 
+/** Backup + restore.
+ *
+ *  The two halves are deliberately asymmetric. Downloading is one button,
+ *  because the thing that stops people taking backups is friction. Restoring is
+ *  a file, then a dry run nobody can skip, then a word typed by hand — because
+ *  the thing that ruins directories is a confident click.
+ *
+ *  The API defaults to a dry run when the flag is missing, so this screen's
+ *  two-step flow is a second lock rather than the only one.
+ */
+function BackupTab() {
+  const [busy, setBusy] = useState<null | "download" | "preview" | "restore">(null);
+  const [error, setError] = useState<string | null>(null);
+  const [fileName, setFileName] = useState("");
+  const [doc, setDoc] = useState<BackupDocument | null>(null);
+  const [report, setReport] = useState<RestoreReportDTO | null>(null);
+  const [typed, setTyped] = useState("");
+  const [done, setDone] = useState<RestoreReportDTO | null>(null);
+
+  const download = async () => {
+    setBusy("download");
+    setError(null);
+    try {
+      const backup = await api.downloadBackup();
+      // Saved from the parsed document rather than streamed straight to disk so
+      // a failure is an error message instead of a 0-byte file.
+      const url = URL.createObjectURL(
+        new Blob([JSON.stringify(backup)], { type: "application/json" }),
+      );
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `school-directory-backup-${backup.generatedAt.slice(0, 10)}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch {
+      setError("Couldn't download the backup.");
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const onFile = async (file: File) => {
+    setError(null);
+    setReport(null);
+    setDone(null);
+    setTyped("");
+    setFileName(file.name);
+    let parsed: BackupDocument;
+    try {
+      parsed = JSON.parse(await file.text()) as BackupDocument;
+    } catch {
+      setDoc(null);
+      setError("That file isn't valid JSON.");
+      return;
+    }
+    setDoc(parsed);
+    setBusy("preview");
+    try {
+      setReport(await api.restorePreview(parsed));
+    } catch (e) {
+      // A refusal comes back 422 WITH the report in it — that's the useful
+      // case, not an error to swallow.
+      const body = e instanceof ApiError ? (e.body as RestoreReportDTO | null) : null;
+      if (body && Array.isArray(body.errors)) setReport(body);
+      else setError("Couldn't check that backup.");
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const restore = async () => {
+    if (!doc) return;
+    setBusy("restore");
+    setError(null);
+    try {
+      const r = await api.restoreBackup(doc);
+      setDone(r);
+      setReport(null);
+      setDoc(null);
+      setTyped("");
+    } catch (e) {
+      const body = e instanceof ApiError ? (e.body as RestoreReportDTO | null) : null;
+      if (body && Array.isArray(body.errors) && body.errors.length) setReport(body);
+      else setError("The restore didn't run.");
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const blocked = !!report?.errors.length;
+  const canRestore = !!report && !blocked && typed.trim().toUpperCase() === RESTORE_CONFIRM;
+
+  return (
+    <div>
+      <SectLabel>Download a backup</SectLabel>
+      <div className="sd-card sd-card-pad" style={{ marginTop: 9 }}>
+        <div className="sd-meta" style={{ lineHeight: 1.45 }}>
+          One JSON file holding every table: people, households, contacts, the calendar,
+          volunteer sheets, the newsletter, the store and the PTO boards.
+        </div>
+        <div className="sd-meta" style={{ lineHeight: 1.45, marginTop: 8 }}>
+          It is the directory itself, not a filtered view — home addresses, private
+          contact details and map coordinates are all in it. Keep it somewhere you'd
+          keep the school's own records. Sessions, sign-in links and pending invitations
+          are left out on purpose, and photos live in storage rather than the database,
+          so they aren't in the file either.
+        </div>
+        <Btn icon="download" style={{ marginTop: 12 }} disabled={busy !== null} onClick={() => void download()}>
+          {busy === "download" ? "Preparing…" : "Download backup"}
+        </Btn>
+      </div>
+
+      <SectLabel>Restore from a backup</SectLabel>
+      <div className="sd-card sd-card-pad" style={{ marginTop: 9 }}>
+        <div className="sd-meta" style={{ lineHeight: 1.45 }}>
+          This replaces what's in the directory now with what's in the file. There is no
+          undo. Pick a file to see exactly what it would write before anything happens.
+        </div>
+        <label className="sd-btn sd-btn-secondary" style={{ marginTop: 12, display: "inline-flex", cursor: "pointer" }}>
+          <Icon name="upload" size={18} />
+          <span style={{ marginLeft: 6 }}>{fileName || "Choose a backup file"}</span>
+          <input
+            type="file"
+            accept="application/json,.json"
+            style={{ display: "none" }}
+            onChange={(e) => {
+              const f = e.target.files?.[0];
+              if (f) void onFile(f);
+            }}
+          />
+        </label>
+
+        {busy === "preview" && <div className="sd-meta" style={{ marginTop: 10 }}>Checking that file…</div>}
+
+        {report && (
+          <div style={{ marginTop: 12 }}>
+            {report.errors.map((msg) => (
+              <div key={msg} className="sd-meta" style={{ color: "var(--warn)", lineHeight: 1.45, marginBottom: 6 }}>
+                {msg}
+              </div>
+            ))}
+            {!blocked && (
+              <>
+                <div style={{ fontSize: 13.5, fontWeight: 700 }}>
+                  {report.totalRows} rows across {report.tables.filter((t) => !t.skipped).length} tables
+                </div>
+                <div className="sd-meta sd-mono" style={{ marginTop: 6, lineHeight: 1.6, fontSize: 11.5 }}>
+                  {report.tables.map((t) => (
+                    <div key={t.table}>
+                      {t.table} · {t.rows}
+                      {t.skipped ? " · kept as-is" : ""}
+                    </div>
+                  ))}
+                </div>
+                {report.warnings.map((msg) => (
+                  <div key={msg} className="sd-meta" style={{ marginTop: 8, lineHeight: 1.45 }}>{msg}</div>
+                ))}
+                <div className="sd-meta" style={{ marginTop: 12 }}>
+                  Type <strong>{RESTORE_CONFIRM}</strong> to confirm.
+                </div>
+                <input
+                  className="sd-input"
+                  value={typed}
+                  onChange={(e) => setTyped(e.target.value)}
+                  placeholder={RESTORE_CONFIRM}
+                  style={{ marginTop: 6, maxWidth: 200 }}
+                />
+                <Btn
+                  kind="orange"
+                  icon="upload"
+                  style={{ marginTop: 12 }}
+                  disabled={!canRestore || busy !== null}
+                  onClick={() => void restore()}
+                >
+                  {busy === "restore" ? "Restoring…" : "Replace the directory"}
+                </Btn>
+              </>
+            )}
+          </div>
+        )}
+
+        {done && (
+          <div className="sd-meta" style={{ marginTop: 12, lineHeight: 1.45 }}>
+            Restored {done.rowsWritten ?? done.totalRows} rows. Everyone's sessions are
+            still live, so anyone signed in is now looking at the restored data.
+          </div>
+        )}
+        {error && <div className="sd-meta" style={{ marginTop: 10, color: "var(--warn)" }}>{error}</div>}
+      </div>
+    </div>
+  );
+}
+
 export function Admin() {
   const navigate = useNavigate();
   const isDesktop = useIsDesktop();
@@ -337,7 +538,7 @@ export function Admin() {
   const [entries, setEntries] = useState<AuditEntryDTO[]>([]);
   const [filter, setFilter] = useState("");
   const [nextBefore, setNextBefore] = useState<string | null>(null);
-  const [tab, setTab] = useState<"users" | "audit">("users");
+  const [tab, setTab] = useState<"users" | "audit" | "backup">("users");
   const [impactFor, setImpactFor] = useState<AdminUserDTO | null>(null);
 
   const loadUsers = () => void api.adminUsers().then((r) => setUsers(r.users)).catch(() => setUsers([]));
@@ -417,7 +618,7 @@ export function Admin() {
     setNextBefore(r.nextBefore);
   };
 
-  const tabs: [typeof tab, string][] = [["users", "Users"], ["audit", "Audit log"]];
+  const tabs: [typeof tab, string][] = [["users", "Users"], ["audit", "Audit log"], ["backup", "Backup"]];
   const tabBar = (
     <div className="sd-row" style={{ gap: 2, borderBottom: "1px solid var(--line)", marginBottom: 16 }}>
       {tabs.map(([key, label]) => (
@@ -659,6 +860,7 @@ export function Admin() {
       {tabBar}
       {tab === "users" && usersTab}
       {tab === "audit" && auditTab}
+      {tab === "backup" && <BackupTab />}
     </>
   );
 
