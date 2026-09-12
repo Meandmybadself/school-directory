@@ -193,9 +193,9 @@ function ClaimSheet({
 
   // A brand-new member controls no Persons yet, so there is nobody to sign up.
   // Rather than an empty picker with a dead submit button, point them at the
-  // directory's onboarding to add a family member; a Person with no persons is
-  // exactly who `/welcome` is for. It's a cross-origin hop, so `?lang=` carries
-  // their language across the way every front-door link does.
+  // directory's onboarding to add themselves or a family member; a member with
+  // no Persons is exactly who `/welcome` is for. It's a cross-origin hop, so
+  // `?lang=` carries their language across the way every front-door link does.
   if (persons.length === 0) {
     return (
       <SheetOver onClose={onClose}>
