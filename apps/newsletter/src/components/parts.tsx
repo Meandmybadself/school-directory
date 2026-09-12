@@ -1,7 +1,9 @@
 // Composites shared by the newsletter screens — the subset of apps/web's
 // parts.tsx that isn't tied to the directory's Person/Contact domain, copied so
 // the two apps can drift independently.
+import { useMemo } from "react";
 import type { ReactNode } from "react";
+import { createPortal } from "react-dom";
 import { Icon, type IconName } from "./Icon.js";
 import { useChrome } from "./chrome.js";
 import { useI18n } from "../i18n/index.js";
@@ -124,15 +126,50 @@ export function Field({
   );
 }
 
+const SHEET_HOST_ID = "sd-sheet-host";
+
+/** The element every sheet is portalled into, created on first use and reused.
+ *  It copies the app root's scope classes because the design tokens live on
+ *  `.sd` (and the Chinese type rules on `.sd-zh`): outside that scope every
+ *  `var(--…)` inside a sheet computes to nothing and it renders unstyled.
+ *  The `:not()` is so this never reads the classes back off the host itself. */
+function sheetHost(): HTMLElement {
+  let host = document.getElementById(SHEET_HOST_ID);
+  if (!host) {
+    host = document.createElement("div");
+    host.id = SHEET_HOST_ID;
+    document.body.appendChild(host);
+  }
+  host.className = document.querySelector(`.sd:not(#${SHEET_HOST_ID})`)?.className ?? "sd";
+  return host;
+}
+
+/** A bottom sheet is rendered on <body>, NOT where it is called from, and that
+ *  portal is load-bearing rather than tidiness. Screens put their content in
+ *  `.sd-scroll`, and on iOS Safari a `position: fixed` descendant of that
+ *  scroller is laid out and CLIPPED against the scroller instead of the
+ *  viewport — so the scrim stopped short of the app bar, and a sheet tall
+ *  enough to reach the bottom of the column had its last row cut off behind the
+ *  bottom nav. The volunteer sign-up sheet is the one that hurt: the button
+ *  that takes the spot was the row underneath. Desktop engines honour the
+ *  z-index and were fine, which is why this only ever showed up on a phone.
+ *  Rendering outside every ancestor is what makes `inset: 0` mean the viewport
+ *  again on all of them. */
 export function SheetOver({ children, onClose }: { children: ReactNode; onClose?: () => void }) {
-  return (
+  const host = useMemo(() => sheetHost(), []);
+  return createPortal(
     <div style={{ position: "fixed", inset: 0, zIndex: 50, display: "flex", justifyContent: "center" }}>
       <div className="sd-scrim" onClick={onClose} />
       <div className="sd-sheet" style={{ position: "fixed", left: "50%", transform: "translateX(-50%)", width: "100%", maxWidth: 480, bottom: 0, maxHeight: "92%", overflowY: "auto" }}>
         <div className="sd-grabber" />
-        <div style={{ padding: "4px 18px 22px" }}>{children}</div>
+        {/* Two padding declarations, deliberately: the sheet sits at the very
+            bottom of the viewport, over the home indicator on a notched phone.
+            An engine that can't parse `env()` drops the second and keeps the
+            22px of the first — the same split `.sd-bottomnav` makes. */}
+        <div style={{ padding: "4px 18px 22px", paddingBottom: "calc(22px + env(safe-area-inset-bottom, 0px))" }}>{children}</div>
       </div>
-    </div>
+    </div>,
+    host,
   );
 }
 
