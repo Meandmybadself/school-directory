@@ -246,6 +246,17 @@ describe("the landing page", () => {
     }
   });
 
+  it("links the PTO name in the join band to the PTO site, in every language", async () => {
+    // Every reference to the PTO on the page reaches the PTO's own page: the
+    // "What's here" tile and footer already did; this is the join band's eyebrow.
+    for (const locale of LOCALES) {
+      const html = await body(`/?lang=${locale}`);
+      expect(html).toContain(
+        `<p class="eyebrow"><a href="https://pto.eisenhower.school/?lang=${locale}">Eisenhower PTO</a></p>`,
+      );
+    }
+  });
+
   it("puts the location in the description a search engine reads", async () => {
     const html = await body("/?lang=en");
     expect(html).toMatch(/<meta name="description" content="[^"]*Hopkins, Minnesota/);

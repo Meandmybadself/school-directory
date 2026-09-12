@@ -243,6 +243,7 @@ img{max-width:100%}
 .join-in{padding-block:62px;display:grid;gap:28px;align-items:center}
 @media(min-width:880px){.join-in{grid-template-columns:1.15fr .85fr;gap:52px;padding-block:76px}}
 .join .eyebrow{color:rgba(255,255,255,.5)}
+.join .eyebrow a:hover{color:#fff;text-decoration:underline}
 .join h2{margin:0 0 13px;font-size:clamp(1.85rem,4.2vw,2.65rem);font-weight:800;letter-spacing:-.035em;line-height:1.08}
 .join p{margin:0;font-size:16px;line-height:1.6;color:rgba(255,255,255,.78);max-width:58ch}
 .join-act .note{color:rgba(255,255,255,.6)}

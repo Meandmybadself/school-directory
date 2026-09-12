@@ -33,7 +33,7 @@ import { Icon } from "./Icon.js";
 import { Avatar, Btn, Tag } from "./atoms.js";
 import { Field, SheetOver } from "./parts.js";
 import { useI18n, type I18nT } from "../i18n/index.js";
-import { api, ApiError } from "../lib/api.js";
+import { api, ApiError, DIRECTORY_URL } from "../lib/api.js";
 import { useSession } from "../lib/session.js";
 
 /** What every branch renders from. The public shape is the smaller of the two,
@@ -187,9 +187,29 @@ function ClaimSheet({
   onClose: () => void;
   onSubmit: (personId: string, note: string) => void;
 }) {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const [personId, setPersonId] = useState(persons[0]?.id ?? "");
   const [note, setNote] = useState("");
+
+  // A brand-new member controls no Persons yet, so there is nobody to sign up.
+  // Rather than an empty picker with a dead submit button, point them at the
+  // directory's onboarding to add a family member; a Person with no persons is
+  // exactly who `/welcome` is for. It's a cross-origin hop, so `?lang=` carries
+  // their language across the way every front-door link does.
+  if (persons.length === 0) {
+    return (
+      <SheetOver onClose={onClose}>
+        <h2 className="sd-h2" style={{ marginBottom: 8 }}>{t("takeASpot")}</h2>
+        <p className="sd-meta" style={{ margin: "0 0 16px" }}>{t("volunteerNeedPerson")}</p>
+        <div className="sd-row" style={{ gap: 8 }}>
+          <Btn block kind="secondary" onClick={onClose}>{t("cancel")}</Btn>
+          <a className="sd-btn sd-btn-primary block" href={`${DIRECTORY_URL}/welcome?lang=${locale}`}>
+            <Icon name="plus" size={18} />{t("addPerson")}
+          </a>
+        </div>
+      </SheetOver>
+    );
+  }
 
   return (
     <SheetOver onClose={onClose}>

@@ -226,7 +226,7 @@ export async function renderHome(
       <section class="join">
         <div class="wrap join-in">
           <div>
-            <p class="eyebrow">${escapeHtml(school)}</p>
+            <p class="eyebrow"><a href="${escapeHtml(appHref(env.PTO_URL, "/", locale))}">${escapeHtml(school)}</a></p>
             <h2>${escapeHtml(t("landingJoinTitle"))}</h2>
             <p>${escapeHtml(t("landingJoinBody", { school }))}</p>
           </div>
