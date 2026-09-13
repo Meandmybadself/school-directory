@@ -248,6 +248,7 @@ admin.delete("/users/:id", async (c) => {
       controlDropped: impact.sharedPersons.length,
       volunteerClaimsWithdrawn: impact.volunteerClaimsWithdrawn,
       boardCommentsDeleted: impact.boardCommentsDeleted,
+      sharesWithdrawn: impact.sharesWithdrawn,
     },
     notify: { op: "user.deleted", email: target.email },
   });

@@ -521,16 +521,33 @@ All five SPAs are separate Cloudflare Pages projects talking to the single
    hash-chained (invariant 5), so dropping rows both breaks tamper-evidence and
    erases the record of what the account did — which is also why `audit_log` is
    deliberately absent from `lib/sweep.ts`.
-   D1 does not enforce foreign keys, so nothing is protected by the schema: the
-   delete cleans up by hand, DELETING account-owned rows nothing else holds (its
-   sessions, sign-in tokens, volunteer claims, board comments) and NULLing the
-   ones that merely attribute a surviving record to it (`created_by`,
-   `assigned_by`, a `store_order`'s buyer link — the order is a financial record
+   **D1 ENFORCES foreign keys** (`PRAGMA foreign_keys` is on and cannot be
+   turned off), and a `batch()` is atomic — so a reference the cascade forgets
+   does not dangle, it fails the whole delete with `FOREIGN KEY constraint
+   failed` and the account stays. An earlier version of this file said the
+   opposite, and the delete shipped on that belief: it NULLed a column that
+   did not exist (`newsletter_subscriber.user_id` — the table is
+   `newsletter_send`) and never touched `auth_token.invited_by` or
+   `share.created_by`, and every route test passed because a fake D1 has no
+   schema to disagree with. The first real delete 500'd. So the cascade cleans
+   up by hand and has to be COMPLETE: DELETING account-owned rows nothing else
+   holds (its sessions, sign-in tokens, volunteer claims, board comments, and
+   the shares it made — `created_by` is NOT NULL, so a share is the account's
+   act and goes with it, counted as `sharesWithdrawn`) and NULLing the ones
+   that merely attribute a surviving record to it (`created_by`, `assigned_by`,
+   `invited_by`, a `store_order`'s buyer link — the order is a financial record
    and stays). The per-Person cascade for an orphaned Person is `personCascadeStmts`
    (`lib/personDelete.ts`), shared with `DELETE /persons/:id` (invariant 25) so
    the two deletion paths can't drift. `test/userDeletion.test.ts` pins the
    guards, the execute-the-report cascade, `audit_log` staying untouched, and the
    Slack `notify` bag carrying the email only (invariant 22).
+   **`test/deletionCoverage.test.ts` is the schema-shaped tripwire**: it reads
+   `migrations/*.sql`, collects every column that `REFERENCES user(id)` or
+   `person(id)`, renders both cascades, and fails on a column a cascade names
+   that does not exist or a referencing column it does not cover. It is
+   `personListable.test.ts`'s kind of test — it catches the column nobody
+   remembered — and a new `REFERENCES user(id)` in a migration fails it until
+   `userDeletionStmts` says what happens to that column.
 
 18. **A search may not match on more than it renders.** `person.last_name` is
    shown as an initial when `last_name_visibility = 'initial'`, and a naked
@@ -1185,6 +1202,25 @@ All five SPAs are separate Cloudflare Pages projects talking to the single
    Dry run is the default (`dryRun !== false`, like `/admin/bulk-import`) and a
    real restore additionally needs `confirm: "RESTORE"`, which no accidentally
    replayed dry-run body carries.
+   **The executor is shaped by D1 enforcing foreign keys** (invariant 17), and
+   the first version — "empty every table, then insert every file" — failed on
+   its first DELETE against a real database. `runRestore` now leads every batch
+   with `PRAGMA defer_foreign_keys = true`, so checks run at each batch's
+   COMMIT; orders inserts parents-first across tables (`restoreOrder`, from
+   `sqlite_master`'s own REFERENCES) and within a self-referencing one
+   (`parentFirst`, for `grp.parent_id`), because deferral ends with the batch;
+   and — the part that is not obvious — **never empties a table an EXCLUDED
+   table points at**. The sessions are left in place on purpose, and a commit
+   with `session.user_id` pointing at an emptied `user` is a violated
+   constraint however it is deferred. So `user`, `person` and `grp`
+   (`keptAliveTables`, closed under REFERENCES) are UPSERTED with
+   `INSERT OR REPLACE` and then TRIMMED by id in chunks of 100 (D1's bind
+   limit), each chunk's batch first deleting the excluded rows that point at
+   the stale ids — which is where the session of an account not in the file
+   ends, exactly as `planRestore`'s warning says. `test/backup.test.ts`'s fake
+   `sqlite_master` now carries DDL with foreign keys so those four properties
+   are pinned; the end-to-end check is `wrangler dev` against the local D1,
+   which enforces the same constraints production does.
    Two limits to know. This is **D1 only** — `PHOTOS` and `NEWSLETTER_MEDIA` are
    R2, so a restored `photo_object_key` points at an object that still has to be
    there; restoring into a fresh bucket gives broken portraits, not a corrupt

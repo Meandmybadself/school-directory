@@ -17,13 +17,19 @@
 //   - `audit_log` is append-only and hash-chained (invariant 5) and never
 //     touched — it is deliberately absent below.
 //
-// D1 does not enforce foreign keys, so nothing here is protected by the schema:
-// a reference left pointing at the deleted row would simply dangle, invisible to
-// reads (the invariant-13 failure mode). So user-scoped rows are cleaned by
-// hand — deleted where they are the account's alone (its sessions, sign-in
-// tokens, volunteer claims, board comments), and NULLed where they merely
-// attribute a surviving record to the account (created_by, assigned_by, an
-// order's buyer link).
+// D1 ENFORCES foreign keys (`PRAGMA foreign_keys` is on and cannot be turned
+// off), and the batch is atomic, so a reference this file forgets does not
+// dangle — it fails the whole delete with `FOREIGN KEY constraint failed` and
+// the account stays. That is the better failure, but it means the list below
+// has to be COMPLETE: every column in `migrations/` that `REFERENCES user(id)`
+// is either deleted here (where the row is the account's alone — its sessions,
+// sign-in tokens, volunteer claims, board comments, the shares it made) or
+// NULLed (where it merely attributes a surviving record — created_by,
+// assigned_by, an order's buyer link). `test/deletionCoverage.test.ts` reads the
+// migrations and fails on the first column this file does not name — the first
+// version shipped naming a column that did not exist (`newsletter_subscriber.
+// user_id`; it is `newsletter_send`) and missing two that did, and no
+// fake-D1 test could see either.
 
 import type { GroupKind, UserDeletionImpactDTO } from "@sd/shared";
 import type { Env } from "../env.js";
@@ -119,6 +125,12 @@ export async function computeUserDeletionImpact(
   )
     .bind(userId)
     .first<{ n: number }>();
+  // `share.created_by` is NOT NULL, so a share is the account's act and goes
+  // with it — including one on a co-controlled Person, whose other controller
+  // can share the field again. Counted because the surviving family sees it.
+  const shares = await env.DB.prepare("SELECT COUNT(*) AS n FROM share WHERE created_by = ?")
+    .bind(userId)
+    .first<{ n: number }>();
 
   return {
     user: { id: user.id, email: user.email, disabled: user.disabled_at !== null },
@@ -129,6 +141,7 @@ export async function computeUserDeletionImpact(
     auditEntries: audit?.n ?? 0,
     volunteerClaimsWithdrawn: claims?.n ?? 0,
     boardCommentsDeleted: comments?.n ?? 0,
+    sharesWithdrawn: shares?.n ?? 0,
   };
 }
 
@@ -165,11 +178,14 @@ export function userDeletionStmts(
   // Account-owned rows nothing else holds. Deleted rather than NULLed:
   //  - volunteer claims are the account's ("who claimed this spot"),
   //  - board comments are the account's speech,
+  //  - shares are the account's act, and `created_by` is NOT NULL so they
+  //    cannot be kept as unattributed,
   //  - sessions include masquerade sessions this admin opened (acting_admin_id),
   //  - sign-in tokens are keyed by the account's email.
   stmts.push(
     env.DB.prepare("DELETE FROM volunteer_signup WHERE user_id = ?").bind(userId),
     env.DB.prepare("DELETE FROM pto_card_comment WHERE author_user_id = ?").bind(userId),
+    env.DB.prepare("DELETE FROM share WHERE created_by = ?").bind(userId),
     env.DB.prepare("DELETE FROM session WHERE user_id = ? OR acting_admin_id = ?").bind(userId, userId),
     env.DB.prepare("DELETE FROM auth_token WHERE email = ?").bind(email),
   );
@@ -180,10 +196,11 @@ export function userDeletionStmts(
   for (const [table, col] of [
     ["control", "granted_by"],
     ["control_invite", "invited_by"],
+    ["auth_token", "invited_by"],
     ["managed_calendar", "created_by"],
     ["managed_event", "created_by"],
     ["newsletter_issue", "created_by"],
-    ["newsletter_subscriber", "user_id"],
+    ["newsletter_send", "user_id"],
     ["volunteer_sheet", "created_by"],
     ["store_order", "user_id"],
     ["pto_board", "created_by"],

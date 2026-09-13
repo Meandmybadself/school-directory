@@ -39,6 +39,20 @@ const SCHEMA: Record<string, string[]> = {
   _cf_KV: ["key"],
 };
 
+/** The CREATE statements `sqlite_master.sql` would hold — enough of them to
+ *  carry the foreign keys the restore has to respect: `session` and
+ *  `control_invite` (both EXCLUDED, both left in place) point at `user` and
+ *  `person`, and `contact_item` points at `person`. */
+const DDL: Record<string, string> = {
+  person: "CREATE TABLE person (id TEXT PRIMARY KEY, first_name TEXT, last_name TEXT, unlisted_at TEXT)",
+  user: "CREATE TABLE user (id TEXT PRIMARY KEY, email TEXT, is_system_admin INTEGER, disabled_at TEXT)",
+  contact_item:
+    "CREATE TABLE contact_item (id TEXT PRIMARY KEY, owner_id TEXT REFERENCES person(id), -- a comment mentioning REFERENCES nothing(id)\n value TEXT, geo_lat REAL, geo_lng REAL)",
+  session: "CREATE TABLE session (id TEXT PRIMARY KEY, user_id TEXT NOT NULL REFERENCES user(id))",
+  control_invite:
+    "CREATE TABLE control_invite (id TEXT PRIMARY KEY, person_id TEXT NOT NULL REFERENCES person(id), token_hash TEXT)",
+};
+
 /** Rows the fake hands back for a full-table read. */
 const ROWS: Record<string, Record<string, unknown>[]> = {
   person: [
@@ -70,8 +84,10 @@ function fakeEnv(rows: Record<string, Record<string, unknown>[]> = ROWS): {
 
   function results(sql: string, binds: unknown[]): unknown[] {
     if (sql.includes("FROM sqlite_master")) {
-      return Object.keys(SCHEMA).map((name) => ({ name }));
+      return Object.keys(SCHEMA).map((name) => ({ name, sql: DDL[name] ?? null }));
     }
+    const ids = /^SELECT id FROM "([^"]+)"$/.exec(sql);
+    if (ids) return (rows[ids[1]!] ?? []).map((r) => ({ id: r.id }));
     const pragma = /PRAGMA table_info\("([^"]+)"\)/.exec(sql);
     if (pragma) return (SCHEMA[pragma[1]!] ?? []).map((name) => ({ name }));
     const read = /FROM "([^"]+)" WHERE rowid > \?/.exec(sql);
@@ -295,19 +311,83 @@ describe("runRestore", () => {
     }
   });
 
-  it("empties every table it writes before inserting into any of them", async () => {
+  it("empties every table nothing excluded points at, before inserting into any of them", async () => {
     const { statements } = await restored();
     const sql = statements.map((s) => s.sql);
-    const lastDelete = sql.reduce((last, s, i) => (s.startsWith("DELETE FROM") ? i : last), -1);
-    const firstInsert = sql.findIndex((s) => s.startsWith("INSERT INTO"));
-    expect(lastDelete).toBeGreaterThanOrEqual(0);
-    expect(firstInsert).toBeGreaterThan(lastDelete);
+    expect(sql).toContain('DELETE FROM "contact_item"');
+    const lastEmpty = sql.reduce((last, s, i) => (/^DELETE FROM "\w+"$/.test(s) ? i : last), -1);
+    const firstInsert = sql.findIndex((s) => s.startsWith("INSERT"));
+    expect(lastEmpty).toBeGreaterThanOrEqual(0);
+    expect(firstInsert).toBeGreaterThan(lastEmpty);
+  });
+
+  // D1 enforces foreign keys and checks them at each batch's commit. The
+  // session that keeps the admin signed in points at `user`, so `user` can
+  // never be emptied — not even for the instant between two batches.
+  it("never empties a table an excluded table points at; it upserts and trims instead", async () => {
+    const { statements } = await restored();
+    const sql = statements.map((s) => s.sql);
+    expect(sql).not.toContain('DELETE FROM "user"');
+    expect(sql).not.toContain('DELETE FROM "person"');
+    expect(sql.some((s) => s.startsWith('INSERT OR REPLACE INTO "user"'))).toBe(true);
+    expect(sql.some((s) => s.startsWith('INSERT OR REPLACE INTO "person"'))).toBe(true);
+    // Ordinary tables are plain inserts into an emptied table.
+    expect(sql.some((s) => s.startsWith('INSERT INTO "contact_item"'))).toBe(true);
+    expect(sql.some((s) => s.startsWith('INSERT OR REPLACE INTO "contact_item"'))).toBe(false);
+  });
+
+  it("defers foreign-key checks to the end of every batch", async () => {
+    const { env, statements } = fakeEnv();
+    const batches: string[][] = [];
+    const inner = env.DB.batch.bind(env.DB);
+    env.DB.batch = (async (stmts: { sql: string }[]) => {
+      batches.push(stmts.map((s) => s.sql));
+      return inner(stmts as never);
+    }) as never;
+    const { env: source } = fakeEnv();
+    await runRestore(env, await exportBackup(source));
+    expect(batches.length).toBeGreaterThan(1);
+    for (const b of batches) expect(b[0]).toBe("PRAGMA defer_foreign_keys = true");
+    expect(statements.filter((s) => s.sql.startsWith("PRAGMA")).length).toBe(batches.length);
+  });
+
+  it("inserts parents before the children that reference them", async () => {
+    const { statements } = await restored();
+    const sql = statements.map((s) => s.sql);
+    const person = sql.findIndex((s) => s.includes('INTO "person"'));
+    const contact = sql.findIndex((s) => s.includes('INTO "contact_item"'));
+    expect(person).toBeGreaterThanOrEqual(0);
+    expect(contact).toBeGreaterThan(person);
+  });
+
+  it("trims a kept-alive row the file does not name, and the excluded rows pointing at it first", async () => {
+    // Live has a second user with a session; the file (from a source without
+    // them) does not. The restore may not empty `user`, so it deletes them by
+    // id — the session first, in the same batch, or the commit would fail.
+    const { env: source } = fakeEnv();
+    const doc = await exportBackup(source);
+    const live = {
+      ...ROWS,
+      user: [...ROWS.user!, { id: "01U2", email: "gone@example.com", is_system_admin: 0, disabled_at: null }],
+      session: [...ROWS.session!, { id: "other-cookie", user_id: "01U2" }],
+    };
+    const { env, statements } = fakeEnv(live);
+    await runRestore(env, doc);
+    const sql = statements.map((s) => s.sql);
+    const session = statements.findIndex((s) => s.sql === 'DELETE FROM "session" WHERE "user_id" IN (?)');
+    const user = statements.findIndex((s) => s.sql === 'DELETE FROM "user" WHERE id IN (?)');
+    expect(session).toBeGreaterThanOrEqual(0);
+    expect(user).toBeGreaterThan(session);
+    expect(statements[user]!.binds).toEqual(["01U2"]);
+    expect(statements[session]!.binds).toEqual(["01U2"]);
+    // The admin's own session — its user IS in the file — is untouched.
+    expect(sql.some((s) => s.includes('"session"') && !s.includes("IN (?)"))).toBe(false);
   });
 
   it("round-trips every row, the unlisted Person included", async () => {
     const { statements, written } = await restored();
     expect(written).toBe(2 + 1 + 1); // person + user + contact_item
-    const persons = statements.filter((s) => s.sql.startsWith('INSERT INTO "person"'));
+    const persons = statements.filter((s) => s.sql.startsWith('INSERT OR REPLACE INTO "person"'));
     expect(persons).toHaveLength(2);
     expect(persons.flatMap((s) => s.binds)).toContain("01P2");
   });

@@ -713,6 +713,11 @@ export interface UserDeletionImpactDTO {
    *  Comments are speech tied to the account, not a Person, so nothing else
    *  holds them. */
   boardCommentsDeleted: number;
+  /** Fields this account shared with a person or group, including on a Person
+   *  someone else also controls. A share is the account's act (`created_by`
+   *  is NOT NULL), so it goes with the account; the other controller can share
+   *  the field again. */
+  sharesWithdrawn: number;
 }
 
 /** One normalized row submitted to bulk import (client maps CSV columns to these). */

@@ -194,6 +194,7 @@ describe("DELETE /persons/:id", () => {
     // Everything that hangs off a Person, and nothing that belongs to the school.
     expect(tables).toEqual([
       "volunteer_signup",
+      "pto_card_assignee",
       "share",
       "contact_item",
       "capability_grant",

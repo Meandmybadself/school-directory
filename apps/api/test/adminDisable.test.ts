@@ -202,6 +202,7 @@ describe("the deletion impact report", () => {
         "orphanedPersons",
         "retainedGroupsAdministered",
         "sharedPersons",
+        "sharesWithdrawn",
         "user",
         "volunteerClaimsWithdrawn",
       ].sort(),

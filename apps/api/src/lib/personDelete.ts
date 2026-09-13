@@ -17,6 +17,8 @@ import type { Env } from "../env.js";
 export function personCascadeStmts(env: Env, personId: string): D1PreparedStatement[] {
   return [
     env.DB.prepare("DELETE FROM volunteer_signup WHERE person_id = ?").bind(personId),
+    // A PTO card they were assigned to keeps the card and loses the assignee.
+    env.DB.prepare("DELETE FROM pto_card_assignee WHERE person_id = ?").bind(personId),
     // Shares in both directions. As SUBJECT, a share names either a contact item
     // of theirs or the synthetic `person:{id}:last_name` field ref; as TARGET, it
     // is someone else's field shared WITH them, which stops meaning anything the

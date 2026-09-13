@@ -211,7 +211,7 @@ function DeletionImpactSheet({
               note="Classrooms and school groups are never deleted with a member — but these would lose an admin."
               items={impact.retainedGroupsAdministered.map((g) => `${g.name} (${g.kind})`)}
             />
-            {(impact.volunteerClaimsWithdrawn > 0 || impact.boardCommentsDeleted > 0) && (
+            {(impact.volunteerClaimsWithdrawn > 0 || impact.boardCommentsDeleted > 0 || impact.sharesWithdrawn > 0) && (
               <ImpactBlock
                 tone="warn"
                 title="Account activity would be removed"
@@ -222,6 +222,9 @@ function DeletionImpactSheet({
                     : []),
                   ...(impact.boardCommentsDeleted > 0
                     ? [`${impact.boardCommentsDeleted} PTO board comment(s) deleted`]
+                    : []),
+                  ...(impact.sharesWithdrawn > 0
+                    ? [`${impact.sharesWithdrawn} shared field(s) unshared — a co-parent can share them again`]
                     : []),
                 ]}
               />

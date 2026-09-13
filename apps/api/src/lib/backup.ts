@@ -365,15 +365,17 @@ export function tableRestoreStmts(
   env: Env,
   table: string,
   rows: Record<string, unknown>[],
+  upsert = false,
 ): D1PreparedStatement[] {
   const stmts: D1PreparedStatement[] = [env.DB.prepare(`DELETE FROM ${quoted(table)}`)];
+  const verb = upsert ? "INSERT OR REPLACE INTO" : "INSERT INTO";
   for (const row of rows) {
     const cols = Object.keys(row);
     if (!cols.length) continue;
     const names = cols.map((c) => quoted(c)).join(", ");
     const holes = cols.map(() => "?").join(", ");
     stmts.push(
-      env.DB.prepare(`INSERT INTO ${quoted(table)} (${names}) VALUES (${holes})`).bind(
+      env.DB.prepare(`${verb} ${quoted(table)} (${names}) VALUES (${holes})`).bind(
         ...cols.map((c) => row[c] ?? null),
       ),
     );
@@ -381,13 +383,139 @@ export function tableRestoreStmts(
   return stmts;
 }
 
+/** One foreign key of the live schema: `table.column` points at `parent`. */
+export interface ForeignKey {
+  table: string;
+  column: string;
+  parent: string;
+}
+
+/** Every foreign key in the live schema, parsed out of `sqlite_master.sql`.
+ *  Read from the database rather than from a list here for the reason
+ *  `listBackupTables` gives: a migration's new REFERENCES is honoured by
+ *  construction. `ALTER TABLE … ADD COLUMN` rewrites the stored CREATE, so a
+ *  column added later (`grp.parent_id`, migration 0005) is in there too. */
+export async function readForeignKeys(env: Env): Promise<ForeignKey[]> {
+  const rows = await env.DB.prepare(
+    "SELECT name, sql FROM sqlite_master WHERE type = 'table'",
+  ).all<{ name: string; sql: string | null }>();
+  const out: ForeignKey[] = [];
+  for (const { name, sql } of rows.results) {
+    // Comments out first: a `--` remark can hold anything, including the word
+    // REFERENCES, and the column definitions are what is left.
+    const body = (sql ?? "").replace(/--[^\n]*/g, "");
+    for (const m of body.matchAll(/(\w+)\s+\w+[^,]*?REFERENCES\s+(\w+)\s*\(/g)) {
+      out.push({ table: name, column: m[1]!, parent: m[2]! });
+    }
+  }
+  return out;
+}
+
+/** Parents before children, alphabetical among peers; a cycle (none exist
+ *  today) falls back to alphabetical for what remains rather than failing. */
+export function restoreOrder(tables: string[], fks: ForeignKey[]): string[] {
+  const parents = new Map<string, Set<string>>();
+  for (const fk of fks) {
+    if (fk.parent === fk.table) continue;
+    if (!parents.has(fk.table)) parents.set(fk.table, new Set());
+    parents.get(fk.table)!.add(fk.parent);
+  }
+  const pending = new Set(tables);
+  const out: string[] = [];
+  while (pending.size) {
+    const ready = [...pending]
+      .filter((t) => ![...(parents.get(t) ?? [])].some((p) => pending.has(p)))
+      .sort();
+    if (!ready.length) {
+      out.push(...[...pending].sort());
+      break;
+    }
+    for (const t of ready) {
+      out.push(t);
+      pending.delete(t);
+    }
+  }
+  return out;
+}
+
+/** Rows of a self-referencing table ordered so every parent precedes its
+ *  child; rows whose parent is absent from the file keep their place. */
+export function parentFirst(
+  rows: Record<string, unknown>[],
+  refColumns: string[],
+): Record<string, unknown>[] {
+  if (!refColumns.length) return rows;
+  const ids = new Set(rows.map((r) => r.id));
+  const placed = new Set<unknown>();
+  const out: Record<string, unknown>[] = [];
+  let remaining = rows;
+  while (remaining.length) {
+    const next: Record<string, unknown>[] = [];
+    for (const r of remaining) {
+      const waits = refColumns.some(
+        (c) => r[c] != null && r[c] !== r.id && ids.has(r[c]) && !placed.has(r[c]),
+      );
+      if (waits) next.push(r);
+      else {
+        out.push(r);
+        placed.add(r.id);
+      }
+    }
+    if (next.length === remaining.length) {
+      out.push(...next); // a cycle in the data; let D1 report it
+      break;
+    }
+    remaining = next;
+  }
+  return out;
+}
+
+/** The tables a restore may not EMPTY: everything an EXCLUDED table points at
+ *  (`session.user_id`, `control_invite.person_id`, `auth_token.group_id`…),
+ *  closed under REFERENCES so nothing kept is left pointing at nothing. Those
+ *  rows are upserted and then trimmed instead — see `runRestore`. */
+export function keptAliveTables(restored: string[], fks: ForeignKey[]): Set<string> {
+  const excluded = new Set<string>(EXCLUDED_TABLES);
+  const restoring = new Set(restored);
+  const kept = new Set<string>();
+  const queue = fks.filter((fk) => excluded.has(fk.table) && restoring.has(fk.parent)).map((fk) => fk.parent);
+  while (queue.length) {
+    const t = queue.pop()!;
+    if (kept.has(t)) continue;
+    kept.add(t);
+    for (const fk of fks) if (fk.table === t && fk.parent !== t && restoring.has(fk.parent)) queue.push(fk.parent);
+  }
+  return kept;
+}
+
+/** D1 allows at most 100 bound parameters in one statement. */
+const IN_CHUNK = 100;
+
 /**
  * Execute a validated plan.
  *
- * Deletes come first, all of them, before any insert: D1 does not enforce
- * foreign keys (see CLAUDE.md, Conventions), so nothing here depends on order
- * for correctness — but doing it in two passes means a row can never be
- * inserted and then deleted by a later table's DELETE.
+ * D1 ENFORCES foreign keys, and a restore is a sequence of `batch()` calls,
+ * each its own transaction. The first version of this shipped as "empty every
+ * table, then insert every file", believing the note that D1 did not enforce
+ * them; its test's fake D1 had no schema to say otherwise, and the first real
+ * restore failed on the first DELETE. Three things hold the rewrite together:
+ *
+ *  - `PRAGMA defer_foreign_keys = true` leads every batch, so checks run at
+ *    the batch's COMMIT rather than per statement: within a batch, order is
+ *    free. Between batches it is not, so inserts run parents-first across
+ *    tables (`restoreOrder`) and parent-first within a self-referencing one
+ *    (`parentFirst`) — a `control` chunk committed before its `user` rows
+ *    exist fails, deferred or not.
+ *  - The tables the EXCLUDED ones point at cannot be emptied at all, because
+ *    the excluded rows are deliberately left in place (that is what keeps the
+ *    admin signed in): a commit with `session.user_id` pointing at an emptied
+ *    `user` is a violated constraint however it is deferred. So `user`,
+ *    `person` and `grp` (`keptAliveTables`, from the schema) are restored by
+ *    UPSERT — `INSERT OR REPLACE` for every file row — and then TRIMMED: rows
+ *    the file does not name are deleted in id chunks, each chunk's batch first
+ *    deleting the excluded rows that point at them, which is where a session
+ *    for an account not in the file ends (the warning `planRestore` gives).
+ *  - Everything else is emptied first, in one batch, then inserted in order.
  *
  * NOT ATOMIC ACROSS CHUNKS. D1 wraps one `batch()` in a transaction, and a real
  * directory does not fit in one batch. That is exactly why `planRestore` runs
@@ -396,20 +524,57 @@ export function tableRestoreStmts(
  */
 export async function runRestore(env: Env, doc: BackupDocument): Promise<number> {
   const skipped = new Set<string>(RESTORE_SKIPPED_TABLES);
-  const tables = Object.keys(doc.tables).filter((t) => !skipped.has(t));
+  const fks = await readForeignKeys(env);
+  const restored = Object.keys(doc.tables).filter((t) => !skipped.has(t));
+  const tables = restoreOrder(restored, fks);
+  const kept = keptAliveTables(restored, fks);
+  const defer = () => env.DB.prepare("PRAGMA defer_foreign_keys = true");
+  const selfRefs = (t: string) => fks.filter((fk) => fk.table === t && fk.parent === t).map((fk) => fk.column);
 
-  await env.DB.batch(tables.map((t) => env.DB.prepare(`DELETE FROM ${quoted(t)}`)));
+  // 1. Empty every table nothing excluded points at.
+  const emptied = tables.filter((t) => !kept.has(t));
+  await env.DB.batch([defer(), ...emptied.map((t) => env.DB.prepare(`DELETE FROM ${quoted(t)}`))]);
 
+  // 2. Kept-alive tables: what is live now, so the trim below knows what to drop.
+  const liveIds = new Map<string, Set<string>>();
+  for (const t of tables) {
+    if (!kept.has(t)) continue;
+    const live = await env.DB.prepare(`SELECT id FROM ${quoted(t)}`).all<{ id: string }>();
+    liveIds.set(t, new Set(live.results.map((r) => r.id)));
+  }
+
+  // 3. Insert, parents first. Kept tables upsert; the rest are empty already.
   let written = 0;
   for (const table of tables) {
-    const rows = doc.tables[table] ?? [];
+    const rows = parentFirst(doc.tables[table] ?? [], selfRefs(table));
     for (let i = 0; i < rows.length; i += BATCH) {
       const chunk = rows.slice(i, i + BATCH);
       // tableRestoreStmts leads with the DELETE this pass already ran, so take
       // the inserts only.
-      const stmts = tableRestoreStmts(env, table, chunk).slice(1);
-      if (stmts.length) await env.DB.batch(stmts);
+      const stmts = tableRestoreStmts(env, table, chunk, kept.has(table)).slice(1);
+      if (stmts.length) await env.DB.batch([defer(), ...stmts]);
       written += stmts.length;
+    }
+  }
+
+  // 4. Trim the kept tables, children first: rows the file did not name, and
+  //    the excluded rows that point at them.
+  for (const table of [...tables].reverse()) {
+    const live = liveIds.get(table);
+    if (!live) continue;
+    const named = new Set((doc.tables[table] ?? []).map((r) => r.id));
+    const stale = [...live].filter((id) => !named.has(id));
+    const pointers = fks.filter((fk) => fk.parent === table && fk.table !== table && !restored.includes(fk.table));
+    for (let i = 0; i < stale.length; i += IN_CHUNK) {
+      const ids = stale.slice(i, i + IN_CHUNK);
+      const holes = ids.map(() => "?").join(", ");
+      await env.DB.batch([
+        defer(),
+        ...pointers.map((fk) =>
+          env.DB.prepare(`DELETE FROM ${quoted(fk.table)} WHERE ${quoted(fk.column)} IN (${holes})`).bind(...ids),
+        ),
+        env.DB.prepare(`DELETE FROM ${quoted(table)} WHERE id IN (${holes})`).bind(...ids),
+      ]);
     }
   }
   return written;
