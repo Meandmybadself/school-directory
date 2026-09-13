@@ -13,6 +13,7 @@ import type {
   PersonRemovalImpactDTO,
   Visibility,
 } from "@sd/shared";
+import { roleCapabilities } from "@sd/shared";
 import { Icon, type IconName } from "../components/Icon.js";
 import { Avatar, Btn, Tag, type VisState } from "../components/atoms.js";
 import { AppShell, BottomNav } from "../components/AppShell.js";
@@ -114,7 +115,7 @@ export function ProfileView() {
       <div>
         <div className="sd-h1" style={{ fontSize: 23 }}>{p.displayName}</div>
         <div className="sd-row" style={{ gap: 6, marginTop: 8, justifyContent: "center" }}>
-          {p.capabilities.map((c) => (
+          {roleCapabilities(p.capabilities).map((c) => (
             <Tag key={c} tone={c === "teacher" ? "orange" : "blue"} icon={c === "teacher" ? "school" : "users3"}>{capLabel(t, c)}</Tag>
           ))}
         </div>
@@ -269,9 +270,9 @@ export function ProfileView() {
   );
 }
 
-/** What a co-member is, as a family reads it — `household_admin` is authority
- *  over the group rather than a relation to the people in it. */
-const familyCaps = (caps: Capability[]): Capability[] => caps.filter((c) => c !== "household_admin");
+/** What a co-member is, as a family reads it. The same rule the hero, the
+ *  directory rows and the switcher now follow — see `ROLE_CAPABILITIES`. */
+const familyCaps = roleCapabilities;
 
 /** One group on a profile. A household the server could name co-members for
  *  shows their faces instead of a member count — the count was only ever
@@ -351,8 +352,8 @@ function GroupCard({
                   that answers a different question — it is a permission over
                   this group, not a description of the person, and "Household
                   admin · Parent" reads as a job title in a list of relatives.
-                  It still shows on their own hero, where the question IS what
-                  they may do. */}
+                  (It no longer shows on the hero either; the whole UI reads
+                  `roleCapabilities` now.) */}
               {caps.length > 0 && (
                 <div className="sd-meta">{caps.map((c) => capLabel(t, c)).join(" · ")}</div>
               )}

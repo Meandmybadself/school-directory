@@ -1,6 +1,6 @@
 // "Your profile" snapshot card — shared by mobile + desktop Home.
 import { useNavigate } from "react-router-dom";
-import type { ControllablePersonDTO, PersonProfileDTO } from "@sd/shared";
+import { roleCapabilities, type ControllablePersonDTO, type PersonProfileDTO } from "@sd/shared";
 import { Icon } from "./Icon.js";
 import { Avatar, Btn } from "./atoms.js";
 import { capLabel, useI18n } from "../i18n/index.js";
@@ -37,7 +37,7 @@ export function ProfileSnapshot({
         <Avatar name={person.displayName} size={46} img={mediaUrl(person.photoUrl)} color="var(--blue)" />
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ fontSize: 16, fontWeight: 700, letterSpacing: "-.2px" }}>{person.displayName}</div>
-          <div className="sd-meta">{person.capabilities.map((c) => capLabel(t, c)).join(" · ")}</div>
+          <div className="sd-meta">{roleCapabilities(person.capabilities).map((c) => capLabel(t, c)).join(" · ")}</div>
         </div>
         <button className="sd-btn sd-btn-secondary sd-btn-sm" onClick={() => navigate(`/persons/${person.id}`)}>
           <Icon name="eye" size={15} />{t("preview")}

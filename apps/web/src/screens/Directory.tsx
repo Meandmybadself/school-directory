@@ -3,7 +3,7 @@
 // the privacy-filtered profile each row links to.
 import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { CAPABILITIES } from "@sd/shared";
+import { ROLE_CAPABILITIES, roleCapabilities } from "@sd/shared";
 import type { Capability, PersonSummaryDTO } from "@sd/shared";
 import { Icon } from "../components/Icon.js";
 import { Tag } from "../components/atoms.js";
@@ -14,8 +14,11 @@ import { capLabel, useI18n, type I18nT } from "../i18n/index.js";
 import { useIsDesktop } from "../lib/useIsDesktop.js";
 import { api, mediaUrl } from "../lib/api.js";
 
+/** Role tags only — see `ROLE_CAPABILITIES` for why `household_admin` is not
+ *  one of them. The filter chips below draw from the same list, so a row can
+ *  never be selected by a tag it doesn't show (invariant 18). */
 function capTags(caps: Capability[], t: I18nT) {
-  return caps.map((c) => (
+  return roleCapabilities(caps).map((c) => (
     <Tag key={c} tone={c === "teacher" ? "orange" : c === "student" ? "line" : "blue"}>
       {capLabel(t, c)}
     </Tag>
@@ -91,7 +94,7 @@ export function Directory() {
       >
         {t("filterAllRoles")}
       </button>
-      {CAPABILITIES.map((c) => (
+      {ROLE_CAPABILITIES.map((c) => (
         <button
           key={c}
           type="button"

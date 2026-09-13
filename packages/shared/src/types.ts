@@ -31,6 +31,21 @@ export const ASSIGNABLE_CAPABILITIES: Capability[] = [
   "staff",
 ];
 
+/** The capabilities that describe WHAT a Person is — the ones shown as tags on
+ *  a row, in a profile hero, under a name in the switcher, and offered as
+ *  directory filter chips. `household_admin` is excluded: it is authority over
+ *  a group, not a category of person, and nobody browsing a directory is asking
+ *  who may edit a household. It stays a capability — the grant still gates
+ *  household edits — it just isn't a badge any more. The server's directory
+ *  filter refuses it for invariant 18's reason: a search may not match on more
+ *  than it renders, and nothing renders it now. */
+export const ROLE_CAPABILITIES: Capability[] = ["parent", "teacher", "staff", "student"];
+
+/** A Person's capabilities as they should be DISPLAYED — see `ROLE_CAPABILITIES`. */
+export function roleCapabilities(caps: Capability[]): Capability[] {
+  return caps.filter((c) => ROLE_CAPABILITIES.includes(c));
+}
+
 /** Visibility level on a field or contact item. There is no "public" level. */
 export type Visibility = "service" | "private";
 

@@ -1,7 +1,7 @@
 // Bottom sheets: the account sheet (Person switcher + sign out) and the
 // language picker.
 import { useNavigate } from "react-router-dom";
-import { localeNames, LOCALES, type Locale } from "@sd/shared";
+import { localeNames, LOCALES, roleCapabilities, type Locale } from "@sd/shared";
 import { Icon } from "./Icon.js";
 import { Avatar } from "./atoms.js";
 import { SheetOver } from "./parts.js";
@@ -66,7 +66,7 @@ export function PersonSwitcherSheet({ onClose }: { onClose: () => void }) {
               <Avatar name={p.displayName} size={40} img={mediaUrl(p.photoUrl)} />
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ fontSize: 15, fontWeight: 700 }}>{p.displayName}</div>
-                <div className="sd-meta">{p.capabilities.map((c) => capLabel(t, c)).join(" · ") || t("member")}</div>
+                <div className="sd-meta">{roleCapabilities(p.capabilities).map((c) => capLabel(t, c)).join(" · ") || t("member")}</div>
               </div>
               {sel && <Icon name="check" size={20} style={{ color: "var(--blue)" }} />}
             </button>

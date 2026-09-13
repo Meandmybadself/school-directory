@@ -10,6 +10,7 @@ import { SiteFooter } from "./SiteFooter.js";
 import { PlatformNav } from "./AppSwitcher.js";
 import { capLabel, useI18n } from "../i18n/index.js";
 import { useSession } from "../lib/session.js";
+import { roleCapabilities } from "@sd/shared";
 import { mediaUrl } from "../lib/api.js";
 
 function Sidebar({ active }: { active: NavKey }) {
@@ -89,7 +90,7 @@ export function DesktopShell({
               <Avatar name={activePerson.displayName} size={32} img={mediaUrl(activePerson.photoUrl)} color="var(--blue)" />
               <div style={{ lineHeight: 1.1, textAlign: "left" }}>
                 <div style={{ fontSize: 13.5, fontWeight: 700 }}>{activePerson.displayName}</div>
-                <div style={{ fontSize: 11, color: "var(--ink-3)", fontWeight: 600 }}>{activePerson.capabilities.map((c) => capLabel(t, c)).join(" · ")}</div>
+                <div style={{ fontSize: 11, color: "var(--ink-3)", fontWeight: 600 }}>{roleCapabilities(activePerson.capabilities).map((c) => capLabel(t, c)).join(" · ")}</div>
               </div>
               <Icon name="chevdown" size={15} stroke={2.2} style={{ color: "var(--ink-3)" }} />
             </button>

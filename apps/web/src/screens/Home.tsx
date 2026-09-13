@@ -2,7 +2,7 @@
 // 4-up Neighbors row and the groups list.
 import { useEffect, useState, type ReactNode } from "react";
 import { useNavigate } from "react-router-dom";
-import { eventPath, htmlToText, type CalendarEventDTO, type GroupSummaryDTO, type NeighborsResponse, type PersonProfileDTO, type PublicNewsletterIssueSummaryDTO } from "@sd/shared";
+import { eventPath, htmlToText, roleCapabilities, type CalendarEventDTO, type GroupSummaryDTO, type NeighborsResponse, type PersonProfileDTO, type PublicNewsletterIssueSummaryDTO } from "@sd/shared";
 import { Icon } from "../components/Icon.js";
 import { Btn } from "../components/atoms.js";
 import type { I18nT } from "../i18n/index.js";
@@ -315,7 +315,7 @@ function MobileHome({ activePerson, groups, hasNeighbors, noAddress, list, event
     <AppShell bottomNav={<BottomNav active="home" />}>
       <AppBar
         name={activePerson.displayName}
-        sub={activePerson.capabilities.map((c) => capLabel(t, c)).join(" · ")}
+        sub={roleCapabilities(activePerson.capabilities).map((c) => capLabel(t, c)).join(" · ")}
         color="var(--blue)"
         img={mediaUrl(activePerson.photoUrl)}
         onSwitcher={() => setSheet("switcher")}

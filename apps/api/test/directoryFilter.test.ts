@@ -122,6 +122,9 @@ describe("GET /directory capability filter", () => {
       "/directory?capability=bogus",
       "/directory?capability=teacher,bogus",
       "/directory?capability=system_admin", // a User role, not a Person capability
+      // A real capability, but authority over a household rather than a kind
+      // of person — no row renders it, so no filter may match on it.
+      "/directory?capability=household_admin",
     ]) {
       const { status, seen } = await statements(url);
       expect(status).toBe(400);

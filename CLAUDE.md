@@ -548,9 +548,13 @@ All five SPAs are separate Cloudflare Pages projects talking to the single
    withholds, and make sure the WHERE withholds it too.
    The directory's **capability filter** (`?capability=teacher&capability=staff`,
    OR'd into one `IN`) is the worked example of a term that clears this bar
-   rather than tripping it: every capability a Person holds is already rendered
-   as a tag on the very row the filter selects, so there is nothing for matching
-   on it to confirm. It is ANDed onto `personSearchSql`, never in place of it, so
+   rather than tripping it: every ROLE capability a Person holds is already
+   rendered as a tag on the very row the filter selects, so there is nothing for
+   matching on it to confirm. `household_admin` is the exception that proves
+   the rule — it is authority over a group, not a kind of person, so the UI
+   stopped showing it anywhere (`roleCapabilities` in `@sd/shared`) and the
+   route refuses it with the same 400 an unknown code gets.
+   It is ANDed onto `personSearchSql`, never in place of it, so
    the enumeration gate (invariant 21) and the surname rule both still apply —
    and onto BOTH statements, because a total that ignored the filter would page
    past the end of the list the member can see. It is written as a trailing

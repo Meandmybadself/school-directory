@@ -4,7 +4,7 @@
 // profile. Search is by name, narrowed by capability.
 
 import { Hono } from "hono";
-import { CAPABILITIES } from "@sd/shared";
+import { ROLE_CAPABILITIES } from "@sd/shared";
 import type { Capability, PersonSummaryDTO } from "@sd/shared";
 import type { HonoEnv } from "../env.js";
 import { requireAuth } from "../middleware/session.js";
@@ -21,16 +21,20 @@ const PAGE = 50;
  *  answers it with a 400: dropping it would serve a listing WIDER than the one
  *  asked for while looking like it had been filtered, and a filter that quietly
  *  doesn't apply is the failure worth being loud about. The client only ever
- *  sends codes from `CAPABILITIES`, so only a hand-edited URL reaches this.
+ *  sends codes from `ROLE_CAPABILITIES`, so only a hand-edited URL reaches this.
  *
- *  Unlike a name, a capability carries no display rule: every one a Person holds
- *  is rendered as a tag on the very row this selects, so matching on it tells a
- *  member nothing the response wasn't already going to show them (invariant 18).
- *  Whether the Person may be enumerated at all is a different question, and
- *  stays the `personSearchSql` term this only ever narrows. */
+ *  Unlike a name, a role capability carries no display rule: every one a Person
+ *  holds is rendered as a tag on the very row this selects, so matching on it
+ *  tells a member nothing the response wasn't already going to show them
+ *  (invariant 18). `household_admin` is the capability that ISN'T rendered any
+ *  more — it is authority over a group, not a kind of person — and so it is
+ *  refused here like a code that doesn't exist, rather than left as a way to
+ *  ask the directory who administers a household. Whether the Person may be
+ *  enumerated at all is a different question, and stays the `personSearchSql`
+ *  term this only ever narrows. */
 function requestedCapabilities(raw: string[]): { caps: Capability[]; invalid: boolean } {
   const asked = [...new Set(raw.flatMap((v) => v.split(",")).map((v) => v.trim()).filter(Boolean))];
-  const caps = asked.filter((x): x is Capability => CAPABILITIES.includes(x as Capability));
+  const caps = asked.filter((x): x is Capability => ROLE_CAPABILITIES.includes(x as Capability));
   return { caps, invalid: caps.length !== asked.length };
 }
 
