@@ -728,6 +728,37 @@ export interface BulkImportRow {
   capabilities?: string;
 }
 
+export interface BulkImportOptions {
+  /**
+   * A row whose email has no account gets an ACCOUNT rather than a pending
+   * invite: the `user` row is minted the way `POST /admin/users` mints one
+   * (`joined_via 'admin'`, no email sent) and the Person is attached to it on
+   * the spot. From then on "Email me a link" on the sign-in screen finds the
+   * account — registration open or closed — and the member lands already
+   * controlling their Person. Built for a staff roster, where the school
+   * vouches for every address and nobody wants an invitation to answer. In
+   * this mode there are no invites, so there is nothing for `sendInvites` to
+   * mail; the two are alternatives, not layers.
+   */
+  createAccounts?: boolean;
+  /**
+   * Visibility of the contact items this import writes. Defaults to `private`
+   * (invariant 3) — right for a family roster, where the member decides what
+   * to show, and wrong for a staff one, where a classroom phone nobody but the
+   * teacher can see is not a directory entry. An explicit admin choice on the
+   * import, never a new default.
+   */
+  contactVisibility?: Visibility;
+  /**
+   * The email column is the named Person's OWN address, so store it on their
+   * profile as an email contact item. Off by default because on a family
+   * roster that column is the PARENT'S address repeated on each child's row —
+   * the account that controls the Person, not the Person's own contact — and
+   * a child's profile must not carry it.
+   */
+  emailAsContact?: boolean;
+}
+
 export interface BulkImportResult {
   dryRun: boolean;
   rowsProcessed: number;
@@ -736,6 +767,8 @@ export interface BulkImportResult {
   groupsCreated: number;
   membershipsCreated: number;
   invitesQueued: number;
+  /** Sign-in accounts minted by this import (`createAccounts` mode only). */
+  accountsCreated: number;
   errors: { row: number; message: string }[];
 }
 

@@ -2,7 +2,7 @@
 // (CSV import, audit-log table, registration toggle UI) is M4.
 
 import { Hono } from "hono";
-import type { AuditEntryDTO, BulkImportRow, CalendarSourceDTO, CalendarSourceInput } from "@sd/shared";
+import type { AuditEntryDTO, BulkImportOptions, BulkImportRow, CalendarSourceDTO, CalendarSourceInput } from "@sd/shared";
 import { RESTORE_CONFIRM } from "@sd/shared";
 import type { Env, HonoEnv } from "../env.js";
 import { requireAuth } from "../middleware/session.js";
@@ -344,16 +344,29 @@ admin.patch("/users/:id", async (c) => {
   });
 });
 
-/** POST /admin/bulk-import { rows, dryRun } — CSV bulk import (FR-29/30). */
+/** POST /admin/bulk-import { rows, dryRun, sendInvites, createAccounts,
+ *  contactVisibility, emailAsContact } — CSV bulk import (FR-29/30).
+ *
+ *  Two ways to handle a row's email, and they are alternatives: by default it
+ *  gets a pending invite (mailed only with `sendInvites`); with
+ *  `createAccounts` it gets an account outright and no invite exists to mail —
+ *  see `BulkImportOptions`. A staff roster wants the second: the school
+ *  vouches for the addresses, and "Email me a link" then finds the account. */
 admin.post("/bulk-import", async (c) => {
   const auth = requireAuth(c);
   if (!auth.isSystemAdmin) return c.json({ error: "forbidden" }, 403);
-  const body = await c.req.json<{ rows: BulkImportRow[]; dryRun?: boolean; sendInvites?: boolean }>().catch(() => null);
+  const body = await c.req
+    .json<{ rows: BulkImportRow[]; dryRun?: boolean; sendInvites?: boolean } & BulkImportOptions>()
+    .catch(() => null);
   if (!body || !Array.isArray(body.rows)) return c.json({ error: "invalid_body" }, 400);
 
   const dryRun = body.dryRun !== false; // default to a safe dry-run
   const sendInvites = body.sendInvites === true; // opt-in: email new members a sign-in link
-  const { result, invites } = await runBulkImport(c.env, body.rows, dryRun);
+  const { result, invites } = await runBulkImport(c.env, body.rows, dryRun, {
+    createAccounts: body.createAccounts === true,
+    contactVisibility: body.contactVisibility === "service" ? "service" : "private",
+    emailAsContact: body.emailAsContact === true,
+  });
   if (!dryRun) {
     const emailsSent = sendInvites ? invites.length : 0;
     if (emailsSent > 0) {
@@ -368,6 +381,7 @@ admin.post("/bulk-import", async (c) => {
         personsCreated: result.personsCreated,
         groupsCreated: result.groupsCreated,
         invitesQueued: result.invitesQueued,
+        accountsCreated: result.accountsCreated,
         emailsSent,
       },
       // Counts only — the same numbers, restated deliberately rather than
@@ -377,6 +391,7 @@ admin.post("/bulk-import", async (c) => {
         personsCreated: result.personsCreated,
         groupsCreated: result.groupsCreated,
         invitesQueued: result.invitesQueued,
+        accountsCreated: result.accountsCreated,
         emailsSent,
       },
     });

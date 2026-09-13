@@ -9,7 +9,7 @@
 // applying the enumeration gate here would corrupt the roster rather than
 // protect anybody. Nothing in this file returns a name to a member.
 
-import type { BulkImportResult, BulkImportRow, Capability, GroupKind } from "@sd/shared";
+import type { BulkImportOptions, BulkImportResult, BulkImportRow, Capability, GroupKind, Visibility } from "@sd/shared";
 import type { Env } from "../env.js";
 import { ulid } from "./ids.js";
 import { nowIso, isoPlus, INVITE_TTL } from "./time.js";
@@ -39,6 +39,7 @@ export async function runBulkImport(
   env: Env,
   rows: BulkImportRow[],
   dryRun: boolean,
+  options: BulkImportOptions = {},
 ): Promise<{ result: BulkImportResult; invites: QueuedInvite[] }> {
   const invites: QueuedInvite[] = [];
   const result: BulkImportResult = {
@@ -49,9 +50,13 @@ export async function runBulkImport(
     groupsCreated: 0,
     membershipsCreated: 0,
     invitesQueued: 0,
+    accountsCreated: 0,
     errors: [],
   };
   const commit = !dryRun;
+  const createAccounts = options.createAccounts === true;
+  const contactVisibility: Visibility = options.contactVisibility === "service" ? "service" : "private";
+  const emailAsContact = options.emailAsContact === true;
 
   if (rows.length > MAX_ROWS) {
     result.errors.push({ row: 0, message: `Too many rows (max ${MAX_ROWS}).` });
@@ -64,6 +69,8 @@ export async function runBulkImport(
   const membershipSeen = new Set<string>(); // `${groupId}:${personId}`
   const inviteSeen = new Set<string>(); // `${personId}:${email}`
   const phoneSeen = new Set<string>(); // `${personId}:${phone}`
+  const emailItemSeen = new Set<string>(); // `${personId}:${email}`
+  const userByEmail = new Map<string, string>(); // accounts minted by THIS import
   let synthetic = 0;
   const synthId = (p: string) => `dry_${p}_${++synthetic}`;
 
@@ -137,22 +144,25 @@ export async function runBulkImport(
         }
       }
 
-      // ── Phone (contact item) ────────────────────────────────────────────
+      // ── Phone / email (contact items) ───────────────────────────────────
       const phone = row.phone?.trim();
       if (phone && !personId.startsWith("dry_")) {
         const pkey = `${personId}:${phone}`;
         if (!phoneSeen.has(pkey)) {
           phoneSeen.add(pkey);
-          if (commit && !(await hasPhone(env, personId, phone))) {
-            const cid = ulid();
-            await env.DB.prepare(
-              `INSERT INTO contact_item
-                 (id, owner_kind, owner_id, type, label, value, visibility,
-                  neighbor_discoverable, geocode_status, created_at, updated_at)
-               VALUES (?, 'person', ?, 'phone', NULL, ?, 'private', 0, 'none', ?, ?)`,
-            )
-              .bind(cid, personId, phone, nowIso(), nowIso())
-              .run();
+          if (commit && !(await hasContactItem(env, personId, "phone", phone))) {
+            await insertContactItem(env, personId, "phone", phone, contactVisibility);
+          }
+        }
+      }
+      // Only when the admin has said the column is the Person's own address —
+      // see `BulkImportOptions.emailAsContact` for why that is not assumed.
+      if (emailAsContact && email && !personId.startsWith("dry_")) {
+        const ekey = `${personId}:${email}`;
+        if (!emailItemSeen.has(ekey)) {
+          emailItemSeen.add(ekey);
+          if (commit && !(await hasContactItem(env, personId, "email", email))) {
+            await insertContactItem(env, personId, "email", email, contactVisibility);
           }
         }
       }
@@ -214,21 +224,10 @@ export async function runBulkImport(
     const matched = (id: string) => ({ id, created: false, grantControlUserId: null, shouldInvite: false });
 
     if (r.email) {
-      const user = await findUserByEmail(e, r.email);
-      if (user) {
-        // Match the *named* Person among those this account controls.
-        const named = await e.DB.prepare(
-          `SELECT p.id FROM control c JOIN person p ON p.id = c.person_id
-           WHERE c.user_id = ? AND lower(p.first_name) = lower(?) AND lower(coalesce(p.last_name,'')) = lower(?) LIMIT 1`,
-        )
-          .bind(user.id, r.firstName, r.lastName ?? "")
-          .first<{ id: string }>();
-        if (named) return matched(named.id);
-        // New Person belonging to an existing account; no invite needed.
-        return created({ grantControlUserId: user.id });
-      }
-      // No user: match a Person from a prior import via its still-pending invite,
-      // so re-runs don't duplicate. Else create + invite.
+      // A Person from a prior import still waiting on an invite nobody clicked.
+      // Read up front because BOTH branches below want it: with an account in
+      // hand it is adopted (control granted, invite closed) rather than
+      // re-created; without one it is simply matched, so re-runs don't duplicate.
       const pending = await e.DB.prepare(
         `SELECT ci.person_id FROM control_invite ci JOIN person p ON p.id = ci.person_id
          WHERE ci.to_email = ? AND ci.status = 'pending'
@@ -237,6 +236,46 @@ export async function runBulkImport(
       )
         .bind(r.email, r.firstName, r.lastName ?? "")
         .first<{ person_id: string }>();
+
+      const user = await findUserByEmail(e, r.email);
+      let userId = user?.id ?? userByEmail.get(r.email) ?? null;
+      if (!userId && createAccounts) {
+        // Same row `POST /admin/users` writes, minus the optional magic link:
+        // `joined_via 'admin'` keeps it out of the new-member notifications,
+        // and `email_verified_at` stays null until their first sign-in sets it.
+        userId = write ? ulid() : synthId("u");
+        if (write) {
+          await e.DB.prepare(
+            "INSERT INTO user (id, email, is_system_admin, created_at, joined_via) VALUES (?,?,0,?, 'admin')",
+          )
+            .bind(userId, r.email, nowIso())
+            .run();
+        }
+        userByEmail.set(r.email, userId);
+        result.accountsCreated++;
+      }
+
+      if (userId) {
+        // Match the *named* Person among those this account controls. (An
+        // account this import just minted controls nothing yet, and a dry-run
+        // id matches no row — both fall through, which is right.)
+        const named = await e.DB.prepare(
+          `SELECT p.id FROM control c JOIN person p ON p.id = c.person_id
+           WHERE c.user_id = ? AND lower(p.first_name) = lower(?) AND lower(coalesce(p.last_name,'')) = lower(?) LIMIT 1`,
+        )
+          .bind(userId, r.firstName, r.lastName ?? "")
+          .first<{ id: string }>();
+        if (named) return matched(named.id);
+        if (pending) {
+          // The invite was addressed to exactly this email and this account
+          // holds it, so the Person is theirs: grant it and close the invite,
+          // instead of minting a second Person beside the one waiting.
+          if (write) await adoptPending(e, userId, pending.person_id, r.email);
+          return matched(pending.person_id);
+        }
+        // New Person belonging to an account; no invite needed.
+        return created({ grantControlUserId: userId });
+      }
       if (pending) return matched(pending.person_id);
       return created({ shouldInvite: true });
     }
@@ -278,14 +317,46 @@ export async function runBulkImport(
     return !!row;
   }
 
-  async function hasPhone(e: Env, personId: string, value: string): Promise<boolean> {
+  async function hasContactItem(e: Env, personId: string, type: "phone" | "email", value: string): Promise<boolean> {
     if (personId.startsWith("dry_")) return false;
     const row = await e.DB.prepare(
-      "SELECT 1 AS ok FROM contact_item WHERE owner_kind = 'person' AND owner_id = ? AND type = 'phone' AND value = ? LIMIT 1",
+      "SELECT 1 AS ok FROM contact_item WHERE owner_kind = 'person' AND owner_id = ? AND type = ? AND value = ? LIMIT 1",
     )
-      .bind(personId, value)
+      .bind(personId, type, value)
       .first<{ ok: number }>();
     return !!row;
+  }
+
+  async function insertContactItem(
+    e: Env,
+    personId: string,
+    type: "phone" | "email",
+    value: string,
+    visibility: Visibility,
+  ): Promise<void> {
+    await e.DB.prepare(
+      `INSERT INTO contact_item
+         (id, owner_kind, owner_id, type, label, value, visibility,
+          neighbor_discoverable, geocode_status, created_at, updated_at)
+       VALUES (?, 'person', ?, ?, NULL, ?, ?, 0, 'none', ?, ?)`,
+    )
+      .bind(ulid(), personId, type, value, visibility, nowIso(), nowIso())
+      .run();
+  }
+
+  /** Hand a Person with a pending invite to the account that now holds the
+   *  invited address: the control `bindInvite` would have granted on the click,
+   *  and the invite closed the same way, minus the household widening — an
+   *  import never carries one (migration 0021). */
+  async function adoptPending(e: Env, userId: string, personId: string, email: string): Promise<void> {
+    await e.DB.batch([
+      e.DB.prepare(
+        "INSERT INTO control (user_id, person_id, granted_by, since) VALUES (?,?,NULL,?) ON CONFLICT DO NOTHING",
+      ).bind(userId, personId, nowIso()),
+      e.DB.prepare(
+        "UPDATE control_invite SET status = 'accepted' WHERE person_id = ? AND to_email = ? AND status = 'pending'",
+      ).bind(personId, email),
+    ]);
   }
 
   async function hasPendingInvite(e: Env, personId: string, email: string): Promise<boolean> {

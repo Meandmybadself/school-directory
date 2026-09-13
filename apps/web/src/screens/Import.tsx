@@ -1,7 +1,7 @@
 // Admin CSV bulk import: pick a file → map columns → dry-run → commit.
 import { useMemo, useState } from "react";
 import { Navigate, useNavigate } from "react-router-dom";
-import { BULK_IMPORT_FIELDS, type BulkImportField, type BulkImportResult, type BulkImportRow } from "@sd/shared";
+import { BULK_IMPORT_FIELDS, type BulkImportField, type BulkImportResult, type BulkImportRow, type Visibility } from "@sd/shared";
 import { Icon } from "../components/Icon.js";
 import { Btn } from "../components/atoms.js";
 import { AppShell, BottomNav } from "../components/AppShell.js";
@@ -51,6 +51,14 @@ export function Import() {
   const [busy, setBusy] = useState(false);
   const [fileName, setFileName] = useState("");
   const [sendInvites, setSendInvites] = useState(false);
+  // Account handling and contact visibility — see BulkImportOptions in @sd/shared
+  // for what each one means and why the defaults are the cautious ones.
+  const [createAccounts, setCreateAccounts] = useState(false);
+  const [contactVisibility, setContactVisibility] = useState<Visibility>("private");
+  const [emailAsContact, setEmailAsContact] = useState(false);
+  // Applied to every row whose own capabilities cell is empty, so a roster with
+  // no such column (a staff list, say) can be tagged in one go.
+  const [defaultCaps, setDefaultCaps] = useState("");
 
   if (me && !me.user.isSystemAdmin) return <Navigate to="/" replace />;
 
@@ -73,17 +81,24 @@ export function Import() {
       phone: cell(r, mapping.phone ?? -1) || undefined,
       group: cell(r, mapping.group ?? -1) || undefined,
       title: cell(r, mapping.title ?? -1) || undefined,
-      capabilities: cell(r, mapping.capabilities ?? -1) || undefined,
+      capabilities: cell(r, mapping.capabilities ?? -1) || defaultCaps.trim() || undefined,
     }));
-  }, [rows, mapping]);
+  }, [rows, mapping, defaultCaps]);
 
   const mappedOk = (mapping.firstName ?? -1) >= 0;
 
   const run = async (dryRun: boolean) => {
     setBusy(true);
     try {
-      const r = await api.bulkImport(importRows, dryRun, sendInvites);
-      setResult({ ...r, committed: !dryRun, emailed: !dryRun && sendInvites });
+      // No invites exist in account mode, so there is nothing to mail.
+      const mail = sendInvites && !createAccounts;
+      const r = await api.bulkImport(importRows, dryRun, {
+        sendInvites: mail,
+        createAccounts,
+        contactVisibility,
+        emailAsContact,
+      });
+      setResult({ ...r, committed: !dryRun, emailed: !dryRun && mail });
     } finally {
       setBusy(false);
     }
@@ -95,7 +110,7 @@ export function Import() {
       <div className="sd-card sd-card-pad" style={{ marginTop: 9, display: "flex", flexDirection: "column", gap: 12 }}>
         <p className="sd-meta" style={{ lineHeight: 1.5 }}>
           Columns: first name, last name, email, phone, group, title, capabilities. Rows with an email get a
-          pending invite; check the box below to also email them a sign-in link. Re-running the same file makes
+          pending invite, or a ready-to-use account if you choose that below. Re-running the same file makes
           no duplicate changes.
         </p>
         <label className="sd-btn sd-btn-secondary" style={{ alignSelf: "flex-start", cursor: "pointer" }}>
@@ -142,10 +157,47 @@ export function Import() {
             </div>
           </div>
 
-          <label className="sd-row" style={{ gap: 8, marginTop: 16, cursor: "pointer", alignItems: "center" }}>
-            <input type="checkbox" checked={sendInvites} onChange={(e) => setSendInvites(e.target.checked)} />
-            <span className="sd-meta">Email a sign-in link to people who have an email address.</span>
-          </label>
+          <div style={{ marginTop: 18 }}>
+            <SectLabel>Options</SectLabel>
+            <div className="sd-card sd-card-pad" style={{ marginTop: 9, display: "flex", flexDirection: "column", gap: 12 }}>
+              <div className="sd-row" style={{ gap: 10 }}>
+                <span className="sd-label" style={{ flex: "0 0 110px" }}>Capabilities</span>
+                <input
+                  className="sd-input"
+                  style={{ height: 38, flex: 1 }}
+                  placeholder="e.g. teacher — applied to rows with none"
+                  value={defaultCaps}
+                  onChange={(e) => setDefaultCaps(e.target.value)}
+                />
+              </div>
+              <div className="sd-row" style={{ gap: 10 }}>
+                <span className="sd-label" style={{ flex: "0 0 110px" }}>Phone &amp; email</span>
+                <select
+                  className="sd-input"
+                  style={{ height: 38, flex: 1 }}
+                  value={contactVisibility}
+                  onChange={(e) => setContactVisibility(e.target.value === "service" ? "service" : "private")}
+                >
+                  <option value="private">Private — only the person can see them</option>
+                  <option value="service">Members — everyone signed in can see them</option>
+                </select>
+              </div>
+              <label className="sd-row" style={{ gap: 8, cursor: "pointer", alignItems: "center" }}>
+                <input type="checkbox" checked={emailAsContact} onChange={(e) => setEmailAsContact(e.target.checked)} />
+                <span className="sd-meta">The email column is each person's own address — show it on their profile. (Leave off when it is a parent's address on a child's row.)</span>
+              </label>
+              <label className="sd-row" style={{ gap: 8, cursor: "pointer", alignItems: "center" }}>
+                <input type="checkbox" checked={createAccounts} onChange={(e) => setCreateAccounts(e.target.checked)} />
+                <span className="sd-meta">Create a sign-in account for each email instead of an invite. Nothing is sent; they sign in with "Email me a link" and find their profile waiting.</span>
+              </label>
+              {!createAccounts && (
+                <label className="sd-row" style={{ gap: 8, cursor: "pointer", alignItems: "center" }}>
+                  <input type="checkbox" checked={sendInvites} onChange={(e) => setSendInvites(e.target.checked)} />
+                  <span className="sd-meta">Email a sign-in link to people who have an email address.</span>
+                </label>
+              )}
+            </div>
+          </div>
 
           <div className="sd-row" style={{ gap: 9, marginTop: 12 }}>
             <Btn kind="secondary" icon="eye" disabled={!mappedOk || busy} onClick={() => void run(true)}>Dry run</Btn>
@@ -164,6 +216,7 @@ export function Import() {
             Rows processed: {result.rowsProcessed}<br />
             People created: {result.personsCreated} · matched: {result.personsMatched}<br />
             Groups created: {result.groupsCreated} · memberships: {result.membershipsCreated}<br />
+            {result.accountsCreated > 0 && <>Accounts created (not emailed): {result.accountsCreated}<br /></>}
             {result.emailed
               ? `Invite emails sent: ${result.invitesQueued}`
               : `Invites created${result.committed ? " (not emailed)" : ""}: ${result.invitesQueued}`}

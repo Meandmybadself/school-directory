@@ -4,6 +4,7 @@ import type {
   UserDeletionImpactDTO,
   AuditEntryDTO,
   BackupDocument,
+  BulkImportOptions,
   BulkImportResult,
   BulkImportRow,
   CalendarEventDTO,
@@ -254,8 +255,8 @@ export const api = {
     const qs = q.toString();
     return request<{ entries: AuditEntryDTO[]; nextBefore: string | null }>(`/admin/audit${qs ? `?${qs}` : ""}`);
   },
-  bulkImport: (rows: BulkImportRow[], dryRun: boolean, sendInvites = false) =>
-    request<BulkImportResult>("/admin/bulk-import", { method: "POST", body: JSON.stringify({ rows, dryRun, sendInvites }) }),
+  bulkImport: (rows: BulkImportRow[], dryRun: boolean, options: BulkImportOptions & { sendInvites?: boolean }) =>
+    request<BulkImportResult>("/admin/bulk-import", { method: "POST", body: JSON.stringify({ rows, dryRun, ...options }) }),
 
   /** Download the whole database as one JSON file.
    *

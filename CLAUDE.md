@@ -1198,6 +1198,29 @@ All five SPAs are separate Cloudflare Pages projects talking to the single
    restore that deleted `audit_log` or wrote a session row fails it with a
    statement rather than passing a scan.
 
+30. **A bulk import's email column names an ACCOUNT, not a contact — and the
+   import can now mint that account.** By default a row whose email has no
+   account gets a pending `control_invite` (mailed only with `sendInvites`),
+   which is the right shape for a family roster: the parent's address sits on
+   each child's row, and the parent decides what their profile shows. It is the
+   wrong shape for a staff roster, and the gap was real: `/auth/callback` binds
+   an invite only from the token it consumes, so a teacher who ignored the mail
+   and used "Email me a link" got a fresh EMPTY account — or, with registration
+   closed, nothing. `createAccounts` (`BulkImportOptions` in `@sd/shared`,
+   `lib/bulkImport.ts`) writes the `user` row the way `POST /admin/users` does
+   (`joined_via 'admin'`, nothing sent) and attaches the Person to it, so the
+   sign-in screen simply finds the account. In that mode no invite exists, so
+   `sendInvites` has nothing to mail; the two are alternatives. Either mode now
+   ADOPTS a Person left waiting by an earlier invite-mode import when the
+   address has an account (control granted, invite closed) rather than minting a
+   duplicate beside it. Two more options are deliberately separate knobs:
+   `contactVisibility` (default `private`, invariant 3 — an admin's explicit
+   choice per import, never a new default) and `emailAsContact`, off by
+   default because on a family roster that column is the parent's address and
+   must not land on a child's profile. `test/bulkImportAccounts.test.ts` is
+   behavioural: its fake D1 records writes where they execute, so a mode that
+   fell back to an invite fails on the recorded statement.
+
 ## Conventions
 
 - TypeScript strict everywhere. `verbatimModuleSyntax` is on — use

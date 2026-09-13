@@ -367,8 +367,8 @@ const FORMATTERS = {
   // ── Instance-level admin: rare, wide blast radius ──
   "bulk.import": ({ notify, actor }) =>
     `:inbox_tray: *Roster import* — ${num(notify, "rows")} rows → ${num(notify, "personsCreated")} people,` +
-    ` ${num(notify, "groupsCreated")} groups, ${num(notify, "invitesQueued")} invites queued` +
-    ` (${num(notify, "emailsSent")} emailed) — ${actor}.`,
+    ` ${num(notify, "groupsCreated")} groups, ${num(notify, "accountsCreated")} accounts,` +
+    ` ${num(notify, "invitesQueued")} invites queued (${num(notify, "emailsSent")} emailed) — ${actor}.`,
 
   "registration.toggled": ({ notify, actor }) =>
     `:door: Registration ${notify.open === true ? "*opened*" : "*closed*"} — ${actor}.`,
