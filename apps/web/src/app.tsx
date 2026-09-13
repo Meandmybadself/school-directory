@@ -36,7 +36,7 @@ function Loading() {
   );
 }
 
-function Stub({ title, nav = "home" }: { title: string; nav?: "home" | "dir" | "groups" | "profile" }) {
+function Stub({ title, nav = "home" }: { title: string; nav?: "home" | "dir" | "groups" | "me" }) {
   const navigate = useNavigate();
   const isDesktop = useIsDesktop();
   const body = (
@@ -107,7 +107,7 @@ export function App() {
       <Route path="/directory" element={<RequireProfile><Directory /></RequireProfile>} />
       <Route path="/groups" element={<RequireProfile><GroupsIndex /></RequireProfile>} />
       <Route path="/groups/:id" element={<RequireProfile><GroupDetail /></RequireProfile>} />
-      <Route path="/you" element={<RequireProfile><Stub title="You" nav="profile" /></RequireProfile>} />
+      <Route path="/you" element={<RequireProfile><Stub title="You" nav="me" /></RequireProfile>} />
       <Route path="/admin" element={<RequireAuth><Admin /></RequireAuth>} />
       <Route path="/admin/import" element={<RequireAuth><Import /></RequireAuth>} />
 

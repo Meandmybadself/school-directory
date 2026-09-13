@@ -28,6 +28,8 @@ import type {
   RestoreReportDTO,
   ShareGranteeDTO,
   ShareTargetDTO,
+  PlatformAppKey,
+  PlatformOrigins,
 } from "@sd/shared";
 import { RESTORE_CONFIRM } from "@sd/shared";
 
@@ -38,6 +40,20 @@ export const CALENDAR_APP_URL = import.meta.env.VITE_CALENDAR_URL ?? "http://loc
 /** The newsletter app's origin. Its archive pages are public, so the Home card
  *  links straight to an issue rather than through a members-only route. */
 export const NEWSLETTER_APP_URL = import.meta.env.VITE_NEWSLETTER_URL ?? "http://localhost:5175";
+
+/** Which of the platform's apps THIS bundle is, and where the others live —
+ *  what `PLATFORM_APPS` in @sd/shared needs to render the switcher. Origins are
+ *  build-time config like the API's; the list itself is shared so that every
+ *  app shows the same four in the same order. This app's own entry is `""`:
+ *  the switcher marks it as current rather than linking to it. */
+export const CURRENT_APP: PlatformAppKey | null = "directory";
+export const PLATFORM_ORIGINS: PlatformOrigins = {
+  directory: "",
+  calendar: import.meta.env.VITE_CALENDAR_URL ?? "http://localhost:5174",
+  newsletter: import.meta.env.VITE_NEWSLETTER_URL ?? "http://localhost:5175",
+  pto: import.meta.env.VITE_PTO_URL ?? "http://localhost:5178",
+};
+
 
 /** Resolve an API-relative media path (e.g. "/photos/abc.jpg") to an absolute URL. */
 export function mediaUrl(path: string | null | undefined): string | null {

@@ -15,12 +15,28 @@ import type {
   NewsletterSubscriberDTO,
   NewsletterSubscriberImportResultDTO,
   NewsletterSubscriptionDTO,
+  PlatformAppKey,
+  PlatformOrigins,
 } from "@sd/shared";
 
 export const API_BASE = import.meta.env.VITE_API_URL ?? "http://localhost:8787";
 /** Sibling apps — linked to from nav; not API bases. */
 export const DIRECTORY_URL = import.meta.env.VITE_DIRECTORY_URL ?? "http://localhost:5173";
 export const CALENDAR_URL = import.meta.env.VITE_CALENDAR_URL ?? "http://localhost:5174";
+
+/** Which of the platform's apps THIS bundle is, and where the others live —
+ *  what `PLATFORM_APPS` in @sd/shared needs to render the switcher. Origins are
+ *  build-time config like the API's; the list itself is shared so that every
+ *  app shows the same four in the same order. This app's own entry is `""`:
+ *  the switcher marks it as current rather than linking to it. */
+export const CURRENT_APP: PlatformAppKey | null = "newsletter";
+export const PLATFORM_ORIGINS: PlatformOrigins = {
+  directory: import.meta.env.VITE_DIRECTORY_URL ?? "http://localhost:5173",
+  calendar: import.meta.env.VITE_CALENDAR_URL ?? "http://localhost:5174",
+  newsletter: "",
+  pto: import.meta.env.VITE_PTO_URL ?? "http://localhost:5178",
+};
+
 
 export class ApiError extends Error {
   constructor(public status: number, public body: unknown) {

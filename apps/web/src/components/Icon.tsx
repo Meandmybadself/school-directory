@@ -6,7 +6,7 @@ export type IconName =
   | "chevright" | "chevleft" | "home" | "school" | "phone" | "mail" | "link"
   | "pin" | "x" | "wifioff" | "shield" | "search" | "arrowleft" | "bolt"
   | "upload" | "globe" | "gear" | "users3" | "file" | "table" | "swap"
-  | "dot3" | "star" | "minus" | "info" | "calendar" | "download";
+  | "dot3" | "star" | "minus" | "info" | "calendar" | "download" | "grid";
 
 const paths: Record<IconName, ReactNode> = {
   lock: <><rect x="5" y="11" width="14" height="9" rx="2" /><path d="M8 11V8a4 4 0 0 1 8 0v3" /></>,
@@ -43,6 +43,7 @@ const paths: Record<IconName, ReactNode> = {
   info: <><circle cx="12" cy="12" r="8.5" /><path d="M12 11v5M12 8h.01" /></>,
   calendar: <><rect x="4" y="5.5" width="16" height="14.5" rx="2" /><path d="M4 10h16M8 3.5v4M16 3.5v4" /></>,
   download: <><path d="M12 4v10M8 11l4 4 4-4" /><path d="M5 19h14" /></>,
+  grid: <><rect x="4" y="4" width="6.5" height="6.5" rx="1.5" /><rect x="13.5" y="4" width="6.5" height="6.5" rx="1.5" /><rect x="4" y="13.5" width="6.5" height="6.5" rx="1.5" /><rect x="13.5" y="13.5" width="6.5" height="6.5" rx="1.5" /></>,
 };
 
 export function Icon({

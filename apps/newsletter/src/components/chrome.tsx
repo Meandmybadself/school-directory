@@ -1,4 +1,4 @@
-// Mobile chrome: which app-bar sheet (language / account) is open. Owned by
+// Mobile chrome: which app-bar sheet (language / account / apps) is open. Owned by
 // AppShell so every mobile ScreenHeader can open the language and account
 // sheets, and AppShell renders the sheets themselves.
 //
@@ -8,7 +8,7 @@
 // holds only the state; AppShell wires the actual sheet components to it.
 import { createContext, useContext, useState, type ReactNode } from "react";
 
-export type ChromeSheet = "language" | "account";
+export type ChromeSheet = "language" | "account" | "apps";
 
 interface ChromeApi {
   /** The sheet currently open, or null. Read by AppShell to render it. */

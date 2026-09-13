@@ -9,7 +9,7 @@ import { Icon } from "./Icon.js";
 import { SheetOver } from "./parts.js";
 import { useI18n } from "../i18n/index.js";
 import { useSession } from "../lib/session.js";
-import { api, DIRECTORY_URL } from "../lib/api.js";
+import { api } from "../lib/api.js";
 
 /** Language trigger — shows the current language code (EN / ES / 中文) so it's
  *  obvious it's the language switcher and which language is active. */
@@ -75,7 +75,9 @@ export function LanguageSheet({ onClose }: { onClose: () => void }) {
 
 /** Account menu. The directory app has a Person switcher here; the store is not
  *  Person-scoped at all — and most of its visitors have no session — so this
- *  offers the two things that do apply: jump to the directory, and sign out. */
+ *  offers the one thing that does apply: sign out. (It used to link to the
+ *  directory too; the platform switcher — AppSwitcher.tsx — now does that for
+ *  every sibling app.) */
 export function AccountSheet({ onClose }: { onClose: () => void }) {
   const { t } = useI18n();
   const { me, displayName, signOut } = useSession();
@@ -90,11 +92,6 @@ export function AccountSheet({ onClose }: { onClose: () => void }) {
       <h2 className="sd-h2" style={{ marginBottom: 3 }}>{displayName}</h2>
       <p className="sd-meta" style={{ marginBottom: 14 }}>{me.user.email}</p>
       <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-        <a href={DIRECTORY_URL} className="sd-row" style={{ ...row, color: "inherit", textDecoration: "none" }}>
-          <Icon name="school" size={18} style={{ color: "var(--blue)" }} />
-          <span style={{ fontSize: 14.5, fontWeight: 700 }}>{t("brand")}</span>
-          <Icon name="chevright" size={16} style={{ marginLeft: "auto", color: "var(--ink-3)" }} />
-        </a>
         <button type="button" className="sd-row" onClick={() => void signOut()} style={{ ...row, color: "var(--warn)" }}>
           <Icon name="lock" size={18} />
           <span style={{ fontSize: 14.5, fontWeight: 700 }}>{t("signOut")}</span>

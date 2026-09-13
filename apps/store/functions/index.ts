@@ -36,7 +36,7 @@ export const onRequestGet: PagesFunction<PagesEnv> = async ({ request, env }) =>
   const products = data?.products ?? [];
 
   const body = `    <div class="st-wrap">
-${header(t, SCHOOL)}
+${header(t, SCHOOL, locale)}
       <h1 class="st-h1">${escapeHtml(t("storeTitle"))}</h1>
       <p class="st-lead">${escapeHtml(t("storeLead"))}</p>
 ${

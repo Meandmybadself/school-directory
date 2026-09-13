@@ -38,6 +38,16 @@ export interface Strings {
   navDir: string;
   navGroups: string;
   navMe: string;
+  /** The admin entry in every app's nav — one label and one icon (shield) in
+   *  all five, where it used to be "Admin" in three and "Settings" in two. */
+  navAdmin: string;
+  /** The PTO app's own boards tab. */
+  navBoards: string;
+  /** The mobile tab, and the desktop sidebar section, that holds the platform
+   *  switcher — the four sibling apps. See packages/shared/src/nav.ts. */
+  navApps: string;
+  /** Lead under the switcher sheet's heading. */
+  navAppsLead: string;
   searchMembers: string;
   searchGroups: string;
   myGroups: string;
@@ -672,6 +682,10 @@ const en: Strings = {
   navDir: "Directory",
   navGroups: "Groups",
   navMe: "You",
+  navAdmin: "Admin",
+  navBoards: "Boards",
+  navApps: "Apps",
+  navAppsLead: "The rest of the site. One account works everywhere.",
   searchMembers: "Search members",
   searchGroups: "Search groups",
   myGroups: "Your groups",
@@ -1293,6 +1307,10 @@ const es: Strings = {
   navDir: "Directorio",
   navGroups: "Grupos",
   navMe: "Tú",
+  navAdmin: "Admin",
+  navBoards: "Tableros",
+  navApps: "Apps",
+  navAppsLead: "El resto del sitio. Una sola cuenta funciona en todas partes.",
   searchMembers: "Buscar miembros",
   searchGroups: "Buscar grupos",
   myGroups: "Tus grupos",
@@ -1847,6 +1865,10 @@ const zh: Strings = {
   navDir: "目录",
   navGroups: "群组",
   navMe: "我",
+  navAdmin: "管理",
+  navBoards: "看板",
+  navApps: "应用",
+  navAppsLead: "网站的其他部分。一个账户，处处通用。",
   searchMembers: "搜索成员",
   searchGroups: "搜索群组",
   myGroups: "你的群组",
@@ -2368,6 +2390,10 @@ const so: Strings = {
   navDir: "Tusmada",
   navGroups: "Kooxaha",
   navMe: "Adiga",
+  navAdmin: "Maamul",
+  navBoards: "Looxyada",
+  navApps: "Apps",
+  navAppsLead: "Qaybaha kale ee bogga. Hal akoon ayaa meel walba ka shaqeeya.",
   searchMembers: "Raadi xubno",
   searchGroups: "Raadi kooxo",
   myGroups: "Kooxahaaga",

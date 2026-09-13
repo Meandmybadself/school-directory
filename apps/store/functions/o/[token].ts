@@ -47,7 +47,7 @@ export const onRequestGet: PagesFunction<PagesEnv> = async ({ request, env, para
         css: STORE_CSS,
         noindex: true,
         body: `    <div class="st-wrap">
-${header(t, SCHOOL)}
+${header(t, SCHOOL, locale)}
       <div class="st-empty">
         <p>${escapeHtml(t("storeOrderNotFound"))}</p>
         <p><a href="/">${escapeHtml(t("storeKeepShopping"))}</a></p>
@@ -84,7 +84,7 @@ ${footer(t, "/", locale)}
       : "";
 
   const body = `    <div class="st-wrap">
-${header(t, SCHOOL)}
+${header(t, SCHOOL, locale)}
       <h1 class="st-h1">${escapeHtml(t("storeOrderTitle"))}</h1>
       <div class="st-status">
         <h2>${escapeHtml(headline)}</h2>

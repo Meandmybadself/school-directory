@@ -146,8 +146,22 @@ All five SPAs are separate Cloudflare Pages projects talking to the single
 - `apps/calendar`, `apps/newsletter`, `apps/store` and `apps/pto` **copy**
   `tokens.css`, `Icon.tsx`, `atoms.tsx` and the generic half of `parts.tsx` from
   `apps/web` rather than importing them. They're expected to drift. If you change
-  a shared-looking component, decide which of the five copies need it. The nav
-  item list is duplicated in each app's `AppShell`/`DesktopShell`.
+  a shared-looking component, decide which of the five copies need it.
+- **Navigation has two tiers, and only one of them is per-app.** An app's OWN
+  screens are its `navItems()` in `AppShell.tsx` — one list, read by both the
+  bottom bar and the desktop sidebar; labels are dictionary keys, and the admin
+  entry is always `shield` + `navAdmin`. The **platform switcher** — the four
+  sibling apps, directory first and PTO last — is `PLATFORM_APPS` in
+  `packages/shared/src/nav.ts`, rendered by each app's copied
+  `components/AppSwitcher.tsx`: the section at the foot of the desktop sidebar,
+  and the sheet behind the "Apps" tab on a phone. The store's and PTO's
+  server-rendered headers iterate the same list. The store is deliberately
+  absent from it while the shop is unannounced; when that changes, add it there
+  and nowhere else. `apps/api/test/platformNav.test.ts` checks every `Icon.tsx`
+  copy still defines the icons the list names and that no shell's nav list has a
+  hardcoded label. Each app supplies only its ORIGINS (`PLATFORM_ORIGINS` in
+  `lib/api.ts`, from `VITE_*_URL`) — the shared package is also imported by the
+  API Worker, which has no `import.meta.env`.
 - `apps/newsletter`, `apps/store` and `apps/pto` are the Pages projects with a
   `wrangler.toml`, because they're the ones with `functions/`. Those Pages
   Functions server-render the public surfaces — the newsletter archive (`/` and

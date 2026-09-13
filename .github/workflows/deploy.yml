@@ -93,6 +93,7 @@ jobs:
           VITE_API_URL: https://api-directory.eisenhower.school
           VITE_CALENDAR_URL: https://calendar.eisenhower.school
           VITE_NEWSLETTER_URL: https://newsletter.eisenhower.school
+          VITE_PTO_URL: https://pto.eisenhower.school
         run: |
           pnpm build
           pnpm exec wrangler pages deploy dist --project-name school-directory --branch main
@@ -104,6 +105,7 @@ jobs:
           VITE_API_URL: https://api-directory.eisenhower.school
           VITE_DIRECTORY_URL: https://directory.eisenhower.school
           VITE_NEWSLETTER_URL: https://newsletter.eisenhower.school
+          VITE_PTO_URL: https://pto.eisenhower.school
         run: |
           pnpm build
           pnpm exec wrangler pages deploy dist --project-name school-calendar --branch main
@@ -119,6 +121,7 @@ jobs:
           VITE_API_URL: https://api-directory.eisenhower.school
           VITE_DIRECTORY_URL: https://directory.eisenhower.school
           VITE_CALENDAR_URL: https://calendar.eisenhower.school
+          VITE_PTO_URL: https://pto.eisenhower.school
         run: |
           pnpm build
           pnpm exec wrangler pages deploy --branch main
@@ -135,6 +138,7 @@ jobs:
           VITE_DIRECTORY_URL: https://directory.eisenhower.school
           VITE_CALENDAR_URL: https://calendar.eisenhower.school
           VITE_NEWSLETTER_URL: https://newsletter.eisenhower.school
+          VITE_PTO_URL: https://pto.eisenhower.school
         run: |
           pnpm build
           pnpm exec wrangler pages deploy --branch main

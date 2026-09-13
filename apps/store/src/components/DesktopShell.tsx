@@ -9,6 +9,7 @@ import { Avatar } from "./atoms.js";
 import { AccountSheet, LanguageSheet, LanguageButton } from "./Sheets.js";
 import { MasqueradeBanner, isFullNavigation, navItems, type NavKey } from "./AppShell.js";
 import { SiteFooter } from "./SiteFooter.js";
+import { PlatformNav } from "./AppSwitcher.js";
 import { useI18n } from "../i18n/index.js";
 import { useSession } from "../lib/session.js";
 
@@ -43,6 +44,9 @@ function Sidebar({ active }: { active: NavKey }) {
         ))}
       </nav>
       <div style={{ flex: 1 }} />
+      {/* The platform switcher, at the foot of the sidebar in every app so it is
+          in the same place wherever a member is. See AppSwitcher.tsx. */}
+      <PlatformNav />
     </aside>
   );
 }

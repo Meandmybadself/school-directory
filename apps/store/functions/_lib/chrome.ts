@@ -4,13 +4,34 @@
 // caching) and this one about what a reader sees. Both are plain strings — no
 // components, no bundle, nothing to hydrate.
 
-import { LOCALES, localeNames, PTO_URL, SOURCE_URL, type Locale, type Strings } from "@sd/shared";
+import {
+  LOCALES,
+  PLATFORM_APPS,
+  PTO_URL,
+  SOURCE_URL,
+  localeNames,
+  platformAppHref,
+  type Locale,
+  type PlatformOrigins,
+  type Strings,
+} from "@sd/shared";
 import { escapeHtml } from "./page.js";
 import { LANG_PARAM } from "./locale.js";
 
 export const DIRECTORY_URL = "https://directory.eisenhower.school";
 export const CALENDAR_URL = "https://calendar.eisenhower.school";
+export const NEWSLETTER_URL = "https://newsletter.eisenhower.school";
 export const APEX_URL = "https://eisenhower.school";
+
+/** The sibling apps the header links to, in the order `PLATFORM_APPS` fixes
+ *  for every surface in the project. Hardcoded production origins, like the
+ *  rest of this file: a Pages Function has no `import.meta.env`. */
+const PLATFORM_ORIGINS: PlatformOrigins = {
+  directory: DIRECTORY_URL,
+  calendar: CALENDAR_URL,
+  newsletter: NEWSLETTER_URL,
+  pto: PTO_URL,
+};
 
 /** Where feedback goes. One constant, used by the credit line below. */
 export const FEEDBACK_EMAIL = "admin@eisenhower.school";
@@ -41,7 +62,14 @@ function credit(t: (key: keyof Strings, vars?: Record<string, string>) => string
   ].join('<span aria-hidden="true"> · </span>');
 }
 
-export function header(t: (key: keyof Strings) => string, school: string): string {
+/** The header. Its nav is the cart, then the same four sibling apps in the
+ *  same order as every SPA's switcher and the PTO's public page — a reader
+ *  signed out, so each link lands on that app's PUBLIC entry. */
+export function header(t: (key: keyof Strings) => string, school: string, locale: Locale): string {
+  const links = PLATFORM_APPS.map(
+    (app) =>
+      `<a href="${escapeHtml(platformAppHref(app, PLATFORM_ORIGINS, locale, false))}">${escapeHtml(t(app.label))}</a>`,
+  ).join("\n        ");
   return `    <header class="st-head">
       <a class="st-brand" href="/">
         <span class="st-mark">${escapeHtml(school.slice(0, 1) || "E")}</span>
@@ -52,8 +80,7 @@ export function header(t: (key: keyof Strings) => string, school: string): strin
       </a>
       <nav class="st-navlinks">
         <a href="/cart">${escapeHtml(t("storeCart"))}</a>
-        <a href="${CALENDAR_URL}">${escapeHtml(t("navCalendar"))}</a>
-        <a href="${DIRECTORY_URL}">${escapeHtml(t("navDir"))}</a>
+        ${links}
       </nav>
     </header>`;
 }

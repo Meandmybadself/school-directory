@@ -8,10 +8,10 @@ import { Icon, type IconName } from "./Icon.js";
 import { OfflineBanner, MasqBanner } from "./parts.js";
 import { ChromeProvider, useChrome } from "./chrome.js";
 import { AccountSheet, LanguageSheet } from "./Sheets.js";
+import { AppsSheet } from "./AppSwitcher.js";
 import { useOnline } from "../lib/useOnline.js";
 import { useI18n } from "../i18n/index.js";
 import { useSession } from "../lib/session.js";
-import { CALENDAR_URL, DIRECTORY_URL } from "../lib/api.js";
 
 /** Renders whichever app-bar sheet the chrome context has open, so every mobile
  *  ScreenHeader can reach the language picker and the account menu. */
@@ -22,6 +22,7 @@ function ChromeSheets() {
     <>
       {chrome.sheet === "language" && <LanguageSheet onClose={chrome.close} />}
       {chrome.sheet === "account" && <AccountSheet onClose={chrome.close} />}
+      {chrome.sheet === "apps" && <AppsSheet onClose={chrome.close} />}
     </>
   );
 }
@@ -69,11 +70,11 @@ export function AppShell({
   );
 }
 
-export type NavKey = "newsletter" | "admin" | "directory" | "calendar";
+export type NavKey = "newsletter" | "admin";
 
-/** Nav items. Absolute paths point at sibling apps (different origins), so they
- *  navigate the browser rather than the router. Kept in step with the desktop
- *  Sidebar in DesktopShell.tsx.
+/** This app's OWN screens. The directory and the calendar used to be here as
+ *  absolute URLs; they are now in the platform switcher (AppSwitcher.tsx). One
+ *  list, read by both the bottom bar and the desktop sidebar.
  *
  *  Non-admins land on the preferences screen — the only thing here for them —
  *  while admins get the issue list. */
@@ -81,33 +82,49 @@ export function navItems(t: ReturnType<typeof useI18n>["t"], isSystemAdmin: bool
   const items: [IconName, NavKey, string, string][] = [
     ["mail", "newsletter", t("navNewsletter"), isSystemAdmin ? "/admin" : "/preferences"],
   ];
-  if (isSystemAdmin) items.push(["gear", "admin", "Settings", "/admin/settings"]);
-  items.push(["calendar", "calendar", t("navCalendar"), CALENDAR_URL]);
-  items.push(["school", "directory", t("navDir"), DIRECTORY_URL]);
+  if (isSystemAdmin) items.push(["shield", "admin", t("navAdmin"), "/admin/settings"]);
   return items;
+}
+
+/** Where a nav path goes. Nothing in this app's own list leaves the origin any
+ *  more — the sibling apps are the switcher's job — so every entry is a router
+ *  route. Kept as a function so the five shells read the same. */
+export function isFullNavigation(_path: string): boolean {
+  return false;
 }
 
 export function BottomNav({ active }: { active: NavKey }) {
   const { t } = useI18n();
   const navigate = useNavigate();
+  const chrome = useChrome();
   const { me } = useSession();
   const items = navItems(t, !!me?.user.isSystemAdmin);
 
   return (
     <nav className="sd-bottomnav">
-      {items.map(([icon, key, label, path]) => {
-        const on = key === active;
-        const go = () => {
-          if (path.startsWith("http")) window.location.href = path;
-          else navigate(path);
-        };
-        return (
-          <button key={key} className={`sd-navitem${on ? " on" : ""}`} onClick={go}>
-            <Icon name={icon} size={21} stroke={on ? 2.2 : 1.8} />
-            <span style={{ fontSize: 10.5, fontWeight: on ? 700 : 600 }}>{label}</span>
-          </button>
-        );
-      })}
+      {items.map(([icon, key, label, path]) => (
+        <NavTab
+          key={key}
+          icon={icon}
+          label={label}
+          on={key === active}
+          onClick={() => (isFullNavigation(path) ? (window.location.href = path) : navigate(path))}
+        />
+      ))}
+      {/* The platform switcher — the four sibling apps — is a sheet, not four
+          more tabs: the bar stays this app's own, and leaving the site is one
+          explicit gesture rather than a tab that looks like every other tab and
+          reloads the browser. See AppSwitcher.tsx. */}
+      <NavTab icon="grid" label={t("navApps")} on={false} onClick={() => chrome?.open("apps")} />
     </nav>
+  );
+}
+
+function NavTab({ icon, label, on, onClick }: { icon: IconName; label: string; on: boolean; onClick: () => void }) {
+  return (
+    <button className={`sd-navitem${on ? " on" : ""}`} onClick={onClick}>
+      <Icon name={icon} size={21} stroke={on ? 2.2 : 1.8} />
+      <span style={{ fontSize: 10.5, fontWeight: on ? 700 : 600 }}>{label}</span>
+    </button>
   );
 }

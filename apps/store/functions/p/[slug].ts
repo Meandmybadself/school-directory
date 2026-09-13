@@ -45,7 +45,7 @@ export const onRequestGet: PagesFunction<PagesEnv> = async ({ request, env, para
         css: STORE_CSS,
         noindex: true,
         body: `    <div class="st-wrap">
-${header(t, SCHOOL)}
+${header(t, SCHOOL, locale)}
       <div class="st-empty">
         <p>${escapeHtml(t("storeEmpty"))}</p>
         <p><a href="/">${escapeHtml(t("storeKeepShopping"))}</a></p>
@@ -83,7 +83,7 @@ ${options}
           </form>`;
 
   const body = `    <div class="st-wrap">
-${header(t, SCHOOL)}
+${header(t, SCHOOL, locale)}
       <div class="st-detail">
         <div>
           ${product.imageUrl ? `<img src="${escapeHtml(product.imageUrl)}" alt="${escapeHtml(product.title)}" width="700" height="700" />` : ""}

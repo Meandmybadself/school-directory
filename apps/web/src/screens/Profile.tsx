@@ -248,7 +248,7 @@ export function ProfileView() {
 
   if (isDesktop) {
     return (
-      <DesktopShell active="profile" title={t("yourProfile")}>
+      <DesktopShell active="me" title={t("yourProfile")}>
         <div style={{ maxWidth: 760, width: "100%" }}>
           {previewNotice}
           <div className="sd-card" style={{ overflow: "hidden", padding: 0 }}>{hero}</div>
@@ -613,7 +613,7 @@ export function ProfileEdit() {
 
   if (isDesktop) {
     return (
-      <DesktopShell active="profile" title={t("editProfile")}>
+      <DesktopShell active="me" title={t("editProfile")}>
         <div style={{ maxWidth: 640, width: "100%" }}>
           <div className="sd-row" style={{ justifyContent: "flex-end", gap: 8, marginBottom: 14 }}>
             <button className="sd-btn sd-btn-ghost sd-btn-sm" onClick={() => navigate(-1)}>{t("cancel")}</button>

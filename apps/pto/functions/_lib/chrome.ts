@@ -5,7 +5,17 @@
 // apps/store/functions/_lib/chrome.ts makes. Both are plain strings: no
 // components, no bundle, nothing to hydrate.
 
-import { LOCALES, PTO_URL, SOURCE_URL, localeNames, type Locale, type Strings } from "@sd/shared";
+import {
+  LOCALES,
+  PLATFORM_APPS,
+  PTO_URL,
+  SOURCE_URL,
+  localeNames,
+  platformAppHref,
+  type Locale,
+  type PlatformOrigins,
+  type Strings,
+} from "@sd/shared";
 import { LANG_PARAM } from "./locale.js";
 import { escapeHtml } from "./page.js";
 
@@ -15,6 +25,17 @@ export const CALENDAR_URL = "https://calendar.eisenhower.school";
 export const NEWSLETTER_URL = "https://newsletter.eisenhower.school";
 export const STORE_URL = "https://store.eisenhower.school";
 export const FEEDBACK_EMAIL = "admin@eisenhower.school";
+
+/** The sibling apps the header links to, in the order `PLATFORM_APPS` fixes
+ *  for every surface in the project. Hardcoded production origins, like the
+ *  rest of this file: a Pages Function has no `import.meta.env`. This page IS
+ *  the PTO, so its own entry is relative and rendered as current. */
+const PLATFORM_ORIGINS: PlatformOrigins = {
+  directory: DIRECTORY_URL,
+  calendar: CALENDAR_URL,
+  newsletter: NEWSLETTER_URL,
+  pto: "",
+};
 
 /** The organisation's name. A proper noun, so it is data and reads the same in
  *  all four languages. */
@@ -86,6 +107,13 @@ export function header(
   locale: Locale,
   path: string,
 ): string {
+  // The same four, in the same order, as every SPA's switcher and the store's
+  // header. A reader here is signed out, so each lands on a PUBLIC entry.
+  const links = PLATFORM_APPS.map((app) => {
+    const href = escapeHtml(platformAppHref(app, PLATFORM_ORIGINS, locale, false));
+    const current = app.key === "pto" ? ' aria-current="page"' : "";
+    return `<a href="${href}"${current}>${escapeHtml(t(app.label))}</a>`;
+  }).join("\n        ");
   return `    <header class="pt-head">
       <a class="pt-brand" href="/">
         <span class="pt-mark">${escapeHtml(school.slice(0, 1) || "E")}</span>
@@ -95,9 +123,7 @@ export function header(
         </span>
       </a>
       <nav class="pt-navlinks">
-        <a href="${escapeHtml(appHref(CALENDAR_URL, "/", locale))}">${escapeHtml(t("navCalendar"))}</a>
-        <a href="${escapeHtml(appHref(NEWSLETTER_URL, "/", locale))}">${escapeHtml(t("navNewsletter"))}</a>
-        <a href="${escapeHtml(appHref(DIRECTORY_URL, "/", locale))}">${escapeHtml(t("navDir"))}</a>
+        ${links}
       </nav>
       <!-- The footer carries the language switcher on wide screens; on a phone
            that is a long scroll away, so the same links ride in the header,
