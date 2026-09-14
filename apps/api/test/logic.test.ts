@@ -233,7 +233,7 @@ describe("ICS parsing", () => {
 
 describe("calendar de-duplication", () => {
   const row = (over: Partial<CalendarRow>): CalendarRow => ({
-    id: "e1", title: "Assembly", location: null, description: null,
+    id: "e1", title: "Assembly", location: null, description: null, meeting_url: null,
     starts_at: "2026-06-15T15:00:00.000Z", ends_at: null, all_day: 0,
     source_id: "s1", source_name: "A", source_color: "#111111",
     managed_event_id: null, volunteer_slug: null, ...over,
@@ -312,7 +312,7 @@ describe("volunteerSheetSlug", () => {
 
 describe("dedupeEvents and volunteer sheets", () => {
   const row = (over: Partial<CalendarRow>): CalendarRow => ({
-    id: "e1", title: "Carnival", location: null, description: null,
+    id: "e1", title: "Carnival", location: null, description: null, meeting_url: null,
     starts_at: "2026-10-17T22:00:00.000Z", ends_at: null, all_day: 0,
     source_id: "s1", source_name: "A", source_color: "#111111",
     managed_event_id: null, volunteer_slug: null, ...over,

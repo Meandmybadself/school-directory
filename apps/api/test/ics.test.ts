@@ -13,6 +13,7 @@ const base: IcsEventInput = {
   title: "Assembly",
   location: null,
   description: null,
+  url: null,
   start: "2026-06-15T15:00:00.000Z",
   end: "2026-06-15T16:00:00.000Z",
   allDay: false,
@@ -88,6 +89,16 @@ describe("ics document structure", () => {
   it("omits DTEND when the event has no end", () => {
     expect(renderCalendar("Test", [{ ...base, end: null }])).not.toContain("DTEND");
   });
+
+  it("emits an online meeting link as a URI-typed URL property, unescaped", () => {
+    // RFC 5545 §3.3.13: URI values are not TEXT, so the `,` and `;` a query
+    // string may carry go through as-is — escaping them would corrupt the link
+    // in every subscriber's calendar app.
+    const url = "https://example.zoom.us/j/123?pwd=a,b;c";
+    const out = renderCalendar("Test", [{ ...base, url }]);
+    expect(out).toContain(`URL:${url}`);
+    expect(renderCalendar("Test", [base])).not.toContain("URL:");
+  });
 });
 
 describe("rrule serialization", () => {
@@ -125,16 +136,33 @@ describe("rrule serialization", () => {
 
 describe("write → parse round trip (occurrence materialization)", () => {
   it("recovers a single timed event unchanged", () => {
-    const out = roundTrip({ ...base, location: "Gym", description: "Bring water." }, "2026-06-16T00:00:00.000Z");
+    const out = roundTrip(
+      { ...base, location: "Gym", description: "Bring water.", url: "https://meet.google.com/abc-defg-hij" },
+      "2026-06-16T00:00:00.000Z",
+    );
     expect(out.length).toBe(1);
     expect(out[0]).toMatchObject({
       title: "Assembly",
       location: "Gym",
       description: "Bring water.",
+      // The meeting link takes the same trip as every other field: written as
+      // URL:, read back by parseIcs, and from there into calendar_event.
+      url: "https://meet.google.com/abc-defg-hij",
       start: "2026-06-15T15:00:00.000Z",
       end: "2026-06-15T16:00:00.000Z",
       allDay: false,
     });
+    expect(roundTrip(base, "2026-06-16T00:00:00.000Z")[0]!.url).toBeNull();
+  });
+
+  it("carries the link onto every occurrence of a series", () => {
+    const out = roundTrip({
+      ...base,
+      url: "https://meet.google.com/abc-defg-hij",
+      recurrence: { freq: "weekly", until: "2026-07-13T15:00:00.000Z" },
+    });
+    expect(out.length).toBeGreaterThan(1);
+    for (const o of out) expect(o.url).toBe("https://meet.google.com/abc-defg-hij");
   });
 
   it("recovers an all-day event as all-day", () => {

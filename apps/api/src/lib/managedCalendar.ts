@@ -79,6 +79,7 @@ interface EventRow {
   title: string;
   location: string | null;
   description: string | null;
+  meeting_url: string | null;
   starts_at: string;
   ends_at: string | null;
   all_day: number;
@@ -131,6 +132,7 @@ function toEventDTO(r: EventRow): ManagedEventDTO {
     title: r.title,
     location: r.location,
     description: r.description,
+    meetingUrl: r.meeting_url,
     start: r.starts_at,
     end: r.ends_at,
     allDay: r.all_day === 1,
@@ -186,10 +188,39 @@ function validateRecurrence(
   return rec;
 }
 
+/** Longest link the editor accepts. Meet/Zoom/Teams links run to a few hundred
+ *  characters; anything past this is a pasted mistake, not a meeting. */
+const MAX_MEETING_URL = 2048;
+
+/** An online meeting link, or null for none. Parsed with `new URL()` rather
+ *  than pattern-matched so what is stored is a canonical, well-formed address
+ *  — and, since `URL` strips tabs and line breaks, one that can be emitted as
+ *  a raw `URL:` line by the ICS writer without escaping. Only http(s) may
+ *  pass: a `javascript:` or `data:` link is rendered as an anchor on the
+ *  public event page, so this is where that door is closed. */
+function normalizeMeetingUrl(raw: string | null | undefined): string | null {
+  const text = (raw ?? "").trim();
+  if (!text) return null;
+  if (text.length > MAX_MEETING_URL) {
+    throw new ManagedEventError("Online meeting link is too long.");
+  }
+  let url: URL;
+  try {
+    url = new URL(text);
+  } catch {
+    throw new ManagedEventError("Online meeting link must be a full web address, starting with https://.");
+  }
+  if (url.protocol !== "https:" && url.protocol !== "http:") {
+    throw new ManagedEventError("Online meeting link must start with https:// or http://.");
+  }
+  return url.href;
+}
+
 interface NormalizedEvent {
   title: string;
   location: string | null;
   description: string | null;
+  meetingUrl: string | null;
   start: string;
   end: string | null;
   allDay: boolean;
@@ -217,6 +248,9 @@ function normalizeEvent(input: Partial<ManagedEventInput>, base?: NormalizedEven
     location: (input.location !== undefined ? input.location : base?.location)?.trim() || null,
     description:
       (input.description !== undefined ? input.description : base?.description)?.trim() || null,
+    meetingUrl: normalizeMeetingUrl(
+      input.meetingUrl !== undefined ? input.meetingUrl : base?.meetingUrl,
+    ),
     start,
     end,
     allDay,
@@ -233,6 +267,7 @@ function icsInputOf(id: string, e: NormalizedEvent, sequence: number, updatedAt:
     title: e.title,
     location: e.location,
     description: e.description,
+    url: e.meetingUrl,
     start: e.start,
     end: e.end,
     allDay: e.allDay,
@@ -285,8 +320,8 @@ async function materialize(
     env.DB.prepare(
       `INSERT INTO calendar_event
          (id, source_id, managed_calendar_id, managed_event_id, uid, title, location, description,
-          starts_at, ends_at, all_day, created_at)
-       VALUES (?, NULL, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          meeting_url, starts_at, ends_at, all_day, created_at)
+       VALUES (?, NULL, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     ).bind(
       ulid(),
       calendarId,
@@ -295,6 +330,9 @@ async function materialize(
       o.title,
       o.location,
       o.description,
+      // The `URL:` line the writer emitted a moment ago, read back by parseIcs —
+      // the same round trip every other field takes (invariant 11).
+      o.url,
       o.start,
       o.end,
       o.allDay ? 1 : 0,
@@ -443,7 +481,7 @@ export async function deleteManagedCalendar(env: Env, id: string): Promise<Remov
 
 // ── Events ──────────────────────────────────────────────────────────────────
 
-const EVENT_SELECT = `SELECT e.id, e.calendar_id, e.title, e.location, e.description, e.starts_at, e.ends_at,
+const EVENT_SELECT = `SELECT e.id, e.calendar_id, e.title, e.location, e.description, e.meeting_url, e.starts_at, e.ends_at,
          e.all_day, e.recur_freq, e.recur_interval, e.recur_byday, e.recur_until, e.sequence,
          e.created_by, e.created_at, e.updated_at,
          (SELECT COUNT(*) FROM calendar_event ce WHERE ce.managed_event_id = e.id) AS occurrence_count,
@@ -493,9 +531,9 @@ export async function createManagedEvent(
   const [freq, interval, byday, until] = recurBinds(normalized.recurrence);
   await env.DB.prepare(
     `INSERT INTO managed_event
-       (id, calendar_id, title, location, description, starts_at, ends_at, all_day,
+       (id, calendar_id, title, location, description, meeting_url, starts_at, ends_at, all_day,
         recur_freq, recur_interval, recur_byday, recur_until, sequence, created_by, created_at, updated_at)
-     VALUES (?,?,?,?,?,?,?,?,?,?,?,?,0,?,?,?)`,
+     VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,0,?,?,?)`,
   )
     .bind(
       id,
@@ -503,6 +541,7 @@ export async function createManagedEvent(
       normalized.title,
       normalized.location,
       normalized.description,
+      normalized.meetingUrl,
       normalized.start,
       normalized.end,
       normalized.allDay ? 1 : 0,
@@ -532,6 +571,7 @@ export async function updateManagedEvent(
     title: current.title,
     location: current.location,
     description: current.description,
+    meetingUrl: current.meetingUrl,
     start: current.start,
     end: current.end,
     allDay: current.allDay,
@@ -542,7 +582,7 @@ export async function updateManagedEvent(
   const [freq, interval, byday, until] = recurBinds(normalized.recurrence);
   await env.DB.prepare(
     `UPDATE managed_event
-        SET title = ?, location = ?, description = ?, starts_at = ?, ends_at = ?, all_day = ?,
+        SET title = ?, location = ?, description = ?, meeting_url = ?, starts_at = ?, ends_at = ?, all_day = ?,
             recur_freq = ?, recur_interval = ?, recur_byday = ?, recur_until = ?,
             sequence = sequence + 1, updated_at = ?
       WHERE id = ?`,
@@ -551,6 +591,7 @@ export async function updateManagedEvent(
       normalized.title,
       normalized.location,
       normalized.description,
+      normalized.meetingUrl,
       normalized.start,
       normalized.end,
       normalized.allDay ? 1 : 0,
@@ -619,6 +660,7 @@ export async function renderManagedCalendarIcs(env: Env, calendarId: string): Pr
         title: dto.title,
         location: dto.location,
         description: dto.description,
+        meetingUrl: dto.meetingUrl,
         start: dto.start,
         end: dto.end,
         allDay: dto.allDay,

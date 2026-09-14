@@ -96,6 +96,8 @@ export interface Strings {
   eventTitle: string;
   eventNotFound: string;
   eventNotFoundBody: string;
+  /** The link on an event that happens online (Meet, Zoom, …). */
+  eventJoinOnline: string;
 
   // newsletter (member- and public-facing only; the authoring UI is admin
   // tooling and stays English, as the calendar's admin screens do)
@@ -735,6 +737,7 @@ const en: Strings = {
   eventNotFound: "Event not found",
   eventNotFoundBody:
     "This event may have been moved or taken down. The calendar has what's coming up.",
+  eventJoinOnline: "Join online",
 
   brandSubNewsletter: "PTO Newsletter",
   navNewsletter: "Newsletters",
@@ -1360,6 +1363,7 @@ const es: Strings = {
   eventNotFound: "No se encontró el evento",
   eventNotFoundBody:
     "Puede que el evento se haya cambiado o retirado. En el calendario está lo que viene.",
+  eventJoinOnline: "Unirse en línea",
 
   brandSubNewsletter: "Boletín de la PTO",
   navNewsletter: "Boletines",
@@ -1913,6 +1917,7 @@ const zh: Strings = {
   eventTitle: "活动",
   eventNotFound: "未找到该活动",
   eventNotFoundBody: "该活动可能已改期或已取消。日历上有近期的安排。",
+  eventJoinOnline: "在线参加",
 
   brandSubNewsletter: "PTO 通讯",
   navNewsletter: "通讯",
@@ -2443,6 +2448,7 @@ const so: Strings = {
   eventNotFound: "Dhacdada lama helin",
   eventNotFoundBody:
     "Dhacdadan waxaa laga yaabaa in la beddelay ama la qaaday. Kalandarku wuxuu leeyahay waxa soo socda.",
+  eventJoinOnline: "Ku soo biir onlayn",
 
   brandSubNewsletter: "Warsidaha PTO",
   navNewsletter: "Warsidayaasha",

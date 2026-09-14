@@ -29,6 +29,10 @@ const PUBLIC_KEYS = [
   // page — which publishes counts and never names — and is NOT the durable
   // (seriesId, recurrenceId) pair, which is still withheld below.
   "volunteerSlug",
+  // Added deliberately with online meeting links (migration 0025). Public for
+  // the reason `location` is: an admin typed it onto an event anyone can read,
+  // and the sessionless .ics feed carries it as `URL` regardless.
+  "meetingUrl",
 ].sort();
 
 function managedEvent(): CalendarEventDTO {
@@ -40,6 +44,7 @@ function managedEvent(): CalendarEventDTO {
     title: "General Meeting - Sept",
     location: "Media Center, Eisenhower Elementary",
     description: "Doors at 6:30.",
+    meetingUrl: "https://meet.google.com/abc-defg-hij",
     start: "2026-09-10T18:00:00.000Z",
     end: "2026-09-10T19:30:00.000Z",
     allDay: false,
@@ -92,14 +97,16 @@ describe("publicEventOf", () => {
     expect(pub.title).toBe("General Meeting - Sept");
     expect(pub.location).toBe("Media Center, Eisenhower Elementary");
     expect(pub.description).toBe("Doors at 6:30.");
+    expect(pub.meetingUrl).toBe("https://meet.google.com/abc-defg-hij");
     expect(pub.source).toEqual({ name: "PTO events", color: "#0068A8" });
     expect(pub.sourceIds).toEqual(["01CAL"]);
   });
 
   it("preserves nulls rather than dropping the keys", () => {
-    const pub = publicEventOf({ ...managedEvent(), location: null, description: null, end: null });
+    const pub = publicEventOf({ ...managedEvent(), location: null, description: null, meetingUrl: null, end: null });
     expect(pub.location).toBeNull();
     expect(pub.description).toBeNull();
+    expect(pub.meetingUrl).toBeNull();
     expect(pub.end).toBeNull();
     expect(Object.keys(pub).sort()).toEqual(PUBLIC_KEYS);
   });

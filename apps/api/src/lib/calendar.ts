@@ -42,6 +42,10 @@ export interface ParsedEvent {
   title: string;
   location: string | null;
   description: string | null;
+  /** The VEVENT's `URL` property, or null. Read for every feed but STORED only
+   *  for a managed event (as `meeting_url`), whose writer put it there — see
+   *  migration 0025 for why an imported feed's is dropped. */
+  url: string | null;
   start: string; // ISO-8601 UTC
   end: string | null; // ISO-8601 UTC
   allDay: boolean;
@@ -188,12 +192,15 @@ export function parseIcs(
     }
     if (!event.startDate) continue;
 
+    const rawUrl = ve.getFirstPropertyValue("url");
+    const url = (typeof rawUrl === "string" ? rawUrl : "").trim() || null;
     const push = (start: ICAL.Time, end: ICAL.Time | null) => {
       out.push({
         uid: event.uid ?? null,
         title: titleOf(event),
         location: (event.location ?? "").trim() || null,
         description: (event.description ?? "").trim() || null,
+        url,
         start: isoOf(start, floatingZone),
         end: end ? isoOf(end, floatingZone) : null,
         allDay: start.isDate === true,
@@ -285,6 +292,7 @@ export interface CalendarRow {
   title: string;
   location: string | null;
   description: string | null;
+  meeting_url: string | null;
   starts_at: string;
   ends_at: string | null;
   all_day: number;
@@ -338,6 +346,7 @@ export function dedupeEvents(rows: CalendarRow[], limit: number): CalendarEventD
           title: r.title,
           location: r.location,
           description: r.description,
+          meetingUrl: r.meeting_url,
           start: r.starts_at,
           end: r.ends_at,
           allDay: r.all_day === 1,
@@ -353,6 +362,7 @@ export function dedupeEvents(rows: CalendarRow[], limit: number): CalendarEventD
     }
     if (!m.dto.sourceIds.includes(r.source_id)) m.dto.sourceIds.push(r.source_id);
     if (!m.dto.location && r.location) m.dto.location = r.location;
+    if (!m.dto.meetingUrl && r.meeting_url) m.dto.meetingUrl = r.meeting_url;
     // A merged duplicate can only be a second COPY of the same managed
     // occurrence (the key includes the kind), so it carries the same sheet —
     // but an imported row merged in first would have brought null. Keep the
@@ -415,7 +425,7 @@ export async function queryUpcomingEvents(
   // on e.id, because e.id is re-minted on every refresh (invariant 8). Only a
   // published sheet joins — a draft must not put a link on anyone's calendar.
   const rows = await env.DB.prepare(
-    `SELECT e.id, e.title, e.location, e.description, e.starts_at, e.ends_at, e.all_day,
+    `SELECT e.id, e.title, e.location, e.description, e.meeting_url, e.starts_at, e.ends_at, e.all_day,
             e.managed_event_id,
             COALESCE(e.source_id, e.managed_calendar_id) AS source_id,
             COALESCE(s.name, mc.name) AS source_name,
@@ -599,6 +609,7 @@ export async function renderImportedSourceIcs(env: Env, sourceId: string): Promi
     title: r.title,
     location: r.location,
     description: r.description,
+    url: null, // never stored for an imported row; see migration 0025
     start: r.starts_at,
     end: r.ends_at,
     allDay: r.all_day === 1,
@@ -620,6 +631,11 @@ export async function renderImportedSourceIcs(env: Env, sourceId: string): Promi
  *  and is NOT the durable pair, which is exactly why a sheet has a slug of its
  *  own. See PublicCalendarEventDTO and lib/volunteers.ts's `publicSheetOf`.
  *
+ *  `meetingUrl` is the second, and it cleared the bar the way `location` does:
+ *  it says where the event happens, an admin typed it onto an event anyone
+ *  can read, and the sessionless .ics feed carries it as `URL` regardless. It
+ *  is never derived from a Person or a User.
+ *
  *  If you are here because you added a field to CalendarEventDTO: the default
  *  answer is to leave this function alone. */
 export function publicEventOf(e: CalendarEventDTO): PublicCalendarEventDTO {
@@ -629,6 +645,7 @@ export function publicEventOf(e: CalendarEventDTO): PublicCalendarEventDTO {
     title: e.title,
     location: e.location,
     description: e.description,
+    meetingUrl: e.meetingUrl,
     start: e.start,
     end: e.end,
     allDay: e.allDay,

@@ -25,6 +25,7 @@ function ev(over: Partial<CalendarEventDTO> = {}): CalendarEventDTO {
     title: "Chess Club",
     location: null,
     description: null,
+    meetingUrl: null,
     start: "2026-08-04T17:00:00.000Z",
     end: null,
     allDay: false,

@@ -51,6 +51,7 @@ const EVENT: CalendarEventDTO = {
   title: "General Meeting",
   location: "Media Center",
   description: null,
+  meetingUrl: null,
   start: "2099-09-10T18:00:00.000Z",
   end: null,
   allDay: false,

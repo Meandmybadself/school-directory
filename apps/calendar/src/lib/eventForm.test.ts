@@ -109,15 +109,28 @@ describe("toInput", () => {
   });
 
   it("trims optional text to null rather than sending empty strings", () => {
-    const input = toInput(form({ location: "  ", description: "" }));
+    const input = toInput(form({ location: "  ", description: "", meetingUrl: " " }));
     expect(input.location).toBeNull();
     expect(input.description).toBeNull();
+    expect(input.meetingUrl).toBeNull();
+  });
+
+  it("sends the meeting link trimmed", () => {
+    expect(toInput(form({ meetingUrl: " https://meet.google.com/abc-defg-hij " })).meetingUrl).toBe(
+      "https://meet.google.com/abc-defg-hij",
+    );
   });
 });
 
 describe("validateForm", () => {
   it("accepts a well-formed event", () => {
     expect(validateForm(form())).toBeNull();
+    expect(validateForm(form({ meetingUrl: "https://meet.google.com/abc-defg-hij" }))).toBeNull();
+  });
+
+  it("catches a meeting link pasted without its scheme, before the round trip", () => {
+    expect(validateForm(form({ meetingUrl: "meet.google.com/abc-defg-hij" }))).toMatch(/https:\/\//);
+    expect(validateForm(form({ meetingUrl: "javascript:alert(1)" }))).toMatch(/https:\/\//);
     expect(validateForm(form({ repeat: "weekly", byDay: ["MO"], untilDate: "2026-12-18" }))).toBeNull();
   });
 
@@ -150,6 +163,7 @@ describe("formFromEvent", () => {
     title: "Fall Carnival",
     location: "Gym",
     description: null,
+    meetingUrl: null,
     start: "2026-09-18T00:00:00.000Z",
     end: "2026-09-21T00:00:00.000Z",
     allDay: true,
@@ -219,6 +233,7 @@ describe("moving a timed event's date", () => {
     title: "PTO General Meeting - Sept",
     location: null,
     description: null,
+    meetingUrl: null,
     start: localToIso("2026-09-14", "18:30"),
     end: localToIso("2026-09-14", "20:00"),
     allDay: false,

@@ -349,8 +349,20 @@ All five SPAs are separate Cloudflare Pages projects talking to the single
    needn't carry `(seriesId, recurrenceId)`. That is the bar for adding another
    one — and the event page at `/e/:date/:slug` did NOT clear it, because it did
    not have to: it addresses an event by content identity and renders the
-   `volunteerSlug` already here. Nothing new joined this projection for it, and
-   the count is still one.
+   `volunteerSlug` already here. Nothing new joined this projection for it.
+   **The second is `meetingUrl`** (migration 0025): an online meeting link an
+   admin types onto a managed event. It cleared the bar the way `location`
+   does — it says where the event happens, it was put on an event anyone can
+   read, and the sessionless `/ics/:id.ics` feed carries it as the RFC 5545
+   `URL` property regardless, so withholding it from the agenda would hide
+   nothing. It is never derived from a Person or a User, and it is held to
+   http(s) on WRITE (`normalizeMeetingUrl` in `lib/managedCalendar.ts`),
+   because the public event page renders it as an anchor. It takes the same
+   round trip as every other field (invariant 11): written as `URL:`, read
+   back by `parseIcs`, stored on `calendar_event.meeting_url` — but only for a
+   managed row. `refreshSource` deliberately does not bind an imported feed's
+   `URL`, since on a district feed that property names a web page, and
+   labelling it "join online" would be wrong. The count is two.
 13. **Volunteer counts are public; volunteer NAMES are members-only.** A sheet
    (`volunteer_sheet` → `volunteer_position` → `volunteer_signup`, migration
    0012) hangs off ONE occurrence of a managed event and is read by three

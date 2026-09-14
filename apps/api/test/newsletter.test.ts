@@ -128,6 +128,7 @@ describe("newsletter renderer", () => {
       title: "Fall Concert",
       location: "Gym",
       description: null,
+      meetingUrl: null,
       start: "2026-09-15T23:00:00.000Z",
       end: null,
       allDay: false,
@@ -156,6 +157,7 @@ describe("newsletter renderer", () => {
       title: "No School",
       location: null,
       description: null,
+      meetingUrl: null,
       start: "2026-09-15T00:00:00.000Z",
       end: null,
       allDay: true,
@@ -174,7 +176,7 @@ describe("newsletter renderer", () => {
 
   it("drops an event the author removed, from both the HTML and the text part", () => {
     const keep: CalendarEventDTO = {
-      id: "e3", kind: "imported", title: "Book Fair", location: null, description: null,
+      id: "e3", kind: "imported", title: "Book Fair", location: null, description: null, meetingUrl: null,
       start: "2026-08-10T14:00:00.000Z", end: null, allDay: false,
       sourceIds: ["s1"], source: { name: "Events", color: "#0068A8" }, volunteerSlug: null,
     };
@@ -202,7 +204,7 @@ describe("newsletter renderer", () => {
 
   it("says there are no events when every one was removed", () => {
     const only: CalendarEventDTO = {
-      id: "e5", kind: "imported", title: "Only Thing", location: null, description: null,
+      id: "e5", kind: "imported", title: "Only Thing", location: null, description: null, meetingUrl: null,
       start: "2026-08-10T14:00:00.000Z", end: null, allDay: false,
       sourceIds: ["s1"], source: { name: "Events", color: "#0068A8" }, volunteerSlug: null,
     };
@@ -222,7 +224,7 @@ describe("newsletter renderer", () => {
 
   it("links out to the calendar site from an events block", () => {
     const e: CalendarEventDTO = {
-      id: "e6", kind: "imported", title: "Book Fair", location: null, description: null,
+      id: "e6", kind: "imported", title: "Book Fair", location: null, description: null, meetingUrl: null,
       start: "2026-08-10T14:00:00.000Z", end: null, allDay: false,
       sourceIds: ["s1"], source: { name: "Events", color: "#0068A8" }, volunteerSlug: null,
     };
@@ -252,7 +254,7 @@ describe("newsletter renderer", () => {
   it("links each event to its own page on the calendar site", () => {
     const e: CalendarEventDTO = {
       id: "e7", kind: "managed", seriesId: "01SERIES", recurrenceId: "2026-10-18T00:00:00.000Z",
-      title: "Fall Carnival", location: "Gym", description: null,
+      title: "Fall Carnival", location: "Gym", description: null, meetingUrl: null,
       start: "2026-10-18T00:00:00.000Z", end: null, allDay: false,
       sourceIds: ["s1"], source: { name: "Events", color: "#0068A8" }, volunteerSlug: null,
     };
@@ -287,7 +289,7 @@ describe("newsletter renderer", () => {
     // Same rule "See all events" follows: a deployment with no calendar host
     // renders as it did before rather than emitting a dead link.
     const e: CalendarEventDTO = {
-      id: "e8", kind: "imported", title: "Book Fair", location: null, description: null,
+      id: "e8", kind: "imported", title: "Book Fair", location: null, description: null, meetingUrl: null,
       start: "2026-08-10T14:00:00.000Z", end: null, allDay: false,
       sourceIds: ["s1"], source: { name: "Events", color: "#0068A8" }, volunteerSlug: null,
     };
@@ -306,7 +308,7 @@ describe("newsletter renderer", () => {
 
   it("refuses to link events through an unsafe calendar URL", () => {
     const e: CalendarEventDTO = {
-      id: "e9", kind: "imported", title: "Book Fair", location: null, description: null,
+      id: "e9", kind: "imported", title: "Book Fair", location: null, description: null, meetingUrl: null,
       start: "2026-08-10T14:00:00.000Z", end: null, allDay: false,
       sourceIds: ["s1"], source: { name: "Events", color: "#0068A8" }, volunteerSlug: null,
     };
@@ -330,7 +332,7 @@ describe("newsletter renderer", () => {
     // survive escapeHtml, or a crafted event title is stored XSS on the archive.
     const e: CalendarEventDTO = {
       id: "e10", kind: "imported", title: '<img src=x onerror=alert(1)> "Party"',
-      location: null, description: null,
+      location: null, description: null, meetingUrl: null,
       start: "2026-08-10T14:00:00.000Z", end: null, allDay: false,
       sourceIds: ["s1"], source: { name: "Events", color: "#0068A8" }, volunteerSlug: null,
     };
@@ -357,7 +359,7 @@ describe("newsletter renderer", () => {
     // content identity a retitle invalidates — and a newsletter outlives both.
     const needs: CalendarEventDTO = {
       id: "e11", kind: "managed", seriesId: "01SERIES", recurrenceId: "2026-10-18T00:00:00.000Z",
-      title: "Fall Carnival", location: null, description: null,
+      title: "Fall Carnival", location: null, description: null, meetingUrl: null,
       start: "2026-10-18T00:00:00.000Z", end: null, allDay: false,
       sourceIds: ["s1"], source: { name: "Events", color: "#0068A8" },
       volunteerSlug: "fall-carnival-2026",
@@ -395,7 +397,7 @@ describe("newsletter renderer", () => {
     // link, not a dead one — and the flag itself is still worth saying.
     const e: CalendarEventDTO = {
       id: "e13", kind: "managed", seriesId: "01SERIES", recurrenceId: "2026-10-18T00:00:00.000Z",
-      title: "Fall Carnival", location: null, description: null,
+      title: "Fall Carnival", location: null, description: null, meetingUrl: null,
       start: "2026-10-18T00:00:00.000Z", end: null, allDay: false,
       sourceIds: ["s1"], source: { name: "Events", color: "#0068A8" },
       volunteerSlug: "fall-carnival-2026",
@@ -417,7 +419,7 @@ describe("newsletter renderer", () => {
   it("keeps the volunteer link out of an event the author removed", () => {
     const dropped: CalendarEventDTO = {
       id: "e14", kind: "managed", seriesId: "01SERIES", recurrenceId: "2026-10-18T00:00:00.000Z",
-      title: "Fall Carnival", location: null, description: null,
+      title: "Fall Carnival", location: null, description: null, meetingUrl: null,
       start: "2026-10-18T00:00:00.000Z", end: null, allDay: false,
       sourceIds: ["s1"], source: { name: "Events", color: "#0068A8" },
       volunteerSlug: "fall-carnival-2026",

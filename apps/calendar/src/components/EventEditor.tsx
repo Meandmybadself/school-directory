@@ -100,6 +100,16 @@ export function EventEditor({ initial, busy, onSubmit, onCancel, revealOnMount =
       <Field label="Location">
         <input className="sd-input" placeholder="Gym" value={f.location} onChange={(e) => set("location", e.target.value)} />
       </Field>
+      <Field label="Online meeting link" hint="Optional. Shown as a “Join online” button on the event, and carried into subscribers' calendar apps.">
+        <input
+          className="sd-input"
+          type="url"
+          inputMode="url"
+          placeholder="https://meet.google.com/abc-defg-hij"
+          value={f.meetingUrl}
+          onChange={(e) => set("meetingUrl", e.target.value)}
+        />
+      </Field>
       <Field label="Description">
         <textarea className="sd-input" rows={3} style={{ height: "auto", resize: "vertical" }} value={f.description} onChange={(e) => set("description", e.target.value)} />
       </Field>

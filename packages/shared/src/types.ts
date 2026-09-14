@@ -282,6 +282,12 @@ export interface CalendarEventDTO {
   title: string;
   location: string | null;
   description: string | null;
+  /** Where an online event happens: an https link an admin put on a managed
+   *  event (migration 0025). Always null for an imported event — an upstream
+   *  feed's `URL` property is not read, since on a district feed it names a
+   *  web page rather than a meeting. May be ABSENT from a newsletter events
+   *  snapshot frozen before the field existed; read it with a falsy check. */
+  meetingUrl: string | null;
   /** ISO-8601 UTC. */
   start: string;
   /** ISO-8601 UTC, or null. */
@@ -319,13 +325,20 @@ export interface CalendarEventDTO {
  *  volunteer page — which itself publishes counts and never names — and it
  *  cannot be used to reach the member-only sheet, which is gated on the session
  *  rather than on knowing an id. The whole point of the sheet having its own
- *  slug is that the public link needn't reveal (seriesId, recurrenceId). */
+ *  slug is that the public link needn't reveal (seriesId, recurrenceId).
+ *
+ *  `meetingUrl` is the second deliberate addition. It is public for the reason
+ *  `location` is: it says where an event happens, it was typed by an admin
+ *  onto an event anyone can read, and the published .ics feed (served without
+ *  a session) carries it as the `URL` property in any case. It is never
+ *  derived from member data. */
 export interface PublicCalendarEventDTO {
   id: string;
   kind: CalendarEventKind;
   title: string;
   location: string | null;
   description: string | null;
+  meetingUrl: string | null;
   start: string;
   end: string | null;
   allDay: boolean;
@@ -432,6 +445,8 @@ export interface ManagedEventDTO {
   title: string;
   location: string | null;
   description: string | null;
+  /** Online meeting link, validated to an http(s) URL on write, or null. */
+  meetingUrl: string | null;
   /** ISO-8601 UTC start of the first occurrence. */
   start: string;
   /** ISO-8601 UTC end, or null. For all-day events this is the RFC5545-exclusive
@@ -456,6 +471,8 @@ export interface ManagedEventInput {
   title: string;
   location?: string | null;
   description?: string | null;
+  /** Must parse as an http(s) URL when non-empty; the API 400s otherwise. */
+  meetingUrl?: string | null;
   start: string;
   end?: string | null;
   allDay?: boolean;

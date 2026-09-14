@@ -19,6 +19,9 @@ export interface IcsEventInput {
   title: string;
   location: string | null;
   description: string | null;
+  /** Becomes the RFC 5545 `URL` property (§3.8.4.6). Already validated as an
+   *  http(s) URL by the caller; null for anything without one. */
+  url: string | null;
   /** ISO-8601 UTC. */
   start: string;
   /** ISO-8601 UTC, or null for an event with no explicit end. */
@@ -121,6 +124,10 @@ function eventLines(e: IcsEventInput): string[] {
   lines.push(`SUMMARY:${escapeText(e.title)}`);
   if (e.location) lines.push(`LOCATION:${escapeText(e.location)}`);
   if (e.description) lines.push(`DESCRIPTION:${escapeText(e.description)}`);
+  // URI-typed, not TEXT: RFC 5545 §3.3.13 says a URI value is NOT escaped, so a
+  // `,` or `;` in a query string goes through as-is. Line breaks cannot reach
+  // here — `new URL()` strips them, and every caller has been through it.
+  if (e.url) lines.push(`URL:${e.url}`);
   if (e.recurrence) lines.push(`RRULE:${rruleValue(e.recurrence, e.start, e.allDay)}`);
   lines.push("END:VEVENT");
   return lines;

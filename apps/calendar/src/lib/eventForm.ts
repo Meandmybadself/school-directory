@@ -20,6 +20,8 @@ export interface EventForm {
   title: string;
   location: string;
   description: string;
+  /** Online meeting link. Empty means none; otherwise must parse as http(s). */
+  meetingUrl: string;
   allDay: boolean;
   /** yyyy-mm-dd */
   startDate: string;
@@ -102,6 +104,7 @@ export function emptyForm(): EventForm {
     title: "",
     location: "",
     description: "",
+    meetingUrl: "",
     allDay: false,
     startDate: date,
     startTime: `${hour}:00`,
@@ -131,6 +134,7 @@ export function formFromEvent(e: ManagedEventDTO): EventForm {
     title: e.title,
     location: e.location ?? "",
     description: e.description ?? "",
+    meetingUrl: e.meetingUrl ?? "",
     allDay,
     startDate,
     startTime: allDay ? base.startTime : isoToLocalTime(e.start),
@@ -147,10 +151,25 @@ export function formFromEvent(e: ManagedEventDTO): EventForm {
   };
 }
 
+/** Does this read as a web address? Mirrors the API's rule (http(s) via
+ *  `new URL()`), so the common paste mistake — a bare `meet.google.com/…`
+ *  with no scheme — is caught before the round trip. */
+export function isMeetingUrl(value: string): boolean {
+  try {
+    const u = new URL(value);
+    return u.protocol === "https:" || u.protocol === "http:";
+  } catch {
+    return false;
+  }
+}
+
 /** Local, user-facing validation. The API validates again — this exists so the
  *  common mistakes get an answer without a round trip. */
 export function validateForm(f: EventForm): string | null {
   if (!f.title.trim()) return "Give the event a title.";
+  if (f.meetingUrl.trim() && !isMeetingUrl(f.meetingUrl.trim())) {
+    return "The online meeting link needs to be a full web address, starting with https://.";
+  }
   if (!f.startDate) return "Pick a start date.";
   if (!f.allDay && !f.startTime) return "Pick a start time.";
   if (f.allDay && f.endDate && f.endDate < f.startDate) return "The last day can't be before the first.";
@@ -197,6 +216,7 @@ export function toInput(f: EventForm): ManagedEventInput {
     title: f.title.trim(),
     location: f.location.trim() || null,
     description: f.description.trim() || null,
+    meetingUrl: f.meetingUrl.trim() || null,
     start,
     end,
     allDay,

@@ -56,6 +56,17 @@ function googleMapsUrl(q: string): string {
   return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(q)}`;
 }
 
+/** "meet.google.com" from a meeting link — the part a reader recognises. Falls
+ *  back to the whole string for anything `URL` can't parse, which the API
+ *  should never have stored. */
+function hostOf(url: string): string {
+  try {
+    return new URL(url).host;
+  } catch {
+    return url;
+  }
+}
+
 /** "4:00 – 8:00 PM", or the all-day label. Typed by the fields it reads rather
  *  than by PageEvent, because the fallback card below renders a sheet's own
  *  occurrence, which is not an agenda row. */
@@ -312,6 +323,21 @@ export function Event() {
             <a href={googleMapsUrl(event.location)} target="_blank" rel="noopener noreferrer" className="sd-link" style={{ fontSize: 14 }}>
               {event.location}
             </a>
+          </div>
+        )}
+        {/* Only an event authored here can carry one (migration 0025), and the
+            API has already held it to http(s), so the href is safe to render on
+            this anonymous page. The host is shown beside the label so a reader
+            knows which app is about to open. */}
+        {event.meetingUrl && (
+          <div className="sd-row" style={{ gap: 9, minWidth: 0 }}>
+            <Icon name="globe" size={17} style={{ color: "var(--ink-3)", flex: "0 0 auto" }} />
+            <a href={event.meetingUrl} target="_blank" rel="noopener noreferrer" className="sd-link" style={{ fontSize: 14, fontWeight: 600 }}>
+              {t("eventJoinOnline")}
+            </a>
+            <span className="sd-meta" style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+              {hostOf(event.meetingUrl)}
+            </span>
           </div>
         )}
         {showsDescription(event) && (
