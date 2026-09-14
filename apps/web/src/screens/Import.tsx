@@ -45,7 +45,12 @@ export function Import() {
   const isDesktop = useIsDesktop();
   const { me } = useSession();
   const [headers, setHeaders] = useState<string[]>([]);
-  const [rows, setRows] = useState<string[][]>([]);
+  const [allRows, setAllRows] = useState<string[][]>([]);
+  // Indices into allRows the admin has struck out of THIS import. A removed
+  // row is remembered rather than spliced away so it can be put back without
+  // re-picking the file.
+  const [removed, setRemoved] = useState<Set<number>>(new Set());
+  const rows = useMemo(() => allRows.filter((_, i) => !removed.has(i)), [allRows, removed]);
   const [mapping, setMapping] = useState<Record<BulkImportField, number>>({} as Record<BulkImportField, number>);
   const [result, setResult] = useState<(BulkImportResult & { committed?: boolean; emailed?: boolean }) | null>(null);
   const [busy, setBusy] = useState(false);
@@ -66,15 +71,16 @@ export function Import() {
     const text = await file.text();
     const parsed = parseCsv(text);
     setHeaders(parsed.headers);
-    setRows(parsed.rows);
+    setAllRows(parsed.rows);
+    setRemoved(new Set());
     setMapping(autoMap(parsed.headers));
     setResult(null);
     setFileName(file.name);
   };
 
-  const importRows = useMemo<BulkImportRow[]>(() => {
+  const toImportRow = useMemo(() => {
     const cell = (r: string[], idx: number) => (idx >= 0 ? (r[idx] ?? "").trim() : "");
-    return rows.map((r) => ({
+    return (r: string[]): BulkImportRow => ({
       firstName: cell(r, mapping.firstName ?? -1),
       lastName: cell(r, mapping.lastName ?? -1) || undefined,
       email: cell(r, mapping.email ?? -1) || undefined,
@@ -82,10 +88,20 @@ export function Import() {
       group: cell(r, mapping.group ?? -1) || undefined,
       title: cell(r, mapping.title ?? -1) || undefined,
       capabilities: cell(r, mapping.capabilities ?? -1) || defaultCaps.trim() || undefined,
-    }));
-  }, [rows, mapping, defaultCaps]);
+    });
+  }, [mapping, defaultCaps]);
+  const importRows = useMemo<BulkImportRow[]>(() => rows.map(toImportRow), [rows, toImportRow]);
 
   const mappedOk = (mapping.firstName ?? -1) >= 0;
+
+  const removeRow = (idx: number) => {
+    setRemoved((r) => new Set(r).add(idx));
+    setResult(null);
+  };
+  const restoreAll = () => {
+    setRemoved(new Set());
+    setResult(null);
+  };
 
   const run = async (dryRun: boolean) => {
     setBusy(true);
@@ -143,17 +159,45 @@ export function Import() {
           </div>
 
           <div style={{ marginTop: 18 }}>
-            <SectLabel>Preview ({rows.length} rows)</SectLabel>
-            <div className="sd-card sd-card-pad" style={{ marginTop: 9, paddingTop: 4, paddingBottom: 4 }}>
-              {importRows.slice(0, 5).map((r, i) => (
-                <div key={i} className="sd-crow" style={{ alignItems: "center" }}>
-                  <div className="sd-cmain">
-                    <div style={{ fontSize: 13.5, fontWeight: 700 }}>{[r.firstName, r.lastName].filter(Boolean).join(" ") || "—"}</div>
-                    <div className="sd-meta">{[r.email, r.phone && `· ${r.phone}`, r.group && `· ${r.group}`, r.title && `· ${r.title}`, r.capabilities && `· ${r.capabilities}`].filter(Boolean).join(" ")}</div>
+            <div className="sd-row" style={{ justifyContent: "space-between", alignItems: "baseline" }}>
+              <SectLabel>Rows to import ({rows.length}{removed.size > 0 ? ` of ${allRows.length}` : ""})</SectLabel>
+              {removed.size > 0 && (
+                <button
+                  type="button"
+                  onClick={restoreAll}
+                  className="sd-meta"
+                  style={{ background: "none", border: 0, padding: 0, color: "var(--blue)", cursor: "pointer", fontWeight: 600 }}
+                >
+                  Restore {removed.size} removed
+                </button>
+              )}
+            </div>
+            <p className="sd-meta" style={{ margin: "6px 0 0", lineHeight: 1.5 }}>
+              Remove anyone who shouldn't be added. Only the rows listed here are imported.
+            </p>
+            <div className="sd-card sd-card-pad" style={{ marginTop: 9, paddingTop: 4, paddingBottom: 4, maxHeight: 420, overflowY: "auto" }}>
+              {allRows.map((raw, idx) => {
+                if (removed.has(idx)) return null;
+                const r = toImportRow(raw);
+                return (
+                  <div key={idx} className="sd-crow" style={{ alignItems: "center" }}>
+                    <div className="sd-cmain">
+                      <div style={{ fontSize: 13.5, fontWeight: 700 }}>{[r.firstName, r.lastName].filter(Boolean).join(" ") || "—"}</div>
+                      <div className="sd-meta">{[r.email, r.phone && `· ${r.phone}`, r.group && `· ${r.group}`, r.title && `· ${r.title}`, r.capabilities && `· ${r.capabilities}`].filter(Boolean).join(" ")}</div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => removeRow(idx)}
+                      aria-label={`Remove ${[r.firstName, r.lastName].filter(Boolean).join(" ") || "row"}`}
+                      title="Don't import this row"
+                      style={{ background: "none", border: 0, color: "var(--ink-3)", cursor: "pointer", padding: 6 }}
+                    >
+                      <Icon name="x" size={18} />
+                    </button>
                   </div>
-                </div>
-              ))}
-              {rows.length > 5 && <div className="sd-meta" style={{ padding: "8px 0 4px" }}>+{rows.length - 5} more</div>}
+                );
+              })}
+              {rows.length === 0 && <div className="sd-meta" style={{ padding: "8px 0" }}>Every row has been removed — nothing to import.</div>}
             </div>
           </div>
 
@@ -200,8 +244,8 @@ export function Import() {
           </div>
 
           <div className="sd-row" style={{ gap: 9, marginTop: 12 }}>
-            <Btn kind="secondary" icon="eye" disabled={!mappedOk || busy} onClick={() => void run(true)}>Dry run</Btn>
-            <Btn icon="upload" disabled={!mappedOk || busy} onClick={() => void run(false)}>Import</Btn>
+            <Btn kind="secondary" icon="eye" disabled={!mappedOk || busy || rows.length === 0} onClick={() => void run(true)}>Dry run</Btn>
+            <Btn icon="upload" disabled={!mappedOk || busy || rows.length === 0} onClick={() => void run(false)}>Import</Btn>
           </div>
         </>
       )}
@@ -224,9 +268,14 @@ export function Import() {
           {result.errors.length > 0 && (
             <div style={{ marginTop: 8 }}>
               <div className="sd-label" style={{ color: "var(--warn)" }}>Errors ({result.errors.length})</div>
-              {result.errors.slice(0, 8).map((e, i) => (
-                <div key={i} className="sd-meta" style={{ color: "var(--warn)" }}>Row {e.row}: {e.message}</div>
-              ))}
+              {result.errors.slice(0, 8).map((e, i) => {
+                // `row` counts the rows SUBMITTED, which after removals is not
+                // the CSV's line number — so name the person as well.
+                const who = e.row > 0 ? [importRows[e.row - 1]?.firstName, importRows[e.row - 1]?.lastName].filter(Boolean).join(" ") : "";
+                return (
+                  <div key={i} className="sd-meta" style={{ color: "var(--warn)" }}>Row {e.row}{who ? ` (${who})` : ""}: {e.message}</div>
+                );
+              })}
             </div>
           )}
         </div>
