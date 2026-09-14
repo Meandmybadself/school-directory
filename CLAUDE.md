@@ -36,7 +36,7 @@ apps/newsletter     Newsletter SPA (Vite) → newsletter.eisenhower.school. Admi
 apps/store          Store SPA (Vite) → store.eisenhower.school. Cart + admin in the bundle, PLUS Pages Functions serving the PUBLIC, INDEXED storefront. Printful catalog, Stripe checkout. Design system COPIED. Vendor/DNS setup: SETUP.md.
 apps/api            Hono Worker → api-directory.eisenhower.school. Serves ALL FOUR SPAs. Routes in src/routes, logic in src/lib, middleware in src/middleware.
 apps/pto            PTO SPA (Vite) → pto.eisenhower.school. Trello-like planning boards in the bundle (members AND PTO-board only), PLUS Pages Functions serving the PUBLIC, INDEXED explanatory page — who the PTO is, the year, how to help, how to donate. Design system COPIED. Routing: ROUTING.md.
-apps/redirect       One-file Worker owning the retired directory.meandmybadself.com; 301s to the live host.
+apps/redirect       One-file Worker owning hostnames that exist only to 301 elsewhere: the retired directory.meandmybadself.com (path-preserving, to the live host) and ptomeet.eisenhower.school (a vanity name for the PTO's Google Meet room). Host map in src/index.ts; each host is also a custom_domain route in wrangler.toml.
 apps/api/migrations Ordered D1 SQL migrations (NNNN_name.sql). Never edit an applied migration — add a new one.
 packages/shared     Domain types (types.ts) + i18n dictionaries (i18n.ts). Imported as `@sd/shared`.
 docs/               Product spec (PLAN/SRD/SDD). Source of truth for requirements.

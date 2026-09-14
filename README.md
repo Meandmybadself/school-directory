@@ -29,6 +29,7 @@ projection that decides field by field what may cross. See
 | `newsletter.eisenhower.school` | Newsletter app + public archive (`apps/newsletter`) |
 | `store.eisenhower.school` | Storefront + cart + admin (`apps/store`) |
 | `api-directory.eisenhower.school` | The one API Worker (`apps/api`) |
+| `ptomeet.eisenhower.school` | Vanity name; 301s to the PTO's Google Meet room (`apps/redirect`) |
 | `directory.meandmybadself.com` | Retired host; 301s to the live one (`apps/redirect`) |
 
 **[`CLAUDE.md`](./CLAUDE.md) is the live engineering contract** — its numbered
@@ -56,7 +57,7 @@ that folder is in git history at `48f80f6` if you ever need the original board.
 | `apps/newsletter` | React + Vite → **Pages** (+ Functions) | TipTap authoring, subscribers, member preferences; Functions server-render the public archive |
 | `apps/store` | React + Vite → **Pages** (+ Functions) | Cart and admin in the bundle; Functions server-render the indexed storefront. Printful fulfilment, Stripe checkout |
 | `apps/api` | Hono on **Workers** | Serves **all four** SPAs: auth, authz, **server-side privacy resolution**, audit, geocoding, calendars, newsletter, volunteers, store |
-| `apps/redirect` | One-file **Worker** | Owns the retired hostname and 301s to the live one |
+| `apps/redirect` | One-file **Worker** | Owns hostnames that only 301 elsewhere: the retired directory host, and `ptomeet` → the PTO's Google Meet |
 | `packages/shared` | TypeScript | Domain types + i18n dictionaries (en/es/zh/so) shared by every app |
 | `apps/api/migrations` | SQL | Cloudflare **D1** (SQLite) schema, ordered and append-only |
 
