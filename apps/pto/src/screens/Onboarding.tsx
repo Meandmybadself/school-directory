@@ -17,6 +17,7 @@ import { Btn } from "../components/atoms.js";
 import { AppShell } from "../components/AppShell.js";
 import { SiteFooter } from "../components/SiteFooter.js";
 import { api } from "../lib/api.js";
+import { rememberedEmail } from "../lib/rememberedEmail.js";
 import { useI18n } from "../i18n/index.js";
 
 function Brand({ center }: { center?: boolean }) {
@@ -47,7 +48,7 @@ export function SignIn() {
   const { t } = useI18n();
   const navigate = useNavigate();
   const [params] = useSearchParams();
-  const [email, setEmail] = useState("");
+  const [email, setEmail] = useState(rememberedEmail);
   const [busy, setBusy] = useState(false);
   const linkError = params.get("error") === "link";
 

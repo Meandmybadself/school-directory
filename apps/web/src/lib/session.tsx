@@ -2,6 +2,7 @@
 import { createContext, useContext, useEffect, useState, useCallback, type ReactNode } from "react";
 import type { ControllablePersonDTO, MeDTO } from "@sd/shared";
 import { api, ApiError } from "./api.js";
+import { rememberEmail } from "./rememberedEmail.js";
 
 interface SessionValue {
   loading: boolean;
@@ -22,7 +23,9 @@ export function SessionProvider({ children }: { children: ReactNode }) {
 
   const refresh = useCallback(async () => {
     try {
-      setMe(await api.me());
+      const next = await api.me();
+      setMe(next);
+      if (!next.masqueradingAs) rememberEmail(next.user.email);
     } catch (err) {
       if (err instanceof ApiError && err.status === 401) setMe(null);
       else throw err;
