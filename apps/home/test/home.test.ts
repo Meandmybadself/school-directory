@@ -39,6 +39,7 @@ const EVENTS: PublicCalendarEventDTO[] = [
     title: "Fall Carnival",
     location: "Eisenhower gym",
     description: null,
+    meetingUrl: null,
     start: "2026-10-06T23:00:00.000Z", // 6:00 p.m. in Hopkins
     end: "2026-10-07T01:00:00.000Z",
     allDay: false,
@@ -52,6 +53,7 @@ const EVENTS: PublicCalendarEventDTO[] = [
     title: "No school — teacher workshop",
     location: null,
     description: null,
+    meetingUrl: null,
     start: "2026-10-19T00:00:00.000Z",
     end: null,
     allDay: true,

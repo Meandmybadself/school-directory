@@ -17,7 +17,7 @@ import {
 import { untilToIso } from "../lib/eventForm.js";
 
 const ev = (over: Partial<ManagedEventDTO>): ManagedEventDTO => ({
-  id: "e", calendarId: "c", title: "Event", location: null, description: null,
+  id: "e", calendarId: "c", title: "Event", location: null, description: null, meetingUrl: null,
   start: "2026-07-30T17:00:00.000Z", end: null, allDay: false, recurrence: null,
   occurrenceCount: 1, sheetCount: 0, signupCount: 0, createdBy: null,
   createdAt: "2026-01-01T00:00:00.000Z", updatedAt: "2026-01-01T00:00:00.000Z",
