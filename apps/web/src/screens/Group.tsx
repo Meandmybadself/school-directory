@@ -201,7 +201,10 @@ function Subgroups({ g }: { g: GroupDetailDTO }) {
   return (
     <div>
       <SectLabel>{t("subgroups")}</SectLabel>
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 9, marginTop: 9 }}>
+      {/* auto-fill rather than a fixed pair of columns: this block renders on
+          both shells, and two 175px tiles on a phone truncated a classroom to
+          "Grade …". Below ~450px it lays out as one column and the name fits. */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))", gap: 9, marginTop: 9 }}>
         {g.children.map((c) => {
           const a = kindAccent(c.kind);
           return (
@@ -272,7 +275,7 @@ export function GroupsIndex() {
   ) : null;
 
   const tilesOf = (list: GroupSummaryDTO[], emptyMsg: string) => (
-    <div style={{ display: isDesktop ? "grid" : "flex", gridTemplateColumns: "1fr 1fr", flexDirection: "column", gap: isDesktop ? 12 : 9 }}>
+    <div style={{ display: isDesktop ? "grid" : "flex", gridTemplateColumns: "minmax(0, 1fr) minmax(0, 1fr)", flexDirection: "column", gap: isDesktop ? 12 : 9 }}>
       {list.map((g) => {
         const a = kindAccent(g.kind);
         return (
