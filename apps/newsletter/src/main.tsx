@@ -7,6 +7,7 @@ import { App } from "./app.js";
 import { ErrorBoundary } from "./components/ErrorBoundary.js";
 import { I18nProvider } from "./i18n/index.js";
 import { SessionProvider } from "./lib/session.js";
+import { AccessProvider } from "./lib/access.js";
 
 const SCHOOL_NAME = import.meta.env.VITE_SCHOOL_NAME ?? "Eisenhower PTO";
 
@@ -18,9 +19,13 @@ createRoot(document.getElementById("root")!).render(
     <ErrorBoundary>
       <I18nProvider school={SCHOOL_NAME}>
         <SessionProvider>
-          <BrowserRouter>
-            <App />
-          </BrowserRouter>
+          {/* Inside SessionProvider, because "may this account author?" is a
+              question about the signed-in user — see lib/access.tsx. */}
+          <AccessProvider>
+            <BrowserRouter>
+              <App />
+            </BrowserRouter>
+          </AccessProvider>
         </SessionProvider>
       </I18nProvider>
     </ErrorBoundary>

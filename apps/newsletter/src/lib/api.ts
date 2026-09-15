@@ -8,6 +8,7 @@ import type {
   CalendarFeedDTO,
   Locale,
   MeDTO,
+  NewsletterAccessDTO,
   NewsletterIssueDTO,
   NewsletterIssueInput,
   NewsletterIssueSummaryDTO,
@@ -155,7 +156,19 @@ export const api = {
   revokePreviewLink: (id: string) =>
     request<{ ok: true }>(`/newsletter/issues/${id}/preview-link`, { method: "DELETE" }),
 
-  // Settings + subscribers (admin).
+  // ── The gate ── may this member author? Resolved server-side; see lib/access.tsx.
+  access: () => request<NewsletterAccessDTO>("/newsletter/access"),
+
+  // Who may author (system admin). The picker lists generic groups only.
+  editorGroups: () =>
+    request<{ groups: { id: string; name: string; memberCount: number }[] }>("/newsletter/groups"),
+  setEditorGroup: (groupId: string | null) =>
+    request<NewsletterAccessDTO>("/newsletter/editors", {
+      method: "PUT",
+      body: JSON.stringify({ groupId }),
+    }),
+
+  // Settings (read: editors; write: admin) + subscribers (admin).
   settings: () => request<{ settings: NewsletterSettingsDTO }>("/newsletter/settings"),
   saveSettings: (body: NewsletterSettingsDTO) =>
     request<{ settings: NewsletterSettingsDTO }>("/newsletter/settings", {

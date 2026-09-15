@@ -10,12 +10,14 @@ import { SiteFooter } from "./SiteFooter.js";
 import { PlatformNav } from "./AppSwitcher.js";
 import { useI18n } from "../i18n/index.js";
 import { useSession } from "../lib/session.js";
+import { useAccess } from "../lib/access.js";
 
 function Sidebar({ active }: { active: NavKey }) {
   const { t } = useI18n();
   const navigate = useNavigate();
   const { me } = useSession();
-  const items = navItems(t, !!me?.user.isSystemAdmin);
+  const { access } = useAccess();
+  const items = navItems(t, !!access?.canUse, !!me?.user.isSystemAdmin);
 
   return (
     <aside className="sd-desknav">

@@ -1044,6 +1044,25 @@ export interface NewsletterEventsBlockAttrs {
   heading: string | null;
 }
 
+/** Whether this caller may author the newsletter, and which group decides.
+ *
+ *  Resolved server-side by `newsletterAccess` in apps/api/src/lib/newsletter.ts
+ *  — the same roster gate the PTO boards use (`PtoAccessDTO`), keyed on the
+ *  `newsletter_editor_group_id` setting instead. The client reads it to choose
+ *  between the issue list and the member's preferences screen; it is a UI
+ *  convenience, and every authoring route is independently gated. */
+export interface NewsletterAccessDTO {
+  /** True when the caller is a system admin, or controls a Person on the
+   *  editors group's roster. Editors author issues; settings and the
+   *  subscriber list stay with system admins, so this is not `isSystemAdmin`. */
+  canUse: boolean;
+  isSystemAdmin: boolean;
+  /** Name of the configured editors group, or null when none has been named —
+   *  the bootstrap state, in which only system admins author. */
+  groupName: string | null;
+  groupId: string | null;
+}
+
 /** Instance-wide newsletter configuration. Stored as one JSON blob under a
  *  single `setting` key rather than its own table. */
 export interface NewsletterSettingsDTO {
@@ -1751,6 +1770,10 @@ export type AuditAction =
   | "newsletter.subscribed"
   | "newsletter.test_sent"
   | "newsletter.settings.updated"
+  /** A system admin named (or cleared) the group whose roster may author the
+   *  newsletter — `pto.group.configured`'s twin, the single lever over who may
+   *  write to every subscriber's inbox. */
+  | "newsletter.editors.configured"
   | "newsletter.subscriber.added"
   | "newsletter.subscriber.imported"
   | "newsletter.subscriber.removed"

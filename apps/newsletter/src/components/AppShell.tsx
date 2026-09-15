@@ -12,6 +12,7 @@ import { AppsSheet } from "./AppSwitcher.js";
 import { useOnline } from "../lib/useOnline.js";
 import { useI18n } from "../i18n/index.js";
 import { useSession } from "../lib/session.js";
+import { useAccess } from "../lib/access.js";
 
 /** Renders whichever app-bar sheet the chrome context has open, so every mobile
  *  ScreenHeader can reach the language picker and the account menu. */
@@ -76,11 +77,14 @@ export type NavKey = "newsletter" | "admin";
  *  absolute URLs; they are now in the platform switcher (AppSwitcher.tsx). One
  *  list, read by both the bottom bar and the desktop sidebar.
  *
- *  Non-admins land on the preferences screen — the only thing here for them —
- *  while admins get the issue list. */
-export function navItems(t: ReturnType<typeof useI18n>["t"], isSystemAdmin: boolean) {
+ *  Two audiences, two tiers (invariant 31). An EDITOR — a system admin or
+ *  someone on the editors group's roster — gets the issue list; everyone else
+ *  lands on the preferences screen, the only thing here for them. The admin
+ *  entry (settings, subscribers) is for system admins alone, since that is
+ *  where the editors group itself is named. */
+export function navItems(t: ReturnType<typeof useI18n>["t"], canEdit: boolean, isSystemAdmin: boolean) {
   const items: [IconName, NavKey, string, string][] = [
-    ["mail", "newsletter", t("navNewsletter"), isSystemAdmin ? "/admin" : "/preferences"],
+    ["mail", "newsletter", t("navNewsletter"), canEdit ? "/admin" : "/preferences"],
   ];
   if (isSystemAdmin) items.push(["shield", "admin", t("navAdmin"), "/admin/settings"]);
   return items;
@@ -98,7 +102,8 @@ export function BottomNav({ active }: { active: NavKey }) {
   const navigate = useNavigate();
   const chrome = useChrome();
   const { me } = useSession();
-  const items = navItems(t, !!me?.user.isSystemAdmin);
+  const { access } = useAccess();
+  const items = navItems(t, !!access?.canUse, !!me?.user.isSystemAdmin);
 
   return (
     <nav className="sd-bottomnav">

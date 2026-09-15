@@ -14,7 +14,8 @@ import { Icon } from "../components/Icon.js";
 import { FooterEditor } from "../components/editor/FooterEditor.js";
 import { useIsDesktop } from "../lib/useIsDesktop.js";
 import { useCalendarFeeds } from "../lib/useCalendarFeeds.js";
-import { api, errorMessage } from "../lib/api.js";
+import { api, errorMessage, DIRECTORY_URL } from "../lib/api.js";
+import { useAccess } from "../lib/access.js";
 
 const LOOKAHEAD_CHOICES = [7, 14, 30, 60];
 
@@ -35,6 +36,117 @@ const NOTIFY_CHOICES: { mode: NotifyMode; label: string; detail: string }[] = [
       "One email each morning listing everyone who confirmed since the last digest. Turning this on starts counting now — subscribers from before today aren't replayed.",
   },
 ];
+
+/** Which group's roster may author the newsletter (invariant 31).
+ *
+ *  Its own save, not part of the form below: the route behind it
+ *  (`PUT /newsletter/editors`) is the single lever over who may write to every
+ *  subscriber's inbox, so it is audited on its own and takes effect the moment
+ *  a group is tapped rather than riding along on the next "Save settings". The
+ *  group is an ordinary generic group, rostered in the directory — no second
+ *  membership model. With nothing chosen, only system admins author; that is
+ *  the bootstrap state, not a broken one. */
+function EditorsPicker() {
+  const { access, refresh } = useAccess();
+  const [groups, setGroups] = useState<{ id: string; name: string; memberCount: number }[] | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    void api
+      .editorGroups()
+      .then((r) => setGroups(r.groups))
+      .catch(() => setGroups([]));
+  }, []);
+
+  const choose = async (groupId: string | null) => {
+    setBusy(true);
+    setError(null);
+    try {
+      await api.setEditorGroup(groupId);
+      await refresh();
+    } catch (err) {
+      setError(errorMessage(err, "Couldn't save that."));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <section className="nlx-formgrid">
+      <SectLabel>Editors</SectLabel>
+      <p className="sd-meta" style={{ margin: 0 }}>
+        Pick the group whose members may write, preview and send issues. Anyone who controls a
+        Person on its roster gets in; system admins always do. Settings and the subscriber list
+        stay with system admins. Until you pick one, only system admins can author.
+      </p>
+      <p className="sd-meta" style={{ margin: 0 }}>
+        Groups and their rosters are managed in the directory —{" "}
+        <a className="sd-link" href={`${DIRECTORY_URL}/groups`}>
+          {DIRECTORY_URL.replace(/^https?:\/\//, "")}
+        </a>
+        . Only <b>generic</b> groups are offered here: a household or a classroom is a different
+        kind of thing and shouldn't double as a committee.
+      </p>
+
+      {error && <p className="sd-meta" style={{ color: "var(--warn)", margin: 0 }}>{error}</p>}
+
+      {groups === null ? (
+        <div className="sd-meta">Loading…</div>
+      ) : groups.length === 0 ? (
+        <div className="sd-card sd-card-pad">
+          <div style={{ fontWeight: 700 }}>No groups yet</div>
+          <p className="sd-meta" style={{ marginTop: 6 }}>
+            Create one in the directory (Admin → Groups), add the editors to it, then come back
+            here.
+          </p>
+        </div>
+      ) : (
+        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+          {groups.map((g) => {
+            const on = access?.groupId === g.id;
+            return (
+              <button
+                key={g.id}
+                type="button"
+                className="sd-row"
+                disabled={busy}
+                onClick={() => void choose(on ? null : g.id)}
+                style={{
+                  gap: 12,
+                  padding: "13px 14px",
+                  borderRadius: 12,
+                  width: "100%",
+                  textAlign: "left",
+                  font: "inherit",
+                  cursor: "pointer",
+                  border: `1px solid ${on ? "var(--blue)" : "var(--line)"}`,
+                  background: on ? "var(--blue-tint)" : "var(--paper)",
+                }}
+              >
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontSize: 15, fontWeight: 700 }}>{g.name}</div>
+                  <div className="sd-meta">
+                    {g.memberCount} {g.memberCount === 1 ? "member" : "members"}
+                  </div>
+                </div>
+                {on && <span className="sd-meta" style={{ fontWeight: 700 }}>Selected</span>}
+              </button>
+            );
+          })}
+        </div>
+      )}
+
+      {access?.groupId && (
+        <div>
+          <Btn kind="ghost" disabled={busy} onClick={() => void choose(null)}>
+            Clear — system admins only
+          </Btn>
+        </div>
+      )}
+    </section>
+  );
+}
 
 export function Settings() {
   const desktop = useIsDesktop();
@@ -247,6 +359,8 @@ export function Settings() {
           </div>
         </Field>
       </section>
+
+      <EditorsPicker />
 
       <section className="nlx-formgrid">
         <SectLabel>Notifications</SectLabel>

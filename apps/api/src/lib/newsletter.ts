@@ -9,6 +9,7 @@
 
 import type {
   CalendarEventDTO,
+  NewsletterAccessDTO,
   NewsletterBrandingDTO,
   NewsletterIssuePageDTO,
   NewsletterIssueStatus,
@@ -28,14 +29,39 @@ import {
   renderNewsletterEmailText,
   sanitizeFooterHtml,
 } from "@sd/shared";
-import type { Env } from "../env.js";
+import type { AuthContext, Env } from "../env.js";
 import { publicEventOf, queryUpcomingEvents } from "./calendar.js";
 import { getSetting, normalizeEmail, setSetting } from "./db.js";
 import { ulid } from "./ids.js";
+import { rosterAccess, rosterAdmits } from "./rosterGate.js";
 import { nowIso } from "./time.js";
 import type { SendArgs } from "./email.js";
 
 const SETTINGS_KEY = "newsletter_settings";
+
+// ── Who may author ──────────────────────────────────────────────────────────
+
+/** The `setting` key naming the group whose roster may author the newsletter.
+ *
+ *  Its own key rather than a field on the `newsletter_settings` blob, for two
+ *  reasons. The gate runs on every authoring request and should not parse a
+ *  JSON blob to answer; and the blob is what `PUT /newsletter/settings` writes
+ *  wholesale from a form that editors can READ, so a group id living in it
+ *  would ride along on every save of the footer. `pto_board_group_id` is the
+ *  precedent (invariant 28). */
+export const NEWSLETTER_EDITOR_GROUP_SETTING = "newsletter_editor_group_id";
+
+/** May this caller author the newsletter, and which group decides? The roster
+ *  gate the PTO boards use, keyed on the editors setting — see lib/rosterGate.ts
+ *  for the rule and the `self_asserted` clause it defends. */
+export function newsletterAccess(env: Env, auth: AuthContext): Promise<NewsletterAccessDTO> {
+  return rosterAccess(env, NEWSLETTER_EDITOR_GROUP_SETTING, auth);
+}
+
+/** The same gate as a boolean, with no read for a system admin. */
+export function newsletterAdmits(env: Env, auth: AuthContext): Promise<boolean> {
+  return rosterAdmits(env, NEWSLETTER_EDITOR_GROUP_SETTING, auth);
+}
 
 /** Cap on events materialized into one block. A newsletter that lists 200
  *  events isn't a newsletter; this also bounds the frozen snapshot's size. */

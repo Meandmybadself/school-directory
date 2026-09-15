@@ -52,6 +52,7 @@ import {
   viewerOf,
   PTO_GROUP_SETTING,
 } from "../lib/ptoBoard.js";
+import { genericGroups, groupExists } from "../lib/rosterGate.js";
 import { requireAuth } from "../middleware/session.js";
 
 export const pto = new Hono<HonoEnv>();
@@ -140,11 +141,8 @@ pto.put(
     const body = await c.req.json<{ groupId?: string | null }>().catch(() => null);
     const groupId = body?.groupId ? String(body.groupId) : "";
 
-    if (groupId) {
-      const group = await c.env.DB.prepare("SELECT id FROM grp WHERE id = ?")
-        .bind(groupId)
-        .first<{ id: string }>();
-      if (!group) return c.json({ error: "invalid", message: "No such group." }, 400);
+    if (groupId && !(await groupExists(c.env, groupId))) {
+      return c.json({ error: "invalid", message: "No such group." }, 400);
     }
 
     await setSetting(c.env, PTO_GROUP_SETTING, groupId);
@@ -539,13 +537,6 @@ pto.get(
   guarded(async (c) => {
     const auth = requireAuth(c);
     if (!auth.isSystemAdmin) return c.json({ error: "forbidden" }, 403);
-    const rows = await c.env.DB.prepare(
-      `SELECT g.id, g.name, g.kind,
-              (SELECT COUNT(*) FROM membership m WHERE m.group_id = g.id) AS member_count
-         FROM grp g WHERE g.kind = 'generic' ORDER BY lower(g.name)`,
-    ).all<{ id: string; name: string; kind: string; member_count: number }>();
-    return c.json({
-      groups: rows.results.map((r) => ({ id: r.id, name: r.name, memberCount: r.member_count })),
-    });
+    return c.json({ groups: await genericGroups(c.env) });
   }),
 );

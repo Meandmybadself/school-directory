@@ -30,6 +30,7 @@ import type {
 import { PTO_LABEL_COLORS, eventPath } from "@sd/shared";
 import type { AuthContext, Env } from "../env.js";
 import { getSetting } from "./db.js";
+import { rosterAccess } from "./rosterGate.js";
 import { ulid } from "./ids.js";
 import { displayName, personListableSql } from "./privacy.js";
 import { nowIso } from "./time.js";
@@ -83,64 +84,21 @@ function optionalInstant(value: unknown): string | null {
 /**
  * May this caller use the boards, and what may they configure?
  *
- * A system admin is always in — being one is a fact about the account, not
- * something a roster decides, the same short-circuit `personListableSql` makes.
- *
- * Everyone else is in iff some Person they control sits on the configured
- * group's roster with **`self_asserted = 0`**. That last clause is the one worth
- * defending. Migration 0023 added the column precisely to separate being ON a
- * list from being TRUSTED by it: `PUT /persons/:id/classroom` lets a parent put
- * their own child on a roster with no authority over it, and while only
- * classrooms can be self-asserted today, a gate that ignored the column would
- * silently become wrong the day that door widens. Every row
- * `POST /groups/:id/members` writes — the only way into a generic group, and it
- * is behind `requireGroupAdmin` — has `self_asserted = 0`, so honouring it costs
- * this gate nothing today and cannot be forgotten later.
- *
- * With no group configured, only system admins are admitted. That is the correct
- * bootstrap rather than a hole: an admin creates the group in apps/web, adds the
- * board, and names it here.
+ * The whole rule — system admins always, everyone else iff a Person they
+ * control sits on the configured group's roster with `self_asserted = 0`, and
+ * only system admins until a group is named — is `rosterAccess` in
+ * lib/rosterGate.ts, where it is shared with the newsletter's editor gate. It
+ * moved there rather than being copied because the `self_asserted` clause is
+ * exactly the kind of thing a second copy forgets; the long comment on it went
+ * with it.
  *
  * Note what this does NOT do: it does not read `person`. Membership and control
  * are the whole question, and applying the enumeration gate here would be the
  * wrong predicate — an unlisted PTO board member is still on the PTO board. The
  * gate belongs on what their NAME does, which is `ptoRosterOf`'s job below.
  */
-export async function ptoAccess(env: Env, auth: AuthContext): Promise<PtoAccessDTO> {
-  const groupId = await getSetting(env, PTO_GROUP_SETTING);
-  const group = groupId
-    ? await env.DB.prepare("SELECT id, name FROM grp WHERE id = ?")
-        .bind(groupId)
-        .first<{ id: string; name: string }>()
-    : null;
-
-  if (auth.isSystemAdmin) {
-    return {
-      canUse: true,
-      isSystemAdmin: true,
-      groupName: group?.name ?? null,
-      groupId: group?.id ?? null,
-    };
-  }
-
-  const row = group
-    ? await env.DB.prepare(
-        `SELECT 1 AS ok
-           FROM membership m
-           JOIN control c ON c.person_id = m.person_id
-          WHERE m.group_id = ? AND m.self_asserted = 0 AND c.user_id = ?
-          LIMIT 1`,
-      )
-        .bind(group.id, auth.userId)
-        .first<{ ok: number }>()
-    : null;
-
-  return {
-    canUse: !!row,
-    isSystemAdmin: false,
-    groupName: group?.name ?? null,
-    groupId: group?.id ?? null,
-  };
+export function ptoAccess(env: Env, auth: AuthContext): Promise<PtoAccessDTO> {
+  return rosterAccess(env, PTO_GROUP_SETTING, auth);
 }
 
 // ── Names ───────────────────────────────────────────────────────────────────

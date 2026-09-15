@@ -1269,6 +1269,35 @@ All five SPAs are separate Cloudflare Pages projects talking to the single
    behavioural: its fake D1 records writes where they execute, so a mode that
    fell back to an invite fails on the recorded statement.
 
+31. **Newsletter authoring is gated by a roster, not only by a role — and the
+   roster gate is ONE function.** `newsletterAccess` (`lib/newsletter.ts`) is
+   `rosterAccess` (`lib/rosterGate.ts`) keyed on the `newsletter_editor_group_id`
+   setting; `ptoAccess` is the same function keyed on `pto_board_group_id`.
+   The PTO's rule moved there rather than being copied because the clause worth
+   defending — `self_asserted = 0`, invariant 28's whole paragraph on it — is
+   exactly what a second copy forgets. A system admin is always in; anyone else
+   is in iff a Person they control sits on the named `generic` group's roster;
+   with no group named, only system admins author. Two committees, two keys:
+   a shared one would make every PTO board member an editor and vice versa.
+   **Two gates in `routes/newsletter.ts`, and which routes take which is the
+   design.** `requireEditor` covers everything about ISSUES — list, draft,
+   preview, review links, test sends, send, retry, the composer's image upload
+   — and a READ of the settings blob, which the composer needs to render and
+   which holds nothing an issue's own email doesn't print. `isSystemAdmin`
+   keeps writing the settings, the subscriber list (email addresses the
+   committee has no need to see) and `PUT /newsletter/editors` itself — the
+   lever over who gets in, audited as `newsletter.editors.configured`, the
+   shape `pto.group.configured` has, and Slack-silent for the same reason.
+   Sending is deliberately on the editor side: an editor who could write but
+   not send would need an admin summoned every issue, which is the workflow
+   this exists to end. `GET /newsletter/access` is the one route outside both
+   gates and must stay there, for `GET /pto/access`'s reason. The app mirrors
+   it: `RequireEditor` on the issue screens, `RequireAdmin` on settings and
+   subscribers, `lib/access.tsx` copied from the PTO app. `test/
+   newsletterAccess.test.ts` enumerates every route by hand and pins which
+   gate each asks — a route added to the file and not to that list is what
+   nothing else will notice.
+
 ## Conventions
 
 - TypeScript strict everywhere. `verbatimModuleSyntax` is on — use

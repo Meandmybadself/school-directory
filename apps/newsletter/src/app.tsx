@@ -1,4 +1,5 @@
 import { Navigate, Route, Routes } from "react-router-dom";
+import { useAccess } from "./lib/access.js";
 import { useSession } from "./lib/session.js";
 import { SignIn, CheckEmail } from "./screens/Onboarding.js";
 import { Issues } from "./screens/Issues.js";
@@ -37,24 +38,38 @@ function RequireAuth({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
-/** Authoring is admin-only. A signed-in member who lands here is sent to the one
- *  screen that is theirs rather than shown a bare "forbidden". */
+/** Authoring is for editors: system admins and the roster of the editors group
+ *  (invariant 31). A signed-in member who is neither is sent to the one screen
+ *  that is theirs rather than shown a bare "forbidden". Both gates here are UI
+ *  conveniences — every authoring route re-asks the same question server-side. */
+function RequireEditor({ children }: { children: React.ReactNode }) {
+  const { loading: sessionLoading, me } = useSession();
+  const { loading, access } = useAccess();
+  if (sessionLoading || loading) return <Loading />;
+  if (!me) return <Navigate to="/sign-in" replace />;
+  if (!access?.canUse) return <Navigate to="/preferences" replace />;
+  return <>{children}</>;
+}
+
+/** Settings and the subscriber list stay with system admins — the subscriber
+ *  list is email addresses, and the settings screen is where the editors group
+ *  itself is named. An editor who lands here goes back to the issues. */
 function RequireAdmin({ children }: { children: React.ReactNode }) {
   const { loading, me } = useSession();
   if (loading) return <Loading />;
   if (!me) return <Navigate to="/sign-in" replace />;
-  if (!me.user.isSystemAdmin) return <Navigate to="/preferences" replace />;
+  if (!me.user.isSystemAdmin) return <Navigate to="/admin" replace />;
   return <>{children}</>;
 }
 
 function RedirectIfAuthed({ children }: { children: React.ReactNode }) {
   const { loading, me } = useSession();
   if (loading) return <Loading />;
-  if (me) return <Navigate to="/admin" replace />;
+  if (me) return <Navigate to="/app" replace />;
   return <>{children}</>;
 }
 
-/** Where "home" is depends on who you are: admins author, members subscribe.
+/** Where "home" is depends on who you are: editors author, members subscribe.
  *  In production `/` never reaches this router — the public archive at `/` and
  *  `/n/:slug` is served by Pages Functions, and _redirects only falls back to
  *  this bundle for the routes below. It matters in `vite dev`, where there are
@@ -67,9 +82,10 @@ function RedirectIfAuthed({ children }: { children: React.ReactNode }) {
  *  origin is the reader-facing archive and has no way into the app. */
 function Home() {
   const { loading, me } = useSession();
-  if (loading) return <Loading />;
+  const { loading: accessLoading, access } = useAccess();
+  if (loading || accessLoading) return <Loading />;
   if (!me) return <Navigate to="/sign-in" replace />;
-  return <Navigate to={me.user.isSystemAdmin ? "/admin" : "/preferences"} replace />;
+  return <Navigate to={access?.canUse ? "/admin" : "/preferences"} replace />;
 }
 
 export function App() {
@@ -85,11 +101,11 @@ export function App() {
 
       <Route path="/preferences" element={<RequireAuth><Preferences /></RequireAuth>} />
 
-      <Route path="/admin" element={<RequireAdmin><Issues /></RequireAdmin>} />
-      <Route path="/admin/issues/:id" element={<RequireAdmin><IssueEditor /></RequireAdmin>} />
+      <Route path="/admin" element={<RequireEditor><Issues /></RequireEditor>} />
+      <Route path="/admin/issues/:id" element={<RequireEditor><IssueEditor /></RequireEditor>} />
       {/* No Function claims /admin/*, so this falls through to the bundle — see
           ROUTING.md before adding a Function anywhere near it. */}
-      <Route path="/admin/issues/:id/print" element={<RequireAdmin><IssuePrint /></RequireAdmin>} />
+      <Route path="/admin/issues/:id/print" element={<RequireEditor><IssuePrint /></RequireEditor>} />
       <Route path="/admin/settings" element={<RequireAdmin><Settings /></RequireAdmin>} />
       <Route path="/admin/subscribers" element={<RequireAdmin><Subscribers /></RequireAdmin>} />
 

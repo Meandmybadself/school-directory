@@ -1,7 +1,21 @@
-// Newsletter authoring — system admins only. Mounted at /newsletter.
+// Newsletter authoring. Mounted at /newsletter.
 //
-// Every handler opens with the repo's standard admin gate rather than a
-// middleware, matching routes/admin.ts and routes/managedCalendar.ts.
+// Two gates, and which one a route opens with is the whole access story here:
+//
+//   requireEditor — session + a seat on the editors group (`newsletterAccess`,
+//                   lib/newsletter.ts; invariant 31). Everything about ISSUES:
+//                   listing, drafting, previewing, review links, test sends,
+//                   sending, retrying, and the image upload the editor makes.
+//                   Plus a READ of the settings blob, which the composer needs
+//                   to render a preview and which holds nothing an issue's
+//                   own email doesn't already print.
+//   isSystemAdmin — the inline two lines every other admin route uses.
+//                   Writing the settings, the subscriber list (email addresses
+//                   the editors have no need to see), and naming the editors
+//                   group itself.
+//
+// Both are inline rather than middleware, matching routes/admin.ts and
+// routes/managedCalendar.ts.
 //
 // The one rule that shapes this file: an issue is mutable only while it is a
 // draft. Once a send begins, its content and its frozen events snapshot are
@@ -19,19 +33,24 @@ import type {
   NewsletterTestSendBody,
 } from "@sd/shared";
 import { issueSlug, sanitizeNewsletterDoc, slugifyTitle } from "@sd/shared";
-import type { HonoEnv } from "../env.js";
+import type { Context } from "hono";
+import type { AuthContext, HonoEnv } from "../env.js";
 import { requireAuth } from "../middleware/session.js";
 import { ulid } from "../lib/ids.js";
 import { MINUTES, nowIso } from "../lib/time.js";
-import { normalizeEmail } from "../lib/db.js";
+import { normalizeEmail, setSetting } from "../lib/db.js";
+import { genericGroups, groupExists } from "../lib/rosterGate.js";
 import { sendEmailResult } from "../lib/email.js";
 import { startSubscriberDigestWindow } from "../lib/notify.js";
 import {
+  NEWSLETTER_EDITOR_GROUP_SETTING,
   coerceNewsletterSettings,
   getNewsletterSettings,
   importSubscribers,
   isEmail,
   issueEmailArgs,
+  newsletterAccess,
+  newsletterAdmits,
   parseSubscriberList,
   previewUrl,
   resolveAudience,
@@ -49,6 +68,14 @@ import {
 } from "../lib/newsletterSend.js";
 
 export const newsletter = new Hono<HonoEnv>();
+
+/** Session + editor standing, or null for a 403. Null rather than a throw so
+ *  each handler keeps the file's two-line inline shape and its own `c.req.param`
+ *  typing; the PTO router wraps handlers instead, and pays for it with `param()`. */
+async function requireEditor(c: Context<HonoEnv>): Promise<AuthContext | null> {
+  const auth = requireAuth(c);
+  return (await newsletterAdmits(c.env, auth)) ? auth : null;
+}
 
 /** Uploaded images have to be fetchable by an email client, so this is capped
  *  higher than a profile photo but still bounded. */
@@ -165,12 +192,65 @@ function claimEditSession(env: HonoEnv["Bindings"], id: string, now: string): D1
   ).bind(now, id, new Date(Date.now() - EDIT_SESSION_MS).toISOString());
 }
 
+// ── Access ──────────────────────────────────────────────────────────────────
+
+/** GET /newsletter/access — may this member author the newsletter?
+ *
+ *  Outside `requireEditor`, and it must stay there: a member who is not an
+ *  editor still needs an answer, or the app cannot pick between the issue list
+ *  and their preferences screen. Needs a session; says nothing a signed-in
+ *  member could not already learn (`GET /groups` serves every group's name —
+ *  invariant 21 records that as an accepted cost — and the boolean is about
+ *  the caller themselves). */
+newsletter.get("/access", async (c) => {
+  const auth = requireAuth(c);
+  return c.json(await newsletterAccess(c.env, auth));
+});
+
+/** GET /newsletter/groups — generic groups, for the editors picker. System
+ *  admin: it is the picker for a system-admin setting, and nothing else reads
+ *  it. Same helper as `/pto/groups`. */
+newsletter.get("/groups", async (c) => {
+  const auth = requireAuth(c);
+  if (!auth.isSystemAdmin) return c.json({ error: "forbidden" }, 403);
+  return c.json({ groups: await genericGroups(c.env) });
+});
+
+/** PUT /newsletter/editors { groupId } — name the group whose roster may author.
+ *
+ *  System admins only. This is the single lever over who may write to every
+ *  subscriber's inbox, so it is audited (`newsletter.editors.configured`, the
+ *  shape `pto.group.configured` has). A null groupId clears it and returns the
+ *  instance to the bootstrap state where only system admins author — deliberate
+ *  rather than refused, since an admin who picked the wrong group needs a way
+ *  back. Its own route rather than a field on the settings blob: see
+ *  NEWSLETTER_EDITOR_GROUP_SETTING. */
+newsletter.put("/editors", async (c) => {
+  const auth = requireAuth(c);
+  if (!auth.isSystemAdmin) return c.json({ error: "forbidden" }, 403);
+
+  const body = await c.req.json<{ groupId?: string | null }>().catch(() => null);
+  const groupId = body?.groupId ? String(body.groupId) : "";
+  if (groupId && !(await groupExists(c.env, groupId))) {
+    return c.json({ error: "invalid", message: "No such group." }, 400);
+  }
+
+  await setSetting(c.env, NEWSLETTER_EDITOR_GROUP_SETTING, groupId);
+  c.var.audit.push({
+    action: "newsletter.editors.configured",
+    entityKind: "setting",
+    entityId: NEWSLETTER_EDITOR_GROUP_SETTING,
+    detail: { groupId: groupId || null },
+  });
+  return c.json(await newsletterAccess(c.env, auth));
+});
+
 // ── Issues ──────────────────────────────────────────────────────────────────
 
 /** GET /newsletter/issues — every issue, newest first. */
 newsletter.get("/issues", async (c) => {
-  const auth = requireAuth(c);
-  if (!auth.isSystemAdmin) return c.json({ error: "forbidden" }, 403);
+  const auth = await requireEditor(c);
+  if (!auth) return c.json({ error: "forbidden" }, 403);
 
   const rows = await c.env.DB.prepare(
     "SELECT * FROM newsletter_issue ORDER BY created_at DESC LIMIT 200",
@@ -180,8 +260,8 @@ newsletter.get("/issues", async (c) => {
 
 /** POST /newsletter/issues — create a draft. */
 newsletter.post("/issues", async (c) => {
-  const auth = requireAuth(c);
-  if (!auth.isSystemAdmin) return c.json({ error: "forbidden" }, 403);
+  const auth = await requireEditor(c);
+  if (!auth) return c.json({ error: "forbidden" }, 403);
 
   const body = await c.req.json<NewsletterIssueInput>().catch(() => null);
   const title = body?.title?.trim();
@@ -231,8 +311,8 @@ newsletter.post("/issues", async (c) => {
 
 /** GET /newsletter/issues/:id — one issue, with live delivery counts. */
 newsletter.get("/issues/:id", async (c) => {
-  const auth = requireAuth(c);
-  if (!auth.isSystemAdmin) return c.json({ error: "forbidden" }, 403);
+  const auth = await requireEditor(c);
+  if (!auth) return c.json({ error: "forbidden" }, 403);
 
   const row = await c.env.DB.prepare("SELECT * FROM newsletter_issue WHERE id = ?")
     .bind(c.req.param("id"))
@@ -243,8 +323,8 @@ newsletter.get("/issues/:id", async (c) => {
 
 /** PATCH /newsletter/issues/:id — edit a draft. 409 once it has been sent. */
 newsletter.patch("/issues/:id", async (c) => {
-  const auth = requireAuth(c);
-  if (!auth.isSystemAdmin) return c.json({ error: "forbidden" }, 403);
+  const auth = await requireEditor(c);
+  if (!auth) return c.json({ error: "forbidden" }, 403);
 
   const id = c.req.param("id");
   const row = await c.env.DB.prepare("SELECT * FROM newsletter_issue WHERE id = ?")
@@ -310,8 +390,8 @@ newsletter.patch("/issues/:id", async (c) => {
 /** DELETE /newsletter/issues/:id — drafts only. A sent issue stays: its URL is
  *  public, may be linked from elsewhere, and is the record of what was mailed. */
 newsletter.delete("/issues/:id", async (c) => {
-  const auth = requireAuth(c);
-  if (!auth.isSystemAdmin) return c.json({ error: "forbidden" }, 403);
+  const auth = await requireEditor(c);
+  if (!auth) return c.json({ error: "forbidden" }, 403);
 
   const id = c.req.param("id");
   const row = await c.env.DB.prepare("SELECT status FROM newsletter_issue WHERE id = ?")
@@ -343,8 +423,8 @@ newsletter.delete("/issues/:id", async (c) => {
  *  re-minting is also how an admin who lost the URL gets a working one, and it
  *  invalidates the previous link in the same statement. */
 newsletter.post("/issues/:id/preview-link", async (c) => {
-  const auth = requireAuth(c);
-  if (!auth.isSystemAdmin) return c.json({ error: "forbidden" }, 403);
+  const auth = await requireEditor(c);
+  if (!auth) return c.json({ error: "forbidden" }, 403);
 
   const id = c.req.param("id");
   const row = await c.env.DB.prepare("SELECT id FROM newsletter_issue WHERE id = ?")
@@ -379,8 +459,8 @@ newsletter.post("/issues/:id/preview-link", async (c) => {
  *  — the pages that read this token are served no-store (see functions/_lib/
  *  page.ts's htmlPrivate), so the next request for a revoked URL misses. */
 newsletter.delete("/issues/:id/preview-link", async (c) => {
-  const auth = requireAuth(c);
-  if (!auth.isSystemAdmin) return c.json({ error: "forbidden" }, 403);
+  const auth = await requireEditor(c);
+  if (!auth) return c.json({ error: "forbidden" }, 403);
 
   const id = c.req.param("id");
   const row = await c.env.DB.prepare("SELECT id FROM newsletter_issue WHERE id = ?")
@@ -409,8 +489,8 @@ newsletter.delete("/issues/:id/preview-link", async (c) => {
  *  A draft edited across several days keeps showing an accurate list; the frozen
  *  copy only comes into being at send. */
 newsletter.get("/issues/:id/preview", async (c) => {
-  const auth = requireAuth(c);
-  if (!auth.isSystemAdmin) return c.json({ error: "forbidden" }, 403);
+  const auth = await requireEditor(c);
+  if (!auth) return c.json({ error: "forbidden" }, 403);
 
   const row = await c.env.DB.prepare("SELECT * FROM newsletter_issue WHERE id = ?")
     .bind(c.req.param("id"))
@@ -430,8 +510,8 @@ newsletter.get("/issues/:id/preview", async (c) => {
  *  Leaves no ledger rows and carries no working unsubscribe link, so a test can
  *  never unsubscribe a real recipient. */
 newsletter.post("/issues/:id/test-send", async (c) => {
-  const auth = requireAuth(c);
-  if (!auth.isSystemAdmin) return c.json({ error: "forbidden" }, 403);
+  const auth = await requireEditor(c);
+  if (!auth) return c.json({ error: "forbidden" }, 403);
 
   const id = c.req.param("id");
   const row = await c.env.DB.prepare("SELECT * FROM newsletter_issue WHERE id = ?")
@@ -490,8 +570,8 @@ newsletter.post("/issues/:id/test-send", async (c) => {
  *  as soon as the send is staged; delivery continues in waitUntil and progress
  *  is read back from GET /newsletter/issues/:id. */
 newsletter.post("/issues/:id/send", async (c) => {
-  const auth = requireAuth(c);
-  if (!auth.isSystemAdmin) return c.json({ error: "forbidden" }, 403);
+  const auth = await requireEditor(c);
+  if (!auth) return c.json({ error: "forbidden" }, 403);
 
   const id = c.req.param("id");
   const outcome = await startSend(c.env, id);
@@ -524,8 +604,8 @@ newsletter.post("/issues/:id/send", async (c) => {
 
 /** POST /newsletter/issues/:id/retry — re-attempt anything that didn't land. */
 newsletter.post("/issues/:id/retry", async (c) => {
-  const auth = requireAuth(c);
-  if (!auth.isSystemAdmin) return c.json({ error: "forbidden" }, 403);
+  const auth = await requireEditor(c);
+  if (!auth) return c.json({ error: "forbidden" }, 403);
 
   const id = c.req.param("id");
   const claimed = await retryFailed(c.env, id);
@@ -553,8 +633,8 @@ newsletter.post("/issues/:id/retry", async (c) => {
 // ── Settings ────────────────────────────────────────────────────────────────
 
 newsletter.get("/settings", async (c) => {
-  const auth = requireAuth(c);
-  if (!auth.isSystemAdmin) return c.json({ error: "forbidden" }, 403);
+  const auth = await requireEditor(c);
+  if (!auth) return c.json({ error: "forbidden" }, 403);
   return c.json({ settings: await getNewsletterSettings(c.env) });
 });
 
@@ -761,8 +841,8 @@ newsletter.delete("/subscribers/:id", async (c) => {
  *  private member photos in a different bucket means there is no key-prefix
  *  check standing between them and the internet. */
 newsletter.post("/media", async (c) => {
-  const auth = requireAuth(c);
-  if (!auth.isSystemAdmin) return c.json({ error: "forbidden" }, 403);
+  const auth = await requireEditor(c);
+  if (!auth) return c.json({ error: "forbidden" }, 403);
 
   const contentType = (c.req.header("content-type") ?? "").split(";")[0]!.trim();
   const ext = IMAGE_TYPES[contentType];

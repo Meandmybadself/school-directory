@@ -73,7 +73,7 @@ app.route("/settings", settings);
 app.route("/calendar", calendar);
 app.route("/calendar-public", calendarPublic); // anonymous agenda reads — no auth by design
 app.route("/ics", ics); // public published feeds — no auth by design
-app.route("/newsletter", newsletter); // authoring — system admins only
+app.route("/newsletter", newsletter); // authoring — system admins + the editors group (invariant 31)
 app.route("/newsletter-public", newsletterPublic); // archive + subscribe/unsubscribe — no auth by design
 app.route("/volunteers", volunteers); // signup reads with names + claims — members only
 app.route("/volunteers-public", volunteersPublic); // signup counts, no names — no auth by design
