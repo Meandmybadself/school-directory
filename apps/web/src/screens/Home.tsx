@@ -232,7 +232,11 @@ function GroupsContent({ groups, columns }: { groups: GroupSummaryDTO[]; columns
     );
   }
   return (
-    <div style={{ display: "grid", gridTemplateColumns: columns === 1 ? "1fr" : "1fr 1fr", gap: columns === 1 ? 9 : 12, marginTop: columns === 1 ? 0 : 0 }}>
+    // minmax(0, …) rather than a bare 1fr: a plain `1fr` is `minmax(auto, 1fr)`,
+    // and that `auto` floor lets a tile with a long name widen its own track.
+    // GroupTile carries the matching `min-width: 0`; both spellings are here so
+    // the next tile dropped into this grid inherits the constraint.
+    <div style={{ display: "grid", gridTemplateColumns: columns === 1 ? "minmax(0, 1fr)" : "minmax(0, 1fr) minmax(0, 1fr)", gap: columns === 1 ? 9 : 12 }}>
       {groups.map((g) => (
         <GroupTile
           key={g.id}
