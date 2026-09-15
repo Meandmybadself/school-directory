@@ -1,7 +1,8 @@
 // Persons & profiles — privacy-filtered reads, controller-gated writes.
 
 import { Hono } from "hono";
-import type { PersonPatchBody, PersonRemovalImpactDTO } from "@sd/shared";
+import type { Capability, PersonPatchBody, PersonRemovalImpactDTO } from "@sd/shared";
+import { ASSIGNABLE_CAPABILITIES } from "@sd/shared";
 import type { HonoEnv } from "../env.js";
 import { requireAuth } from "../middleware/session.js";
 import { buildProfile } from "../lib/serialize.js";
@@ -35,7 +36,17 @@ persons.get("/:id", async (c) => {
   return c.json(profile);
 });
 
-/** PATCH /persons/:id — update name fields. Controllers only. */
+/** PATCH /persons/:id — update name fields and the assignable capabilities.
+ *  Controllers only.
+ *
+ *  `capabilities`, when present, is the whole new set — the same shape
+ *  `POST /me/persons` takes, so the edit form and the add form send the same
+ *  thing. It is whitelisted against ASSIGNABLE_CAPABILITIES for the reason that
+ *  route gives, and the rewrite is scoped to that set on BOTH sides: the
+ *  DELETE names it, so `household_admin` — granted by `POST /groups` and
+ *  `bindInvite` as authority over a household, never typed by anyone — is
+ *  untouched whether the client omits it or sends it. The name UPDATE and the
+ *  capability rewrite ride one `batch()`, so a save is all-or-nothing. */
 persons.patch("/:id", async (c) => {
   const auth = requireAuth(c);
   const personId = c.req.param("id");
@@ -60,18 +71,40 @@ persons.patch("/:id", async (c) => {
     sets.push("last_name_visibility = ?");
     binds.push(body.lastNameDisplay);
   }
-  if (!sets.length) return c.json({ error: "nothing_to_update" }, 400);
+  const caps: Capability[] | null = Array.isArray(body.capabilities)
+    ? [...new Set(body.capabilities)].filter((x): x is Capability =>
+        ASSIGNABLE_CAPABILITIES.includes(x as Capability),
+      )
+    : null;
+  if (!sets.length && !caps) return c.json({ error: "nothing_to_update" }, 400);
 
-  binds.push(personId);
-  await c.env.DB.prepare(`UPDATE person SET ${sets.join(", ")} WHERE id = ?`)
-    .bind(...binds)
-    .run();
+  const stmts: D1PreparedStatement[] = [];
+  if (sets.length) {
+    stmts.push(
+      c.env.DB.prepare(`UPDATE person SET ${sets.join(", ")} WHERE id = ?`).bind(...binds, personId),
+    );
+  }
+  if (caps) {
+    const ph = ASSIGNABLE_CAPABILITIES.map(() => "?").join(", ");
+    stmts.push(
+      c.env.DB.prepare(`DELETE FROM capability_grant WHERE person_id = ? AND capability IN (${ph})`).bind(
+        personId,
+        ...ASSIGNABLE_CAPABILITIES,
+      ),
+      ...caps.map((cap) =>
+        c.env.DB.prepare("INSERT INTO capability_grant (person_id, capability) VALUES (?, ?)").bind(personId, cap),
+      ),
+    );
+  }
+  await c.env.DB.batch(stmts);
 
+  const fields = sets.map((s) => s.split(" ")[0]);
+  if (caps) fields.push("capabilities");
   c.var.audit.push({
     action: "person.updated",
     entityKind: "person",
     entityId: personId,
-    detail: { fields: sets.map((s) => s.split(" ")[0]) },
+    detail: caps ? { fields, capabilities: caps } : { fields },
   });
 
   const profile = await buildProfile(

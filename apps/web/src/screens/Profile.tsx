@@ -13,7 +13,7 @@ import type {
   PersonRemovalImpactDTO,
   Visibility,
 } from "@sd/shared";
-import { roleCapabilities } from "@sd/shared";
+import { ASSIGNABLE_CAPABILITIES, roleCapabilities } from "@sd/shared";
 import { Icon, type IconName } from "../components/Icon.js";
 import { Avatar, Btn, Tag, type VisState } from "../components/atoms.js";
 import { AppShell, BottomNav } from "../components/AppShell.js";
@@ -21,6 +21,7 @@ import { DesktopShell } from "../components/DesktopShell.js";
 import { ScreenHeader, SectLabel, ContactRow, ContactValue, ContactVis, Field } from "../components/parts.js";
 import { VisibilitySheet } from "../components/VisibilitySheet.js";
 import { InviteSheet } from "../components/InviteSheet.js";
+import { CapabilityPicker } from "../components/CapabilityPicker.js";
 import { AddressMap } from "../components/AddressMap.js";
 import { CONTACT_TYPE_ORDER, contactTypeName } from "../lib/contactTypes.js";
 import { capLabel, useI18n } from "../i18n/index.js";
@@ -383,6 +384,7 @@ export function ProfileEdit() {
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [lnDisplay, setLnDisplay] = useState<LastNameDisplay>("full");
+  const [caps, setCaps] = useState<Capability[]>([]);
   const [contacts, setContacts] = useState<EditContact[]>([]);
   const [removed, setRemoved] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
@@ -402,6 +404,9 @@ export function ProfileEdit() {
       setFirstName(prof.firstName);
       setLastName(prof.lastName ?? "");
       setLnDisplay(prof.lastNameDisplay ?? "full");
+      // Only the assignable set is editable here; `household_admin` rides on
+      // group membership and the server leaves it alone whatever we send.
+      setCaps(prof.capabilities.filter((c) => ASSIGNABLE_CAPABILITIES.includes(c)));
       setContacts(prof.contacts.map((c) => ({ ...c })));
     });
   }, [id]);
@@ -434,7 +439,7 @@ export function ProfileEdit() {
   const save = async () => {
     setSaving(true);
     try {
-      await api.patchPerson(p.id, { firstName, lastName: lastName || null, lastNameDisplay: lnDisplay });
+      await api.patchPerson(p.id, { firstName, lastName: lastName || null, lastNameDisplay: lnDisplay, capabilities: caps });
       for (const cid of removed) await api.deleteContact(cid).catch(() => {});
       for (const c of contacts) {
         if (!c.value.trim()) continue;
@@ -536,6 +541,10 @@ export function ProfileEdit() {
           </div>
         </div>
       </div>
+
+      <Field label={t("personType")} hint={t("personTypeEditNote")}>
+        <CapabilityPicker value={caps} onChange={setCaps} />
+      </Field>
 
       <div>
         <SectLabel>{t("contact")}</SectLabel>

@@ -902,6 +902,11 @@ export interface PersonPatchBody {
   firstName?: string;
   lastName?: string | null;
   lastNameDisplay?: LastNameDisplay;
+  /** When present, REPLACES the Person's assignable capabilities (the
+   *  `ASSIGNABLE_CAPABILITIES` set — the tags shown on a row). Anything outside
+   *  that set, `household_admin` included, is neither granted nor revoked by
+   *  this field: it is conferred through group membership, not typed. */
+  capabilities?: Capability[];
 }
 
 /** Body for POST /me/persons — create a Person the requesting User controls.

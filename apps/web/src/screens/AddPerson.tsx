@@ -4,12 +4,13 @@
 // themselves; the new Person shows up in the switcher.
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { ASSIGNABLE_CAPABILITIES, type Capability, type MyHouseholdDTO } from "@sd/shared";
+import type { Capability, MyHouseholdDTO } from "@sd/shared";
 import { Icon } from "../components/Icon.js";
 import { Btn } from "../components/atoms.js";
 import { AppShell } from "../components/AppShell.js";
 import { Field } from "../components/parts.js";
-import { capLabel, useI18n } from "../i18n/index.js";
+import { CapabilityPicker } from "../components/CapabilityPicker.js";
+import { useI18n } from "../i18n/index.js";
 import { useSession } from "../lib/session.js";
 import { api } from "../lib/api.js";
 
@@ -27,9 +28,6 @@ export function AddPerson() {
   useEffect(() => {
     void api.myHouseholds().then((r) => setHouseholds(r.households)).catch(() => setHouseholds([]));
   }, []);
-
-  const toggleCap = (cap: Capability) =>
-    setCaps((cur) => (cur.includes(cap) ? cur.filter((x) => x !== cap) : [...cur, cap]));
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -72,29 +70,7 @@ export function AddPerson() {
           </Field>
 
           <Field label={t("personType")} hint={t("personTypeNote")}>
-            <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-              {ASSIGNABLE_CAPABILITIES.map((cap) => {
-                const on = caps.includes(cap);
-                return (
-                  <button
-                    key={cap}
-                    type="button"
-                    onClick={() => toggleCap(cap)}
-                    aria-pressed={on}
-                    className="sd-tag"
-                    style={{
-                      cursor: "pointer", font: "inherit",
-                      border: "1px solid " + (on ? "var(--blue)" : "var(--line)"),
-                      background: on ? "var(--blue)" : "var(--paper)",
-                      color: on ? "var(--on-brand)" : "var(--ink-2)",
-                    }}
-                  >
-                    {on && <Icon name="check" size={13} stroke={2.4} />}
-                    {capLabel(t, cap)}
-                  </button>
-                );
-              })}
-            </div>
+            <CapabilityPicker value={caps} onChange={setCaps} />
           </Field>
 
           {households.length > 0 && (

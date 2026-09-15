@@ -380,6 +380,7 @@ export interface Strings {
   addPersonBtn: string;
   personType: string;
   personTypeNote: string;
+  personTypeEditNote: string;
   personHousehold: string;
   personHouseholdNote: string;
   householdNone: string;
@@ -1001,6 +1002,7 @@ const en: Strings = {
   addPersonBtn: "Add person",
   personType: "Type",
   personTypeNote: "Optional. You can change this later.",
+  personTypeEditNote: "Shown as tags beside the name in the directory.",
   personHousehold: "Household",
   personHouseholdNote: "Optional. Adds them to a household so its shared address applies.",
   householdNone: "No household",
@@ -1563,6 +1565,7 @@ const es: Strings = {
   addPersonBtn: "Agregar persona",
   personType: "Tipo",
   personTypeNote: "Opcional. Puedes cambiarlo más tarde.",
+  personTypeEditNote: "Se muestra como etiquetas junto al nombre en el directorio.",
   personHousehold: "Familia",
   personHouseholdNote: "Opcional. La agrega a una familia para aplicar su dirección compartida.",
   householdNone: "Sin familia",
@@ -2106,6 +2109,7 @@ const zh: Strings = {
   addPersonBtn: "添加成员",
   personType: "类型",
   personTypeNote: "可选。之后可以更改。",
+  personTypeEditNote: "在通讯录中显示为姓名旁的标签。",
   personHousehold: "家庭",
   personHouseholdNote: "可选。将其加入某个家庭，以共享该家庭的地址。",
   householdNone: "无家庭",
@@ -2712,6 +2716,7 @@ const so: Strings = {
   addPersonBtn: "Ku dar qofka",
   personType: "Nooca",
   personTypeNote: "Ikhtiyaari. Tan dib ayaad u beddeli kartaa.",
+  personTypeEditNote: "Waxay u muuqataa sida calaamado magaca dhinaciisa ah ee tusaha.",
   personHousehold: "Qoys",
   personHouseholdNote: "Ikhtiyaari. Wuxuu qoys ku darayaa si ciwaanka la wadaago u khuseeyo.",
   householdNone: "Qoys ma leh",
