@@ -39,6 +39,64 @@ export function htmlToText(input: string): string {
     .trim();
 }
 
+// ── Group names ─────────────────────────────────────────────────────────────
+
+/** The separator this instance's four-part classroom names are built with.
+ *
+ *  Only the middle dot counts. An EN dash is inside "Ruiz–Lee", so splitting on
+ *  dashes would cut a family down the middle of its surname, and a comma is
+ *  punctuation a teacher may simply have typed. An EM dash is the other
+ *  convention in use here ("Room 12 — Ms. Okonkwo") and is deliberately still
+ *  not a separator: every name of that shape is already two segments, so the
+ *  rule below would return it unchanged anyway, and admitting a third dash
+ *  character buys nothing for the risk of confusing it with the first two.
+ *  A name with no `·` has no structure this can read and comes back untouched,
+ *  which is what leaves CSS to do the clipping in that case. */
+const NAME_SEP = "·";
+
+/** A classroom's name, shortened to what a one-line label can show.
+ *
+ *  This instance's rooms are named by the district's roster export and run four
+ *  segments — `Grade 2 · Juntos · Pam Shrestha · Rm 322` — which is forty
+ *  characters of subline under a person's name that has to stay the widest
+ *  thing on the row. CSS ellipsis alone answers that badly, because it clips
+ *  from the END and the end is the room number: every child in a grade would
+ *  truncate to the same `Grade 2 · Juntos · Pam Sh…`, which is worse than
+ *  useless on a list whose whole job is telling two children apart.
+ *
+ *  So this keeps the FIRST and LAST segments and drops the middle — the grade,
+ *  which says something about the child in its own right, and the room, which
+ *  is unique in the building. Two rooms in one grade differ in their last
+ *  segment, which is exactly the pair a reader is trying to distinguish.
+ *
+ *  It is **eliding, not translating**: invariant 6 forbids restating
+ *  member-entered content in another language, and every character this returns
+ *  is still the school's own. Nothing is lost either — the full name stays on
+ *  `ClassroomRefDTO.name`, and a caller that shortens is expected to carry the
+ *  original as a `title`.
+ *
+ *  Deliberately NOT applied to a household or a generic group. The rule reads
+ *  "grade and room" and only a classroom has those; `Grade 4 · Chess Club ·
+ *  Eisenhower` would come back as `Grade 4 · Eisenhower`, which drops the one
+ *  segment that names the thing. A rule that has to know what its segments mean
+ *  does not generalise, so this one says so in its name.
+ *
+ *  Fewer than three segments is already first-and-last, so it comes back
+ *  unchanged rather than being reassembled with normalised spacing — a name
+ *  this cannot improve should survive it byte for byte.
+ *
+ *  **This is a rendering step and must stay one.** Do not normalise a name on
+ *  write with it: `resolveGroup` in `lib/bulkImport.ts` matches an existing
+ *  group by exact, case-sensitive `WHERE name = ?`, so a roster import re-run
+ *  against shortened names would fail to recognise the rooms it made last time
+ *  and mint a duplicate of every one. `grp.name` stays the district's string;
+ *  only the label changes. */
+export function shortClassroomName(name: string): string {
+  const parts = name.split(NAME_SEP).map((p) => p.trim()).filter(Boolean);
+  if (parts.length < 3) return name;
+  return `${parts[0]} ${NAME_SEP} ${parts[parts.length - 1]}`;
+}
+
 // ── Newsletter slugs ────────────────────────────────────────────────────────
 
 /** Title → URL segment. ASCII-folded, lowercase, hyphenated, length-capped.

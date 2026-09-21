@@ -618,6 +618,31 @@ All five SPAs are separate Cloudflare Pages projects talking to the single
    something a fake can evaluate. If a `?classroom=` FILTER is ever wanted, it
    now clears this invariant's bar the way `?capability=` does — but it must be
    ANDed onto `personSearchSql`, never in place of it.
+   **The label is ELIDED, and CSS could not do it.** This instance's rooms are
+   named by the district's roster export and run four segments — `Grade 2 ·
+   Juntos · Pam Shrestha · Rm 322`. An ellipsis clips from the END, and the end
+   is the room number, so every child in a grade truncated to the same
+   `Grade 2 · Juntos · Pam Sh…` on the one list whose job is telling them apart.
+   `shortClassroomName` (`packages/shared/src/text.ts`) keeps the FIRST and LAST
+   segments — the grade, and the room that is unique in the building — and the
+   row carries the school's full name as a `title`, so the middle is dropped
+   from the label and never from the row. Three things hold it.
+   It splits on the middle dot ALONE: an en dash is inside "Ruiz–Lee", and the
+   other convention here (`Room 12 — Ms. Okonkwo`) is two segments already, so
+   admitting a third dash character buys nothing for the risk. It is eliding,
+   not translating — invariant 6 forbids RESTATING member-entered content in
+   another language, and every character it returns is the school's own. And it
+   is a RENDERING step that must stay one: `resolveGroup` in `lib/bulkImport.ts`
+   matches an existing group by exact `WHERE name = ?`, so normalising a name on
+   write would make a re-run of the roster import mint a duplicate of every room
+   it already created. `grp.name` stays the district's string.
+   It is named for classrooms because the rule knows what its segments MEAN:
+   `Grade 4 · Chess Club · Eisenhower` would come back as `Grade 4 · Eisenhower`,
+   dropping the one segment that names the thing, so a generic group and a
+   household are deliberately left alone.
+   `test/shortClassroomName.test.ts` pins the two-rooms-in-one-grade case that
+   is the whole point, that a name it cannot improve survives byte for byte, and
+   that it never emits a character the school did not type.
 
 19. **The two ways in from an email are read-only GETs.** Mail scanners and
    "safe links" rewriters follow every GET in a message before the recipient
