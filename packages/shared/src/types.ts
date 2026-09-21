@@ -80,6 +80,15 @@ export interface ContactItemDTO {
   viaGroup?: { id: string; name: string };
 }
 
+/** A classroom named on a directory row — the group's id and the name the
+ *  school gave it, and deliberately nothing else. It is a LABEL, not a summary:
+ *  `memberCount` and the viewer's role belong on `GroupSummaryDTO`, where a
+ *  screen about the group can pay for them. */
+export interface ClassroomRefDTO {
+  id: string;
+  name: string;
+}
+
 export interface PersonSummaryDTO {
   id: string;
   /** Already last-name-rule-applied for the requesting viewer (e.g. "Dana R."). */
@@ -87,6 +96,27 @@ export interface PersonSummaryDTO {
   firstName: string;
   capabilities: Capability[];
   photoUrl: string | null;
+  /** The classrooms this Person is on the roster of. Present only where a
+   *  listing asked for it (the directory does; a profile answers the same
+   *  question with `groups`, and a household roster is about the household), so
+   *  absent and `[]` mean different things: "not looked up" and "no classroom".
+   *
+   *  It discloses nothing new. `GET /groups/:id` already serves every roster to
+   *  any authenticated member — migration 0023's header says so in as many
+   *  words — so this moves a fact the viewer could already read into the one
+   *  place they are actually asking it, which is a list of children whose first
+   *  names repeat. It is also the safe direction of invariant 18: the row now
+   *  RENDERS more than the search matches on, where the danger is matching on
+   *  more than the row renders. Adding `?classroom=` later would therefore be
+   *  allowed — but it would have to be ANDed onto `personSearchSql` the way
+   *  `?capability=` is, never in place of it.
+   *
+   *  It deliberately does NOT filter `self_asserted`. That column (migration
+   *  0023, invariant 27) decides what a membership lets a viewer READ, not who
+   *  is on the list; a row that hid a parent's own placement would disagree
+   *  with the roster it names, and would hide it from exactly the parent who
+   *  made it. */
+  classrooms?: ClassroomRefDTO[];
 }
 
 export interface PersonProfileDTO extends PersonSummaryDTO {

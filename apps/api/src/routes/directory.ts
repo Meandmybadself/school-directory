@@ -1,11 +1,12 @@
 // The members-only directory: every authenticated member can see every Person's
-// name (first name always; last name per the owner's rule) and capabilities.
+// name (first name always; last name per the owner's rule), their capabilities
+// and the classrooms they are on the roster of.
 // Contact details are NOT listed here — those live on the privacy-filtered
 // profile. Search is by name, narrowed by capability.
 
 import { Hono } from "hono";
 import { ROLE_CAPABILITIES } from "@sd/shared";
-import type { Capability, PersonSummaryDTO } from "@sd/shared";
+import type { Capability, ClassroomRefDTO, PersonSummaryDTO } from "@sd/shared";
 import type { HonoEnv } from "../env.js";
 import { requireAuth } from "../middleware/session.js";
 import { displayName, personSearchSql } from "../lib/privacy.js";
@@ -121,12 +122,50 @@ directory.get("/", async (c) => {
     }
   }
 
+  // And the classrooms, batched the same way and for the same reason: a page of
+  // 50 rows is one statement, not 50. Three things about this read.
+  //
+  // It answers the question a parent scanning this list actually has. Half the
+  // school shares a first name with somebody, and the room is what tells two
+  // Milos apart when the surnames are initials.
+  //
+  // It is not a new disclosure. Every classroom roster is already served to any
+  // authenticated member by `GET /groups/:id` (migration 0023's header states
+  // this as the reason a self-asserted membership costs nothing), so this shows
+  // a fact the viewer could already read, where it helps. It is also invariant
+  // 18's safe direction — rendering more than the search matches on, not less.
+  //
+  // It reads `membership` and `grp` and never `person`, so the enumeration gate
+  // has nothing to do here and this spends none of test/personListable.test.ts's
+  // exemption budget: which Persons are on this page was already decided by
+  // `search.sql` above, and this only labels them.
+  //
+  // `self_asserted` is deliberately not in the WHERE — see the DTO's comment.
+  const classrooms = new Map<string, ClassroomRefDTO[]>();
+  if (ids.length) {
+    const placeholders = ids.map(() => "?").join(",");
+    const roomRows = await c.env.DB.prepare(
+      `SELECT m.person_id, g.id, g.name
+       FROM membership m JOIN grp g ON g.id = m.group_id
+       WHERE m.person_id IN (${placeholders}) AND g.kind = 'classroom'
+       ORDER BY g.name COLLATE NOCASE, g.id`,
+    )
+      .bind(...ids)
+      .all<{ person_id: string; id: string; name: string }>();
+    for (const r of roomRows.results) {
+      const arr = classrooms.get(r.person_id) ?? [];
+      arr.push({ id: r.id, name: r.name });
+      classrooms.set(r.person_id, arr);
+    }
+  }
+
   const people: PersonSummaryDTO[] = rows.results.map((r) => ({
     id: r.id,
     firstName: r.first_name,
     displayName: displayName(r.first_name, r.last_name, r.last_name_visibility, controlled.has(r.id)),
     capabilities: caps.get(r.id) ?? [],
     photoUrl: r.photo_object_key ? `/photos/${r.photo_object_key}` : null,
+    classrooms: classrooms.get(r.id) ?? [],
   }));
 
   return c.json({ people, total: totalRow?.n ?? 0, offset, pageSize: PAGE });
