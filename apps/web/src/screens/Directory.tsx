@@ -3,7 +3,7 @@
 // the privacy-filtered profile each row links to.
 import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { ROLE_CAPABILITIES, roleCapabilities } from "@sd/shared";
+import { ROLE_CAPABILITIES, roleCapabilities, shortClassroomName } from "@sd/shared";
 import type { Capability, ClassroomRefDTO, PersonSummaryDTO } from "@sd/shared";
 import { Icon } from "../components/Icon.js";
 import { Tag } from "../components/atoms.js";
@@ -42,6 +42,22 @@ function capTags(caps: Capability[], t: I18nT) {
  *  five apps, so adding one is a decision about all five rather than about this
  *  row.
  *
+ *  The name is ELIDED by `shortClassroomName`, which keeps the grade and the
+ *  room and drops the middle. Leaving it to CSS was the first answer and it was
+ *  the wrong one: ellipsis clips from the end, and in this instance the end is
+ *  the room number, so every child in a grade truncated to the same
+ *  `Grade 2 · Juntos · Pam Sh…` on the very list that exists to tell them
+ *  apart. The `title` carries the school's full name for a hover and for
+ *  anything that reads the DOM, so the middle is dropped from the LABEL, never
+ *  from the row.
+ *
+ *  `minWidth: 0` sits on the flex container as well as on the text inside it,
+ *  which is #24's lesson rather than belt-and-braces: an ellipsis fires only
+ *  when every box between the text and the constrained ancestor can shrink, and
+ *  that bug was one box too low every time. Today the row's own column carries
+ *  the constraint; this is what keeps the subline honest if it is ever dropped
+ *  into a grid, where a track would otherwise size to the un-elided name.
+ *
  *  `classrooms` is optional on the DTO, so `undefined` (a listing that didn't
  *  look) and `[]` (on nobody's roster) both render nothing — deliberately the
  *  same outcome, since a row announcing "no classroom" would be noise on the
@@ -49,10 +65,10 @@ function capTags(caps: Capability[], t: I18nT) {
 function classroomLine(rooms: ClassroomRefDTO[] | undefined) {
   if (!rooms?.length) return undefined;
   return (
-    <span className="sd-row" style={{ gap: 5 }}>
+    <span className="sd-row" style={{ gap: 5, minWidth: 0 }} title={rooms.map((r) => r.name).join(", ")}>
       <Icon name="school" size={13} style={{ flex: "0 0 auto" }} />
       <span style={{ minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-        {rooms.map((r) => r.name).join(", ")}
+        {rooms.map((r) => shortClassroomName(r.name)).join(", ")}
       </span>
     </span>
   );
