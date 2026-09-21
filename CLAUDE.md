@@ -592,6 +592,32 @@ All five SPAs are separate Cloudflare Pages projects talking to the single
    `test/personListable.test.ts`'s scan; a second local would read to that scan
    as an unguarded listing. An unrecognised code is a **400**, not a dropped
    term: dropping it answers a filtered request with the whole roster.
+   **A directory row now also NAMES the classrooms the Person is on the roster
+   of** (`PersonSummaryDTO.classrooms`), which is this rule read the other way
+   round and therefore allowed: the row renders more than the search matches on,
+   where the danger is matching on more than it renders. It discloses nothing
+   new either — `GET /groups/:id` already serves every roster to any
+   authenticated member, which is the reason migration 0023's header gives for a
+   self-asserted membership costing nothing — so this moves a readable fact to
+   the one place it is being asked, a list where first names repeat and surnames
+   may be initials. Three things about the read are deliberate. It is batched
+   over the page's ids beside the capability read, not a join, so a page of 50
+   stays two statements rather than fifty. It touches `membership` and `grp` and
+   **never `person`**, so the enumeration gate has nothing to do there and it
+   spends none of `test/personListable.test.ts`'s exemption budget — which
+   Persons are on the page was already settled by `${search.sql}`, and this only
+   labels them. And it does **not** filter `self_asserted`: that column decides
+   what a membership lets a viewer READ (invariant 27), not who is on the list,
+   and filtering on it here would hide a placement from the very parent who just
+   made it while disagreeing with the roster the row names.
+   `test/directoryClassroom.test.ts` is behavioural where it can be — its fake
+   D1 honours the statement's own terms, so a read that dropped
+   `g.kind = 'classroom'` fails with a HOUSEHOLD's name on a row rather than
+   passing a scan. The `self_asserted` case is the one that has to stay textual:
+   the guarantee there is an ABSENT clause, and an absent clause is not
+   something a fake can evaluate. If a `?classroom=` FILTER is ever wanted, it
+   now clears this invariant's bar the way `?capability=` does — but it must be
+   ANDed onto `personSearchSql`, never in place of it.
 
 19. **The two ways in from an email are read-only GETs.** Mail scanners and
    "safe links" rewriters follow every GET in a message before the recipient
