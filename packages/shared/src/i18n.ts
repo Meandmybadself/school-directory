@@ -62,6 +62,9 @@ export interface Strings {
   directoryEmpty: string;
   filterByRole: string;
   filterAllRoles: string;
+  /** Groups index: the type filter's group label, and its "no chip on" chip. */
+  filterByType: string;
+  filterAllTypes: string;
   loadMore: string;
   showingOf: string; // uses {shown} {total}
 
@@ -704,6 +707,8 @@ const en: Strings = {
   directoryEmpty: "No members match your search.",
   filterByRole: "Filter by role",
   filterAllRoles: "Everyone",
+  filterByType: "Filter by type",
+  filterAllTypes: "All types",
   loadMore: "Load more",
   showingOf: "Showing {shown} of {total}",
 
@@ -1331,6 +1336,8 @@ const es: Strings = {
   directoryEmpty: "Ningún miembro coincide con tu búsqueda.",
   filterByRole: "Filtrar por rol",
   filterAllRoles: "Todos",
+  filterByType: "Filtrar por tipo",
+  filterAllTypes: "Todos los tipos",
   loadMore: "Cargar más",
   showingOf: "Mostrando {shown} de {total}",
 
@@ -1891,6 +1898,8 @@ const zh: Strings = {
   directoryEmpty: "没有匹配的成员。",
   filterByRole: "按角色筛选",
   filterAllRoles: "全部",
+  filterByType: "按类型筛选",
+  filterAllTypes: "所有类型",
   loadMore: "加载更多",
   showingOf: "显示 {shown} / {total}",
 
@@ -2418,6 +2427,8 @@ const so: Strings = {
   directoryEmpty: "Ma jiraan xubno waafaqsan raadintaada.",
   filterByRole: "Ku kala saar doorka",
   filterAllRoles: "Dhammaan",
+  filterByType: "Ku kala saar nooca",
+  filterAllTypes: "Dhammaan noocyada",
   loadMore: "Soo bandhig wax dheeraad ah",
   showingOf: "Waxaa la tusayaa {shown} ka mid ah {total}",
 

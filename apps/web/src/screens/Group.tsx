@@ -3,7 +3,8 @@
 // + 320px household-contact rail).
 import { Fragment, useEffect, useState, type ReactNode } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import type { ContactItemDTO, GroupDetailDTO } from "@sd/shared";
+import { GROUP_KINDS } from "@sd/shared";
+import type { ContactItemDTO, GroupDetailDTO, GroupKind } from "@sd/shared";
 import { Icon, type IconName } from "../components/Icon.js";
 import { Avatar, Btn, Tag, type VisState } from "../components/atoms.js";
 import { AppShell, BottomNav } from "../components/AppShell.js";
@@ -236,6 +237,8 @@ export function GroupsIndex() {
   const [groups, setGroups] = useState<GroupSummaryDTO[]>([]);
   const [creating, setCreating] = useState(false);
   const [q, setQ] = useState("");
+  // Selected kinds read as OR, matching the server: no chip on is "all types".
+  const [kinds, setKinds] = useState<GroupKind[]>([]);
   const [allGroups, setAllGroups] = useState<GroupSummaryDTO[]>([]);
   const [helpDismissed, setHelpDismissed] = useState(() => localStorage.getItem(GROUPS_HELP_KEY) === "1");
 
@@ -247,13 +250,19 @@ export function GroupsIndex() {
     void api.person(activePerson.id).then((p) => setGroups(p.groups)).catch(() => setGroups([]));
   }, [activePerson]);
 
-  // The "All groups" table is driven by the search box (empty query = all).
+  // The "All groups" table is driven by the search box and the type chips
+  // together (empty query and no chip = all). The chips share the debounce so a
+  // burst of taps issues one request, the way Directory's role chips do; they do
+  // not debounce on their own account, since a tap is not a keystroke — hence
+  // the 0ms wait whenever the box is empty.
+  const kindKey = kinds.join(",");
   useEffect(() => {
     const handle = setTimeout(() => {
-      void api.searchGroups(q).then((r) => setAllGroups(r.groups)).catch(() => setAllGroups([]));
+      void api.searchGroups(q, kinds).then((r) => setAllGroups(r.groups)).catch(() => setAllGroups([]));
     }, q ? 200 : 0);
     return () => clearTimeout(handle);
-  }, [q]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [q, kindKey]);
 
   const isSystemAdmin = !!me?.user.isSystemAdmin;
   // Classrooms: teachers or system admins. Generic groups (School/Grades/clubs):
@@ -304,6 +313,36 @@ export function GroupsIndex() {
         onChange={(e) => setQ(e.target.value)}
         style={{ paddingLeft: 38 }}
       />
+    </div>
+  );
+
+  const toggleKind = (k: GroupKind) =>
+    setKinds((prev) => (prev.includes(k) ? prev.filter((x) => x !== k) : [...prev, k]));
+
+  /** Chips over the "All groups" table, which is what the search box above them
+   *  narrows too — the labels are `groupKindLabel`'s, so a chip can only ask for
+   *  a type the table renders in its own Type column (invariant 18). */
+  const kindFilters = (
+    <div className="sd-chips" role="group" aria-label={t("filterByType")}>
+      <button
+        type="button"
+        className={`sd-chip ${kinds.length === 0 ? "on" : ""}`}
+        aria-pressed={kinds.length === 0}
+        onClick={() => setKinds([])}
+      >
+        {t("filterAllTypes")}
+      </button>
+      {GROUP_KINDS.map((k) => (
+        <button
+          key={k}
+          type="button"
+          className={`sd-chip ${kinds.includes(k) ? "on" : ""}`}
+          aria-pressed={kinds.includes(k)}
+          onClick={() => toggleKind(k)}
+        >
+          {groupKindLabel(k, t)}
+        </button>
+      ))}
     </div>
   );
 
@@ -372,7 +411,10 @@ export function GroupsIndex() {
       </div>
       <div>
         <SectLabel>{t("allGroups")}</SectLabel>
-        <div style={{ marginTop: isDesktop ? 11 : 9 }}>{allGroupsTable}</div>
+        <div style={{ marginTop: isDesktop ? 11 : 9, display: "flex", flexDirection: "column", gap: isDesktop ? 11 : 9 }}>
+          {kindFilters}
+          {allGroupsTable}
+        </div>
       </div>
     </>
   );
