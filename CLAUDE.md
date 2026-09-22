@@ -699,18 +699,47 @@ All five SPAs are separate Cloudflare Pages projects talking to the single
    `groupLabel`, that it elides a classroom and only a classroom, that it stays
    a dispatch rather than a second copy of the rule, and that it is total over
    `GROUP_KINDS`.
-   **THREE listings carry the label now**, and one reader serves all of them:
-   the directory row, a profile's household card (`householdsFor`) and a
-   HOUSEHOLD's own group page. `classroomsByPerson` (`lib/serialize.ts`) is that
-   reader, and it is one function rather than three copies of the join because
-   `kind = 'classroom'` is the whole correctness of it — a fourth call site that
+   **FOUR listings carry the label now**, and one reader serves all of them:
+   the directory row, a profile's household card (`householdsFor`), a
+   HOUSEHOLD's own group page and Home's neighbour cards.
+   `classroomsByPerson` (`lib/serialize.ts`) is that
+   reader, and it is one function rather than four copies of the join because
+   `kind = 'classroom'` is the whole correctness of it — a fifth call site that
    forgot the term would label people with their HOUSEHOLD, which is the failure
    both new tests are written against. Everything invariant 18 says about the
-   directory's read holds for all three: batched over ids the caller has already
-   settled, reads `membership` and `grp` and **never `person`** (so it spends
-   none of `test/personListable.test.ts`'s exemption budget — which Persons are
-   in the list was decided by the caller's own gated statement), and no
-   `self_asserted` filter. `components/parts.tsx`'s `ClassroomLine` is the
+   directory's read holds for the first three: batched over ids the caller has
+   already settled, reads `membership` and `grp` and **never `person`** (so it
+   spends none of `test/personListable.test.ts`'s exemption budget — which
+   Persons are in the list was decided by the caller's own gated statement), and
+   no `self_asserted` filter.
+   **The neighbour card is the one that asks the question household-first**, and
+   the one place the gate is not free. A card names a FAMILY, so the label it
+   wants is not "which rooms does this adult belong to" but "which rooms are
+   this family's children in" — a parent scans that row precisely to find the
+   household whose child shares their own child's room. `classroomsByHousehold`
+   (same file) is that hop and deliberately nothing more: it resolves a
+   household's members and hands them to `classroomsByPerson`, so the two terms
+   worth defending stay written once. `routes/home.ts` resolves BOTH kinds of
+   card to a household — a `household` card is its own roster, a `person` card
+   is the households that Person belongs to — in one batched read over
+   `membership` and `grp`, so a Person in no household simply carries nothing.
+   Rooms are deduped by id across siblings and re-sorted by name, since the
+   merge spans several children where the per-person `ORDER BY` orders only
+   within one.
+   Its co-member read is the one in this family that DOES compose
+   `personListableSql` (a guarded read, so still no exemption spent), and the
+   difference is worth stating: on the other three the caller's own gated
+   statement already settled WHICH Persons are in the list and the label only
+   names them, where here the viewer named a HOUSEHOLD and never its members —
+   so an ungated read would let a room report an unlisted child every other
+   surface withholds, which is invariant 21's rule that existence is decided
+   before any field on them is. A household whose only student is unlisted comes
+   back with no rooms, indistinguishable from one with no student in it.
+   `test/neighborClassrooms.test.ts` is BEHAVIOURAL for invariant 22's reason —
+   its fake D1 evaluates the predicate, so a guard collapsed to the literal
+   `"1"` fails it with an unlisted child's room on a card rather than passing a
+   scan — and pins the household hop, the sibling dedupe and the two-statement
+   batching. `components/parts.tsx`'s `ClassroomLine` is the
    rendering half, for the same reason: a name elided on one screen and clipped
    by CSS on another would answer "which room?" two ways one tap apart. It lives
    beside `MemberRow`, in the half of that file the other four apps do not copy.
