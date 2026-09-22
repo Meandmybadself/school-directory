@@ -1,6 +1,7 @@
 export * from "./types.js";
 export * from "./i18n.js";
 export * from "./text.js";
+export * from "./clock.js";
 export * from "./nav.js";
 export * from "./eventPath.js";
 export * from "./newsletterEvents.js";

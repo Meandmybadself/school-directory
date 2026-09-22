@@ -11,6 +11,7 @@
 // locally would make this screen quietly diverge from the board behind it.
 import { useEffect, useState } from "react";
 import type { PtoBoardDetailDTO, PtoCardDTO, PtoCommentDTO, PtoPersonDTO } from "@sd/shared";
+import { CLOCK } from "@sd/shared";
 import { Btn } from "./atoms.js";
 import { Icon } from "./Icon.js";
 import { SheetOver } from "./parts.js";
@@ -75,8 +76,7 @@ function Comments({ cardId }: { cardId: string }) {
                 {new Date(c.createdAt).toLocaleString(undefined, {
                   month: "short",
                   day: "numeric",
-                  hour: "numeric",
-                  minute: "2-digit",
+                  ...CLOCK,
                 })}
               </span>
               {c.isYou && (

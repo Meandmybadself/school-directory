@@ -23,6 +23,7 @@
 // Writes always require a session — there is no anonymous claim path — so the
 // signed-out affordance is "sign in to volunteer".
 import { useState } from "react";
+import { formatClock } from "@sd/shared";
 import type {
   ControllablePersonDTO,
   PublicVolunteerSheetDTO,
@@ -49,7 +50,7 @@ function signupsOf(p: VolunteerPositionDTO | AnySheet["positions"][number]): Vol
 }
 
 function formatTime(iso: string, locale: string): string {
-  return new Date(iso).toLocaleTimeString(locale, { hour: "numeric", minute: "2-digit" });
+  return formatClock(iso, locale);
 }
 
 /** "5:00 – 7:00 PM" for a position's optional shift window. */

@@ -11,7 +11,7 @@ import type {
   RestoreReportDTO,
   UserDeletionImpactDTO,
 } from "@sd/shared";
-import { RESTORE_CONFIRM } from "@sd/shared";
+import { CLOCK, RESTORE_CONFIRM } from "@sd/shared";
 import { Icon } from "../components/Icon.js";
 import { Avatar, Btn, Tag } from "../components/atoms.js";
 import { AppShell, BottomNav } from "../components/AppShell.js";
@@ -34,7 +34,7 @@ const ACTION_FILTERS = [
 
 function fmtTime(iso: string): string {
   try {
-    return new Date(iso).toLocaleString(undefined, { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
+    return new Date(iso).toLocaleString(undefined, { month: "short", day: "numeric", ...CLOCK });
   } catch {
     return iso;
   }

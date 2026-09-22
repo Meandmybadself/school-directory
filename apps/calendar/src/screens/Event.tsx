@@ -27,6 +27,7 @@ import {
   type CalendarEventDTO,
   type PublicCalendarEventDTO,
   type VolunteerSheetDTO,
+  formatClock,
 } from "@sd/shared";
 import { Icon } from "../components/Icon.js";
 import { Btn } from "../components/atoms.js";
@@ -76,8 +77,8 @@ function timeRange(
   allDayLabel: string,
 ): string {
   if (e.allDay) return allDayLabel;
-  const start = new Date(e.start).toLocaleTimeString(locale, { hour: "numeric", minute: "2-digit" });
-  const end = e.end ? new Date(e.end).toLocaleTimeString(locale, { hour: "numeric", minute: "2-digit" }) : null;
+  const start = formatClock(e.start, locale);
+  const end = e.end ? formatClock(e.end, locale) : null;
   return end ? `${start} – ${end}` : start;
 }
 

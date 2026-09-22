@@ -2,7 +2,19 @@
 // 4-up Neighbors row and the groups list.
 import { useEffect, useState, type ReactNode } from "react";
 import { useNavigate } from "react-router-dom";
-import { eventPath, groupLabel, htmlToText, roleCapabilities, type CalendarEventDTO, type GroupSummaryDTO, type NeighborDTO, type NeighborsResponse, type PersonProfileDTO, type PublicNewsletterIssueSummaryDTO } from "@sd/shared";
+import {
+  eventPath,
+  formatClock,
+  groupLabel,
+  htmlToText,
+  roleCapabilities,
+  type CalendarEventDTO,
+  type GroupSummaryDTO,
+  type NeighborDTO,
+  type NeighborsResponse,
+  type PersonProfileDTO,
+  type PublicNewsletterIssueSummaryDTO,
+} from "@sd/shared";
 import { Icon } from "../components/Icon.js";
 import { Btn } from "../components/atoms.js";
 import type { I18nT } from "../i18n/index.js";
@@ -132,7 +144,7 @@ function eventHref(e: CalendarEventDTO, locale: string): string {
 function HomeEventRow({ e, locale, t }: { e: CalendarEventDTO; locale: string; t: I18nT }) {
   const d = new Date(e.start);
   const dateLabel = formatEventDay(e, locale, { weekday: "short", month: "short", day: "numeric" });
-  const timeLabel = e.allDay ? t("allDay") : d.toLocaleTimeString(locale, { hour: "numeric", minute: "2-digit" });
+  const timeLabel = e.allDay ? t("allDay") : formatClock(e.start, locale);
   const showTime = e.allDay ? showsAllDayLabel(e) : true;
   const ellipsis = { overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } as const;
   return (

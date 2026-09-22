@@ -11,7 +11,14 @@
 // families actually read.
 import { useCallback, useEffect, useState } from "react";
 import { Navigate, useNavigate, useParams } from "react-router-dom";
-import { eventPath, type ManagedOccurrenceDTO, type VolunteerSheetDTO } from "@sd/shared";
+import {
+  CLOCK,
+  eventPath,
+  formatClock,
+  formatClockRange,
+  type ManagedOccurrenceDTO,
+  type VolunteerSheetDTO,
+} from "@sd/shared";
 import { Icon } from "../components/Icon.js";
 import { Avatar, Btn, Tag } from "../components/atoms.js";
 import { AppShell, BottomNav } from "../components/AppShell.js";
@@ -85,16 +92,32 @@ function fmtOccurrence(o: ManagedOccurrenceDTO): string {
     month: "short",
     day: "numeric",
     year: "numeric",
-    ...(o.allDay ? {} : { hour: "numeric", minute: "2-digit" }),
+    ...(o.allDay ? {} : CLOCK),
   });
 }
 
-/** "HH:MM" in local time, for the shift inputs. Positions store instants; the
- *  form works in the wall-clock time an admin is actually thinking about. */
+/** "HH:MM" in local time, for the shift INPUTS and nothing else. HTML defines
+ *  `<input type="time">`'s value as 24-hour regardless of locale — the browser
+ *  shows its own widget in whatever form the platform uses — so this is a
+ *  serializer, not a formatter, and it is deliberately not `CLOCK`.
+ *
+ *  Positions store instants; the form works in the wall-clock time an admin is
+ *  actually thinking about. Anything a person READS goes through `shiftWindow`
+ *  below: this function used to do both jobs, which is how a sheet whose every
+ *  other time said "1:30 PM" came to print its shifts as "13:30". */
 function toTimeInput(iso: string | null): string {
   if (!iso) return "";
   const d = new Date(iso);
   return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+}
+
+/** A position's shift window as an admin reads it — "1:30 – 5:00 PM", or an
+ *  em dash for the half that isn't set. The browser's own locale, like
+ *  `fmtOccurrence` above: this screen is operator chrome and takes no part in
+ *  the app's i18n. */
+function shiftWindow(startsAt: string | null, endsAt: string | null): string {
+  if (startsAt && endsAt) return formatClockRange(startsAt, endsAt);
+  return `${startsAt ? formatClock(startsAt) : "—"} – ${endsAt ? formatClock(endsAt) : "—"}`;
 }
 
 /** Combine a "HH:MM" with the sheet's own date, read locally. A shift is always
@@ -189,9 +212,7 @@ function PositionRow({ position, busy, onEdit, onRemove, onRelease }: {
             <Tag tone={full ? "line" : "orange"}>{position.filled} of {position.slots}</Tag>
           </div>
           {(position.startsAt || position.endsAt) && (
-            <div className="sd-meta">
-              {toTimeInput(position.startsAt) || "—"} – {toTimeInput(position.endsAt) || "—"}
-            </div>
+            <div className="sd-meta">{shiftWindow(position.startsAt, position.endsAt)}</div>
           )}
           {position.description && <div className="sd-meta">{position.description}</div>}
         </div>

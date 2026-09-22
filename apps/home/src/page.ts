@@ -23,6 +23,7 @@ import {
   type Locale,
   type PublicCalendarEventDTO,
   type Strings,
+  formatClockRange,
 } from "@sd/shared";
 import {
   BUS_EMAIL,
@@ -324,14 +325,7 @@ function eventDay(locale: Locale, e: PublicCalendarEventDTO): string {
  *  lie in either direction. */
 function eventTime(locale: Locale, s: Strings, e: PublicCalendarEventDTO): string {
   if (e.allDay) return s.allDay;
-  const fmt = new Intl.DateTimeFormat(locale, {
-    timeZone: DEFAULT_TIME_ZONE,
-    hour: "numeric",
-    minute: "numeric",
-  });
-  const start = new Date(e.start);
-  const end = e.end ? new Date(e.end) : null;
-  return end && end > start ? fmt.formatRange(start, end) : fmt.format(start);
+  return formatClockRange(e.start, e.end, locale, DEFAULT_TIME_ZONE);
 }
 
 /** Everything the district publishes that a family actually reaches for: the
@@ -417,14 +411,16 @@ function resourceNote(s: Strings, r: Resource): string {
     : escapeHtml(note);
 }
 
-/** The bell times, in whichever clock convention the reader's language uses —
- *  "7:40 AM – 2:10 PM" in English, "07:40–14:10" in Chinese. */
+/** The bell times — "7:40 AM – 2:10 PM", 12-hour in every language, like every
+ *  other clock time in this project (`CLOCK`). The reader's language still
+ *  names the day period; only the cycle is pinned. */
 function schoolHours(locale: Locale): string {
-  return new Intl.DateTimeFormat(locale, {
-    timeZone: DEFAULT_TIME_ZONE,
-    hour: "numeric",
-    minute: "numeric",
-  }).formatRange(new Date(SCHOOL_HOURS.start), new Date(SCHOOL_HOURS.end));
+  return formatClockRange(
+    new Date(SCHOOL_HOURS.start).toISOString(),
+    new Date(SCHOOL_HOURS.end).toISOString(),
+    locale,
+    DEFAULT_TIME_ZONE,
+  );
 }
 
 /** Structured data naming the organization and where it is.

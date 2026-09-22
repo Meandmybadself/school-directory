@@ -413,10 +413,21 @@ describe("who to call, and where to look", () => {
     }
   });
 
-  it("states the school hours in the reader's own clock convention", async () => {
-    expect(await body("/?lang=en")).toMatch(/7:40\s*(AM)?\s*[–-]\s*2:10\s*PM/);
-    // Chinese runs on a 24-hour clock, so the same two instants read differently.
-    expect(await body("/?lang=zh")).toMatch(/07:40\s*[–-]\s*14:10/);
+  it("states the school hours on a 12-hour clock in every language", async () => {
+    // `CLOCK` in @sd/shared pins the hour cycle for the whole project: an
+    // American elementary school says "2:10 PM", and a parent whose phone is
+    // set to another locale — or to the 24-hour option on this one — is not
+    // reading about a different school day. The LANGUAGE still names the day
+    // period, which is why this asserts the digits rather than the words.
+    expect(await body("/?lang=en")).toMatch(/7:40\s*AM\s*[–-]\s*2:10\s*PM/);
+    for (const locale of LOCALES) {
+      const html = await body(`/?lang=${locale}`);
+      expect(html).toContain("7:40");
+      expect(html).toContain("2:10");
+      // The failure this rule exists to prevent, in any language that would
+      // otherwise default to it.
+      expect(html).not.toContain("14:10");
+    }
   });
 
   it("carries no attribution line and no other-schools fold", async () => {

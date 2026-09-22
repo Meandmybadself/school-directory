@@ -1575,6 +1575,28 @@ All five SPAs are separate Cloudflare Pages projects talking to the single
   `--orange #FAAB1C`, etc. `apps/web/src/styles/tokens.css` is the source of
   truth (the hi-fi handoff board they were ported from has been deleted), and
   the other four apps hold copies — see "Five front ends, one API".
+- **Every clock time is 12-hour with AM/PM**, in all six apps, for every
+  reader — `CLOCK` / `formatClock` / `formatClockRange` in
+  `packages/shared/src/clock.ts`. This is a product decision about an American
+  elementary school, and it is written against `toLocaleTimeString`'s DEFAULT,
+  which follows the reader: 24-hour for most of the world's locales, and
+  24-hour on an en-US machine whose owner ticked the box. The locale still
+  picks the separator, the numerals and what the day period is called
+  ("PM", "p. m.", "GD"), so this is narrower than it looks and puts no English
+  on a Spanish page — only the hour CYCLE is pinned.
+  Two things are deliberately outside it. `toTimeInput` in the calendar's admin
+  screens serializes `<input type="time">`, whose value HTML defines as 24-hour
+  regardless of locale; pointing it at `CLOCK` would break the input rather
+  than translate it, and using it to DISPLAY a shift window is how the sheet
+  whose every other time read "1:30 PM" came to print "13:30". And the
+  zone-offset probes in `lib/calendar.ts` and `newsletterEvents.ts` set
+  `hourCycle: "h23"` / `hour12: false` to read a wall clock back out of
+  `formatToParts` as numbers — a 12-hour cycle there halves every afternoon.
+  Both carry a `// CLOCK-EXEMPT:` note, which is what
+  `test/clockFormat.test.ts` reads: it scans every app's `src` and `functions`
+  plus the shared package for an `hour:` option and fails on one that neither
+  composes `CLOCK` nor says why, because the failure here is always a NEW call
+  site and no route test will ever notice a stray `hour: "numeric"`.
 - Visibility chip states: `members` (blue) / `private` (slate) / `shared` (orange).
   There is **no public state** anywhere in the UI.
 - **Dark mode is `prefers-color-scheme` only** — no toggle, nothing persisted, in

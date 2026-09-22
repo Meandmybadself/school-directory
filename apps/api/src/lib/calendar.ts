@@ -74,6 +74,10 @@ function titleOf(event: ICAL.Event): string {
  *  second pass matters only at a DST boundary, where the offset that applies to
  *  the answer is not the offset that applied to the guess. */
 function zoneOffsetMs(instantMs: number, timeZone: string): number {
+  // CLOCK-EXEMPT: this PARSES a wall clock out of `formatToParts` to derive a
+  // zone offset — nobody reads it. `hourCycle: "h23"` is what makes the hour
+  // an arithmetic value; the project-wide 12-hour rule would halve every
+  // afternoon here and move half the calendar.
   const parts = new Intl.DateTimeFormat("en-US", {
     timeZone,
     hourCycle: "h23",

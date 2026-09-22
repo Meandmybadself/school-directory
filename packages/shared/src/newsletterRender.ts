@@ -29,6 +29,7 @@
 // (at send time and forever after on the archive page). Data resolution is
 // impure and differs per call site; rendering is pure and identical.
 
+import { formatClock } from "./clock.js";
 import type {
   CalendarEventDTO,
   NewsletterBrandingDTO,
@@ -527,11 +528,7 @@ export function formatEventTime(
   timeZone: string,
 ): string | null {
   if (e.allDay) return null;
-  return new Date(e.start).toLocaleTimeString(locale, {
-    hour: "numeric",
-    minute: "2-digit",
-    timeZone,
-  });
+  return formatClock(e.start, locale, timeZone);
 }
 
 // ── HTML rendering ──────────────────────────────────────────────────────────

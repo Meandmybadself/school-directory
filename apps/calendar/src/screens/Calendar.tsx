@@ -11,7 +11,13 @@
 // shape matches, and reusing the name keeps the two readable as one feature).
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { eventPath, htmlToText, type PublicCalendarEventDTO, type PublicCalendarFeedDTO } from "@sd/shared";
+import {
+  eventPath,
+  formatClock,
+  htmlToText,
+  type PublicCalendarEventDTO,
+  type PublicCalendarFeedDTO,
+} from "@sd/shared";
 import { Icon } from "../components/Icon.js";
 import { AppShell, BottomNav } from "../components/AppShell.js";
 import { DesktopShell } from "../components/DesktopShell.js";
@@ -102,7 +108,7 @@ function groupByDay(events: PublicCalendarEventDTO[]): DayGroup[] {
 }
 
 function timeOf(e: PublicCalendarEventDTO, locale: string, t: ReturnType<typeof useI18n>["t"]): string {
-  return e.allDay ? t("allDay") : new Date(e.start).toLocaleTimeString(locale, { hour: "numeric", minute: "2-digit" });
+  return e.allDay ? t("allDay") : formatClock(e.start, locale);
 }
 
 function EventRow({ e, locale, onOpen }: { e: PublicCalendarEventDTO; locale: string; onOpen: () => void }) {

@@ -4,6 +4,7 @@
 // copy still goes through i18n.
 import { useState, type ReactNode } from "react";
 import type { CalendarSourceDTO, ManagedCalendarRemovalImpactDTO, ManagedEventDTO } from "@sd/shared";
+import { CLOCK } from "@sd/shared";
 import { Btn } from "./atoms.js";
 import { Icon } from "./Icon.js";
 
@@ -32,7 +33,7 @@ export function ErrorText({ children }: { children: ReactNode }) {
 
 export function fmtTime(iso: string): string {
   try {
-    return new Date(iso).toLocaleString(undefined, { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
+    return new Date(iso).toLocaleString(undefined, { month: "short", day: "numeric", ...CLOCK });
   } catch {
     return iso;
   }
@@ -45,7 +46,7 @@ export function describeEvent(e: ManagedEventDTO): string {
   const start = new Date(e.start);
   const date = e.allDay
     ? start.toLocaleDateString(undefined, { timeZone: "UTC", month: "short", day: "numeric", year: "numeric" })
-    : start.toLocaleString(undefined, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
+    : start.toLocaleString(undefined, { month: "short", day: "numeric", ...CLOCK });
   if (!e.recurrence) return e.allDay ? `${date} · all day` : date;
 
   const { freq, interval = 1, byDay, until } = e.recurrence;

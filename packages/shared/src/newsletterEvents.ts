@@ -48,6 +48,10 @@ export function visibleEvents(
 
 /** Offset, in ms, between `timeZone` and UTC at a given instant. */
 function zoneOffsetMs(utcMs: number, timeZone: string): number {
+  // CLOCK-EXEMPT: the same wall-clock probe the API's lib/calendar.ts runs —
+  // `formatToParts` read as numbers, never shown to anyone. `hour12: false` is
+  // what makes the hour a value this function can subtract, not a formatting
+  // choice.
   const parts = new Intl.DateTimeFormat("en-US", {
     timeZone,
     hour12: false,
