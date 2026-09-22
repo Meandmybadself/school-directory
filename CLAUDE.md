@@ -454,6 +454,28 @@ All five SPAs are separate Cloudflare Pages projects talking to the single
    forgetting the positions — the shape the incident was reported as, one group
    of volunteers moving and the other not — fails on a value rather than passing
    a scan.
+   **What the automatic path refuses to guess, an admin does by hand**:
+   `moveSheet` + `POST /admin/volunteer-sheets/:id/occurrence`. A stranded sheet
+   is the deliberate outcome above, and for a long time the admin screen
+   answered it with the sentence "move them to a current date or delete the
+   sheet" over an app that offered only the delete — which for Field Day's sheet
+   meant discarding eighteen families' sign-ups to fix a date. The button in the
+   orphan banner is what that sentence always promised.
+   It is NOT `updateSheet` taking an `occurrenceStart`, and
+   `VolunteerSheetInput` keeps that field create-only: the objection stands
+   (re-dating a sheet relocates everyone already signed up) and is answered by
+   NARROWNESS, not by a change of mind. The target must be a date the event
+   actually produces — read from `calendar_event`, never taken on the client's
+   word — and must not already hold a sheet; the UI offers only free dates and
+   the route re-checks both, since a hand-made request would otherwise park
+   sign-ups on a day nothing renders. `moveStatements` is ONE builder shared
+   with `reanchorSheets`, because a second copy is how the two would come to
+   disagree about what moving a sheet includes. A move that changes nothing
+   writes nothing and pushes no draft. `volunteer.sheet.moved` is its own audit
+   action — the date it LEFT is recorded nowhere else — and is Slack-curated on
+   the rare-and-consequential bar, unlike the `pto.*` and authoring actions
+   invariant 22 keeps out.
+   `test/volunteerSheetMove.test.ts` pins both guards behaviourally.
    The same foreign key is what makes **deleting an event a cascade**, and it is
    the one direction the "survives re-materialization" rule does NOT cover: a
    sheet outlives an occurrence, but not its series. `deleteManagedEvent` and

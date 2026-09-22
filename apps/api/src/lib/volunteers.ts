@@ -760,6 +760,52 @@ function shifted(iso: string | null, deltaMs: number): string | null {
   return iso === null ? null : new Date(new Date(iso).getTime() + deltaMs).toISOString();
 }
 
+interface MovableSheet {
+  id: string;
+  occurrence_start: string;
+  closes_at: string | null;
+}
+interface MovablePosition {
+  id: string;
+  starts_at: string | null;
+  ends_at: string | null;
+}
+
+/** Everything one sheet's move writes: its own row, and every position whose
+ *  shift window is dated off the instant it is leaving. ONE builder, shared by
+ *  the automatic re-anchor below and the admin's manual repair (`moveSheet`),
+ *  because a second copy is how the two would come to disagree about what
+ *  "moving a sheet" includes — which is the bug this whole section exists
+ *  after, one level up. Returned rather than run, so a caller can keep a
+ *  sheet's statements inside one `batch()`. */
+function moveStatements(
+  env: Env,
+  sheet: MovableSheet,
+  to: string,
+  positions: MovablePosition[],
+  ts: string,
+): D1PreparedStatement[] {
+  const delta = new Date(to).getTime() - new Date(sheet.occurrence_start).getTime();
+  const out = [
+    env.DB.prepare(
+      "UPDATE volunteer_sheet SET occurrence_start = ?, closes_at = ?, updated_at = ? WHERE id = ?",
+    ).bind(to, shifted(sheet.closes_at, delta), ts, sheet.id),
+  ];
+  // A zero delta is a "move" between two spellings of one instant, and a
+  // position with no window has nothing dated off the occurrence. Neither is
+  // worth a statement.
+  if (delta === 0) return out;
+  for (const p of positions) {
+    if (p.starts_at === null && p.ends_at === null) continue;
+    out.push(
+      env.DB.prepare(
+        "UPDATE volunteer_position SET starts_at = ?, ends_at = ?, updated_at = ? WHERE id = ?",
+      ).bind(shifted(p.starts_at, delta), shifted(p.ends_at, delta), ts, p.id),
+    );
+  }
+  return out;
+}
+
 /** Carry this event's volunteer sheets onto the dates it now produces, and
  *  return the ones that moved. `oldStarts` are the instants `calendar_event`
  *  held before re-materialization, `newStarts` the ones `expandEvent` just
@@ -773,14 +819,13 @@ export async function reanchorSheets(
   oldStarts: string[],
   newStarts: string[],
 ): Promise<SheetReanchor> {
-  const none: SheetReanchor = { moves: [], stranded: 0 };
   const sheets = await env.DB.prepare(
     `SELECT id, slug, occurrence_start, closes_at FROM volunteer_sheet
       WHERE managed_event_id = ? ORDER BY occurrence_start ASC`,
   )
     .bind(managedEventId)
     .all<{ id: string; slug: string; occurrence_start: string; closes_at: string | null }>();
-  if (sheets.results.length === 0 || newStarts.length === 0) return none;
+  if (sheets.results.length === 0 || newStarts.length === 0) return { moves: [], stranded: 0 };
 
   const surviving = new Set(newStarts);
   // Every date already spoken for: rule 1's sheets are never displaced, and two
@@ -799,13 +844,8 @@ export async function reanchorSheets(
   const translated = oldStarts.length === newStarts.length;
 
   const moves: SheetMove[] = [];
-  // One group per sheet: its own row and its positions, kept together so a
-  // batch boundary can never fall between them (see the flush below).
-  const groups: D1PreparedStatement[][] = [];
-  const groupOf = new Map<string, D1PreparedStatement[]>();
-  const deltaOf = new Map<string, number>();
+  const rowOf = new Map<string, { row: (typeof sheets.results)[number]; to: string }>();
   let stranded = 0;
-  const ts = nowIso();
 
   for (const s of sheets.results) {
     if (surviving.has(s.occurrence_start)) continue;
@@ -821,21 +861,19 @@ export async function reanchorSheets(
       continue;
     }
     taken.add(to);
-    const delta = new Date(to).getTime() - new Date(s.occurrence_start).getTime();
-    deltaOf.set(s.id, delta);
+    rowOf.set(s.id, { row: s, to });
     moves.push({ id: s.id, slug: s.slug, from: s.occurrence_start, to, signups: 0 });
-    const group = [
-      env.DB.prepare(
-        "UPDATE volunteer_sheet SET occurrence_start = ?, closes_at = ?, updated_at = ? WHERE id = ?",
-      ).bind(to, shifted(s.closes_at, delta), ts, s.id),
-    ];
-    groupOf.set(s.id, group);
-    groups.push(group);
   }
   if (moves.length === 0) return { moves: [], stranded };
 
+  // One group per sheet: its own row and its positions, kept together so a
+  // batch boundary can never fall between them (see the flush below).
+  const groups: D1PreparedStatement[][] = [];
+  const ts = nowIso();
+
   for (let i = 0; i < moves.length; i += MOVE_CHUNK) {
-    const ids = moves.slice(i, i + MOVE_CHUNK).map((m) => m.id);
+    const chunk = moves.slice(i, i + MOVE_CHUNK);
+    const ids = chunk.map((m) => m.id);
     const holes = ids.map(() => "?").join(",");
     const [positions, counts] = await Promise.all([
       env.DB.prepare(
@@ -856,16 +894,16 @@ export async function reanchorSheets(
       const move = moves.find((m) => m.id === row.sheet_id);
       if (move) move.signups = row.n;
     }
-    for (const p of positions.results) {
-      const delta = deltaOf.get(p.sheet_id);
-      // A position with no shift window has nothing dated off the occurrence,
-      // and a zero delta is a sheet that "moved" between two spellings of the
-      // same instant. Neither is worth a statement.
-      if (!delta || (p.starts_at === null && p.ends_at === null)) continue;
-      groupOf.get(p.sheet_id)?.push(
-        env.DB.prepare(
-          "UPDATE volunteer_position SET starts_at = ?, ends_at = ?, updated_at = ? WHERE id = ?",
-        ).bind(shifted(p.starts_at, delta), shifted(p.ends_at, delta), ts, p.id),
+    for (const m of chunk) {
+      const placed = rowOf.get(m.id)!;
+      groups.push(
+        moveStatements(
+          env,
+          placed.row,
+          placed.to,
+          positions.results.filter((p) => p.sheet_id === m.id),
+          ts,
+        ),
       );
     }
   }
@@ -885,6 +923,100 @@ export async function reanchorSheets(
   }
   if (batch.length) await env.DB.batch(batch);
   return { moves, stranded };
+}
+
+/** Move ONE sheet onto another of its event's dates, by hand.
+ *
+ *  `reanchorSheets` above handles the case that matters most — the admin edits
+ *  the event and its sheets follow — but it cannot place every sheet: a series
+ *  that genuinely lost a date, or one truncated rather than translated, leaves
+ *  a sheet stranded ON PURPOSE rather than guessing. Until this route existed
+ *  the admin screen then said "move them to a current date or delete the sheet"
+ *  over an app offering neither, and the only way out was deleting eighteen
+ *  families' sign-ups. This is the affordance that sentence always promised.
+ *
+ *  It is deliberately NOT `updateSheet` taking an `occurrenceStart`.
+ *  `VolunteerSheetInput` keeps that field create-only because re-dating a sheet
+ *  relocates everyone already signed up, and that stays true; what makes this
+ *  acceptable is the narrowness, not a change of mind. The target must be a
+ *  date the event ACTUALLY produces — read from `calendar_event`, the same
+ *  materialized agenda `listOccurrences` offers the admin — and must not
+ *  already hold a sheet, which `UNIQUE (managed_event_id, occurrence_start)`
+ *  would refuse anyway and which would make "the" volunteer link for a date
+ *  ambiguous. Everything dated off the old instant rides the delta, through the
+ *  same `moveStatements` the automatic path uses.
+ *
+ *  Returns null when there is no such sheet; `move` is null when the sheet was
+ *  already on that date, so a double-tap writes nothing and the route pushes no
+ *  audit draft — an append-only log must not be paddable (invariants 27, 28). */
+export async function moveSheet(
+  env: Env,
+  sheetId: string,
+  to: string,
+): Promise<{ sheet: VolunteerSheetDTO; move: SheetMove | null } | null> {
+  const sheet = await env.DB.prepare(
+    `SELECT id, slug, managed_event_id, occurrence_start, closes_at
+       FROM volunteer_sheet WHERE id = ?`,
+  )
+    .bind(sheetId)
+    .first<{
+      id: string;
+      slug: string;
+      managed_event_id: string;
+      occurrence_start: string;
+      closes_at: string | null;
+    }>();
+  if (!sheet) return null;
+
+  const target = optionalInstant(to, "Date");
+  if (!target) throw new VolunteerError("Pick which date to move this sheet to.");
+  if (target === sheet.occurrence_start) {
+    return { sheet: (await loadSheetForAdmin(env, sheetId))!, move: null };
+  }
+
+  const occurrence = await env.DB.prepare(
+    "SELECT id FROM calendar_event WHERE managed_event_id = ? AND starts_at = ?",
+  )
+    .bind(sheet.managed_event_id, target)
+    .first<{ id: string }>();
+  if (!occurrence) throw new VolunteerError("That date isn't on the calendar for this event.");
+
+  const clash = await env.DB.prepare(
+    `SELECT id FROM volunteer_sheet
+      WHERE managed_event_id = ? AND occurrence_start = ? AND id <> ?`,
+  )
+    .bind(sheet.managed_event_id, target, sheetId)
+    .first<{ id: string }>();
+  if (clash) throw new VolunteerError("That date already has a volunteer sheet.");
+
+  const positions = await env.DB.prepare(
+    "SELECT id, starts_at, ends_at FROM volunteer_position WHERE sheet_id = ?",
+  )
+    .bind(sheetId)
+    .all<{ id: string; starts_at: string | null; ends_at: string | null }>();
+  const signups = await env.DB.prepare(
+    `SELECT COUNT(*) AS n FROM volunteer_signup g
+       JOIN volunteer_position p ON p.id = g.position_id
+      WHERE p.sheet_id = ?`,
+  )
+    .bind(sheetId)
+    .first<{ n: number }>();
+
+  // One batch: the sheet's new date and its shift windows land together or not
+  // at all, for `reanchorSheets`'s reason — the delta that would repair a half
+  // -applied move is gone once the request returns.
+  await env.DB.batch(moveStatements(env, sheet, target, positions.results, nowIso()));
+
+  return {
+    sheet: (await loadSheetForAdmin(env, sheetId))!,
+    move: {
+      id: sheet.id,
+      slug: sheet.slug,
+      from: sheet.occurrence_start,
+      to: target,
+      signups: signups?.n ?? 0,
+    },
+  };
 }
 
 // ── Position writes (admin) ─────────────────────────────────────────────────

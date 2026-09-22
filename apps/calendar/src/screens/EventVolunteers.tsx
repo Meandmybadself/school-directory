@@ -356,6 +356,27 @@ export function EventVolunteers() {
     }
   };
 
+  /** Move this sheet onto one of its event's real dates. Only offered for an
+   *  ORPHANED sheet: the banner above has always told the admin to do exactly
+   *  this, and until now the app answered with nothing but a delete — which for
+   *  a sheet like Field Day's meant throwing away eighteen families' sign-ups
+   *  to fix a date. The positions' shift windows and everyone signed up ride
+   *  along; the server does it in one batch. */
+  const moveSheetTo = async (occurrenceStart: string) => {
+    if (!sheet) return;
+    setBusy(true);
+    setError(null);
+    try {
+      const r = await api.moveVolunteerSheet(sheet.id, occurrenceStart);
+      setSheet(r.sheet);
+      void loadOccurrences();
+    } catch (err) {
+      setError(errorMessage(err, "Couldn't move this sheet to that date."));
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const removeSheet = async () => {
     if (!sheet) return;
     setBusy(true);
@@ -448,6 +469,11 @@ export function EventVolunteers() {
 
   if (!sessionLoading && me && !me.user.isSystemAdmin) return <Navigate to="/" replace />;
 
+  // Dates this event really has that no sheet holds yet — where an orphan may
+  // go. `listOccurrences` returns the orphan's own date too, appended past the
+  // real ones, so `sheet` being set is what excludes it.
+  const freeOccurrences = (occurrences ?? []).filter((o) => !o.sheet);
+
   const datePicker = (
     <>
       <SectLabel>Dates</SectLabel>
@@ -507,10 +533,38 @@ export function EventVolunteers() {
           // The series was edited after this sheet was created, so the date it
           // names is no longer on the calendar. The signups are intact; the
           // sheet just isn't reachable from the agenda.
-          <ErrorText>
-            This date is no longer on the calendar — the event was edited after signups opened.
-            The positions and signups below are intact; move them to a current date or delete the sheet.
-          </ErrorText>
+          //
+          // The dates beneath are the affordance the sentence promises. Only
+          // the FREE ones: a date that already has a sheet can't take a second
+          // (one sheet per occurrence, or "the" volunteer link for that date is
+          // ambiguous), and the server refuses it anyway.
+          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+            <ErrorText>
+              This date is no longer on the calendar — the event was edited after signups opened.
+              The positions and signups below are intact; move them to a current date or delete the sheet.
+            </ErrorText>
+            {freeOccurrences.length > 0 ? (
+              <div className="sd-row" style={{ gap: 8, flexWrap: "wrap" }}>
+                {freeOccurrences.map((o) => (
+                  <Btn
+                    key={o.start}
+                    sm
+                    kind="primary"
+                    icon="swap"
+                    disabled={busy}
+                    onClick={() => void moveSheetTo(o.start)}
+                  >
+                    Move to {fmtOccurrence(o)}
+                  </Btn>
+                ))}
+              </div>
+            ) : (
+              <div className="sd-meta">
+                This event has no other date to move these signups to. Add a date to the event first,
+                or delete the sheet.
+              </div>
+            )}
+          </div>
         )}
 
         <div className="sd-row" style={{ gap: 8, flexWrap: "wrap" }}>

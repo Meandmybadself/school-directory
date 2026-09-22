@@ -1851,6 +1851,11 @@ export type AuditAction =
   | "newsletter.subscription.toggled"
   | "volunteer.sheet.created"
   | "volunteer.sheet.updated"
+  /** An orphaned sheet moved onto another of its event's dates BY HAND — the
+   *  repair for what `reanchorSheets` could not place automatically. Its own
+   *  action rather than `updated` because it relocates everyone already signed
+   *  up, and the date it left is not recorded anywhere else. */
+  | "volunteer.sheet.moved"
   | "volunteer.sheet.deleted"
   | "volunteer.position.created"
   | "volunteer.position.updated"

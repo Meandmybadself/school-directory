@@ -148,6 +148,20 @@ function whenOf(bag: NotifyBag): string {
   }
 }
 
+/** " on Oct 17" for an arbitrary key, where `whenOf` reads the fixed `start`.
+ *  Same zone rule and the same "" on anything unusable. */
+function dayOf(bag: NotifyBag, key: string): string {
+  const v = bag[key];
+  if (typeof v !== "string") return "";
+  const d = new Date(v);
+  if (Number.isNaN(d.getTime())) return "";
+  try {
+    return ` ${new Intl.DateTimeFormat("en-US", { timeZone: SCHOOL_TZ_FALLBACK, month: "short", day: "numeric" }).format(d)}`;
+  } catch {
+    return "";
+  }
+}
+
 /** The event's own page, when we can address it. Built from the same content
  *  identity the calendar app mints (`eventPath`), in the school's zone since a
  *  Worker has no reader timezone — the lookup searches ±1 day, so the two
@@ -342,6 +356,21 @@ const FORMATTERS = {
       `:wastebasket: Event *${str(notify, "title")}* deleted` +
       ` (${num(notify, "occurrences")} date${num(notify, "occurrences") === 1 ? "" : "s"}${took})` +
       ` — ${actor}.`
+    );
+  },
+
+  /** Rare and consequential, which is the bar this list is curated to: it fires
+   *  when an admin repairs a sheet the automatic re-anchor could not place, and
+   *  it relocates everyone already signed up. Twice a year at most — counted
+   *  before adding it, the way invariant 22 says to. */
+  "volunteer.sheet.moved": ({ notify }) => {
+    const signups = num(notify, "signups");
+    const who = signups
+      ? `, taking ${signups} sign-up${signups === 1 ? "" : "s"} with it`
+      : "";
+    return (
+      `:calendar: A volunteer sheet moved${dayOf(notify, "from")} →` +
+      `${dayOf(notify, "to") || " another date"}${who}.`
     );
   },
 

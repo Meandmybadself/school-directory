@@ -260,6 +260,15 @@ export const api = {
       method: "PATCH",
       body: JSON.stringify(body),
     }),
+  /** Move an ORPHANED sheet onto a date its event actually has, carrying its
+   *  positions' shift windows and everyone already signed up. Its own route
+   *  rather than a field on the PATCH above, because re-dating a sheet is not
+   *  an ordinary edit — see `moveSheet` in the API. */
+  moveVolunteerSheet: (sheetId: string, occurrenceStart: string) =>
+    request<{ sheet: VolunteerSheetDTO; moved: boolean }>(
+      `/admin/volunteer-sheets/${sheetId}/occurrence`,
+      { method: "POST", body: JSON.stringify({ occurrenceStart }) },
+    ),
   deleteVolunteerSheet: (sheetId: string) =>
     request<{ ok: true }>(`/admin/volunteer-sheets/${sheetId}`, { method: "DELETE" }),
   addVolunteerPosition: (sheetId: string, body: VolunteerPositionInput) =>

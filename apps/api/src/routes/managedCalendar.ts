@@ -34,6 +34,7 @@ import {
   deletePosition,
   deleteSheet,
   listOccurrences,
+  moveSheet,
   loadSheetForAdmin,
   sheetVolunteerEmails,
   updatePosition,
@@ -393,6 +394,52 @@ managedCalendar.patch("/volunteer-sheets/:id", async (c) => {
       notify: { eventTitle: sheet.event.title, slug: sheet.slug, published: sheet.published },
     });
     return c.json({ sheet });
+  } catch (err) {
+    const bad = invalid(err);
+    if (bad) return c.json(bad, 400);
+    throw err;
+  }
+});
+
+/** POST /admin/volunteer-sheets/:id/occurrence { occurrenceStart } — move an
+ *  orphaned sheet onto a date its event actually has.
+ *
+ *  Its own route rather than a field on the PATCH above, because
+ *  `VolunteerSheetInput.occurrenceStart` stays create-only on purpose: re-dating
+ *  a sheet relocates everyone already signed up. That objection is answered by
+ *  narrowness, not overruled — `moveSheet` accepts only a date the materialized
+ *  agenda actually offers and only one no other sheet holds — and the admin is
+ *  the one who asked, having been shown the orphan banner that names the
+ *  problem. A move that changes nothing writes nothing and audits nothing. */
+managedCalendar.post("/volunteer-sheets/:id/occurrence", async (c) => {
+  const auth = requireAuth(c);
+  if (!auth.isSystemAdmin) return c.json({ error: "forbidden" }, 403);
+  const body = await c.req.json<{ occurrenceStart?: string }>().catch(() => null);
+  if (!body?.occurrenceStart) return c.json({ error: "invalid_body" }, 400);
+
+  try {
+    const result = await moveSheet(c.env, c.req.param("id"), body.occurrenceStart);
+    if (!result) return c.json({ error: "not_found" }, 404);
+    if (result.move) {
+      c.var.audit.push({
+        action: "volunteer.sheet.moved",
+        entityKind: "volunteer_sheet",
+        entityId: result.move.id,
+        // The date it LEFT, which nothing else will remember a second from now:
+        // `occurrence_start` is overwritten in place and the table keeps no
+        // history. Same reasoning as the pre-count on a delete (invariant 13).
+        detail: { from: result.move.from, to: result.move.to, signups: result.move.signups },
+        // Dates and a count, no slug: the event-update line beside this one
+        // sends none either, and two spellings of "what may leave the system"
+        // for one feature is how the narrower one stops being true.
+        notify: {
+          from: result.move.from,
+          to: result.move.to,
+          signups: result.move.signups,
+        },
+      });
+    }
+    return c.json({ sheet: result.sheet, moved: !!result.move });
   } catch (err) {
     const bad = invalid(err);
     if (bad) return c.json(bad, 400);
