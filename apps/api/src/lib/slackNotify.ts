@@ -311,9 +311,24 @@ const FORMATTERS = {
     `:calendar: New event *${str(notify, "title")}*${whenOf(notify)}` +
     ` — ${actor}.${eventLink(env, notify)}`,
 
-  "calendar.event.updated": ({ env, notify, actor }) =>
-    `:pencil2: Event *${str(notify, "title")}* edited${whenOf(notify)}` +
-    ` — ${actor}.${eventLink(env, notify)}`,
+  "calendar.event.updated": ({ env, notify, actor }) => {
+    // The one edit worth more than a line: moving an event carries its
+    // volunteer sheets onto the new date (`reanchorSheets`), and the people
+    // already signed up are moved without being asked or told. The channel is
+    // where that gets said out loud. Counts only — a sheet's slug is the
+    // capability that opens it, and this is a third party.
+    const sheets = num(notify, "sheetsMoved");
+    const signups = num(notify, "signupsMoved");
+    const carried = sheets
+      ? ` — ${sheets} volunteer sheet${sheets === 1 ? "" : "s"}` +
+        (signups ? ` and ${signups} sign-up${signups === 1 ? "" : "s"}` : "") +
+        " moved with it"
+      : "";
+    return (
+      `:pencil2: Event *${str(notify, "title")}* edited${whenOf(notify)}${carried}` +
+      ` — ${actor}.${eventLink(env, notify)}`
+    );
+  },
 
   "calendar.event.deleted": ({ notify, actor }) => {
     const signups = num(notify, "signups");

@@ -674,6 +674,168 @@ export async function deleteSheet(env: Env, id: string): Promise<boolean> {
   return true;
 }
 
+// ── Following the event (admin, by consequence) ─────────────────────────────
+//
+// A sheet names its occurrence by INSTANT — `(managed_event_id,
+// occurrence_start)`, the durable pair — and an admin who moves an event
+// changes exactly that instant. Nothing linked the two, so until this existed a
+// re-dated event left its sheet behind: the new date carried no sign-up link
+// (`publicEventOf`'s join is `vs.occurrence_start = e.starts_at`), and everyone
+// who had already claimed a spot stayed claimed on a date the calendar no
+// longer produced. The admin screen could only report it — "move them to a
+// current date or delete the sheet" — over an app that offered no way to move
+// them.
+//
+// So the move is a CONSEQUENCE of the event edit, not an act of its own. That
+// is also the answer to the objection `VolunteerSheetInput.occurrenceStart`
+// raises against letting an admin re-date a sheet by hand ("would silently
+// relocate everyone who already signed up"): relocating everyone is the correct
+// outcome here, because the thing they signed up for is what moved. It is not
+// silent either — the route reports how many came along and the audit row keeps
+// the dates, which is the only place the old one survives.
+//
+// Three rules decide where a sheet lands, and the order matters:
+//
+//  1. **A sheet already on a surviving date never moves.** Extending a series'
+//     UNTIL, or editing its title, leaves most dates untouched; a sheet sitting
+//     on one of them is already where it belongs.
+//  2. **Otherwise it keeps its ORDINAL.** Both lists are ascending, so the n-th
+//     date the event used to produce becomes the n-th it produces now. That is
+//     what carries a whole series forward an hour or a week — the edit an admin
+//     actually makes — and it needs no history: `expandEvent` has just rendered
+//     the new list and `calendar_event` still holds the old one.
+//  3. **A one-date event is unambiguous**, so a sheet whose instant is in
+//     NEITHER list still lands on it: there is nowhere else for it to be. This
+//     is the clause that heals a sheet orphaned by an edit made before any of
+//     this existed, on the next save of its event.
+//
+// A sheet is never moved onto a date another sheet already holds — `UNIQUE
+// (managed_event_id, occurrence_start)` would reject the whole batch, and the
+// sheet that is already right is not the one to disturb. Whatever can't be
+// placed stays put and keeps reporting itself as `orphaned`, which is still the
+// honest answer for a series that genuinely lost a date.
+//
+// Everything dated off the old instant moves by the same delta: `closes_at` and
+// each position's shift window. Those are offsets from the event ("the 7:30
+// shift", "sign-ups close the night before"), and a delta is what preserves an
+// offset across a move — including one crossing a daylight-saving boundary,
+// since the recurrence engine holds the occurrence's own wall clock fixed and
+// the same delta therefore holds the shift's.
+
+/** One sheet carried from an old occurrence to a new one. `signups` is how many
+ *  people came with it, counted here because this is the only place that knows
+ *  which sheets moved — and reported onward for the reason `deleteManagedEvent`
+ *  counts what it removes (invariant 13): afterwards the old date is gone from
+ *  the row and only the audit entry can say what happened to whom. */
+export interface SheetMove {
+  id: string;
+  slug: string;
+  from: string;
+  to: string;
+  signups: number;
+}
+
+/** D1 binds a bounded number of values per statement, so the `IN (…)` reads
+ *  below are chunked under it the way lib/backup.ts chunks its own. */
+const MOVE_CHUNK = 50;
+
+function shifted(iso: string | null, deltaMs: number): string | null {
+  return iso === null ? null : new Date(new Date(iso).getTime() + deltaMs).toISOString();
+}
+
+/** Carry this event's volunteer sheets onto the dates it now produces, and
+ *  return the ones that moved. `oldStarts` are the instants `calendar_event`
+ *  held before re-materialization, `newStarts` the ones `expandEvent` just
+ *  produced — both ascending, which is what rule 2 above reads.
+ *
+ *  Safe to call when nothing changed: a sheet on a surviving date is left
+ *  alone, and an event with no sheets costs one small read and stops. */
+export async function reanchorSheets(
+  env: Env,
+  managedEventId: string,
+  oldStarts: string[],
+  newStarts: string[],
+): Promise<SheetMove[]> {
+  const sheets = await env.DB.prepare(
+    `SELECT id, slug, occurrence_start, closes_at FROM volunteer_sheet
+      WHERE managed_event_id = ? ORDER BY occurrence_start ASC`,
+  )
+    .bind(managedEventId)
+    .all<{ id: string; slug: string; occurrence_start: string; closes_at: string | null }>();
+  if (sheets.results.length === 0 || newStarts.length === 0) return [];
+
+  const surviving = new Set(newStarts);
+  // Every date already spoken for: rule 1's sheets are never displaced, and two
+  // moved sheets can't collide on one date.
+  const taken = new Set(
+    sheets.results.map((s) => s.occurrence_start).filter((start) => surviving.has(start)),
+  );
+
+  const moves: SheetMove[] = [];
+  const statements: D1PreparedStatement[] = [];
+  const deltaOf = new Map<string, number>();
+  const ts = nowIso();
+
+  for (const s of sheets.results) {
+    if (surviving.has(s.occurrence_start)) continue;
+    const ordinal = oldStarts.indexOf(s.occurrence_start);
+    const to =
+      ordinal >= 0 ? newStarts[ordinal] : newStarts.length === 1 ? newStarts[0] : undefined;
+    if (!to || taken.has(to)) continue;
+    taken.add(to);
+    const delta = new Date(to).getTime() - new Date(s.occurrence_start).getTime();
+    deltaOf.set(s.id, delta);
+    moves.push({ id: s.id, slug: s.slug, from: s.occurrence_start, to, signups: 0 });
+    statements.push(
+      env.DB.prepare(
+        "UPDATE volunteer_sheet SET occurrence_start = ?, closes_at = ?, updated_at = ? WHERE id = ?",
+      ).bind(to, shifted(s.closes_at, delta), ts, s.id),
+    );
+  }
+  if (moves.length === 0) return [];
+
+  for (let i = 0; i < moves.length; i += MOVE_CHUNK) {
+    const ids = moves.slice(i, i + MOVE_CHUNK).map((m) => m.id);
+    const holes = ids.map(() => "?").join(",");
+    const [positions, counts] = await Promise.all([
+      env.DB.prepare(
+        `SELECT id, sheet_id, starts_at, ends_at FROM volunteer_position
+          WHERE sheet_id IN (${holes})`,
+      )
+        .bind(...ids)
+        .all<{ id: string; sheet_id: string; starts_at: string | null; ends_at: string | null }>(),
+      env.DB.prepare(
+        `SELECT p.sheet_id AS sheet_id, COUNT(*) AS n FROM volunteer_signup g
+           JOIN volunteer_position p ON p.id = g.position_id
+          WHERE p.sheet_id IN (${holes}) GROUP BY p.sheet_id`,
+      )
+        .bind(...ids)
+        .all<{ sheet_id: string; n: number }>(),
+    ]);
+    for (const row of counts.results) {
+      const move = moves.find((m) => m.id === row.sheet_id);
+      if (move) move.signups = row.n;
+    }
+    for (const p of positions.results) {
+      const delta = deltaOf.get(p.sheet_id);
+      // A position with no shift window has nothing dated off the occurrence,
+      // and a zero delta is a sheet that "moved" between two spellings of the
+      // same instant. Neither is worth a statement.
+      if (!delta || (p.starts_at === null && p.ends_at === null)) continue;
+      statements.push(
+        env.DB.prepare(
+          "UPDATE volunteer_position SET starts_at = ?, ends_at = ?, updated_at = ? WHERE id = ?",
+        ).bind(shifted(p.starts_at, delta), shifted(p.ends_at, delta), ts, p.id),
+      );
+    }
+  }
+
+  for (let i = 0; i < statements.length; i += 100) {
+    await env.DB.batch(statements.slice(i, i + 100));
+  }
+  return moves;
+}
+
 // ── Position writes (admin) ─────────────────────────────────────────────────
 
 export async function createPosition(

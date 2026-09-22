@@ -389,6 +389,43 @@ All five SPAs are separate Cloudflare Pages projects talking to the single
    system admin. Overfill is prevented by a guarded `INSERT … SELECT … WHERE
    (count < slots)` whose `meta.changes` is checked, because D1 has no
    transaction around a read-then-write.
+   **Moving an event moves its sheets, and that is `reanchorSheets`**
+   (`lib/volunteers.ts`, called by `updateManagedEvent`). "Survives
+   re-materialization" is about the sheet not being deleted; for a long time it
+   also meant the sheet did not FOLLOW, and that gap is what a production
+   incident was: a one-off event was moved two weeks out, `occurrence_start`
+   stayed where it was, and because `publicEventOf`'s join is
+   `vs.occurrence_start = e.starts_at` the event's new page offered no sign-up
+   link at all while eighteen families sat claimed on a date the calendar no
+   longer produced. Nothing failed — a feature stopped existing. The admin
+   screen could only report it ("move them to a current date or delete the
+   sheet") over an app with no way to move them.
+   So the move is a CONSEQUENCE of the event edit, never an act of its own, and
+   `VolunteerSheetInput.occurrenceStart` stays create-only: its objection to
+   re-dating a sheet by hand ("would silently relocate everyone who already
+   signed up") is answered rather than overruled, because here the thing they
+   signed up for is what moved, and it is not silent — the route reports the
+   counts, the editor shows them and the audit row keeps the dates, which is the
+   only place the old one survives.
+   Three rules place a sheet, in order: one already on a SURVIVING date never
+   moves (extending a series' UNTIL must not churn the dates it didn't touch);
+   otherwise it keeps its ORDINAL, both lists being ascending, which is what
+   carries a whole series forward an hour or a week and needs no history since
+   `expandEvent` has the new list and `calendar_event` still holds the old; and
+   a ONE-DATE event is unambiguous, so a sheet in neither list still lands on it
+   — the clause that heals an already-orphaned sheet on its event's next save.
+   Nothing is ever moved onto a date another sheet holds, because `UNIQUE
+   (managed_event_id, occurrence_start)` would take the whole batch down with
+   it; what can't be placed stays put and keeps reporting `orphaned`, still the
+   honest answer for a series that genuinely lost a date. Everything dated off
+   the old instant rides the same delta — `closes_at` and each position's shift
+   window are OFFSETS from the event ("the 7:30 shift", "closes the night
+   before"), and a delta preserves an offset across a daylight-saving boundary
+   because the recurrence engine holds the occurrence's own wall clock fixed.
+   `test/managedEventMove.test.ts` is BEHAVIOURAL for invariant 22's reason: its
+   fake D1 records binds, so moving the sheet and forgetting the positions — the
+   shape the incident was reported as, one group of volunteers moving and the
+   other not — fails on a value rather than passing a scan.
    The same foreign key is what makes **deleting an event a cascade**, and it is
    the one direction the "survives re-materialization" rule does NOT cover: a
    sheet outlives an occurrence, but not its series. `deleteManagedEvent` and

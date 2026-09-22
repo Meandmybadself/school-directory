@@ -27,7 +27,7 @@ import { WEEKDAYS } from "@sd/shared";
 import type { Env } from "../env.js";
 import { parseIcs, type ParsedEvent } from "./calendar.js";
 import { renderCalendar, type IcsEventInput } from "./icsWriter.js";
-import { sheetCascade, volunteerFootprint } from "./volunteers.js";
+import { reanchorSheets, sheetCascade, volunteerFootprint, type SheetMove } from "./volunteers.js";
 import { ulid } from "./ids.js";
 import { nowIso } from "./time.js";
 
@@ -558,11 +558,20 @@ export async function createManagedEvent(
   return loadManagedEvent(env, id);
 }
 
+/** What an edit did. `sheets` is the volunteer sheets carried onto the event's
+ *  new dates — see `reanchorSheets`, which is where the rules live. The caller
+ *  needs it: an edit that moves 18 people's sign-ups onto another date is not
+ *  something to let pass unremarked, so the route reports it and audits it. */
+export interface ManagedEventUpdate {
+  event: ManagedEventDTO;
+  sheets: SheetMove[];
+}
+
 export async function updateManagedEvent(
   env: Env,
   id: string,
   patch: Partial<ManagedEventInput>,
-): Promise<ManagedEventDTO | null> {
+): Promise<ManagedEventUpdate | null> {
   const existing = await env.DB.prepare(`${EVENT_SELECT} WHERE e.id = ?`).bind(id).first<EventRow>();
   if (!existing) return null;
 
@@ -578,6 +587,22 @@ export async function updateManagedEvent(
     recurrence: current.recurrence,
   });
   const occurrences = expandEvent(id, normalized);
+
+  // The dates this event produces RIGHT NOW, read before `materialize` throws
+  // them away. Together with the expansion above they are what tells a sheet
+  // which new date its old one became; `EVENT_SELECT` already counted the
+  // sheets, so an event with none pays nothing for this.
+  const oldStarts =
+    existing.sheet_count > 0
+      ? (
+          await env.DB.prepare(
+            `SELECT starts_at FROM calendar_event
+              WHERE managed_event_id = ? ORDER BY starts_at ASC`,
+          )
+            .bind(id)
+            .all<{ starts_at: string }>()
+        ).results.map((r) => r.starts_at)
+      : [];
 
   const [freq, interval, byday, until] = recurBinds(normalized.recurrence);
   await env.DB.prepare(
@@ -604,7 +629,14 @@ export async function updateManagedEvent(
     )
     .run();
   await materialize(env, id, existing.calendar_id, occurrences);
-  return loadManagedEvent(env, id);
+  // After the agenda is right, not before: the sheets follow the dates, so the
+  // dates are what has to exist first.
+  const sheets =
+    existing.sheet_count > 0
+      ? await reanchorSheets(env, id, oldStarts, occurrences.map((o) => o.start))
+      : [];
+  const event = await loadManagedEvent(env, id);
+  return event ? { event, sheets } : null;
 }
 
 /** Delete one authored series: its volunteer sheets first (they reference

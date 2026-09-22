@@ -175,8 +175,15 @@ export const api = {
       method: "POST",
       body: JSON.stringify(body),
     }),
+  /** Moving an event carries its volunteer sheets onto the new date, and the
+   *  people already signed up go with them. The counts come back so the editor
+   *  can say so — an admin nudging a date is not thinking about eighteen
+   *  families, and they should not have to. */
   updateManagedEvent: (eventId: string, body: Partial<ManagedEventInput>) =>
-    request<{ event: ManagedEventDTO }>(`/admin/managed-events/${eventId}`, { method: "PATCH", body: JSON.stringify(body) }),
+    request<{ event: ManagedEventDTO; sheetsMoved: number; signupsMoved: number }>(
+      `/admin/managed-events/${eventId}`,
+      { method: "PATCH", body: JSON.stringify(body) },
+    ),
   deleteManagedEvent: (eventId: string) =>
     request<{ ok: true }>(`/admin/managed-events/${eventId}`, { method: "DELETE" }),
 
