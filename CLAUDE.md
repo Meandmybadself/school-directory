@@ -623,10 +623,18 @@ All five SPAs are separate Cloudflare Pages projects talking to the single
    Juntos · Pam Shrestha · Rm 322`. An ellipsis clips from the END, so every
    child in a grade truncated to the same `Grade 2 · Juntos · Pam Sh…` on the
    one list whose job is telling them apart. `shortClassroomName`
-   (`packages/shared/src/text.ts`) renders it `Grade 2 - Shrestha` — the year,
-   and the name a parent actually uses for a room — and the row carries the
+   (`packages/shared/src/text.ts`) renders it `Gr 2 - Shrestha` — the year, and
+   the name a parent actually uses for a room — and the row carries the
    school's full name as a `title`, so what is dropped goes from the label and
    never from the row.
+   **"Grade" is the one word it ABBREVIATES**, which is a real step past
+   eliding: `Gr` is not a word the school typed, only a prefix of one.
+   Invariant 6 is still satisfied — nothing is RESTATED in another language,
+   and this abbreviates English into the same English — but it is the one place
+   the label is not purely the school's own characters, so a SECOND
+   abbreviation wants the same deliberation rather than being waved through as
+   precedent. `Kindergarten` is deliberately untouched: "K" would read as a
+   room number in a list that is otherwise mostly digits.
    **It reads its segments by SHAPE, not position**, which is the part to
    understand before touching it. The order is not stable even inside this
    repo: production rooms run grade-programme-teacher-room, while the demo
@@ -642,7 +650,7 @@ All five SPAs are separate Cloudflare Pages projects talking to the single
    anchor the teacher a segment early. And a teacher must contain whitespace,
    because a person here is written "First Last" — so `Grade 2 · Juntos ·
    Rm 322`, a room with no teacher recorded, comes back WHOLE rather than
-   labelled "Grade 2 - Juntos", a programme presented as a person. The cost is
+   labelled "Gr 2 - Juntos", a programme presented as a person. The cost is
    a bare surname with no forename, which it refuses to read; the export has
    never written one, and a row showing the WRONG room is worse than one
    showing a long right one.
@@ -659,7 +667,7 @@ All five SPAs are separate Cloudflare Pages projects talking to the single
    write would make a re-run of the roster import mint a duplicate of every room
    it already created. `grp.name` stays the district's string.
    It is named for classrooms because the rule knows what its segments MEAN:
-   `Grade 4 · Chess Club · Eisenhower` would come back as `Grade 4 - Eisenhower`,
+   `Grade 4 · Chess Club · Eisenhower` would come back as `Gr 4 - Eisenhower`,
    dropping the one segment that names the thing, so a generic group and a
    household are deliberately left alone.
    **That kind test is `groupLabel(name, kind)`** (same file), and it exists

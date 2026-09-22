@@ -59,6 +59,22 @@ const NAME_SEP = "·";
 /** Which segment names the year. */
 const GRADE_RE = /^(k|kindergarten)$|\bgrade\b/i;
 
+/** The one word this rule ABBREVIATES rather than merely dropping. "Grade 2"
+ *  is four characters longer than it needs to be on a subline that already
+ *  competes with a person's name, and "Gr 2" is how the school's own paperwork
+ *  writes it.
+ *
+ *  Note what it costs, because it is a real step past eliding: `Gr` is not a
+ *  word the school typed, only a prefix of one. Invariant 6 is still satisfied
+ *  — nothing here is RESTATED in another language, and the abbreviation is of
+ *  English into the same English — but this is the one place the label is not
+ *  purely the school's own characters, so a second abbreviation wants the same
+ *  deliberation rather than being waved through as precedent.
+ *
+ *  `Kindergarten` is deliberately untouched: nobody asked for it shortened, and
+ *  "K" reads as a room number in a list that is mostly digits. */
+const GRADE_ABBREV = /\bgrade\b/i;
+
 /** Which segment names the room. It must carry a DIGIT, so a programme called
  *  "Room to Grow" is not mistaken for one and the segment beside it read as a
  *  teacher. */
@@ -74,7 +90,7 @@ const ROOM_RE = /^(rm\.?|room)\b[^0-9]*[0-9]/i;
  *  `Grade 2 · Juntos · Pam Sh…`, which is worse than useless on a list whose
  *  whole job is telling two children apart.
  *
- *  So the label is `Grade 2 - Shrestha`: the year, and the name a parent
+ *  So the label is `Gr 2 - Shrestha`: the year, and the name a parent
  *  actually uses for a room. Two rooms in one grade differ in their teacher,
  *  which is exactly the pair a reader is trying to distinguish.
  *
@@ -151,7 +167,7 @@ export function shortClassroomName(name: string): string {
   if (!teacher || teacher === grade || !/\s/.test(teacher)) return name;
 
   const surname = teacher.split(/\s+/).filter(Boolean).pop();
-  return surname ? `${grade} - ${surname}` : name;
+  return surname ? `${grade.replace(GRADE_ABBREV, "Gr")} - ${surname}` : name;
 }
 
 /** The one-line label for a group, whatever its kind.
