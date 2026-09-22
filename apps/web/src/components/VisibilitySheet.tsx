@@ -3,6 +3,7 @@
 // hit the shares API live; the Members/Private/Shared *level* is reported back to
 // the editor via onChange and persisted on Save.
 import { useEffect, useState } from "react";
+import { groupLabel } from "@sd/shared";
 import type { ShareGranteeDTO, ShareTargetDTO, Visibility } from "@sd/shared";
 import { Icon } from "./Icon.js";
 import { Avatar, Btn } from "./atoms.js";
@@ -183,7 +184,12 @@ function SharePicker({
               ) : (
                 <Avatar name={tg.name} size={34} />
               )}
-              <span style={{ flex: 1, fontSize: 14.5, fontWeight: 600 }}>{tg.name}</span>
+              {/* A share target is a Person OR a group, and only the group half
+                  has a `groupKind` to dispatch on — a person's name is never
+                  elided, so the fallback is the name itself. */}
+              <span title={tg.name} style={{ flex: 1, fontSize: 14.5, fontWeight: 600 }}>
+                {tg.groupKind ? groupLabel(tg.name, tg.groupKind) : tg.name}
+              </span>
               {already ? <Icon name="check" size={18} style={{ color: "var(--ok)" }} /> : <Icon name="plus" size={18} style={{ color: "var(--ink-3)" }} />}
             </button>
           );

@@ -13,7 +13,7 @@ import type {
   PersonRemovalImpactDTO,
   Visibility,
 } from "@sd/shared";
-import { ASSIGNABLE_CAPABILITIES, roleCapabilities } from "@sd/shared";
+import { ASSIGNABLE_CAPABILITIES, groupLabel, roleCapabilities } from "@sd/shared";
 import { Icon, type IconName } from "../components/Icon.js";
 import { Avatar, Btn, Tag, type VisState } from "../components/atoms.js";
 import { AppShell, BottomNav } from "../components/AppShell.js";
@@ -309,7 +309,7 @@ function GroupCard({
         <Icon name={classroom ? "school" : "home"} size={20} />
       </div>
       <div style={{ flex: 1, minWidth: 0, textAlign: "left" }}>
-        <div style={{ fontSize: 14.5, fontWeight: 700 }}>{group.name}</div>
+        <div title={group.name} style={{ fontSize: 14.5, fontWeight: 700 }}>{groupLabel(group.name, group.kind)}</div>
         {!roster && <div className="sd-meta">{group.memberCount} {t("members").toLowerCase()}</div>}
       </div>
       <Icon name="chevright" size={18} style={{ color: "var(--ink-3)" }} />

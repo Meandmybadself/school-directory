@@ -3,7 +3,8 @@
 // + 320px household-contact rail).
 import { Fragment, useEffect, useState, type ReactNode } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import type { ContactItemDTO, GroupDetailDTO } from "@sd/shared";
+import { GROUP_KINDS, groupLabel } from "@sd/shared";
+import type { ContactItemDTO, GroupDetailDTO, GroupKind } from "@sd/shared";
 import { Icon, type IconName } from "../components/Icon.js";
 import { Avatar, Btn, Tag, type VisState } from "../components/atoms.js";
 import { AppShell, BottomNav } from "../components/AppShell.js";
@@ -203,7 +204,9 @@ function Subgroups({ g }: { g: GroupDetailDTO }) {
       <SectLabel>{t("subgroups")}</SectLabel>
       {/* auto-fill rather than a fixed pair of columns: this block renders on
           both shells, and two 175px tiles on a phone truncated a classroom to
-          "Grade …". Below ~450px it lays out as one column and the name fits. */}
+          "Grade …". Below ~450px it lays out as one column. The name is also
+          `groupLabel`-elided now, so the column width is no longer the only
+          thing standing between a room and an unreadable label. */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))", gap: 9, marginTop: 9 }}>
         {g.children.map((c) => {
           const a = kindAccent(c.kind);
@@ -211,7 +214,8 @@ function Subgroups({ g }: { g: GroupDetailDTO }) {
             <GroupTile
               key={c.id}
               icon={a.icon}
-              name={c.name}
+              name={groupLabel(c.name, c.kind)}
+              title={c.name}
               sub={`${c.memberCount} ${t("members").toLowerCase()}`}
               color={a.color}
               tint={a.tint}
@@ -236,6 +240,8 @@ export function GroupsIndex() {
   const [groups, setGroups] = useState<GroupSummaryDTO[]>([]);
   const [creating, setCreating] = useState(false);
   const [q, setQ] = useState("");
+  // Selected kinds read as OR, matching the server: no chip on is "all types".
+  const [kinds, setKinds] = useState<GroupKind[]>([]);
   const [allGroups, setAllGroups] = useState<GroupSummaryDTO[]>([]);
   const [helpDismissed, setHelpDismissed] = useState(() => localStorage.getItem(GROUPS_HELP_KEY) === "1");
 
@@ -247,13 +253,19 @@ export function GroupsIndex() {
     void api.person(activePerson.id).then((p) => setGroups(p.groups)).catch(() => setGroups([]));
   }, [activePerson]);
 
-  // The "All groups" table is driven by the search box (empty query = all).
+  // The "All groups" table is driven by the search box and the type chips
+  // together (empty query and no chip = all). The chips share the debounce so a
+  // burst of taps issues one request, the way Directory's role chips do; they do
+  // not debounce on their own account, since a tap is not a keystroke — hence
+  // the 0ms wait whenever the box is empty.
+  const kindKey = kinds.join(",");
   useEffect(() => {
     const handle = setTimeout(() => {
-      void api.searchGroups(q).then((r) => setAllGroups(r.groups)).catch(() => setAllGroups([]));
+      void api.searchGroups(q, kinds).then((r) => setAllGroups(r.groups)).catch(() => setAllGroups([]));
     }, q ? 200 : 0);
     return () => clearTimeout(handle);
-  }, [q]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [q, kindKey]);
 
   const isSystemAdmin = !!me?.user.isSystemAdmin;
   // Classrooms: teachers or system admins. Generic groups (School/Grades/clubs):
@@ -282,7 +294,8 @@ export function GroupsIndex() {
           <GroupTile
             key={g.id}
             icon={a.icon}
-            name={g.name}
+            name={groupLabel(g.name, g.kind)}
+            title={g.name}
             sub={`${g.memberCount} ${t("members").toLowerCase()}`}
             color={a.color}
             tint={a.tint}
@@ -307,6 +320,46 @@ export function GroupsIndex() {
     </div>
   );
 
+  const toggleKind = (k: GroupKind) =>
+    setKinds((prev) => (prev.includes(k) ? prev.filter((x) => x !== k) : [...prev, k]));
+
+  /** Chips over the "All groups" table, which is what the search box above them
+   *  narrows too — the labels are `groupKindLabel`'s, so a chip can only ask for
+   *  a type the table renders in its own Type column (invariant 18). */
+  const kindFilters = (
+    <div className="sd-chips" role="group" aria-label={t("filterByType")}>
+      <button
+        type="button"
+        className={`sd-chip ${kinds.length === 0 ? "on" : ""}`}
+        aria-pressed={kinds.length === 0}
+        onClick={() => setKinds([])}
+      >
+        {t("filterAllTypes")}
+      </button>
+      {GROUP_KINDS.map((k) => (
+        <button
+          key={k}
+          type="button"
+          className={`sd-chip ${kinds.includes(k) ? "on" : ""}`}
+          aria-pressed={kinds.includes(k)}
+          onClick={() => toggleKind(k)}
+        >
+          {groupKindLabel(k, t)}
+        </button>
+      ))}
+    </div>
+  );
+
+  /** The searchable table of every group. Its name column is the narrowest
+   *  rendering of a group name in the app — a phone leaves it roughly 170px
+   *  beside the Type and Members columns — and CSS ellipsis alone made it
+   *  useless on this instance's rooms: `Grade 1 · Community · Sam Oyelaran ·
+   *  Rm 104` and its neighbour both clipped to `Grade 1 · Commu…`, so a list
+   *  of nine classrooms rendered as the same three words nine times. Same bug
+   *  Directory's classroom subline had, and the same answer: `groupLabel` keeps
+   *  the grade and the room — the segment that is unique in the building — and
+   *  the `title` carries the district's full string. The ellipsis stays as the
+   *  backstop for a long household name, which has no structure to elide. */
   const allGroupsTable = (
     <div className="sd-card" style={{ overflow: "hidden" }}>
       <table className="sd-table">
@@ -327,7 +380,7 @@ export function GroupsIndex() {
                   <div style={{ width: 30, height: 30, borderRadius: 8, flex: "0 0 auto", background: a.tint, color: a.color, display: "flex", alignItems: "center", justifyContent: "center" }}>
                     <Icon name={a.icon} size={16} />
                   </div>
-                  <span style={{ fontWeight: 700, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{g.name}</span>
+                  <span title={g.name} style={{ fontWeight: 700, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{groupLabel(g.name, g.kind)}</span>
                 </div>
               </td>
               <td style={{ color: "var(--ink-2)", textTransform: "capitalize", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{groupKindLabel(g.kind, t)}</td>
@@ -372,7 +425,10 @@ export function GroupsIndex() {
       </div>
       <div>
         <SectLabel>{t("allGroups")}</SectLabel>
-        <div style={{ marginTop: isDesktop ? 11 : 9 }}>{allGroupsTable}</div>
+        <div style={{ marginTop: isDesktop ? 11 : 9, display: "flex", flexDirection: "column", gap: isDesktop ? 11 : 9 }}>
+          {kindFilters}
+          {allGroupsTable}
+        </div>
       </div>
     </>
   );

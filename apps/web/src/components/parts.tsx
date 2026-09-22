@@ -385,6 +385,7 @@ export function CTACard({
 export function GroupTile({
   icon,
   name,
+  title,
   sub,
   color = "var(--blue)",
   tint = "var(--blue-tint)",
@@ -392,6 +393,11 @@ export function GroupTile({
 }: {
   icon: IconName;
   name: string;
+  /** The un-elided name, when `name` is a `groupLabel` of it. It goes on the
+   *  tile as a whole rather than on the title line alone, so a touch-and-hold
+   *  anywhere on the card surfaces it — the name line is 14.5px of a 38px row
+   *  and is the harder of the two to hit. */
+  title?: string;
   sub?: string;
   color?: string;
   tint?: string;
@@ -408,7 +414,7 @@ export function GroupTile({
     // `.sd-scroll` has `overflow-y: auto`, which makes overflow-x `auto` too,
     // so the whole screen panned sideways. Naming an explicit minimum takes the
     // card out of `min-width: auto` and the track back to the column width.
-    <div className="sd-card" style={{ minWidth: 0, padding: 13, display: "flex", alignItems: "center", gap: 11, cursor: "pointer" }} onClick={onClick}>
+    <div className="sd-card" title={title} style={{ minWidth: 0, padding: 13, display: "flex", alignItems: "center", gap: 11, cursor: "pointer" }} onClick={onClick}>
       <div style={{ width: 38, height: 38, borderRadius: 10, background: tint, color, display: "flex", alignItems: "center", justifyContent: "center", flex: "0 0 auto" }}>
         <Icon name={icon} size={20} />
       </div>

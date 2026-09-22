@@ -58,6 +58,14 @@ export type ContactType = "address" | "phone" | "email" | "url";
 
 export type GroupKind = "household" | "classroom" | "generic";
 
+/** Every group kind, in the order the groups index offers them as filter chips.
+ *  The counterpart to `ROLE_CAPABILITIES`: one list the client renders from and
+ *  the server validates against, so a chip can never ask for a kind the route
+ *  refuses. A kind is rendered as the type column on the very row a filter by it
+ *  selects, so matching on it clears invariant 18's bar the way `?capability=`
+ *  does — it confirms nothing the response wasn't already going to show. */
+export const GROUP_KINDS: GroupKind[] = ["household", "classroom", "generic"];
+
 // ── Wire DTOs ──────────────────────────────────────────────────────────────
 
 /** A contact item as serialized to a client. geo_lat/geo_lng are NEVER included. */

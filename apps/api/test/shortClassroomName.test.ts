@@ -11,7 +11,7 @@
 // guarantee that it never invents a character the school didn't type.
 
 import { describe, expect, it } from "vitest";
-import { shortClassroomName } from "@sd/shared";
+import { GROUP_KINDS, groupLabel, shortClassroomName } from "@sd/shared";
 
 describe("shortClassroomName", () => {
   it("keeps the grade and the room from this instance's four-segment names", () => {
@@ -71,6 +71,55 @@ describe("shortClassroomName", () => {
       "Grade 2·Juntos·Rm 322",
     ]) {
       expect(shortClassroomName(name).length).toBeLessThanOrEqual(name.length);
+    }
+  });
+});
+
+// `groupLabel` — the same rule, dispatched on a group's kind.
+//
+// The groups listing renders households, classrooms and generic groups in ONE
+// table whose name column is ~170px on a phone, so every caller there needed
+// the kind test as well as the rule. These pin the dispatch: what it must
+// elide, what it must leave alone, and that it stays total over `GroupKind`.
+
+describe("groupLabel", () => {
+  it("elides a classroom and nothing else", () => {
+    const name = "Grade 1 · Community · Sam Oyelaran · Rm 104";
+    expect(groupLabel(name, "classroom")).toBe("Grade 1 · Rm 104");
+    // A generic group's segments do NOT mean grade-and-room: eliding
+    // "Grade 4 · Chess Club · Eisenhower" would drop the one segment that
+    // names the thing. Same for a household, whose name is a family's.
+    expect(groupLabel("Grade 4 · Chess Club · Eisenhower", "generic")).toBe("Grade 4 · Chess Club · Eisenhower");
+    expect(groupLabel("Ruiz–Lee · Okonkwo · Household", "household")).toBe("Ruiz–Lee · Okonkwo · Household");
+  });
+
+  it("keeps two rooms in one grade apart where CSS ellipsis would not", () => {
+    // The listing bug this exists for: both of these clip to the same
+    // "Grade 1 · Commu…" at the width the table gives them.
+    const a = groupLabel("Grade 1 · Community · Sam Oyelaran · Rm 104", "classroom");
+    const b = groupLabel("Grade 1 · Community · Dana Whitfield · Rm 106", "classroom");
+    expect(a).not.toBe(b);
+    expect(a).toBe("Grade 1 · Rm 104");
+    expect(b).toBe("Grade 1 · Rm 106");
+  });
+
+  it("agrees with shortClassroomName on every classroom name", () => {
+    // It must stay a dispatch, never a second copy of the rule.
+    for (const name of [
+      "Grade 2 · Juntos · Pam Shrestha · Rm 322",
+      "Ms. Ruiz · Grade 4",
+      "Room 12",
+      "Grade 2·Juntos·Rm 322",
+    ]) {
+      expect(groupLabel(name, "classroom")).toBe(shortClassroomName(name));
+    }
+  });
+
+  it("returns a usable label for every kind the schema has", () => {
+    // A kind added to GROUP_KINDS and not considered here would fall through to
+    // whatever the last branch happens to be; this fails the day that is empty.
+    for (const kind of GROUP_KINDS) {
+      expect(groupLabel("Room 12", kind)).toBe("Room 12");
     }
   });
 });

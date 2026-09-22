@@ -640,9 +640,33 @@ All five SPAs are separate Cloudflare Pages projects talking to the single
    `Grade 4 · Chess Club · Eisenhower` would come back as `Grade 4 · Eisenhower`,
    dropping the one segment that names the thing, so a generic group and a
    household are deliberately left alone.
+   **That kind test is `groupLabel(name, kind)`** (same file), and it exists
+   because the directory row was never the only place this bit. The groups
+   listing renders all three kinds in ONE table whose name column is ~170px on a
+   phone, so nine rooms in a grade rendered as nine copies of
+   `Grade 1 · Commu…` — the same failure, on the screen whose entire job is
+   choosing between groups. `groupLabel` dispatches and nothing more: a
+   classroom goes through `shortClassroomName`, everything else comes back
+   untouched, and the rule that has to know what a segment means stays in the
+   function named for the kind that has them. Every caller pairs it with
+   `title={group.name}`. In `apps/web` those are the groups index (tiles and
+   table), the sub-group tiles on a group, Home's tiles, a profile's group
+   cards, the re-parent picker and the share-target picker; a new list of groups
+   is expected to use it rather than leave it to CSS.
+   Two consequences of the pairing, both of which the `title` is what answers.
+   The full name stays in the DOM, so nothing is hidden from a reader who looks.
+   And `GET /groups` matches on the whole name, so a search for a teacher
+   returns rows whose LABEL no longer shows them — which is this invariant read
+   the SAFE way round (a row rendering more than the label shows, never a search
+   matching on more than the row renders) and, unlike the surname rule, not a
+   disclosure question at all: a group name is one any member may already search
+   and read, as invariant 21's paragraph on `member_count` says outright.
    `test/shortClassroomName.test.ts` pins the two-rooms-in-one-grade case that
    is the whole point, that a name it cannot improve survives byte for byte, and
-   that it never emits a character the school did not type.
+   that it never emits a character the school did not type — plus, for
+   `groupLabel`, that it elides a classroom and only a classroom, that it stays
+   a dispatch rather than a second copy of the rule, and that it is total over
+   `GROUP_KINDS`.
    **THREE listings carry the label now**, and one reader serves all of them:
    the directory row, a profile's household card (`householdsFor`) and a
    HOUSEHOLD's own group page. `classroomsByPerson` (`lib/serialize.ts`) is that

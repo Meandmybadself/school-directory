@@ -2,7 +2,7 @@
 // 4-up Neighbors row and the groups list.
 import { useEffect, useState, type ReactNode } from "react";
 import { useNavigate } from "react-router-dom";
-import { eventPath, htmlToText, roleCapabilities, type CalendarEventDTO, type GroupSummaryDTO, type NeighborsResponse, type PersonProfileDTO, type PublicNewsletterIssueSummaryDTO } from "@sd/shared";
+import { eventPath, groupLabel, htmlToText, roleCapabilities, type CalendarEventDTO, type GroupSummaryDTO, type NeighborsResponse, type PersonProfileDTO, type PublicNewsletterIssueSummaryDTO } from "@sd/shared";
 import { Icon } from "../components/Icon.js";
 import { Btn } from "../components/atoms.js";
 import type { I18nT } from "../i18n/index.js";
@@ -241,7 +241,8 @@ function GroupsContent({ groups, columns }: { groups: GroupSummaryDTO[]; columns
         <GroupTile
           key={g.id}
           icon={g.kind === "classroom" ? "school" : "home"}
-          name={g.name}
+          name={groupLabel(g.name, g.kind)}
+          title={g.name}
           sub={`${g.memberCount} ${t("members").toLowerCase()}`}
           color={g.kind === "classroom" ? "var(--orange-700)" : "var(--blue)"}
           tint={g.kind === "classroom" ? "var(--orange-tint)" : "var(--blue-tint)"}

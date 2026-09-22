@@ -157,8 +157,12 @@ export const api = {
     ),
 
   group: (id: string) => request<GroupDetailDTO>(`/groups/${id}`),
-  searchGroups: (q: string) =>
-    request<{ groups: GroupSummaryDTO[] }>(`/groups?q=${encodeURIComponent(q)}`),
+  /** `kinds` narrows the listing to groups of ANY of them; an empty array is
+   *  "no filter" and sends no param, like `directory`'s capabilities. */
+  searchGroups: (q: string, kinds: GroupKind[] = []) =>
+    request<{ groups: GroupSummaryDTO[] }>(
+      `/groups?q=${encodeURIComponent(q)}` + kinds.map((k) => `&kind=${encodeURIComponent(k)}`).join(""),
+    ),
   createGroup: (body: { kind: GroupKind; name: string; parentId?: string }) =>
     request<{ id: string }>("/groups", { method: "POST", body: JSON.stringify(body) }),
   /** Rename and/or re-type a group; send only what changed. */
