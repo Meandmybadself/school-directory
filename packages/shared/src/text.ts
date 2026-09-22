@@ -56,24 +56,38 @@ export function htmlToText(input: string): string {
  *  which is what leaves CSS to do the clipping in that case. */
 const NAME_SEP = "·";
 
-/** Which segment names the year. */
-const GRADE_RE = /^(k|kindergarten)$|\bgrade\b/i;
+/** Which segment names the year. Word-bounded rather than whole-segment for
+ *  the two spelled-out forms, so `Kindergarten AM` is still recognised as one;
+ *  a bare `K` has no boundary to find, hence the anchored alternative. */
+const GRADE_RE = /^k$|\bkindergarten\b|\bgrade\b/i;
 
-/** The one word this rule ABBREVIATES rather than merely dropping. "Grade 2"
- *  is four characters longer than it needs to be on a subline that already
- *  competes with a person's name, and "Gr 2" is how the school's own paperwork
- *  writes it.
+/** How the year is ABBREVIATED, first match winning.
  *
- *  Note what it costs, because it is a real step past eliding: `Gr` is not a
- *  word the school typed, only a prefix of one. Invariant 6 is still satisfied
- *  — nothing here is RESTATED in another language, and the abbreviation is of
- *  English into the same English — but this is the one place the label is not
- *  purely the school's own characters, so a second abbreviation wants the same
- *  deliberation rather than being waved through as precedent.
+ *  `Grade 2 · …` and `Kindergarten · …` are longer than they need to be on a
+ *  subline that already competes with a person's name, and `Gr 2` and `K` are
+ *  how the school's own paperwork writes them.
  *
- *  `Kindergarten` is deliberately untouched: nobody asked for it shortened, and
- *  "K" reads as a room number in a list that is mostly digits. */
-const GRADE_ABBREV = /\bgrade\b/i;
+ *  Note what this costs, because it is a real step past eliding: `Gr` and `K`
+ *  are not words the school typed, only prefixes of ones it did. Invariant 6
+ *  is still satisfied — nothing here is RESTATED in another language, and the
+ *  abbreviation is of English into the same English — but it is the one place
+ *  the label is not purely the school's own characters. Both entries were
+ *  asked for by name; a THIRD wants the same deliberation rather than being
+ *  waved through on the strength of these two.
+ *
+ *  A bare `K` matches neither pattern and passes through unchanged, which is
+ *  the right outcome: it is already the abbreviation. */
+const YEAR_ABBREV: readonly (readonly [RegExp, string])[] = [
+  [/\bkindergarten\b/i, "K"],
+  [/\bgrade\b/i, "Gr"],
+];
+
+function abbreviateYear(segment: string): string {
+  for (const [re, short] of YEAR_ABBREV) {
+    if (re.test(segment)) return segment.replace(re, short);
+  }
+  return segment;
+}
 
 /** Which segment names the room. It must carry a DIGIT, so a programme called
  *  "Room to Grow" is not mistaken for one and the segment beside it read as a
@@ -90,8 +104,8 @@ const ROOM_RE = /^(rm\.?|room)\b[^0-9]*[0-9]/i;
  *  `Grade 2 · Juntos · Pam Sh…`, which is worse than useless on a list whose
  *  whole job is telling two children apart.
  *
- *  So the label is `Gr 2 - Shrestha`: the year, and the name a parent
- *  actually uses for a room. Two rooms in one grade differ in their teacher,
+ *  So the label is `Gr 2 - Shrestha`, or `K - Ortiz`: the year, and the name a
+ *  parent actually uses for a room. Two rooms in one grade differ in their teacher,
  *  which is exactly the pair a reader is trying to distinguish.
  *
  *  **It reads its segments by SHAPE, not by position**, and that is the part to
@@ -167,7 +181,7 @@ export function shortClassroomName(name: string): string {
   if (!teacher || teacher === grade || !/\s/.test(teacher)) return name;
 
   const surname = teacher.split(/\s+/).filter(Boolean).pop();
-  return surname ? `${grade.replace(GRADE_ABBREV, "Gr")} - ${surname}` : name;
+  return surname ? `${abbreviateYear(grade)} - ${surname}` : name;
 }
 
 /** The one-line label for a group, whatever its kind.

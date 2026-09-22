@@ -627,14 +627,16 @@ All five SPAs are separate Cloudflare Pages projects talking to the single
    the name a parent actually uses for a room — and the row carries the
    school's full name as a `title`, so what is dropped goes from the label and
    never from the row.
-   **"Grade" is the one word it ABBREVIATES**, which is a real step past
-   eliding: `Gr` is not a word the school typed, only a prefix of one.
-   Invariant 6 is still satisfied — nothing is RESTATED in another language,
-   and this abbreviates English into the same English — but it is the one place
-   the label is not purely the school's own characters, so a SECOND
-   abbreviation wants the same deliberation rather than being waved through as
-   precedent. `Kindergarten` is deliberately untouched: "K" would read as a
-   room number in a list that is otherwise mostly digits.
+   **The year is ABBREVIATED** — `Grade` to `Gr`, `Kindergarten` to `K` — which
+   is a real step past eliding: neither is a word the school typed, only a
+   prefix of one. Invariant 6 is still satisfied — nothing is RESTATED in
+   another language, and this abbreviates English into the same English — but
+   it is the one place the label is not purely the school's own characters.
+   Both were asked for by name; a THIRD wants the same deliberation rather than
+   being waved through on the strength of these two. The match is word-bounded
+   rather than whole-segment, so `Kindergarten AM` becomes `K AM` and keeps its
+   session; a bare `K` matches neither pattern and passes through, which is
+   right because it already IS the short form.
    **It reads its segments by SHAPE, not position**, which is the part to
    understand before touching it. The order is not stable even inside this
    repo: production rooms run grade-programme-teacher-room, while the demo

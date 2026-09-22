@@ -39,10 +39,13 @@ describe("shortClassroomName", () => {
     expect(shortClassroomName("Ms. Ruiz  ·   Grade 4")).toBe("Gr 4 - Ruiz");
   });
 
-  it("names kindergarten as the school does", () => {
-    // Only "Grade" abbreviates. "K" would read as a room number in a list that
-    // is otherwise mostly digits, and nobody asked for it.
-    expect(shortClassroomName("Kindergarten · Juntos · Ana Ortiz · Rm 5")).toBe("Kindergarten - Ortiz");
+  it("abbreviates kindergarten to K", () => {
+    expect(shortClassroomName("Kindergarten · Juntos · Ana Ortiz · Rm 5")).toBe("K - Ortiz");
+    // Word-bounded rather than whole-segment, so a session suffix survives.
+    expect(shortClassroomName("Kindergarten AM · Juntos · Ana Ortiz · Rm 5")).toBe("K AM - Ortiz");
+    // A bare "K" matches neither abbreviation and passes through: it already
+    // IS the short form, and a rule that rewrote it would be looking for work.
+    expect(shortClassroomName("K · Juntos · Ana Ortiz · Rm 5")).toBe("K - Ortiz");
   });
 
   it("returns a name it cannot read byte for byte", () => {
@@ -67,8 +70,8 @@ describe("shortClassroomName", () => {
     // Invariant 6: it elides and abbreviates, never restates. It appends no
     // ellipsis of its own — the shortened form has to read as a name, not as a
     // truncation — and every word it emits is a PREFIX of a word the school
-    // typed. "Gr" is the one abbreviation, so prefix rather than equality is
-    // the honest claim now; the hyphen is the only punctuation it adds.
+    // typed. "Gr" and "K" are the abbreviations, so prefix rather than equality
+    // is the honest claim; the hyphen is the only punctuation it adds.
     const source = "Grade 2 · Juntos · Pam Shrestha · Rm 322";
     const out = shortClassroomName(source);
     expect(out).toBe("Gr 2 - Shrestha");
