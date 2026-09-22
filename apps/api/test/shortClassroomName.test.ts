@@ -1,23 +1,27 @@
-// `shortClassroomName` — the grade and the room, nothing between.
+// `shortClassroomName` — the year and the teacher's surname.
 //
 // The directory row names the classrooms a Person is on the roster of
 // (invariant 18). This instance's rooms come from the district's roster export
 // and run four segments, so the label needed eliding rather than clipping: CSS
-// ellipsis cuts from the END, and the end is the room number, which is the one
-// segment that tells two children in a grade apart.
+// ellipsis cuts from the END, and every child in a grade would truncate to the
+// same "Grade 2 · Juntos · Pam Sh…".
 //
-// The cases worth pinning are the ones where a rule like this usually goes
-// wrong: a name it must not touch, a separator that isn't one, and the
-// guarantee that it never invents a character the school didn't type.
+// The rule reads its segments by SHAPE rather than position, because the order
+// is not stable even inside this repo: production rooms run
+// grade-programme-teacher-room, while the demo seed's "Ms. Ruiz · Grade 4" puts
+// the teacher first. So both shapes are pinned here, along with the cases where
+// a rule like this usually goes wrong: a name it must not touch, a separator
+// that isn't one, a programme it must not mistake for a room, and the guarantee
+// that it never invents a character the school didn't type.
 
 import { describe, expect, it } from "vitest";
 import { GROUP_KINDS, groupLabel, shortClassroomName } from "@sd/shared";
 
 describe("shortClassroomName", () => {
-  it("keeps the grade and the room from this instance's four-segment names", () => {
-    expect(shortClassroomName("Grade 2 · Juntos · Pam Shrestha · Rm 322")).toBe("Grade 2 · Rm 322");
-    expect(shortClassroomName("Grade 2 · XinXing · Lin Niu · Rm 320")).toBe("Grade 2 · Rm 320");
-    expect(shortClassroomName("Grade 5 · Juntos · Beatriz Arteagamoreno · Rm 410")).toBe("Grade 5 · Rm 410");
+  it("keeps the grade and the teacher's surname from this instance's four-segment names", () => {
+    expect(shortClassroomName("Grade 2 · Juntos · Pam Shrestha · Rm 322")).toBe("Grade 2 - Shrestha");
+    expect(shortClassroomName("Grade 2 · XinXing · Lin Niu · Rm 320")).toBe("Grade 2 - Niu");
+    expect(shortClassroomName("Grade 5 · Juntos · Beatriz Arteagamoreno · Rm 410")).toBe("Grade 5 - Arteagamoreno");
   });
 
   it("keeps two rooms in one grade distinguishable", () => {
@@ -28,13 +32,26 @@ describe("shortClassroomName", () => {
     expect(a).not.toBe(b);
   });
 
-  it("returns a one- or two-segment name byte for byte", () => {
-    // Two segments already ARE first-and-last, so there is nothing to elide and
-    // no licence to normalise spacing. A name this cannot improve must survive
-    // it untouched — including the demo seed's own classroom.
-    expect(shortClassroomName("Ms. Ruiz · Grade 4")).toBe("Ms. Ruiz · Grade 4");
-    expect(shortClassroomName("Room 12")).toBe("Room 12");
-    expect(shortClassroomName("Ms. Ruiz  ·   Grade 4")).toBe("Ms. Ruiz  ·   Grade 4");
+  it("reads the seed's reversed two-segment shape too", () => {
+    // "Ms. Ruiz · Grade 4" puts the teacher FIRST and carries no room. A
+    // positional rule would take the wrong half; reading by shape gets both.
+    expect(shortClassroomName("Ms. Ruiz · Grade 4")).toBe("Grade 4 - Ruiz");
+    expect(shortClassroomName("Ms. Ruiz  ·   Grade 4")).toBe("Grade 4 - Ruiz");
+  });
+
+  it("names kindergarten as the school does", () => {
+    expect(shortClassroomName("Kindergarten · Juntos · Ana Ortiz · Rm 5")).toBe("Kindergarten - Ortiz");
+  });
+
+  it("returns a name it cannot read byte for byte", () => {
+    // Silence beats a confident mislabel: a row showing the WRONG room is worse
+    // than one showing a long right one, so anything unreadable is left to CSS.
+    expect(shortClassroomName("Room 12")).toBe("Room 12");          // no separator
+    expect(shortClassroomName("Room 3B")).toBe("Room 3B");          // no grade
+    expect(shortClassroomName("Juntos · Rm 322")).toBe("Juntos · Rm 322"); // no grade
+    // A grade and a room with no teacher between them: there is no surname to
+    // name, so it must not fall back to labelling the grade with itself.
+    expect(shortClassroomName("Grade 2 · Rm 322")).toBe("Grade 2 · Rm 322");
   });
 
   it("does not treat a hyphen or a dash as a separator", () => {
@@ -48,19 +65,48 @@ describe("shortClassroomName", () => {
     // Eliding, not translating (invariant 6): every segment it keeps is the
     // school's own text, and it never appends an ellipsis of its own — the
     // shortened form has to read as a name, not as a truncation.
-    const out = shortClassroomName("Grade 2 · Juntos · Pam Shrestha · Rm 322");
+    const source = "Grade 2 · Juntos · Pam Shrestha · Rm 322";
+    const out = shortClassroomName(source);
     expect(out).not.toContain("…");
     expect(out).not.toContain("...");
-    for (const segment of out.split("·").map((p) => p.trim())) {
-      expect("Grade 2 · Juntos · Pam Shrestha · Rm 322").toContain(segment);
+    // Every word it emits is one the school typed; the hyphen is the only
+    // punctuation this rule adds, and it joins rather than abbreviates.
+    for (const word of out.split(/\s+/).filter((w) => w !== "-")) {
+      expect(source).toContain(word);
     }
   });
 
   it("survives ragged spacing and a trailing separator", () => {
-    expect(shortClassroomName("Grade 2·Juntos·Pam Shrestha·Rm 322")).toBe("Grade 2 · Rm 322");
-    expect(shortClassroomName("  Grade 2 ·  Juntos · Pam Shrestha ·  Rm 322  ")).toBe("Grade 2 · Rm 322");
+    expect(shortClassroomName("Grade 2·Juntos·Pam Shrestha·Rm 322")).toBe("Grade 2 - Shrestha");
+    expect(shortClassroomName("  Grade 2 ·  Juntos · Pam Shrestha ·  Rm 322  ")).toBe("Grade 2 - Shrestha");
     // A trailing dot leaves an empty segment, which must not become the label.
-    expect(shortClassroomName("Grade 2 · Juntos · Rm 322 ·")).toBe("Grade 2 · Rm 322");
+    expect(shortClassroomName("Grade 2 · Juntos · Pam Shrestha · Rm 322 ·")).toBe("Grade 2 - Shrestha");
+  });
+
+  it("does not mistake a programme for the room it sits beside", () => {
+    // The room test requires a DIGIT precisely so a programme called "Room to
+    // Grow" cannot anchor the teacher one segment too early — which would label
+    // this row "Grade 3 - Community", naming a programme as a person.
+    expect(shortClassroomName("Grade 3 · Room to Grow · Ana Ortiz · Rm 7")).toBe("Grade 3 - Ortiz");
+  });
+
+  it("keeps a hyphenated surname whole", () => {
+    // "Ruiz–Lee" is one word joined by an en dash, so it survives intact — the
+    // reason a dash is not a separator in the first place.
+    expect(shortClassroomName("Grade 1 · Community · Dana Ruiz–Lee · Rm 101")).toBe("Grade 1 - Ruiz–Lee");
+    // A surname that is genuinely two WORDS reduces to the last of them. That
+    // is the known cost of a rule with no list of names to consult, pinned so
+    // it is a decision rather than a surprise.
+    expect(shortClassroomName("Grade 3 · Juntos · Mary Van Dyke · Rm 7")).toBe("Grade 3 - Dyke");
+  });
+
+  it("refuses a room with no teacher rather than naming the programme", () => {
+    // A person is written "First Last", so a one-word segment beside the room
+    // is a PROGRAMME. Without that test this reads "Grade 2 - Juntos", which
+    // presents a programme as a person — the exact mislabel the rule's
+    // refuse-by-default posture exists to avoid.
+    expect(shortClassroomName("Grade 2 · Juntos · Rm 322")).toBe("Grade 2 · Juntos · Rm 322");
+    expect(shortClassroomName("Grade 2 · XinXing · Rm 320")).toBe("Grade 2 · XinXing · Rm 320");
   });
 
   it("never returns something longer than it was given", () => {
@@ -85,7 +131,7 @@ describe("shortClassroomName", () => {
 describe("groupLabel", () => {
   it("elides a classroom and nothing else", () => {
     const name = "Grade 1 · Community · Sam Oyelaran · Rm 104";
-    expect(groupLabel(name, "classroom")).toBe("Grade 1 · Rm 104");
+    expect(groupLabel(name, "classroom")).toBe("Grade 1 - Oyelaran");
     // A generic group's segments do NOT mean grade-and-room: eliding
     // "Grade 4 · Chess Club · Eisenhower" would drop the one segment that
     // names the thing. Same for a household, whose name is a family's.
@@ -99,8 +145,8 @@ describe("groupLabel", () => {
     const a = groupLabel("Grade 1 · Community · Sam Oyelaran · Rm 104", "classroom");
     const b = groupLabel("Grade 1 · Community · Dana Whitfield · Rm 106", "classroom");
     expect(a).not.toBe(b);
-    expect(a).toBe("Grade 1 · Rm 104");
-    expect(b).toBe("Grade 1 · Rm 106");
+    expect(a).toBe("Grade 1 - Oyelaran");
+    expect(b).toBe("Grade 1 - Whitfield");
   });
 
   it("agrees with shortClassroomName on every classroom name", () => {

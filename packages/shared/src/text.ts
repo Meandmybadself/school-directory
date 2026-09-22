@@ -56,20 +56,61 @@ export function htmlToText(input: string): string {
  *  which is what leaves CSS to do the clipping in that case. */
 const NAME_SEP = "·";
 
-/** A classroom's name, shortened to what a one-line label can show.
+/** Which segment names the year. */
+const GRADE_RE = /^(k|kindergarten)$|\bgrade\b/i;
+
+/** Which segment names the room. It must carry a DIGIT, so a programme called
+ *  "Room to Grow" is not mistaken for one and the segment beside it read as a
+ *  teacher. */
+const ROOM_RE = /^(rm\.?|room)\b[^0-9]*[0-9]/i;
+
+/** A classroom's name, reduced to the year and the teacher's surname.
  *
  *  This instance's rooms are named by the district's roster export and run four
  *  segments — `Grade 2 · Juntos · Pam Shrestha · Rm 322` — which is forty
  *  characters of subline under a person's name that has to stay the widest
  *  thing on the row. CSS ellipsis alone answers that badly, because it clips
- *  from the END and the end is the room number: every child in a grade would
- *  truncate to the same `Grade 2 · Juntos · Pam Sh…`, which is worse than
- *  useless on a list whose whole job is telling two children apart.
+ *  from the END: every child in a grade would truncate to the same
+ *  `Grade 2 · Juntos · Pam Sh…`, which is worse than useless on a list whose
+ *  whole job is telling two children apart.
  *
- *  So this keeps the FIRST and LAST segments and drops the middle — the grade,
- *  which says something about the child in its own right, and the room, which
- *  is unique in the building. Two rooms in one grade differ in their last
- *  segment, which is exactly the pair a reader is trying to distinguish.
+ *  So the label is `Grade 2 - Shrestha`: the year, and the name a parent
+ *  actually uses for a room. Two rooms in one grade differ in their teacher,
+ *  which is exactly the pair a reader is trying to distinguish.
+ *
+ *  **It reads its segments by SHAPE, not by position**, and that is the part to
+ *  understand before changing it. The order is not stable across this project's
+ *  own data: production rooms run grade-programme-teacher-room, while the demo
+ *  seed's `Ms. Ruiz · Grade 4` puts the teacher FIRST. So the grade is whichever
+ *  segment says "grade" (or names kindergarten), the room is whichever carries
+ *  `Rm`/`Room` AND a digit, and the teacher is the segment BEFORE the room —
+ *  falling back, where there is no room, to the last segment that is not the
+ *  grade. That is what lets one rule read both shapes. It also means a
+ *  programme name (`Juntos`, `XinXing`) is never mistaken for a teacher: it is
+ *  identified by being adjacent to the room, not by being left over.
+ *
+ *  The surname is the last whitespace-separated word of that segment, so
+ *  `Pam Shrestha` and `Ms. Ruiz` both reduce correctly. A teacher whose surname
+ *  is itself two words (`Van Dyke`) reduces to the last of them; that is the
+ *  known cost of a rule with no list of names to consult, and it stays wrong in
+ *  a legible way rather than guessing.
+ *
+ *  That a person is written "First Last" is also what tells a teacher from a
+ *  PROGRAMME: a one-word segment beside the room is `Juntos`, not somebody, so
+ *  `Grade 2 · Juntos · Rm 322` — a room with no teacher recorded — comes back
+ *  whole rather than labelled "Grade 2 - Juntos". The cost is a bare surname
+ *  with no forename, which this refuses to read; the district's export has
+ *  never written one, and refusing is the safe direction.
+ *
+ *  **Anything it cannot read comes back byte for byte**: fewer than two
+ *  segments, no grade segment, no teacher distinct from the grade. A name with
+ *  no `·` has no structure to read at all, which is what leaves CSS to clip
+ *  `Room 12 — Ms. Okonkwo`. Silence beats a confident mislabel, because a row
+ *  showing the WRONG room is worse than one showing a long right one.
+ *
+ *  It splits on the middle dot alone. An EN dash is inside "Ruiz–Lee", so
+ *  splitting on dashes would cut a family down the middle of its surname, and a
+ *  comma is punctuation a teacher may simply have typed.
  *
  *  It is **eliding, not translating**: invariant 6 forbids restating
  *  member-entered content in another language, and every character this returns
@@ -77,15 +118,10 @@ const NAME_SEP = "·";
  *  `ClassroomRefDTO.name`, and a caller that shortens is expected to carry the
  *  original as a `title`.
  *
- *  Deliberately NOT applied to a household or a generic group. The rule reads
- *  "grade and room" and only a classroom has those; `Grade 4 · Chess Club ·
- *  Eisenhower` would come back as `Grade 4 · Eisenhower`, which drops the one
- *  segment that names the thing. A rule that has to know what its segments mean
- *  does not generalise, so this one says so in its name.
- *
- *  Fewer than three segments is already first-and-last, so it comes back
- *  unchanged rather than being reassembled with normalised spacing — a name
- *  this cannot improve should survive it byte for byte.
+ *  Deliberately NOT applied to a household or a generic group; `groupLabel` is
+ *  the kind test. The rule reads "grade" and "teacher" and only a classroom has
+ *  those — `Grade 4 · Chess Club · Eisenhower` would come back as
+ *  `Grade 4 - Eisenhower`, dropping the one segment that names the thing.
  *
  *  **This is a rendering step and must stay one.** Do not normalise a name on
  *  write with it: `resolveGroup` in `lib/bulkImport.ts` matches an existing
@@ -95,8 +131,27 @@ const NAME_SEP = "·";
  *  only the label changes. */
 export function shortClassroomName(name: string): string {
   const parts = name.split(NAME_SEP).map((p) => p.trim()).filter(Boolean);
-  if (parts.length < 3) return name;
-  return `${parts[0]} ${NAME_SEP} ${parts[parts.length - 1]}`;
+  if (parts.length < 2) return name;
+
+  const grade = parts.find((p) => GRADE_RE.test(p));
+  if (!grade) return name;
+
+  // The teacher sits beside the room where there is one, because that is the
+  // only anchor both name shapes share. Without a room, the teacher is the last
+  // segment that is not the grade — which is the seed's `Ms. Ruiz · Grade 4`.
+  const roomIdx = parts.findIndex((p) => ROOM_RE.test(p));
+  const teacher = roomIdx > 0
+    ? parts[roomIdx - 1]
+    : [...parts].reverse().find((p) => p !== grade);
+  // A person here is written "First Last", so a one-word segment is a
+  // PROGRAMME, not a teacher: `Grade 2 · Juntos · Rm 322` names no teacher at
+  // all, and without this it would be labelled "Grade 2 - Juntos" — a
+  // programme presented as a person. Refusing turns a mislabel into no label,
+  // which is the trade the whole rule is built on.
+  if (!teacher || teacher === grade || !/\s/.test(teacher)) return name;
+
+  const surname = teacher.split(/\s+/).filter(Boolean).pop();
+  return surname ? `${grade} - ${surname}` : name;
 }
 
 /** The one-line label for a group, whatever its kind.
