@@ -620,24 +620,46 @@ All five SPAs are separate Cloudflare Pages projects talking to the single
    ANDed onto `personSearchSql`, never in place of it.
    **The label is ELIDED, and CSS could not do it.** This instance's rooms are
    named by the district's roster export and run four segments — `Grade 2 ·
-   Juntos · Pam Shrestha · Rm 322`. An ellipsis clips from the END, and the end
-   is the room number, so every child in a grade truncated to the same
-   `Grade 2 · Juntos · Pam Sh…` on the one list whose job is telling them apart.
-   `shortClassroomName` (`packages/shared/src/text.ts`) keeps the FIRST and LAST
-   segments — the grade, and the room that is unique in the building — and the
-   row carries the school's full name as a `title`, so the middle is dropped
-   from the label and never from the row. Three things hold it.
+   Juntos · Pam Shrestha · Rm 322`. An ellipsis clips from the END, so every
+   child in a grade truncated to the same `Grade 2 · Juntos · Pam Sh…` on the
+   one list whose job is telling them apart. `shortClassroomName`
+   (`packages/shared/src/text.ts`) renders it `Grade 2 - Shrestha` — the year,
+   and the name a parent actually uses for a room — and the row carries the
+   school's full name as a `title`, so what is dropped goes from the label and
+   never from the row.
+   **It reads its segments by SHAPE, not position**, which is the part to
+   understand before touching it. The order is not stable even inside this
+   repo: production rooms run grade-programme-teacher-room, while the demo
+   seed's `Ms. Ruiz · Grade 4` puts the teacher FIRST and carries no room. So
+   the grade is whichever segment says "grade" or names kindergarten, the room
+   is whichever carries `Rm`/`Room` AND a digit, and the teacher is the segment
+   BEFORE the room — falling back, where there is no room, to the last segment
+   that is not the grade. One rule reads both shapes, and a programme name
+   (`Juntos`, `XinXing`) is never mistaken for a teacher because it is
+   identified by ADJACENCY to the room rather than by being left over.
+   Two refusals are load-bearing, and both turn a mislabel into no label. The
+   room test demands a digit, so a programme called "Room to Grow" cannot
+   anchor the teacher a segment early. And a teacher must contain whitespace,
+   because a person here is written "First Last" — so `Grade 2 · Juntos ·
+   Rm 322`, a room with no teacher recorded, comes back WHOLE rather than
+   labelled "Grade 2 - Juntos", a programme presented as a person. The cost is
+   a bare surname with no forename, which it refuses to read; the export has
+   never written one, and a row showing the WRONG room is worse than one
+   showing a long right one.
+   The surname is the last whitespace-separated word, so `Van Dyke` reduces to
+   `Dyke` — the known cost of a rule with no list of names to consult, pinned
+   in the tests so it is a decision rather than a surprise.
    It splits on the middle dot ALONE: an en dash is inside "Ruiz–Lee", and the
-   other convention here (`Room 12 — Ms. Okonkwo`) is two segments already, so
-   admitting a third dash character buys nothing for the risk. It is eliding,
-   not translating — invariant 6 forbids RESTATING member-entered content in
-   another language, and every character it returns is the school's own. And it
+   other convention here (`Room 12 — Ms. Okonkwo`) has no dot at all, so it is
+   left to CSS. It is eliding, not translating — invariant 6 forbids RESTATING
+   member-entered content in another language, and every word it returns is the
+   school's own; the hyphen is the only punctuation it adds. And it
    is a RENDERING step that must stay one: `resolveGroup` in `lib/bulkImport.ts`
    matches an existing group by exact `WHERE name = ?`, so normalising a name on
    write would make a re-run of the roster import mint a duplicate of every room
    it already created. `grp.name` stays the district's string.
    It is named for classrooms because the rule knows what its segments MEAN:
-   `Grade 4 · Chess Club · Eisenhower` would come back as `Grade 4 · Eisenhower`,
+   `Grade 4 · Chess Club · Eisenhower` would come back as `Grade 4 - Eisenhower`,
    dropping the one segment that names the thing, so a generic group and a
    household are deliberately left alone.
    **That kind test is `groupLabel(name, kind)`** (same file), and it exists
