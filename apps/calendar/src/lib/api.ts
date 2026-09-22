@@ -81,6 +81,35 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   return body as T;
 }
 
+/** What a managed-event save did to the volunteer sheets hanging off it. */
+export interface EventSaved {
+  event: ManagedEventDTO;
+  sheetsMoved: number;
+  signupsMoved: number;
+  sheetsStranded: number;
+}
+
+/** The one sentence every edit surface says about it, or null when an edit
+ *  touched no sheets. One function because there are two editors — the calendar
+ *  admin's list and the event page's own form — and a report that existed on
+ *  only one of them would make "it is not silent" true of the surface nobody
+ *  uses. Admin chrome is English-only here, like the rest of it. */
+export function eventSavedNote(r: EventSaved): string | null {
+  const moved =
+    r.sheetsMoved > 0
+      ? `${r.sheetsMoved === 1 ? "The volunteer sheet" : `All ${r.sheetsMoved} volunteer sheets`}` +
+        `${r.signupsMoved > 0 ? `, with ${r.signupsMoved} sign-up${r.signupsMoved === 1 ? "" : "s"},` : ""}` +
+        ` moved to the new date. Nobody was told — use "Email volunteers" on the sheet to say so.`
+      : "";
+  const stranded =
+    r.sheetsStranded > 0
+      ? `${r.sheetsStranded === 1 ? "A volunteer sheet is" : `${r.sheetsStranded} volunteer sheets are`}` +
+        ` on a date this event no longer has, so nothing links to ${r.sheetsStranded === 1 ? "it" : "them"}.` +
+        ` Open Volunteers to see what is there.`
+      : "";
+  return [moved, stranded].filter(Boolean).join(" ") || null;
+}
+
 export const api = {
   // Auth. `returnTo` is this app's origin, so the magic link comes back here
   // rather than to the directory (the API validates it against ALLOWED_ORIGINS).
@@ -176,14 +205,16 @@ export const api = {
       body: JSON.stringify(body),
     }),
   /** Moving an event carries its volunteer sheets onto the new date, and the
-   *  people already signed up go with them. The counts come back so the editor
-   *  can say so — an admin nudging a date is not thinking about eighteen
-   *  families, and they should not have to. */
+   *  people already signed up go with them. The counts come back so every
+   *  editor can say so — an admin nudging a date is not thinking about eighteen
+   *  families, and they should not have to. `sheetsStranded` is the same
+   *  obligation pointing the other way: an edit that took a date away left a
+   *  sheet's sign-ups somewhere nothing links to. */
   updateManagedEvent: (eventId: string, body: Partial<ManagedEventInput>) =>
-    request<{ event: ManagedEventDTO; sheetsMoved: number; signupsMoved: number }>(
-      `/admin/managed-events/${eventId}`,
-      { method: "PATCH", body: JSON.stringify(body) },
-    ),
+    request<EventSaved>(`/admin/managed-events/${eventId}`, {
+      method: "PATCH",
+      body: JSON.stringify(body),
+    }),
   deleteManagedEvent: (eventId: string) =>
     request<{ ok: true }>(`/admin/managed-events/${eventId}`, { method: "DELETE" }),
 

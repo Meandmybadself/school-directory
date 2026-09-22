@@ -717,10 +717,17 @@ export async function deleteSheet(env: Env, id: string): Promise<boolean> {
 //
 // Everything dated off the old instant moves by the same delta: `closes_at` and
 // each position's shift window. Those are offsets from the event ("the 7:30
-// shift", "sign-ups close the night before"), and a delta is what preserves an
-// offset across a move — including one crossing a daylight-saving boundary,
-// since the recurrence engine holds the occurrence's own wall clock fixed and
-// the same delta therefore holds the shift's.
+// shift", "sign-ups close the night before"), and adding one delta to all of
+// them is what preserves an offset across a move.
+//
+// Note which clock that holds, because it is the opposite of the intuitive
+// answer: `expandEvent` renders Z-suffixed values and parses them back in UTC
+// (invariant 11), so a series keeps its absolute INSTANT and its local wall
+// clock is what shifts across a daylight-saving boundary — a 7:30am CDT weekly
+// event reads 6:30am once CST arrives. That is a property of the recurrence
+// engine, not of this function, and it is why the delta is the right tool
+// either way: it preserves the offset in the same clock the occurrences
+// themselves are kept in.
 
 /** One sheet carried from an old occurrence to a new one. `signups` is how many
  *  people came with it, counted here because this is the only place that knows
@@ -735,9 +742,19 @@ export interface SheetMove {
   signups: number;
 }
 
+/** What an event's edit did to its sheets. `stranded` is the ones no rule could
+ *  place — a series that genuinely lost a date — reported rather than counted
+ *  silently, since a sheet nobody moved is sign-ups nobody can find. */
+export interface SheetReanchor {
+  moves: SheetMove[];
+  stranded: number;
+}
+
 /** D1 binds a bounded number of values per statement, so the `IN (…)` reads
  *  below are chunked under it the way lib/backup.ts chunks its own. */
 const MOVE_CHUNK = 50;
+/** Statements per `batch()`. One sheet's whole group always fits. */
+const BATCH_LIMIT = 100;
 
 function shifted(iso: string | null, deltaMs: number): string | null {
   return iso === null ? null : new Date(new Date(iso).getTime() + deltaMs).toISOString();
@@ -755,14 +772,15 @@ export async function reanchorSheets(
   managedEventId: string,
   oldStarts: string[],
   newStarts: string[],
-): Promise<SheetMove[]> {
+): Promise<SheetReanchor> {
+  const none: SheetReanchor = { moves: [], stranded: 0 };
   const sheets = await env.DB.prepare(
     `SELECT id, slug, occurrence_start, closes_at FROM volunteer_sheet
       WHERE managed_event_id = ? ORDER BY occurrence_start ASC`,
   )
     .bind(managedEventId)
     .all<{ id: string; slug: string; occurrence_start: string; closes_at: string | null }>();
-  if (sheets.results.length === 0 || newStarts.length === 0) return [];
+  if (sheets.results.length === 0 || newStarts.length === 0) return none;
 
   const surviving = new Set(newStarts);
   // Every date already spoken for: rule 1's sheets are never displaced, and two
@@ -770,29 +788,51 @@ export async function reanchorSheets(
   const taken = new Set(
     sheets.results.map((s) => s.occurrence_start).filter((start) => surviving.has(start)),
   );
+  // An ordinal only means something when the list was TRANSLATED rather than
+  // cut. Same count in and out is the cheapest honest test for that, and
+  // without it a series truncated at the front relocates sign-ups onto a date
+  // that already existed and the admin never touched: drop Oct 1 from
+  // Oct 1/8/15/22 and the Oct 1 sheet would take its eighteen families to
+  // Oct 8, an occurrence nothing about the edit disturbed. Refusing is the
+  // conservative half — the sheet is reported stranded and the admin decides —
+  // where moving it is the half that can't be undone.
+  const translated = oldStarts.length === newStarts.length;
 
   const moves: SheetMove[] = [];
-  const statements: D1PreparedStatement[] = [];
+  // One group per sheet: its own row and its positions, kept together so a
+  // batch boundary can never fall between them (see the flush below).
+  const groups: D1PreparedStatement[][] = [];
+  const groupOf = new Map<string, D1PreparedStatement[]>();
   const deltaOf = new Map<string, number>();
+  let stranded = 0;
   const ts = nowIso();
 
   for (const s of sheets.results) {
     if (surviving.has(s.occurrence_start)) continue;
-    const ordinal = oldStarts.indexOf(s.occurrence_start);
+    const ordinal = translated ? oldStarts.indexOf(s.occurrence_start) : -1;
     const to =
       ordinal >= 0 ? newStarts[ordinal] : newStarts.length === 1 ? newStarts[0] : undefined;
-    if (!to || taken.has(to)) continue;
+    if (!to || taken.has(to)) {
+      // Nowhere to put it. It keeps its date, keeps its sign-ups and keeps
+      // reporting itself as `orphaned`; the caller says so out loud, because
+      // stranding sign-ups silently is the failure this whole function exists
+      // to end.
+      stranded++;
+      continue;
+    }
     taken.add(to);
     const delta = new Date(to).getTime() - new Date(s.occurrence_start).getTime();
     deltaOf.set(s.id, delta);
     moves.push({ id: s.id, slug: s.slug, from: s.occurrence_start, to, signups: 0 });
-    statements.push(
+    const group = [
       env.DB.prepare(
         "UPDATE volunteer_sheet SET occurrence_start = ?, closes_at = ?, updated_at = ? WHERE id = ?",
       ).bind(to, shifted(s.closes_at, delta), ts, s.id),
-    );
+    ];
+    groupOf.set(s.id, group);
+    groups.push(group);
   }
-  if (moves.length === 0) return [];
+  if (moves.length === 0) return { moves: [], stranded };
 
   for (let i = 0; i < moves.length; i += MOVE_CHUNK) {
     const ids = moves.slice(i, i + MOVE_CHUNK).map((m) => m.id);
@@ -822,7 +862,7 @@ export async function reanchorSheets(
       // and a zero delta is a sheet that "moved" between two spellings of the
       // same instant. Neither is worth a statement.
       if (!delta || (p.starts_at === null && p.ends_at === null)) continue;
-      statements.push(
+      groupOf.get(p.sheet_id)?.push(
         env.DB.prepare(
           "UPDATE volunteer_position SET starts_at = ?, ends_at = ?, updated_at = ? WHERE id = ?",
         ).bind(shifted(p.starts_at, delta), shifted(p.ends_at, delta), ts, p.id),
@@ -830,10 +870,21 @@ export async function reanchorSheets(
     }
   }
 
-  for (let i = 0; i < statements.length; i += 100) {
-    await env.DB.batch(statements.slice(i, i + 100));
+  // Whole groups only. A `batch()` is atomic but a SEQUENCE of them is not, so
+  // a boundary falling between a sheet's new date and its positions' shift
+  // windows would leave the sheet moved and its shifts on the old day — with
+  // the delta that would repair them gone from memory. One sheet is at most
+  // 1 + MAX_POSITIONS statements, comfortably inside one batch.
+  let batch: D1PreparedStatement[] = [];
+  for (const group of groups) {
+    if (batch.length && batch.length + group.length > BATCH_LIMIT) {
+      await env.DB.batch(batch);
+      batch = [];
+    }
+    batch.push(...group);
   }
-  return moves;
+  if (batch.length) await env.DB.batch(batch);
+  return { moves, stranded };
 }
 
 // ── Position writes (admin) ─────────────────────────────────────────────────

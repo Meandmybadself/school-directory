@@ -225,7 +225,7 @@ managedCalendar.patch("/managed-events/:id", async (c) => {
     const updated = await updateManagedEvent(c.env, c.req.param("id"), body);
     if (!updated) return c.json({ error: "not_found" }, 404);
     const { event, sheets } = updated;
-    const signupsMoved = sheets.reduce((n, s) => n + s.signups, 0);
+    const signupsMoved = sheets.moves.reduce((n, s) => n + s.signups, 0);
     c.var.audit.push({
       action: "calendar.event.updated",
       entityKind: "managed_event",
@@ -237,9 +237,10 @@ managedCalendar.patch("/managed-events/:id", async (c) => {
         // so after this request nothing else in the system remembers where a
         // sign-up used to be — same reasoning as the pre-count on a delete
         // (invariant 13), one step short of destruction.
-        ...(sheets.length
-          ? { sheetsMoved: sheets.map(({ slug, from, to, signups }) => ({ slug, from, to, signups })) }
+        ...(sheets.moves.length
+          ? { sheetsMoved: sheets.moves.map(({ slug, from, to, signups }) => ({ slug, from, to, signups })) }
           : {}),
+        ...(sheets.stranded ? { sheetsStranded: sheets.stranded } : {}),
       },
       notify: {
         title: event.title,
@@ -248,13 +249,16 @@ managedCalendar.patch("/managed-events/:id", async (c) => {
         occurrences: event.occurrenceCount,
         // Counts, never a slug or a name: the channel is a third party
         // (invariant 22), and a sheet's slug is the capability that opens it.
-        sheetsMoved: sheets.length,
+        sheetsMoved: sheets.moves.length,
         signupsMoved,
+        sheetsStranded: sheets.stranded,
       },
     });
-    // The client shows this: an admin who nudged a date by an hour should still
-    // be told that eighteen families came along with it.
-    return c.json({ event, sheetsMoved: sheets.length, signupsMoved });
+    // The client shows both numbers. An admin who nudged a date by an hour
+    // should be told that eighteen families came along with it — and one whose
+    // edit took a date away should be told that a sheet could NOT follow,
+    // which is the same obligation pointing the other way.
+    return c.json({ event, sheetsMoved: sheets.moves.length, signupsMoved, sheetsStranded: sheets.stranded });
   } catch (err) {
     const bad = invalid(err);
     if (bad) return c.json(bad, 400);

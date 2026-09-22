@@ -20,7 +20,7 @@ import { Btn } from "./atoms.js";
 import { SheetOver } from "./parts.js";
 import { ConfirmDelete, ErrorText, dangerBtnStyle, describeEvent, eventDeleteLines } from "./adminUi.js";
 import { EventEditor } from "./EventEditor.js";
-import { api, errorMessage } from "../lib/api.js";
+import { api, errorMessage, eventSavedNote } from "../lib/api.js";
 import { formFromEvent, toInput, type EventForm } from "../lib/eventForm.js";
 
 export function EditEventSheet({ seriesId, onClose, onSaved, onDeleted }: {
@@ -38,6 +38,9 @@ export function EditEventSheet({ seriesId, onClose, onSaved, onDeleted }: {
 }) {
   const [event, setEvent] = useState<ManagedEventDTO | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
+  /** Set when a save did something to this event's volunteer sheets. Holds the
+   *  sheet open on a short report until the admin acknowledges it. */
+  const [saved, setSaved] = useState<{ event: ManagedEventDTO; note: string } | null>(null);
   const [confirming, setConfirming] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -61,7 +64,15 @@ export function EditEventSheet({ seriesId, onClose, onSaved, onDeleted }: {
     setBusy(true);
     try {
       const r = await api.updateManagedEvent(seriesId, toInput(form));
-      onSaved(r.event);
+      // A save that moved volunteer sheets HOLDS THE SHEET OPEN to say so.
+      // `onSaved` navigates — the event's page path is a content identity, so a
+      // retitle or a date change moves it — and a banner rendered on the
+      // destination would be a banner nobody reads. This is the primary edit
+      // surface for an admin coming off the agenda, so it is the one that most
+      // needs to report that other people's sign-ups just moved.
+      const note = eventSavedNote(r);
+      if (note) setSaved({ event: r.event, note });
+      else onSaved(r.event);
     } finally {
       setBusy(false);
     }
@@ -81,6 +92,18 @@ export function EditEventSheet({ seriesId, onClose, onSaved, onDeleted }: {
       setBusy(false);
     }
   };
+
+  // Reported inside this same sheet, the way the delete confirmation is, rather
+  // than as a second overlay: the admin is still looking here.
+  if (saved) {
+    return (
+      <SheetOver onClose={() => onSaved(saved.event)}>
+        <h2 className="sd-h2" style={{ marginBottom: 6 }}>Event saved</h2>
+        <div className="sd-meta" style={{ fontSize: 13, marginBottom: 14 }}>{saved.note}</div>
+        <Btn block onClick={() => onSaved(saved.event)}>Done</Btn>
+      </SheetOver>
+    );
+  }
 
   // The confirmation replaces the form inside this same sheet rather than
   // opening a second overlay on top of it.

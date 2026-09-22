@@ -414,18 +414,46 @@ All five SPAs are separate Cloudflare Pages projects talking to the single
    `expandEvent` has the new list and `calendar_event` still holds the old; and
    a ONE-DATE event is unambiguous, so a sheet in neither list still lands on it
    — the clause that heals an already-orphaned sheet on its event's next save.
+   **The ordinal is gated on `oldStarts.length === newStarts.length`**, because
+   it only means anything when the list was TRANSLATED rather than cut: drop
+   Oct 1 from a weekly Oct 1/8/15/22 and an unguarded ordinal carries the Oct 1
+   sheet's eighteen families to Oct 8, an occurrence that existed before the
+   edit and that nothing about the edit touched. Refusing is the half that can
+   be undone; moving is not.
    Nothing is ever moved onto a date another sheet holds, because `UNIQUE
    (managed_event_id, occurrence_start)` would take the whole batch down with
    it; what can't be placed stays put and keeps reporting `orphaned`, still the
-   honest answer for a series that genuinely lost a date. Everything dated off
-   the old instant rides the same delta — `closes_at` and each position's shift
-   window are OFFSETS from the event ("the 7:30 shift", "closes the night
-   before"), and a delta preserves an offset across a daylight-saving boundary
-   because the recurrence engine holds the occurrence's own wall clock fixed.
+   honest answer for a series that genuinely lost a date — and is COUNTED, so
+   `sheetsStranded` tells the admin their edit left sign-ups somewhere nothing
+   links to. That is the same obligation as `sheetsMoved`, pointing the other
+   way; both are reported by every edit surface through `eventSavedNote`, and
+   the event page's own form holds its sheet open to say so rather than
+   navigating away from the sentence.
+   Everything dated off the old instant rides the same delta — `closes_at` and
+   each position's shift window are OFFSETS from the event ("the 7:30 shift",
+   "closes the night before"). Note which clock that holds, because it is the
+   opposite of the intuitive answer: `expandEvent` renders Z-suffixed values and
+   parses them back in UTC (invariant 11), so a series keeps its absolute
+   INSTANT and its LOCAL wall clock shifts across a daylight-saving boundary — a
+   7:30am CDT weekly event reads 6:30am once CST arrives. The delta is right
+   either way, because it preserves the offset in the clock the occurrences are
+   themselves kept in.
+   **Two orderings are deliberate.** `reanchorSheets` runs BEFORE `materialize`,
+   although a sheet never reads `calendar_event` and so needs no agenda: the
+   old→new mapping lives only in `oldStarts`, which `materialize` is about to
+   delete, so a failure after it would leave a retry seeing
+   `oldStarts === newStarts` and a recurring series stranded for good. The
+   mirror failure is recoverable — a `materialize` that dies leaves the sheets
+   already on the new dates, where the next save finds them surviving. And the
+   writes are grouped so each sheet's row and its positions share one `batch()`:
+   a batch is atomic, a SEQUENCE of them is not, and a boundary between the two
+   would leave a sheet moved with its shift windows on the old day and the
+   delta that would repair them gone with the request.
    `test/managedEventMove.test.ts` is BEHAVIOURAL for invariant 22's reason: its
-   fake D1 records binds, so moving the sheet and forgetting the positions — the
-   shape the incident was reported as, one group of volunteers moving and the
-   other not — fails on a value rather than passing a scan.
+   fake D1 records binds and batch boundaries, so moving the sheet and
+   forgetting the positions — the shape the incident was reported as, one group
+   of volunteers moving and the other not — fails on a value rather than passing
+   a scan.
    The same foreign key is what makes **deleting an event a cascade**, and it is
    the one direction the "survives re-materialization" rule does NOT cover: a
    sheet outlives an occurrence, but not its series. `deleteManagedEvent` and

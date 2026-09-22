@@ -24,7 +24,7 @@ import {
 import { EventEditor } from "../components/EventEditor.js";
 import { useSession } from "../lib/session.js";
 import { useIsDesktop } from "../lib/useIsDesktop.js";
-import { api, ApiError, errorMessage } from "../lib/api.js";
+import { api, ApiError, errorMessage, eventSavedNote } from "../lib/api.js";
 import { emptyForm, formFromEvent, toInput, type EventForm } from "../lib/eventForm.js";
 
 /** Split into what's still coming and what's already happened, so a calendar
@@ -169,16 +169,6 @@ function CalendarHeader({ calendar: c, onSaved }: {
   );
 }
 
-/** What a save carried with it. Said plainly and with the consequence attached:
- *  moving an event moves other people's sign-ups, and this app sends nothing on
- *  the admin's behalf (see EventVolunteers.tsx's `mailtoUrl`), so the one thing
- *  they have to do next is the thing the sentence ends on. */
-function movedLine({ sheets, signups }: { sheets: number; signups: number }): string {
-  const what = sheets === 1 ? "The volunteer sheet" : `All ${sheets} volunteer sheets`;
-  const who = signups > 0 ? `, with ${signups} sign-up${signups === 1 ? "" : "s"},` : "";
-  return `${what}${who} moved to the new date. Nobody was told — use "Email volunteers" on the sheet to say so.`;
-}
-
 export function CalendarEvents() {
   const { id = "" } = useParams();
   const navigate = useNavigate();
@@ -196,9 +186,10 @@ export function CalendarEvents() {
   const [removeError, setRemoveError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [showPast, setShowPast] = useState(false);
-  /** What the last save carried with it, or null. Kept on screen rather than
-   *  flashed: it reports a change to other people's sign-ups. */
-  const [moved, setMoved] = useState<{ sheets: number; signups: number } | null>(null);
+  /** What the last save did to this event's volunteer sheets, or null. Kept on
+   *  screen rather than flashed: it reports a change to other people's
+   *  sign-ups. */
+  const [moved, setMoved] = useState<string | null>(null);
 
   const loadEvents = () =>
     void api.managedEvents(id).then((r) => setEvents(r.events)).catch(() => setEvents([]));
@@ -218,12 +209,11 @@ export function CalendarEvents() {
     try {
       const body = toInput(form);
       if (editing?.id) {
-        const r = await api.updateManagedEvent(editing.id, body);
-        // Said only when something actually came along. Moving an event moves
-        // its volunteer sheets onto the new date and everyone already signed up
-        // with them, which is the right outcome and not one an admin nudging a
-        // start time has in mind.
-        setMoved(r.sheetsMoved > 0 ? { sheets: r.sheetsMoved, signups: r.signupsMoved } : null);
+        // Said only when something actually happened to a sheet. Moving an
+        // event moves its volunteer sheets onto the new date and everyone
+        // already signed up with them — the right outcome, and not one an admin
+        // nudging a start time has in mind.
+        setMoved(eventSavedNote(await api.updateManagedEvent(editing.id, body)));
       } else {
         await api.addManagedEvent(id, body);
         setMoved(null);
@@ -287,7 +277,7 @@ export function CalendarEvents() {
             {/* One string rather than interleaved JSX: the punctuation lands
                 against the words, where JSX's own line breaks would put a space
                 before every comma. */}
-            <div style={{ fontSize: 13, minWidth: 0 }}>{movedLine(moved)}</div>
+            <div style={{ fontSize: 13, minWidth: 0 }}>{moved}</div>
           </div>
         </div>
       )}

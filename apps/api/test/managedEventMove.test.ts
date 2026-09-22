@@ -51,6 +51,7 @@ interface PositionRow {
  *  every statement that reached `batch()` — the only place it writes. */
 function fakeDb(rows: { sheets: SheetRow[]; positions?: PositionRow[]; signups?: Record<string, number> }) {
   const written: Stmt[] = [];
+  const batches: Stmt[][] = [];
   const read: Stmt[] = [];
   const env = {
     DB: {
@@ -83,12 +84,14 @@ function fakeDb(rows: { sheets: SheetRow[]; positions?: PositionRow[]; signups?:
         return stmt;
       },
       async batch(stmts: Stmt[]) {
-        for (const s of stmts) written.push({ sql: s.sql, binds: s.binds });
+        const group = stmts.map((s) => ({ sql: s.sql, binds: s.binds }));
+        batches.push(group);
+        written.push(...group);
         return stmts.map(() => ({ meta: { changes: 1 } }));
       },
     },
   } as unknown as Env;
-  return { env, written, read };
+  return { env, written, batches, read };
 }
 
 /** Every write against `table`, as {binds} — what actually reached the database. */
@@ -112,8 +115,9 @@ describe("reanchorSheets", () => {
       signups: { "01SHEET": 18 },
     });
 
-    const moves = await reanchorSheets(env, "01EVENT", [SEP25], [OCT9]);
+    const { moves, stranded } = await reanchorSheets(env, "01EVENT", [SEP25], [OCT9]);
 
+    expect(stranded).toBe(0);
     expect(moves).toEqual([
       { id: "01SHEET", slug: "field-day-2026-09-25", from: SEP25, to: OCT9, signups: 18 },
     ]);
@@ -147,9 +151,15 @@ describe("reanchorSheets", () => {
       positions: [{ id: "01POS", sheet_id: "01SHEET", starts_at: week2, ends_at: null }],
     });
 
-    const moves = await reanchorSheets(env, "01EVENT", [SEP25, week2], [SEP25, week2, "2026-10-09T12:30:00.000Z"]);
+    const { moves, stranded } = await reanchorSheets(
+      env,
+      "01EVENT",
+      [SEP25, week2],
+      [SEP25, week2, "2026-10-09T12:30:00.000Z"],
+    );
 
     expect(moves).toEqual([]);
+    expect(stranded).toBe(0);
     expect(written).toEqual([]);
   });
 
@@ -164,7 +174,7 @@ describe("reanchorSheets", () => {
       ],
     });
 
-    const moves = await reanchorSheets(env, "01EVENT", oldStarts, newStarts);
+    const { moves } = await reanchorSheets(env, "01EVENT", oldStarts, newStarts);
 
     expect(moves.map((m) => [m.id, m.to])).toEqual([
       ["01FIRST", newStarts[0]],
@@ -181,7 +191,7 @@ describe("reanchorSheets", () => {
     const { env } = fakeDb({
       sheets: [{ id: "01SHEET", slug: "s", occurrence_start: "2026-08-01T12:30:00.000Z", closes_at: null }],
     });
-    const moves = await reanchorSheets(env, "01EVENT", [SEP25], [OCT9]);
+    const { moves } = await reanchorSheets(env, "01EVENT", [SEP25], [OCT9]);
     expect(moves.map((m) => m.to)).toEqual([OCT9]);
   });
 
@@ -195,14 +205,75 @@ describe("reanchorSheets", () => {
         { id: "01RIGHT", slug: "right", occurrence_start: OCT9, closes_at: null },
       ],
     });
-    const moves = await reanchorSheets(env, "01EVENT", [SEP25], [OCT9]);
+    const { moves, stranded } = await reanchorSheets(env, "01EVENT", [SEP25], [OCT9]);
     expect(moves).toEqual([]);
+    // Reported, not just skipped — a sheet nobody moved is sign-ups nobody can
+    // find, and the admin hears about it.
+    expect(stranded).toBe(1);
     expect(written).toEqual([]);
+  });
+
+  it("refuses the ordinal when the series was cut rather than shifted", async () => {
+    // Weekly Oct 1/8/15/22, one sheet on Oct 1. The admin drops the first date
+    // by moving the start to Oct 8. An unguarded ordinal maps Oct 1 -> Oct 8 and
+    // carries eighteen families onto an occurrence that existed before the edit
+    // and nothing about the edit touched. Same count in and out is the test for
+    // a translation; four-into-three is not one.
+    const week = (d: number) => `2026-10-${String(d).padStart(2, "0")}T12:30:00.000Z`;
+    const { env, written } = fakeDb({
+      sheets: [{ id: "01SHEET", slug: "s", occurrence_start: week(1), closes_at: null }],
+      signups: { "01SHEET": 18 },
+    });
+
+    const { moves, stranded } = await reanchorSheets(
+      env,
+      "01EVENT",
+      [week(1), week(8), week(15), week(22)],
+      [week(8), week(15), week(22)],
+    );
+
+    expect(moves).toEqual([]);
+    expect(stranded).toBe(1);
+    expect(written).toEqual([]);
+  });
+
+  it("keeps each sheet's own positions in the same batch as its move", async () => {
+    // A `batch()` is atomic; a sequence of them is not. A boundary falling
+    // between a sheet's new date and its positions' shift windows leaves the
+    // shifts on the old day, and the delta that would repair them lives only in
+    // the memory of the request that already returned.
+    const sheets = Array.from({ length: 4 }, (_, i) => ({
+      id: `01SHEET${i}`,
+      slug: `s${i}`,
+      occurrence_start: `2026-10-${String(i * 7 + 1).padStart(2, "0")}T12:30:00.000Z`,
+      closes_at: null,
+    }));
+    const positions = sheets.flatMap((s) =>
+      // 40 apiece, so four sheets cannot fit in one 100-statement batch.
+      Array.from({ length: 40 }, (_, j) => ({
+        id: `${s.id}P${j}`,
+        sheet_id: s.id,
+        starts_at: s.occurrence_start,
+        ends_at: null,
+      })),
+    );
+    const { env, batches } = fakeDb({ sheets, positions });
+
+    const oldStarts = sheets.map((s) => s.occurrence_start);
+    const newStarts = oldStarts.map((s) => new Date(new Date(s).getTime() + 3600_000).toISOString());
+    const { moves } = await reanchorSheets(env, "01EVENT", oldStarts, newStarts);
+    expect(moves).toHaveLength(4);
+    // More than one batch, and no sheet split across two of them.
+    expect(batches.length).toBeGreaterThan(1);
+    for (const sheet of sheets) {
+      const touching = batches.filter((b) => b.some((st) => st.binds.includes(sheet.id) || st.binds.some((v) => typeof v === "string" && v.startsWith(`${sheet.id}P`))));
+      expect(touching).toHaveLength(1);
+    }
   });
 
   it("writes nothing for an event with no sheets", async () => {
     const { env, written, read } = fakeDb({ sheets: [] });
-    expect(await reanchorSheets(env, "01EVENT", [SEP25], [OCT9])).toEqual([]);
+    expect(await reanchorSheets(env, "01EVENT", [SEP25], [OCT9])).toEqual({ moves: [], stranded: 0 });
     expect(written).toEqual([]);
     // One read to find out there was nothing to do, and no second one.
     expect(read).toHaveLength(1);

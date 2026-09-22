@@ -27,7 +27,7 @@ import { WEEKDAYS } from "@sd/shared";
 import type { Env } from "../env.js";
 import { parseIcs, type ParsedEvent } from "./calendar.js";
 import { renderCalendar, type IcsEventInput } from "./icsWriter.js";
-import { reanchorSheets, sheetCascade, volunteerFootprint, type SheetMove } from "./volunteers.js";
+import { reanchorSheets, sheetCascade, volunteerFootprint, type SheetReanchor } from "./volunteers.js";
 import { ulid } from "./ids.js";
 import { nowIso } from "./time.js";
 
@@ -564,7 +564,7 @@ export async function createManagedEvent(
  *  something to let pass unremarked, so the route reports it and audits it. */
 export interface ManagedEventUpdate {
   event: ManagedEventDTO;
-  sheets: SheetMove[];
+  sheets: SheetReanchor;
 }
 
 export async function updateManagedEvent(
@@ -628,13 +628,22 @@ export async function updateManagedEvent(
       id,
     )
     .run();
-  await materialize(env, id, existing.calendar_id, occurrences);
-  // After the agenda is right, not before: the sheets follow the dates, so the
-  // dates are what has to exist first.
+  // BEFORE `materialize`, which is the only ordering that survives a failure.
+  // The old→new mapping lives in `oldStarts`, read above and about to be
+  // deleted from `calendar_event`; if this ran afterwards and threw, the row it
+  // needs would already be gone and a retry would see `oldStarts === newStarts`,
+  // leaving every un-moved sheet with no ordinal and a recurring series
+  // stranded for good. This way round the mirror failure is recoverable: a
+  // `materialize` that dies leaves the sheets already on the new dates, where
+  // the next save finds them surviving and simply re-materializes.
+  //
+  // Nothing here reads `calendar_event` — a sheet never does (invariant 13) —
+  // so the sheets do not need the agenda to exist first.
   const sheets =
     existing.sheet_count > 0
       ? await reanchorSheets(env, id, oldStarts, occurrences.map((o) => o.start))
-      : [];
+      : { moves: [], stranded: 0 };
+  await materialize(env, id, existing.calendar_id, occurrences);
   const event = await loadManagedEvent(env, id);
   return event ? { event, sheets } : null;
 }
