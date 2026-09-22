@@ -18,7 +18,7 @@ import { Icon, type IconName } from "../components/Icon.js";
 import { Avatar, Btn, Tag, type VisState } from "../components/atoms.js";
 import { AppShell, BottomNav } from "../components/AppShell.js";
 import { DesktopShell } from "../components/DesktopShell.js";
-import { ScreenHeader, SectLabel, ContactRow, ContactValue, ContactVis, Field } from "../components/parts.js";
+import { ScreenHeader, SectLabel, ContactRow, ContactValue, ContactVis, Field, ClassroomLine } from "../components/parts.js";
 import { VisibilitySheet } from "../components/VisibilitySheet.js";
 import { InviteSheet } from "../components/InviteSheet.js";
 import { CapabilityPicker } from "../components/CapabilityPicker.js";
@@ -355,8 +355,17 @@ function GroupCard({
                   admin · Parent" reads as a job title in a list of relatives.
                   (It no longer shows on the hero either; the whole UI reads
                   `roleCapabilities` now.) */}
-              {caps.length > 0 && (
-                <div className="sd-meta">{caps.map((c) => capLabel(t, c)).join(" · ")}</div>
+              {/* One meta ROW, not two lines: the avatar here is 30px, so a
+                  third stacked line would leave the row taller than the face it
+                  belongs to. The capabilities and the room answer different
+                  questions — what this person is to the family, and where the
+                  child actually is — so they sit side by side and wrap together
+                  on a narrow phone. */}
+              {(caps.length > 0 || (m.classrooms?.length ?? 0) > 0) && (
+                <div className="sd-meta sd-row" style={{ gap: 7, flexWrap: "wrap", rowGap: 2, minWidth: 0 }}>
+                  {caps.length > 0 && <span>{caps.map((c) => capLabel(t, c)).join(" · ")}</span>}
+                  <ClassroomLine rooms={m.classrooms} />
+                </div>
               )}
             </div>
           </button>

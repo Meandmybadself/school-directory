@@ -6,10 +6,11 @@
 
 import { Hono } from "hono";
 import { ROLE_CAPABILITIES } from "@sd/shared";
-import type { Capability, ClassroomRefDTO, PersonSummaryDTO } from "@sd/shared";
+import type { Capability, PersonSummaryDTO } from "@sd/shared";
 import type { HonoEnv } from "../env.js";
 import { requireAuth } from "../middleware/session.js";
 import { displayName, personSearchSql } from "../lib/privacy.js";
+import { classroomsByPerson } from "../lib/serialize.js";
 
 export const directory = new Hono<HonoEnv>();
 
@@ -122,42 +123,13 @@ directory.get("/", async (c) => {
     }
   }
 
-  // And the classrooms, batched the same way and for the same reason: a page of
-  // 50 rows is one statement, not 50. Three things about this read.
-  //
-  // It answers the question a parent scanning this list actually has. Half the
-  // school shares a first name with somebody, and the room is what tells two
-  // Milos apart when the surnames are initials.
-  //
-  // It is not a new disclosure. Every classroom roster is already served to any
-  // authenticated member by `GET /groups/:id` (migration 0023's header states
-  // this as the reason a self-asserted membership costs nothing), so this shows
-  // a fact the viewer could already read, where it helps. It is also invariant
-  // 18's safe direction — rendering more than the search matches on, not less.
-  //
-  // It reads `membership` and `grp` and never `person`, so the enumeration gate
-  // has nothing to do here and this spends none of test/personListable.test.ts's
-  // exemption budget: which Persons are on this page was already decided by
-  // `search.sql` above, and this only labels them.
-  //
-  // `self_asserted` is deliberately not in the WHERE — see the DTO's comment.
-  const classrooms = new Map<string, ClassroomRefDTO[]>();
-  if (ids.length) {
-    const placeholders = ids.map(() => "?").join(",");
-    const roomRows = await c.env.DB.prepare(
-      `SELECT m.person_id, g.id, g.name
-       FROM membership m JOIN grp g ON g.id = m.group_id
-       WHERE m.person_id IN (${placeholders}) AND g.kind = 'classroom'
-       ORDER BY g.name COLLATE NOCASE, g.id`,
-    )
-      .bind(...ids)
-      .all<{ person_id: string; id: string; name: string }>();
-    for (const r of roomRows.results) {
-      const arr = classrooms.get(r.person_id) ?? [];
-      arr.push({ id: r.id, name: r.name });
-      classrooms.set(r.person_id, arr);
-    }
-  }
+  // The classrooms each row sits in. One reader, shared with a profile's
+  // household card and a household's group page (`classroomsByPerson`), because
+  // the `kind = 'classroom'` term is the whole correctness of that join and a
+  // second copy is what forgets it. Its own comment carries the rest: why it is
+  // batched, why it never reads `person`, and why it does not filter
+  // `self_asserted`.
+  const classrooms = await classroomsByPerson(c.env, ids);
 
   const people: PersonSummaryDTO[] = rows.results.map((r) => ({
     id: r.id,
