@@ -2,7 +2,8 @@
 import { useMemo } from "react";
 import type { CSSProperties, ReactNode } from "react";
 import { createPortal } from "react-dom";
-import type { ContactType } from "@sd/shared";
+import { shortClassroomName } from "@sd/shared";
+import type { ClassroomRefDTO, ContactType } from "@sd/shared";
 import { Icon, type IconName } from "./Icon.js";
 import { Avatar, Vis, type VisState } from "./atoms.js";
 import { useChrome } from "./chrome.js";
@@ -270,6 +271,51 @@ export function ContactRow({
       </div>
       {vis && <div style={{ flex: "0 0 auto", marginTop: 2 }}>{vis}</div>}
     </div>
+  );
+}
+
+/** The classrooms a Person is on the roster of, as a one-line label.
+ *
+ *  THREE screens render this now — the directory row, the household card on a
+ *  profile, and a household's own group page — which is why it is a component
+ *  rather than three copies of the same span. The elision is the reason: a name
+ *  shortened by `shortClassroomName` in one place and clipped by CSS in another
+ *  would put two different answers to "which room?" on two screens a parent
+ *  moves between in one tap. It lives here beside `MemberRow`, in the half of
+ *  this file the other four apps do NOT copy — they have no members to list.
+ *
+ *  The `school` icon carries the "this is a classroom" reading and nothing else
+ *  does, the shape `GroupCard` on the profile already uses for the same group.
+ *  `Icon` is `aria-hidden` by construction, so a screen reader gets the room's
+ *  name on its own; the `title` holds the school's FULL name, so what the
+ *  elision drops is still one hover away.
+ *
+ *  `omitGroupId` is for a roster rendered inside a group: a classroom's own page
+ *  would otherwise repeat its name on all twenty-five rows. Nothing that calls
+ *  it today passes it for a household — a child's room is exactly the fact that
+ *  page is missing — but it keeps this usable from a classroom roster without
+ *  the caller re-deriving the filter.
+ *
+ *  `rooms` is optional on every DTO that carries it, so `undefined` (a listing
+ *  that didn't look) and `[]` (on nobody's roster) both render nothing —
+ *  deliberately the same outcome, since a row announcing "no classroom" would be
+ *  noise on the adults, who are most of these lists. */
+export function ClassroomLine({
+  rooms,
+  omitGroupId,
+}: {
+  rooms?: ClassroomRefDTO[];
+  omitGroupId?: string;
+}) {
+  const shown = (rooms ?? []).filter((r) => r.id !== omitGroupId);
+  if (!shown.length) return null;
+  return (
+    <span className="sd-row" style={{ gap: 5, minWidth: 0 }} title={shown.map((r) => r.name).join(", ")}>
+      <Icon name="school" size={13} style={{ flex: "0 0 auto" }} />
+      <span style={{ minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+        {shown.map((r) => shortClassroomName(r.name)).join(", ")}
+      </span>
+    </span>
   );
 }
 

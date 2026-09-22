@@ -8,7 +8,7 @@ import { Icon, type IconName } from "../components/Icon.js";
 import { Avatar, Btn, Tag, type VisState } from "../components/atoms.js";
 import { AppShell, BottomNav } from "../components/AppShell.js";
 import { DesktopShell } from "../components/DesktopShell.js";
-import { ScreenHeader, SectLabel, ContactRow, ContactValue, ContactVis, MemberRow, GroupTile } from "../components/parts.js";
+import { ScreenHeader, SectLabel, ContactRow, ContactValue, ContactVis, MemberRow, GroupTile, ClassroomLine } from "../components/parts.js";
 import { useI18n } from "../i18n/index.js";
 import { useIsDesktop } from "../lib/useIsDesktop.js";
 import { useSession } from "../lib/session.js";
@@ -397,6 +397,24 @@ export function GroupsIndex() {
   );
 }
 
+/** A roster row's subline: the membership title the group gave them, and the
+ *  classroom they are actually in.
+ *
+ *  `classrooms` is served for a HOUSEHOLD only (see `GroupMemberDTO`), so on
+ *  every other kind of group this collapses to exactly the title that was there
+ *  before. Both shells render the same rows, so this is one helper rather than
+ *  the two inline copies that would drift the first time either changed. */
+function memberSubline(m: GroupMemberDTO) {
+  const rooms = <ClassroomLine rooms={m.classrooms} />;
+  if (!m.title) return rooms ?? undefined;
+  return (
+    <span className="sd-row" style={{ gap: 7, flexWrap: "wrap", rowGap: 2, minWidth: 0 }}>
+      <span>{m.title}</span>
+      {rooms}
+    </span>
+  );
+}
+
 function MemberTags({ m }: { m: GroupDetailDTO["members"][number] }) {
   return (
     <>
@@ -493,7 +511,7 @@ function MobileGroup({ g, actions }: { g: GroupDetailDTO; actions: GroupActions 
                   key={m.personId}
                   name={m.displayName}
                   img={mediaUrl(m.photoUrl)}
-                  title={m.title ?? undefined}
+                  title={memberSubline(m)}
                   tags={<MemberTags m={m} />}
                   onClick={() => navigate(`/persons/${m.personId}`)}
                   trailing={
@@ -618,7 +636,7 @@ function DesktopGroup({ g, actions }: { g: GroupDetailDTO; actions: GroupActions
                 key={m.personId}
                 name={m.displayName}
                 img={mediaUrl(m.photoUrl)}
-                title={m.title ?? undefined}
+                title={memberSubline(m)}
                 tags={<MemberTags m={m} />}
                 onClick={() => navigate(`/persons/${m.personId}`)}
                 trailing={

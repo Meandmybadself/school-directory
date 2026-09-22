@@ -9,7 +9,7 @@ import type { Capability, ClassroomCandidateDTO, ContactItemDTO, ContactItemInpu
 import type { HonoEnv } from "../env.js";
 import { requireAuth } from "../middleware/session.js";
 import { canSeeItem, displayName, personListableSql, personSearchSql, sharesForMany, sharesOf, viewerGroupIds, type ContactItemRow } from "../lib/privacy.js";
-import { capabilitiesFor } from "../lib/serialize.js";
+import { capabilitiesFor, classroomsByPerson } from "../lib/serialize.js";
 import { loadGroupGraph, ancestors, subtree, wouldCycle } from "../lib/groupTree.js";
 import { ulid } from "../lib/ids.js";
 import { nowIso } from "../lib/time.js";
@@ -205,6 +205,18 @@ groups.get("/:id", async (c) => {
     }
   }
 
+  // The room each member is in — on a HOUSEHOLD's roster only. That is the
+  // listing where "which of these is the third-grader?" has no answer on the
+  // page; a classroom's own roster would repeat its title twenty-five times,
+  // and this route rolls up a SUBTREE, so a school group's roster can be the
+  // whole school — a read worth not doing for a line nothing renders. One
+  // reader, shared with the directory and a profile's household card; its own
+  // comment carries why it never reads `person` and why it ignores
+  // `self_asserted`.
+  const rooms = group.kind === "household"
+    ? await classroomsByPerson(c.env, memberIds)
+    : null;
+
   const members: GroupMemberDTO[] = memberRows.results.map((m) => ({
     personId: m.person_id,
     // First name is always visible to co-members; last name rule applied.
@@ -214,6 +226,10 @@ groups.get("/:id", async (c) => {
     isYou: myPersonIds.has(m.person_id),
     capabilities: capsByPerson.get(m.person_id) ?? [],
     photoUrl: m.photo_object_key ? `/photos/${m.photo_object_key}` : null,
+    // Absent, not empty, where the route did not look — the DTO's two states
+    // mean different things and a household with nobody placed must still read
+    // as "looked, found none".
+    ...(rooms ? { classrooms: rooms.get(m.person_id) ?? [] } : {}),
   }));
 
   // Group-owned contact items (e.g. household shared address).

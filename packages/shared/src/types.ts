@@ -195,6 +195,18 @@ export interface GroupMemberDTO {
   isYou: boolean;
   capabilities: Capability[];
   photoUrl: string | null;
+  /** The classrooms this member is on the roster of — served for a HOUSEHOLD's
+   *  roster only, which is why it is optional here as it is on
+   *  `PersonSummaryDTO`: absent means the route did not look, `[]` means the
+   *  member is on no classroom's roster.
+   *
+   *  Households only because that is the roster the room is missing from. On a
+   *  classroom's own page the label would repeat the page's title on every row,
+   *  and on a school or committee group it is mostly adults. The route spends
+   *  the extra read where it answers something, and `GET /groups/:id` rolls up a
+   *  SUBTREE — a school group's roster can be the whole school, which is a read
+   *  worth not doing for a line nothing renders. */
+  classrooms?: ClassroomRefDTO[];
 }
 
 /** One of the viewer's own Persons, offered for placement in a classroom.

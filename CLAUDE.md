@@ -643,6 +643,30 @@ All five SPAs are separate Cloudflare Pages projects talking to the single
    `test/shortClassroomName.test.ts` pins the two-rooms-in-one-grade case that
    is the whole point, that a name it cannot improve survives byte for byte, and
    that it never emits a character the school did not type.
+   **THREE listings carry the label now**, and one reader serves all of them:
+   the directory row, a profile's household card (`householdsFor`) and a
+   HOUSEHOLD's own group page. `classroomsByPerson` (`lib/serialize.ts`) is that
+   reader, and it is one function rather than three copies of the join because
+   `kind = 'classroom'` is the whole correctness of it — a fourth call site that
+   forgot the term would label people with their HOUSEHOLD, which is the failure
+   both new tests are written against. Everything invariant 18 says about the
+   directory's read holds for all three: batched over ids the caller has already
+   settled, reads `membership` and `grp` and **never `person`** (so it spends
+   none of `test/personListable.test.ts`'s exemption budget — which Persons are
+   in the list was decided by the caller's own gated statement), and no
+   `self_asserted` filter. `components/parts.tsx`'s `ClassroomLine` is the
+   rendering half, for the same reason: a name elided on one screen and clipped
+   by CSS on another would answer "which room?" two ways one tap apart. It lives
+   beside `MemberRow`, in the half of that file the other four apps do not copy.
+   **`GroupMemberDTO.classrooms` is served for a household ONLY**, and the
+   optional field means what it means on `PersonSummaryDTO` — absent is "the
+   route did not look", `[]` is "on nobody's roster". A classroom's own page
+   would repeat its title on all twenty-five rows, and `GET /groups/:id` rolls
+   up a SUBTREE, so on a school group that pointless read spans the whole
+   school. `test/groupClassroomLabels.test.ts` pins both states and that the
+   read does not happen at all for a classroom;
+   `test/profileHouseholds.test.ts` gained the same coverage for the profile
+   block, its strict fake evaluating `g.kind` rather than assuming it.
 
 19. **The two ways in from an email are read-only GETs.** Mail scanners and
    "safe links" rewriters follow every GET in a message before the recipient

@@ -3,6 +3,7 @@
 
 import type {
   Capability,
+  ClassroomRefDTO,
   ContactItemDTO,
   GroupSummaryDTO,
   HouseholdMembersDTO,
@@ -38,6 +39,55 @@ export async function capabilitiesFor(env: Env, personId: string): Promise<Capab
     .bind(personId)
     .all<{ capability: Capability }>();
   return rows.results.map((r) => r.capability);
+}
+
+/** The classrooms each of these Persons is on the roster of, batched.
+ *
+ *  THREE listings label their rows with this — the directory, a profile's
+ *  household card and a household's own group page — so it is one reader rather
+ *  than three copies of the same join. The copies are what would drift: the
+ *  `kind = 'classroom'` term is the whole correctness of it, and a fourth call
+ *  site that forgot it would quietly label people with their HOUSEHOLD.
+ *
+ *  Three things about it are deliberate.
+ *
+ *  It is batched over ids the caller has already settled, never joined into the
+ *  listing's own statement, so a page of 50 costs one extra query rather than
+ *  fifty and the listing's WHERE stays readable to
+ *  `test/personListable.test.ts`'s scan.
+ *
+ *  It reads `membership` and `grp` and **never `person`**, so the enumeration
+ *  gate (invariant 21) has nothing to do here and this spends none of that
+ *  test's exemption budget: WHICH Persons are in the caller's list was already
+ *  decided by the caller's own gated statement, and this only labels them.
+ *
+ *  It does NOT filter `self_asserted`. That column decides what a membership
+ *  lets a viewer READ (invariant 27), not who is on the roster; filtering here
+ *  would hide a placement from the very parent who made it and disagree with
+ *  the roster `GET /groups/:id` serves.
+ *
+ *  Empty `ids` short-circuits rather than building `IN ()`, which is a syntax
+ *  error in SQLite rather than an empty match. */
+export async function classroomsByPerson(
+  env: Env,
+  ids: string[],
+): Promise<Map<string, ClassroomRefDTO[]>> {
+  const out = new Map<string, ClassroomRefDTO[]>();
+  if (!ids.length) return out;
+  const rows = await env.DB.prepare(
+    `SELECT m.person_id, g.id, g.name
+     FROM membership m JOIN grp g ON g.id = m.group_id
+     WHERE m.person_id IN (${ids.map(() => "?").join(",")}) AND g.kind = 'classroom'
+     ORDER BY g.name COLLATE NOCASE, g.id`,
+  )
+    .bind(...ids)
+    .all<{ person_id: string; id: string; name: string }>();
+  for (const r of rows.results) {
+    const arr = out.get(r.person_id) ?? [];
+    arr.push({ id: r.id, name: r.name });
+    out.set(r.person_id, arr);
+  }
+  return out;
 }
 
 async function groupsFor(
@@ -172,6 +222,12 @@ export async function householdsFor(
     for (const r of mine.results) controlled.add(r.person_id);
   }
 
+  // The room a child is in, on the one block that renders their family. It is
+  // the same fact the directory row carries and discloses nothing new — every
+  // classroom roster is already served to any authenticated member — but here
+  // it answers "which of these is the third-grader?" without a tap.
+  const rooms = await classroomsByPerson(env, ids);
+
   const byHousehold = new Map<string, HouseholdMembersDTO>();
   for (const r of rows.results) {
     let hh = byHousehold.get(r.group_id);
@@ -192,6 +248,7 @@ export async function householdsFor(
       firstName: r.first_name,
       capabilities: caps.get(r.id) ?? [],
       photoUrl: photoUrl(r.photo_object_key),
+      classrooms: rooms.get(r.id) ?? [],
     });
   }
   return [...byHousehold.values()];

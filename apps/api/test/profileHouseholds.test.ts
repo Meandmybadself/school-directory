@@ -76,9 +76,13 @@ const MEMBERSHIPS: { group_id: string; person_id: string }[] = [
   { group_id: HH_RUIZ, person_id: JO },
   { group_id: HH_QUIET, person_id: DANA },
   { group_id: HH_QUIET, person_id: GHOST },
-  // Dana and Kai share a CLASSROOM. Nothing from here may reach the block.
+  // Dana and Kai share a CLASSROOM. Nothing from here may reach the block AS A
+  // MEMBER — Kai is not family. Milo is in the same room, which is what gives
+  // the roster a classroom to LABEL a row with: being named on a row and being
+  // one of its rows are different things, and this fixture holds both.
   { group_id: ROOM_3B, person_id: DANA },
   { group_id: ROOM_3B, person_id: KAI },
+  { group_id: ROOM_3B, person_id: MILO },
 ];
 
 const CONTROLS: { user_id: string; person_id: string }[] = [
@@ -102,7 +106,7 @@ const GUARD = /unlisted_at IS NULL/;
  *  unlisted Person from their own Controller and pin the WRONG behaviour. */
 const CONTROLLER_EXEMPTION = /SELECT person_id FROM control WHERE user_id = \?/;
 
-/** A D1 stand-in answering only the three statements `householdsFor` issues,
+/** A D1 stand-in answering only the four statements `householdsFor` issues,
  *  and throwing on anything else. It evaluates the guard rather than assuming
  *  it, and it honours `g.kind = 'household'` and `m.person_id != ?` the same
  *  way — so dropping any of the three shows up as a name in an assertion. */
@@ -139,6 +143,15 @@ function fakeEnv(): Env {
                     (c) => c.user_id === binds[0] && binds.includes(c.person_id),
                   ) as unknown as T[],
                 };
+              }
+              // The classroom label. `g.kind = 'classroom'` is HONOURED, not
+              // assumed: drop it from the query and every row comes back
+              // labelled with "The Ruiz Household", which the assertions catch.
+              if (q.startsWith("SELECT m.person_id, g.id, g.name")) {
+                const rows = MEMBERSHIPS.filter((m) => binds.includes(m.person_id))
+                  .filter((m) => (sql.includes("'classroom'") ? GROUPS[m.group_id]!.kind === "classroom" : true))
+                  .map((m) => ({ person_id: m.person_id, id: m.group_id, name: GROUPS[m.group_id]!.name }));
+                return { results: rows as unknown as T[] };
               }
               if (q.startsWith("SELECT m.group_id")) {
                 const subject = binds[0] as string;
@@ -273,7 +286,34 @@ describe("a profile's household roster", () => {
     // Built field by field: a spread of the row would put `last_name` and
     // `photo_object_key` beside the display name that exists to withhold them.
     expect(Object.keys(hh[0]!.members[0]!).sort()).toEqual(
-      ["capabilities", "displayName", "firstName", "id", "photoUrl"].sort(),
+      ["capabilities", "classrooms", "displayName", "firstName", "id", "photoUrl"].sort(),
     );
+  });
+
+  it("labels a co-member with the classroom they are in", async () => {
+    // The room is why this block is worth reading on a profile: a household of
+    // three children is three first names until something says which is which.
+    const members = (await forViewer(U_MEMBER)).flatMap((h) => h.members);
+    const milo = members.find((m) => m.id === MILO);
+    expect(milo?.classrooms).toEqual([{ id: ROOM_3B, name: "Room 3B" }]);
+  });
+
+  it("never labels a row with a household", async () => {
+    // The kind filter is the whole correctness of that join. Drop it and every
+    // co-member is labelled with the very household whose card they are on —
+    // which the fake would happily return, so this fails rather than passes.
+    for (const m of (await forViewer(U_MEMBER)).flatMap((h) => h.members)) {
+      for (const room of m.classrooms ?? []) {
+        expect(GROUPS[room.id]?.kind).toBe("classroom");
+      }
+    }
+  });
+
+  it("says [] for a co-member in no classroom, never absent", async () => {
+    // Absent and empty mean different things on this DTO — "nobody looked" and
+    // "looked, found none". A household roster always looks.
+    const members = (await forViewer(U_MEMBER)).flatMap((h) => h.members);
+    const sam = members.find((m) => m.id === SAM);
+    expect(sam?.classrooms).toEqual([]);
   });
 });
