@@ -83,6 +83,10 @@ const MEMBERSHIPS: { group_id: string; person_id: string }[] = [
   { group_id: ROOM_3B, person_id: DANA },
   { group_id: ROOM_3B, person_id: KAI },
   { group_id: ROOM_3B, person_id: MILO },
+  // Sam is a PARENT sitting on the same classroom's roster — a room parent, or
+  // the teacher of it. Nothing but the `student` clause keeps the room off
+  // their row, which is what makes the assertion below behavioural.
+  { group_id: ROOM_3B, person_id: SAM },
 ];
 
 const CONTROLS: { user_id: string; person_id: string }[] = [
@@ -150,6 +154,11 @@ function fakeEnv(): Env {
               if (q.startsWith("SELECT m.person_id, g.id, g.name")) {
                 const rows = MEMBERSHIPS.filter((m) => binds.includes(m.person_id))
                   .filter((m) => (sql.includes("'classroom'") ? GROUPS[m.group_id]!.kind === "classroom" : true))
+                  // The `student` clause, honoured rather than assumed: drop it
+                  // and Sam the parent is labelled with the room they help in.
+                  .filter((m) => (sql.includes("capability = 'student'")
+                    ? CAPABILITIES.some((c) => c.person_id === m.person_id && c.capability === "student")
+                    : true))
                   .map((m) => ({ person_id: m.person_id, id: m.group_id, name: GROUPS[m.group_id]!.name }));
                 return { results: rows as unknown as T[] };
               }
@@ -309,11 +318,20 @@ describe("a profile's household roster", () => {
     }
   });
 
-  it("says [] for a co-member in no classroom, never absent", async () => {
+  it("says [] for a co-member with no room to name, never absent", async () => {
     // Absent and empty mean different things on this DTO — "nobody looked" and
     // "looked, found none". A household roster always looks.
+    //
+    // Sam is the sharp case: a PARENT on the same classroom roster Milo is on.
+    // Only the `student` clause is keeping the room off their row, so this
+    // fails with "Room 3B" the moment that clause goes.
     const members = (await forViewer(U_MEMBER)).flatMap((h) => h.members);
     const sam = members.find((m) => m.id === SAM);
     expect(sam?.classrooms).toEqual([]);
+    // And the child on that same roster still gets it, so the clause is
+    // narrowing by capability rather than switching the feature off.
+    expect(members.find((m) => m.id === MILO)?.classrooms).toEqual([
+      { id: ROOM_3B, name: "Room 3B" },
+    ]);
   });
 });

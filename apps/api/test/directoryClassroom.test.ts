@@ -43,12 +43,22 @@ const PERSONS = [
  *  them is also in a second room, and everyone is in a household — which is the
  *  row that must NOT surface as a classroom. `self_asserted` is on one of the
  *  placements precisely because nothing may filter on it. */
+/** Who is a student. Dana is the parent on a classroom roster — a room parent,
+ *  or the teacher of it — and is what the `student` clause is for. */
+const CAPABILITIES = [
+  { person_id: "01MILO_A", capability: "student" },
+  { person_id: "01MILO_B", capability: "student" },
+  { person_id: "01DANA", capability: "parent" },
+];
+
 const MEMBERSHIPS = [
   { person_id: "01MILO_A", id: "01ROOM12", name: "Room 12 — Ms. Okonkwo", kind: "classroom", self_asserted: 1 },
   { person_id: "01MILO_B", id: "01ROOM3", name: "Room 3 — Mr. Alvarez", kind: "classroom", self_asserted: 0 },
   { person_id: "01MILO_B", id: "01BAND", name: "Beginning Band", kind: "classroom", self_asserted: 0 },
   { person_id: "01MILO_A", id: "01HH", name: "The Ruiz household", kind: "household", self_asserted: 0 },
   { person_id: "01DANA", id: "01HH", name: "The Ruiz household", kind: "household", self_asserted: 0 },
+  // Dana runs Room 12. Only the `student` clause keeps that off her row.
+  { person_id: "01DANA", id: "01ROOM12", name: "Room 12 — Ms. Okonkwo", kind: "classroom", self_asserted: 0 },
 ];
 
 interface Seen {
@@ -87,9 +97,13 @@ function rowsFor(sql: string, args: unknown[]): unknown[] {
   if (sql.includes("photo_object_key")) return PERSONS;
   if (sql.includes("FROM membership")) {
     const ids = new Set(args.map(String));
-    return MEMBERSHIPS.filter(
-      (m) => ids.has(m.person_id) && (!sql.includes("g.kind = 'classroom'") || m.kind === "classroom"),
-    ).map((m) => ({ person_id: m.person_id, id: m.id, name: m.name }));
+    return MEMBERSHIPS.filter((m) => ids.has(m.person_id))
+      .filter((m) => !sql.includes("g.kind = 'classroom'") || m.kind === "classroom")
+      // Honoured, not assumed: drop the clause and Dana the parent is labelled
+      // with the room she teaches.
+      .filter((m) => !sql.includes("capability = 'student'")
+        || CAPABILITIES.some((c) => c.person_id === m.person_id && c.capability === "student"))
+      .map((m) => ({ person_id: m.person_id, id: m.id, name: m.name }));
   }
   return [];
 }
@@ -136,6 +150,15 @@ describe("GET /directory classroom labels", () => {
     // load, and that is the clause's job.
     const read = seen.find((s) => s.sql.includes("FROM membership"))!;
     expect(read.sql).toMatch(/ORDER BY g\.name COLLATE NOCASE/);
+  });
+
+  it("names a room for a student and not for the adult who runs it", async () => {
+    // Dana is on Room 12's roster and is not a student. The label answers
+    // "which room is this child in", and a teacher's membership is a different
+    // relationship that this line was never describing.
+    const { body } = await listing();
+    expect(roomsOf(body, "01DANA")).toEqual([]);
+    expect(roomsOf(body, "01MILO_A")).toEqual(["Room 12 — Ms. Okonkwo"]);
   });
 
   it("does not pass a household off as a classroom", async () => {
