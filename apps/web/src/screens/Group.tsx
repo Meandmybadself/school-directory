@@ -3,7 +3,7 @@
 // + 320px household-contact rail).
 import { Fragment, useEffect, useState, type ReactNode } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { GROUP_KINDS } from "@sd/shared";
+import { GROUP_KINDS, groupLabel } from "@sd/shared";
 import type { ContactItemDTO, GroupDetailDTO, GroupKind } from "@sd/shared";
 import { Icon, type IconName } from "../components/Icon.js";
 import { Avatar, Btn, Tag, type VisState } from "../components/atoms.js";
@@ -204,7 +204,9 @@ function Subgroups({ g }: { g: GroupDetailDTO }) {
       <SectLabel>{t("subgroups")}</SectLabel>
       {/* auto-fill rather than a fixed pair of columns: this block renders on
           both shells, and two 175px tiles on a phone truncated a classroom to
-          "Grade …". Below ~450px it lays out as one column and the name fits. */}
+          "Grade …". Below ~450px it lays out as one column. The name is also
+          `groupLabel`-elided now, so the column width is no longer the only
+          thing standing between a room and an unreadable label. */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))", gap: 9, marginTop: 9 }}>
         {g.children.map((c) => {
           const a = kindAccent(c.kind);
@@ -212,7 +214,8 @@ function Subgroups({ g }: { g: GroupDetailDTO }) {
             <GroupTile
               key={c.id}
               icon={a.icon}
-              name={c.name}
+              name={groupLabel(c.name, c.kind)}
+              title={c.name}
               sub={`${c.memberCount} ${t("members").toLowerCase()}`}
               color={a.color}
               tint={a.tint}
@@ -291,7 +294,8 @@ export function GroupsIndex() {
           <GroupTile
             key={g.id}
             icon={a.icon}
-            name={g.name}
+            name={groupLabel(g.name, g.kind)}
+            title={g.name}
             sub={`${g.memberCount} ${t("members").toLowerCase()}`}
             color={a.color}
             tint={a.tint}
@@ -346,6 +350,16 @@ export function GroupsIndex() {
     </div>
   );
 
+  /** The searchable table of every group. Its name column is the narrowest
+   *  rendering of a group name in the app — a phone leaves it roughly 170px
+   *  beside the Type and Members columns — and CSS ellipsis alone made it
+   *  useless on this instance's rooms: `Grade 1 · Community · Sam Oyelaran ·
+   *  Rm 104` and its neighbour both clipped to `Grade 1 · Commu…`, so a list
+   *  of nine classrooms rendered as the same three words nine times. Same bug
+   *  Directory's classroom subline had, and the same answer: `groupLabel` keeps
+   *  the grade and the room — the segment that is unique in the building — and
+   *  the `title` carries the district's full string. The ellipsis stays as the
+   *  backstop for a long household name, which has no structure to elide. */
   const allGroupsTable = (
     <div className="sd-card" style={{ overflow: "hidden" }}>
       <table className="sd-table">
@@ -366,7 +380,7 @@ export function GroupsIndex() {
                   <div style={{ width: 30, height: 30, borderRadius: 8, flex: "0 0 auto", background: a.tint, color: a.color, display: "flex", alignItems: "center", justifyContent: "center" }}>
                     <Icon name={a.icon} size={16} />
                   </div>
-                  <span style={{ fontWeight: 700, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{g.name}</span>
+                  <span title={g.name} style={{ fontWeight: 700, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{groupLabel(g.name, g.kind)}</span>
                 </div>
               </td>
               <td style={{ color: "var(--ink-2)", textTransform: "capitalize", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{groupKindLabel(g.kind, t)}</td>

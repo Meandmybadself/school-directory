@@ -2,6 +2,7 @@
 // remove), and edit household-owned contact info.
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { groupLabel } from "@sd/shared";
 import type { ClassroomCandidateDTO, ContactType, GroupDetailDTO, GroupKind, GroupMemberDTO, GroupRefDTO, ShareTargetDTO, Visibility } from "@sd/shared";
 import { Icon, type IconName } from "./Icon.js";
 import { Avatar, Btn } from "./atoms.js";
@@ -612,7 +613,7 @@ function ParentPicker({
             <div style={iconStyle}>
               <Icon name={g.kind === "classroom" ? "school" : g.kind === "household" ? "home" : "users3"} size={16} />
             </div>
-            <span style={{ flex: 1, fontSize: 14.5, fontWeight: 600 }}>{g.name}</span>
+            <span title={g.name} style={{ flex: 1, fontSize: 14.5, fontWeight: 600 }}>{groupLabel(g.name, g.kind)}</span>
             {g.id === currentParentId && <Icon name="check" size={18} style={{ color: "var(--blue)" }} />}
           </button>
         ))}

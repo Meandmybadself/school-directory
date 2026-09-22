@@ -1,5 +1,7 @@
 // Small text helpers shared across the API and web client.
 
+import type { GroupKind } from "./types.js";
+
 const NAMED_ENTITIES: Record<string, string> = {
   amp: "&",
   lt: "<",
@@ -95,6 +97,35 @@ export function shortClassroomName(name: string): string {
   const parts = name.split(NAME_SEP).map((p) => p.trim()).filter(Boolean);
   if (parts.length < 3) return name;
   return `${parts[0]} ${NAME_SEP} ${parts[parts.length - 1]}`;
+}
+
+/** The one-line label for a group, whatever its kind.
+ *
+ *  `shortClassroomName` is deliberately named for the one kind it understands,
+ *  so every caller that renders a mixed list of groups had to remember both the
+ *  rule and the `kind` test that guards it. This is that test, written once: a
+ *  classroom is elided, a household and a generic group come back untouched.
+ *  It generalises the DISPATCH, not the rule — the segment-reading stays where
+ *  its own doc comment explains what a segment means.
+ *
+ *  Every caller pairs it with `title={group.name}`, because the label is the
+ *  only thing elided and the row must still carry the school's own string. Two
+ *  consequences follow from that pairing and are the reason it is not optional.
+ *  The full name stays in the DOM, so nothing is hidden from a reader who looks,
+ *  from a hover, or from anything that reads the page. And `GET /groups` matches
+ *  on the whole name — a search for a teacher finds rooms whose LABEL no longer
+ *  shows them — which is invariant 18 read the safe way round (a row renders
+ *  more than the label shows, never less) only because the `title` is there to
+ *  show what matched. A group name is not private in the first place: any member
+ *  may search every one of them, which is why this is a legibility trade and not
+ *  a disclosure one.
+ *
+ *  A caller whose name WRAPS rather than clips — the pickers in the sheets, a
+ *  profile's group card — uses this too, but must not gain an ellipsis on the
+ *  way: wrapping loses nothing, and trading two readable lines for one cut-off
+ *  one is the exact bug this exists to fix. Elide the label, leave the layout. */
+export function groupLabel(name: string, kind: GroupKind): string {
+  return kind === "classroom" ? shortClassroomName(name) : name;
 }
 
 // ── Newsletter slugs ────────────────────────────────────────────────────────
