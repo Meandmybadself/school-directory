@@ -5,7 +5,8 @@
 
 import { Hono } from "hono";
 import type { Context } from "hono";
-import type { Capability, ClassroomCandidateDTO, ContactItemDTO, ContactItemInput, ContactType, GroupDetailDTO, GroupMemberDTO, GroupRefDTO, GroupSummaryDTO, ShareTargetDTO, Visibility } from "@sd/shared";
+import { GROUP_KINDS } from "@sd/shared";
+import type { Capability, ClassroomCandidateDTO, ContactItemDTO, ContactItemInput, ContactType, GroupDetailDTO, GroupKind, GroupMemberDTO, GroupRefDTO, GroupSummaryDTO, ShareTargetDTO, Visibility } from "@sd/shared";
 import type { HonoEnv } from "../env.js";
 import { requireAuth } from "../middleware/session.js";
 import { canSeeItem, displayName, personListableSql, personSearchSql, sharesForMany, sharesOf, viewerGroupIds, type ContactItemRow } from "../lib/privacy.js";
@@ -90,19 +91,48 @@ async function requireGroupAdmin(c: Context<HonoEnv>, groupId: string): Promise<
   return auth.userId;
 }
 
-/** GET /groups?q= — search groups by name (auth). Names only; detail is gated. */
+/** Group kinds asked for, as `?kind=household&kind=classroom` or one
+ *  comma-separated `?kind=household,classroom`. No kind asked for is no filter.
+ *  Spelled like `requestedCapabilities` in `routes/directory.ts`, and for the
+ *  same reasons: a kind that isn't one is REPORTED rather than dropped, because
+ *  dropping it answers a filtered request with every group in the school while
+ *  looking like it had been narrowed. The client only ever sends `GROUP_KINDS`,
+ *  so only a hand-edited URL reaches the 400.
+ *
+ *  Matching on a kind discloses nothing this listing doesn't already render: the
+ *  kind is the type column on the very row the filter selects, which is how
+ *  invariant 18's bar is cleared — the same way `?capability=` clears it, and
+ *  unlike a surname, which is shown as an initial and so may not be matched on.
+ *  It narrows a listing whose accepted cost (a name and a raw `member_count`
+ *  readable by any member) invariant 21 already states; nothing here widens it. */
+function requestedKinds(raw: string[]): { kinds: GroupKind[]; invalid: boolean } {
+  const asked = [...new Set(raw.flatMap((v) => v.split(",")).map((v) => v.trim()).filter(Boolean))];
+  const kinds = asked.filter((x): x is GroupKind => GROUP_KINDS.includes(x as GroupKind));
+  return { kinds, invalid: kinds.length !== asked.length };
+}
+
+/** GET /groups?q=&kind= — search groups by name, narrowed by kind (auth).
+ *  Names only; detail is gated. */
 groups.get("/", async (c) => {
   requireAuth(c);
   const q = (c.req.query("q") ?? "").trim().toLowerCase();
   const like = `%${q}%`;
+  const { kinds, invalid } = requestedKinds(c.req.queries("kind") ?? []);
+  if (invalid) return c.json({ error: "invalid_kind" }, 400);
+  // Several selected kinds read as OR — "households and classrooms" — so the
+  // filter is one bound `IN`, appended to the name term rather than replacing
+  // it: a kind filter and a search box narrow the same list together.
+  const filter = kinds.length
+    ? { sql: ` AND g.kind IN (${kinds.map(() => "?").join(",")})`, binds: kinds as unknown[] }
+    : { sql: "", binds: [] as unknown[] };
   const rows = await c.env.DB.prepare(
     `SELECT g.id, g.kind, g.name,
             (SELECT COUNT(*) FROM membership m WHERE m.group_id = g.id) AS member_count
      FROM grp g
-     WHERE (? = '' OR lower(g.name) LIKE ?)
+     WHERE (? = '' OR lower(g.name) LIKE ?)${filter.sql}
      ORDER BY g.name COLLATE NOCASE LIMIT 50`,
   )
-    .bind(q, like)
+    .bind(q, like, ...filter.binds)
     .all<{ id: string; kind: GroupSummaryDTO["kind"]; name: string; member_count: number }>();
   const result: GroupSummaryDTO[] = rows.results.map((g) => ({
     id: g.id,
