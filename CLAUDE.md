@@ -691,6 +691,25 @@ All five SPAs are separate Cloudflare Pages projects talking to the single
    read does not happen at all for a classroom;
    `test/profileHouseholds.test.ts` gained the same coverage for the profile
    block, its strict fake evaluating `g.kind` rather than assuming it.
+   **The reader answers for a `student` and nobody else**, and that clause is
+   as load-bearing as the kind test. A classroom roster holds the adults who
+   run the room as well as the children in it — the demo seed's own teacher
+   sits on one — so without it a household card reads `Dana Ruiz · Parent ·
+   Ms. Ruiz · Grade 4`, which says she is a pupil in the room she teaches. The
+   label only ever answered "which room is this child in"; a teacher's
+   membership is a different relationship and this is not the line for it. It
+   is the same capability `PUT /persons/:id/classroom` already requires before
+   it will place anyone (invariant 27), so the placement flow and the label
+   agree about who a roster is for. That invariant also says `student` is NOT a
+   school-conferred fact — any member can mint a Person holding it — which is
+   fine here and would not be if this gated ACCESS: choosing what to LABEL is
+   not choosing what to disclose. The cost is that `[]` now carries one more
+   meaning (not a student, a student on no roster, and a Person the caller did
+   look up all render identically), which is deliberate — every one of them is
+   a row with no room to name. All three tests were made BEHAVIOURAL for it
+   rather than textual: each fixture now puts an adult on the very roster a
+   child is on, so deleting the clause fails with that adult labelled by the
+   room they run.
 
 19. **The two ways in from an email are read-only GETs.** Mail scanners and
    "safe links" rewriters follow every GET in a message before the recipient

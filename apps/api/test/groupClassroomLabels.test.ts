@@ -29,10 +29,16 @@ const VIEWER: AuthContext = {
   isMasquerading: false,
 };
 
-/** Milo is in a room; Dana, the parent, is not. The household is in this table
- *  too, so a read that forgot `g.kind` has something wrong to return. */
+/** Who is a student. Dana is a parent, and sits on the SAME classroom roster
+ *  Milo does — a room parent, or the teacher of it. */
+const CAPABILITIES = [{ person_id: MILO, capability: "student" }, { person_id: DANA, capability: "parent" }];
+
+/** The household is in this table too, so a read that forgot `g.kind` has
+ *  something wrong to return — and so is Dana's classroom row, so a read that
+ *  forgot `student` does. */
 const MEMBERSHIPS = [
   { person_id: MILO, group_id: "01ROOM", group_name: "Grade 2 · Juntos · Pam Shrestha · Rm 322", kind: "classroom" },
+  { person_id: DANA, group_id: "01ROOM", group_name: "Grade 2 · Juntos · Pam Shrestha · Rm 322", kind: "classroom" },
   { person_id: MILO, group_id: GROUP_ID, group_name: "The Ruiz Household", kind: "household" },
   { person_id: DANA, group_id: GROUP_ID, group_name: "The Ruiz Household", kind: "household" },
 ];
@@ -83,6 +89,10 @@ function testEnv(kind: string, seen: Seen[]): HonoEnv["Bindings"] {
         return {
           results: MEMBERSHIPS.filter((m) => ids.includes(m.person_id))
             .filter((m) => (sql.includes("'classroom'") ? m.kind === "classroom" : true))
+            // The `student` clause, honoured rather than assumed.
+            .filter((m) => (sql.includes("capability = 'student'")
+              ? CAPABILITIES.some((c) => c.person_id === m.person_id && c.capability === "student")
+              : true))
             .map((m) => ({ person_id: m.person_id, id: m.group_id, name: m.group_name })),
         };
       }
@@ -123,11 +133,16 @@ describe("GET /groups/:id classroom labels", () => {
     ]);
   });
 
-  it("says [] for a member in no classroom, never absent", async () => {
+  it("says [] for the adult on the same roster, never absent", async () => {
     // Absent and empty mean different things on `GroupMemberDTO`. A household
     // roster looked, so the parent's answer is "none", not "nobody asked".
+    //
+    // Dana sits on Room 322's roster beside Milo and is not a student, so only
+    // the `student` clause keeps the room off her row — "Dana Ruiz · Parent ·
+    // Grade 2 · Rm 322" would say she is a pupil in the room she runs.
     const { members } = await roster("household");
     expect(members.find((m) => m.personId === DANA)?.classrooms).toEqual([]);
+    expect(members.find((m) => m.personId === MILO)?.classrooms).toHaveLength(1);
   });
 
   it("never labels a row with the household whose page it is", async () => {

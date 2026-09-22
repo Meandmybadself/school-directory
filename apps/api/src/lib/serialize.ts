@@ -41,7 +41,7 @@ export async function capabilitiesFor(env: Env, personId: string): Promise<Capab
   return rows.results.map((r) => r.capability);
 }
 
-/** The classrooms each of these Persons is on the roster of, batched.
+/** The classrooms each of these STUDENTS is on the roster of, batched.
  *
  *  THREE listings label their rows with this — the directory, a profile's
  *  household card and a household's own group page — so it is one reader rather
@@ -66,6 +66,28 @@ export async function capabilitiesFor(env: Env, personId: string): Promise<Capab
  *  would hide a placement from the very parent who made it and disagree with
  *  the roster `GET /groups/:id` serves.
  *
+ *  **It answers only for a `student`**, and that clause is as load-bearing as
+ *  the kind test. A classroom roster holds the adults who run the room as well
+ *  as the children in it — the demo seed's own teacher sits on one — so without
+ *  it a household card reads "Dana Ruiz · Parent · Ms. Ruiz · Grade 4", which
+ *  says she is a pupil in the room she teaches. The label was only ever
+ *  answering "which room is this child in"; a teacher's membership is a
+ *  different relationship and this is not the line that describes it.
+ *
+ *  It is the same capability `PUT /persons/:id/classroom` already requires
+ *  before it will place anyone (invariant 27), so the placement flow and the
+ *  label agree about who a roster is for. Note what that invariant also says:
+ *  `student` is NOT a school-conferred fact — `ASSIGNABLE_CAPABILITIES`
+ *  includes it and any member can mint a Person holding it. That is fine here
+ *  and would not be if this gated ACCESS: choosing what to label is not
+ *  choosing what to disclose, and a parent who marks their own child a student
+ *  is telling the truth about the row they are labelling.
+ *
+ *  The consequence for the DTO is worth stating, because `[]` now carries one
+ *  more meaning: not a student, a student on no roster, and a Person the caller
+ *  did look up all render identically — deliberately, since every one of them
+ *  is a row with no room to name.
+ *
  *  Empty `ids` short-circuits rather than building `IN ()`, which is a syntax
  *  error in SQLite rather than an empty match. */
 export async function classroomsByPerson(
@@ -78,6 +100,7 @@ export async function classroomsByPerson(
     `SELECT m.person_id, g.id, g.name
      FROM membership m JOIN grp g ON g.id = m.group_id
      WHERE m.person_id IN (${ids.map(() => "?").join(",")}) AND g.kind = 'classroom'
+       AND m.person_id IN (SELECT person_id FROM capability_grant WHERE capability = 'student')
      ORDER BY g.name COLLATE NOCASE, g.id`,
   )
     .bind(...ids)
