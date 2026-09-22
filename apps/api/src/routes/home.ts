@@ -9,6 +9,7 @@ import type { HonoEnv } from "../env.js";
 import { requireAuth } from "../middleware/session.js";
 import { approxDistance, boundingBox, haversineMiles } from "../lib/geo.js";
 import { displayName, personListableSql } from "../lib/privacy.js";
+import { classroomsByHousehold } from "../lib/serialize.js";
 
 export const home = new Hono<HonoEnv>();
 
@@ -156,5 +157,54 @@ home.get("/neighbors", async (c) => {
   }
 
   tagged.sort((a, b) => a._d - b._d);
-  return c.json<NeighborsResponse>({ neighbors: tagged.map(({ _d, ...n }) => n) });
+
+  // The rooms this neighbour's household's children are in — the grade and
+  // teacher a parent is scanning these cards for. Both kinds resolve to a
+  // HOUSEHOLD: a household card is its own roster, and a person card reads the
+  // households that Person belongs to, so a Person in none carries nothing.
+  //
+  // Two batched reads for the whole row, never one per card. This first one
+  // touches `membership` and `grp` and never `person`, so the enumeration gate
+  // has nothing to do here — which households a Person is in is not a fact
+  // about a Person this viewer might not see, and the cards themselves were
+  // already gated above. `classroomsByHousehold` does compose the gate, on the
+  // co-members whose rooms it is about to name.
+  const personCardIds = tagged.filter((n) => n.kind === "person").map((n) => n.id);
+  const householdsOfPerson = new Map<string, string[]>();
+  if (personCardIds.length) {
+    const hh = await c.env.DB.prepare(
+      `SELECT m.person_id, m.group_id
+       FROM membership m JOIN grp g ON g.id = m.group_id
+       WHERE m.person_id IN (${personCardIds.map(() => "?").join(",")}) AND g.kind = 'household'`,
+    )
+      .bind(...personCardIds)
+      .all<{ person_id: string; group_id: string }>();
+    for (const r of hh.results) {
+      householdsOfPerson.set(r.person_id, [...(householdsOfPerson.get(r.person_id) ?? []), r.group_id]);
+    }
+  }
+  const lookupIds = [
+    ...new Set([
+      ...tagged.filter((n) => n.kind === "household").map((n) => n.id),
+      ...[...householdsOfPerson.values()].flat(),
+    ]),
+  ];
+  const roomsByHousehold = await classroomsByHousehold(c.env, lookupIds, {
+    userId: auth.userId,
+    isSystemAdmin: auth.isSystemAdmin,
+  });
+
+  const neighbors = tagged.map(({ _d, ...n }) => {
+    const ids = n.kind === "household" ? [n.id] : (householdsOfPerson.get(n.id) ?? []);
+    // A Person may sit in two households, so the union is deduped by id the way
+    // `classroomsByHousehold` dedupes across siblings.
+    const rooms: NeighborDTO["classrooms"] = [];
+    for (const id of ids) {
+      for (const room of roomsByHousehold.get(id) ?? []) {
+        if (!rooms.some((x) => x.id === room.id)) rooms.push(room);
+      }
+    }
+    return { ...n, classrooms: rooms };
+  });
+  return c.json<NeighborsResponse>({ neighbors });
 });

@@ -427,13 +427,24 @@ export function GroupTile({
   );
 }
 
+/** One card in Home's Neighbors row.
+ *
+ *  `rooms` is the neighbour household's children's classrooms, and it is the
+ *  same `ClassroomLine` the directory row, the profile's household card and a
+ *  household's group page render — deliberately, for that component's own
+ *  reason: a room elided one way here and clipped another way on the profile
+ *  this card links to would answer "which room?" twice, one tap apart. It
+ *  renders nothing when the household has no student on a roster, so a card for
+ *  a neighbour with no children keeps the shape it had before. */
 export function NeighborCard({
   name,
   dist,
+  rooms,
   onClick,
 }: {
   name: string;
   dist: string;
+  rooms?: ClassroomRefDTO[];
   onClick?: () => void;
 }) {
   return (
@@ -456,8 +467,13 @@ export function NeighborCard({
           <Icon name="pin" size={11} stroke={2} />{dist}
         </span>
       </div>
-      <div>
+      <div style={{ minWidth: 0 }}>
         <div style={{ fontSize: 14.5, fontWeight: 700, letterSpacing: "-.2px", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{name}</div>
+        {rooms?.length ? (
+          <div className="sd-meta" style={{ marginTop: 3, minWidth: 0 }}>
+            <ClassroomLine rooms={rooms} />
+          </div>
+        ) : null}
       </div>
     </div>
   );

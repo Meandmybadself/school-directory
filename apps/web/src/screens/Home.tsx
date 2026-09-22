@@ -2,7 +2,7 @@
 // 4-up Neighbors row and the groups list.
 import { useEffect, useState, type ReactNode } from "react";
 import { useNavigate } from "react-router-dom";
-import { eventPath, groupLabel, htmlToText, roleCapabilities, type CalendarEventDTO, type GroupSummaryDTO, type NeighborsResponse, type PersonProfileDTO, type PublicNewsletterIssueSummaryDTO } from "@sd/shared";
+import { eventPath, groupLabel, htmlToText, roleCapabilities, type CalendarEventDTO, type GroupSummaryDTO, type NeighborDTO, type NeighborsResponse, type PersonProfileDTO, type PublicNewsletterIssueSummaryDTO } from "@sd/shared";
 import { Icon } from "../components/Icon.js";
 import { Btn } from "../components/atoms.js";
 import type { I18nT } from "../i18n/index.js";
@@ -55,7 +55,7 @@ export function Home() {
 interface ViewProps {
   activePerson: NonNullable<ReturnType<typeof useSession>["activePerson"]>;
   groups: GroupSummaryDTO[];
-  list: { id: string; name: string; approxDistance: string; kind: "person" | "household" }[] | null;
+  list: NeighborDTO[] | null;
   hasNeighbors: boolean;
   /** True only when the Person has no address at all (show the add-address CTA). */
   noAddress: boolean;
@@ -159,6 +159,7 @@ function useNeighborCards(list: ViewProps["list"]) {
       key={`${n.kind}:${n.id}`}
       name={n.name}
       dist={n.approxDistance}
+      rooms={n.classrooms}
       onClick={() => navigate(n.kind === "household" ? `/groups/${n.id}` : `/persons/${n.id}`)}
     />
   ));

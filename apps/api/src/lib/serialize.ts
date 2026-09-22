@@ -113,6 +113,66 @@ export async function classroomsByPerson(
   return out;
 }
 
+/** The classrooms the STUDENTS of each of these households are on the roster
+ *  of, batched — the household-shaped reading of the label above.
+ *
+ *  Home's neighbour cards are the one listing that asks the question this way
+ *  round. A card names a FAMILY, so the useful label is not "which rooms does
+ *  this adult belong to" but "which rooms are this family's children in", which
+ *  is what a parent is scanning the row for in the first place.
+ *
+ *  It is a wrapper over `classroomsByPerson` and deliberately not a second copy
+ *  of that join: the `kind = 'classroom'` and `student` terms are the whole
+ *  correctness of the label (a fourth call site that forgot either is exactly
+ *  the failure that function's own comment is written against), so this adds
+ *  the household hop and nothing else. Rooms are deduped by id across siblings
+ *  and re-sorted by name, since the merge spans several children and the
+ *  per-person ORDER BY only orders within one.
+ *
+ *  Its own statement reads `person`, so it composes `personListableSql`
+ *  (invariant 21) and spends none of `test/personListable.test.ts`'s exemption
+ *  budget. That guard is the point rather than ceremony: unlike the three
+ *  listings above — where the caller's own gated statement already settled
+ *  WHICH Persons are in the list and this only labels them — here the viewer
+ *  named a household, never its members, so an ungated read would let a room
+ *  report an unlisted child that every other surface withholds. A household
+ *  whose only student is unlisted comes back with no rooms, which reads
+ *  identically to a household with no student in it.
+ *
+ *  `self_asserted` is not filtered, for `classroomsByPerson`'s reason. */
+export async function classroomsByHousehold(
+  env: Env,
+  householdIds: string[],
+  viewer: { userId: string; isSystemAdmin: boolean },
+): Promise<Map<string, ClassroomRefDTO[]>> {
+  const out = new Map<string, ClassroomRefDTO[]>();
+  if (!householdIds.length) return out;
+  const listable = personListableSql(viewer.userId, viewer.isSystemAdmin, "p");
+  const rows = await env.DB.prepare(
+    `SELECT m.group_id, m.person_id
+     FROM membership m JOIN person p ON p.id = m.person_id
+     WHERE m.group_id IN (${householdIds.map(() => "?").join(",")})
+       AND ${listable.sql}`,
+  )
+    .bind(...householdIds, ...listable.binds)
+    .all<{ group_id: string; person_id: string }>();
+
+  const personIds = [...new Set(rows.results.map((r) => r.person_id))];
+  const rooms = await classroomsByPerson(env, personIds);
+
+  for (const r of rows.results) {
+    const mine = rooms.get(r.person_id);
+    if (!mine?.length) continue;
+    const arr = out.get(r.group_id) ?? [];
+    for (const room of mine) if (!arr.some((x) => x.id === room.id)) arr.push(room);
+    out.set(r.group_id, arr);
+  }
+  for (const arr of out.values()) {
+    arr.sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: "base" }) || (a.id < b.id ? -1 : 1));
+  }
+  return out;
+}
+
 async function groupsFor(
   env: Env,
   personId: string,

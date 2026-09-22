@@ -924,6 +924,27 @@ export interface NeighborDTO {
   /** Rounded, human string e.g. "~0.4 mi". Never raw coordinates. */
   approxDistance: string;
   kind: "person" | "household";
+  /** The classrooms the STUDENTS of this neighbour's household are on the
+   *  roster of — the grade and teacher a parent actually scans this row for,
+   *  since "who lives nearby" is asked in order to find the family whose child
+   *  is in the same room. Deduped across the household's children, so a card
+   *  names each room once however many siblings sit in it.
+   *
+   *  Household-derived by construction, for BOTH kinds of card: a `household`
+   *  card reads its own roster, and a `person` card reads the households that
+   *  Person belongs to. A Person in no household therefore carries nothing,
+   *  which is the ask read literally — the question is what the HOUSEHOLD's
+   *  children are in, not what this one adult's memberships are.
+   *
+   *  Optional for `PersonSummaryDTO`'s reason: absent is "the route did not
+   *  look", `[]` is "no student in the household is on a roster". It discloses
+   *  nothing new — `GET /groups/:id` already serves every roster to any
+   *  authenticated member — and it is invariant 18's SAFE direction, the card
+   *  rendering more than the scan matched on. The co-members it reads are
+   *  nonetheless put through `personListableSql`: a room is a fact about a
+   *  child, and invariant 21 decides whether that child exists to this viewer
+   *  before any field on them does. */
+  classrooms?: ClassroomRefDTO[];
 }
 
 export type NeighborsResponse =
