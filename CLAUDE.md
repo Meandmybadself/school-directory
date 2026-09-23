@@ -1597,6 +1597,21 @@ All five SPAs are separate Cloudflare Pages projects talking to the single
   plus the shared package for an `hour:` option and fails on one that neither
   composes `CLOCK` nor says why, because the failure here is always a NEW call
   site and no route test will ever notice a stray `hour: "numeric"`.
+- **Every timed event is read in the SCHOOL'S timezone, never the reader's.**
+  One configured IANA zone, default `America/Chicago` (`DEFAULT_TIME_ZONE` in
+  `packages/shared/src/timezone.ts`), set in three places that must agree:
+  `SCHOOL_TIMEZONE` in `apps/api/wrangler.toml` and `apps/home/wrangler.toml`,
+  and `VITE_SCHOOL_TIMEZONE` on the calendar build in `deploy.yml`. Always read
+  it through `resolveTimeZone`, which turns a missing or misspelled zone into
+  the default rather than a `RangeError` on every date. In `apps/calendar` the
+  resolved value is `SCHOOL_TIME_ZONE` (`lib/timezone.ts`), and the agenda's
+  day grouping, every clock time, the event paths it mints and the admin
+  event and shift forms all go through it. A parent reading the calendar from
+  another zone sees the school's 5:30 PM, and an admin typing an event while
+  travelling stores the school's 5:30 PM. That second case is why this exists:
+  the form used to read the admin's browser zone. All-day events are still
+  read in UTC (they are dates stored at UTC midnight). The other SPAs
+  (`apps/web`'s Home block, the PTO boards) still use the reader's zone.
 - Visibility chip states: `members` (blue) / `private` (slate) / `shared` (orange).
   There is **no public state** anywhere in the UI.
 - **Dark mode is `prefers-color-scheme` only** — no toggle, nothing persisted, in

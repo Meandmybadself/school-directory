@@ -34,6 +34,7 @@ import { SiteFooter } from "../components/SiteFooter.js";
 import { useI18n } from "../i18n/index.js";
 import { useIsDesktop } from "../lib/useIsDesktop.js";
 import { api } from "../lib/api.js";
+import { SCHOOL_TIME_ZONE } from "../lib/timezone.js";
 import { useSession } from "../lib/session.js";
 
 export function VolunteerRedirect() {
@@ -57,7 +58,7 @@ export function VolunteerRedirect() {
         if (cancelled) return;
         // `replace` so Back returns to wherever the link was opened from rather
         // than bouncing through here again.
-        navigate(`${eventPath(r.sheet.event)}?sheet=${encodeURIComponent(slug)}`, { replace: true });
+        navigate(`${eventPath(r.sheet.event, SCHOOL_TIME_ZONE)}?sheet=${encodeURIComponent(slug)}`, { replace: true });
       } catch {
         if (!cancelled) setState("missing");
       }

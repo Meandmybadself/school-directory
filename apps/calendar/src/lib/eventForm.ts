@@ -3,18 +3,27 @@
 // Two conventions have to be respected, and getting either wrong is a
 // silently-off-by-hours or off-by-a-day bug:
 //
-//  1. Timed events are wall-clock. `<input type="datetime-local">` gives the
-//     admin's local time; the API stores a UTC instant. There is no school
-//     timezone setting anywhere in this system — the whole app assumes the
-//     viewer's local zone is the school's — so "local time in the admin's
-//     browser" is the definition of the event's time.
+//  1. Timed events are wall-clock IN THE SCHOOL'S ZONE (`SCHOOL_TIME_ZONE`,
+//     lib/timezone.ts). The date and time inputs give the time as it reads
+//     where the school is; the API stores a UTC instant. The admin's own
+//     browser zone plays no part: an admin entering "5:30 PM" while
+//     travelling means 5:30 PM at the school, and that is what is stored.
 //  2. All-day events are dates, not instants. They are stored as midnight UTC so
 //     the stored day matches the day that was picked regardless of who reads it,
 //     and their end is the RFC 5545 *exclusive* day-after-the-last-day. Admins
 //     pick the inclusive last day, so the +1/-1 day conversion happens here and
 //     never leaks into the UI.
 
-import type { ManagedEventDTO, ManagedEventInput, RecurFreq, Weekday } from "@sd/shared";
+import {
+  isoToZonedDate,
+  isoToZonedTime,
+  zonedToIso,
+  type ManagedEventDTO,
+  type ManagedEventInput,
+  type RecurFreq,
+  type Weekday,
+} from "@sd/shared";
+import { SCHOOL_TIME_ZONE } from "./timezone.js";
 
 export interface EventForm {
   title: string;
@@ -44,13 +53,9 @@ function pad(n: number): string {
   return String(n).padStart(2, "0");
 }
 
-/** yyyy-mm-dd + HH:mm, read as the browser's local time, as a UTC ISO string. */
-export function localToIso(date: string, time: string): string {
-  const [y, m, d] = date.split("-").map(Number);
-  const [hh, mm] = (time || "00:00").split(":").map(Number);
-  // The multi-arg Date constructor interprets its arguments as local time, which
-  // is exactly the wall-clock semantics we want.
-  return new Date(y!, m! - 1, d!, hh!, mm!, 0, 0).toISOString();
+/** yyyy-mm-dd + HH:mm, read as the school's wall clock, as a UTC ISO string. */
+export function schoolToIso(date: string, time: string, timeZone: string = SCHOOL_TIME_ZONE): string {
+  return zonedToIso(date, time, timeZone);
 }
 
 /** yyyy-mm-dd as midnight UTC — the storage form for an all-day boundary. */
@@ -64,17 +69,15 @@ export function isoToUtcDate(iso: string): string {
   return iso.slice(0, 10);
 }
 
-/** The local calendar date of an ISO instant, as yyyy-mm-dd — for timed events,
- *  whose form inputs are local. */
-export function isoToLocalDate(iso: string): string {
-  const d = new Date(iso);
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+/** The school's calendar date of an ISO instant, as yyyy-mm-dd — for timed
+ *  events, whose form inputs are in the school's zone. */
+export function isoToSchoolDate(iso: string, timeZone: string = SCHOOL_TIME_ZONE): string {
+  return isoToZonedDate(iso, timeZone);
 }
 
-/** The local wall-clock time of an ISO instant, as HH:mm. */
-export function isoToLocalTime(iso: string): string {
-  const d = new Date(iso);
-  return `${pad(d.getHours())}:${pad(d.getMinutes())}`;
+/** The school's wall-clock time of an ISO instant, as HH:mm. */
+export function isoToSchoolTime(iso: string, timeZone: string = SCHOOL_TIME_ZONE): string {
+  return isoToZonedTime(iso, timeZone);
 }
 
 /** Shift a yyyy-mm-dd by whole days, staying in UTC so no DST transition can
@@ -86,20 +89,20 @@ export function shiftDate(date: string, days: number): string {
 /** UNTIL for a recurrence, from the inclusive last day the admin picked.
  *
  *  All-day: midnight UTC of that day, so the emitted DATE-typed UNTIL is that day.
- *  Timed: the local END of that day, so an occurrence late in the evening still
- *  falls on or before UNTIL — using midnight would silently drop the last one for
- *  any event whose UTC instant lands on the following day. */
-export function untilToIso(date: string, allDay: boolean): string {
+ *  Timed: the END of that day at the school, so an occurrence late in the
+ *  evening still falls on or before UNTIL — using midnight would silently drop
+ *  the last one for any event whose UTC instant lands on the following day. */
+export function untilToIso(date: string, allDay: boolean, timeZone: string = SCHOOL_TIME_ZONE): string {
   if (allDay) return dateToIso(date);
-  const [y, m, d] = date.split("-").map(Number);
-  return new Date(y!, m! - 1, d!, 23, 59, 59, 999).toISOString();
+  // The last millisecond before the next day begins at the school.
+  return new Date(new Date(zonedToIso(shiftDate(date, 1), "00:00", timeZone)).getTime() - 1).toISOString();
 }
 
-/** Blank form, defaulting to the next whole hour today. */
-export function emptyForm(): EventForm {
-  const now = new Date();
-  const date = isoToLocalDate(now.toISOString());
-  const hour = pad(Math.min(now.getHours() + 1, 23));
+/** Blank form, defaulting to the next whole hour today, at the school. */
+export function emptyForm(now: Date = new Date()): EventForm {
+  const iso = now.toISOString();
+  const date = isoToSchoolDate(iso);
+  const hour = pad(Math.min(Number(isoToSchoolTime(iso).slice(0, 2)) + 1, 23));
   return {
     title: "",
     location: "",
@@ -121,12 +124,12 @@ export function emptyForm(): EventForm {
 export function formFromEvent(e: ManagedEventDTO): EventForm {
   const base = emptyForm();
   const allDay = e.allDay;
-  const startDate = allDay ? isoToUtcDate(e.start) : isoToLocalDate(e.start);
+  const startDate = allDay ? isoToUtcDate(e.start) : isoToSchoolDate(e.start);
   // All-day ends are stored exclusive; show the inclusive last day.
   const endDate = e.end
     ? allDay
       ? shiftDate(isoToUtcDate(e.end), -1)
-      : isoToLocalDate(e.end)
+      : isoToSchoolDate(e.end)
     : startDate;
 
   return {
@@ -137,16 +140,16 @@ export function formFromEvent(e: ManagedEventDTO): EventForm {
     meetingUrl: e.meetingUrl ?? "",
     allDay,
     startDate,
-    startTime: allDay ? base.startTime : isoToLocalTime(e.start),
+    startTime: allDay ? base.startTime : isoToSchoolTime(e.start),
     endDate,
-    endTime: !allDay && e.end ? isoToLocalTime(e.end) : "",
+    endTime: !allDay && e.end ? isoToSchoolTime(e.end) : "",
     repeat: e.recurrence?.freq ?? "none",
     interval: String(e.recurrence?.interval ?? 1),
     byDay: e.recurrence?.byDay ?? [],
     untilDate: e.recurrence
       ? allDay
         ? isoToUtcDate(e.recurrence.until)
-        : isoToLocalDate(e.recurrence.until)
+        : isoToSchoolDate(e.recurrence.until)
       : base.untilDate,
   };
 }
@@ -186,7 +189,7 @@ export function validateForm(f: EventForm): string | null {
 /** Build the API payload. Assumes `validateForm` already passed. */
 export function toInput(f: EventForm): ManagedEventInput {
   const allDay = f.allDay;
-  const start = allDay ? dateToIso(f.startDate) : localToIso(f.startDate, f.startTime);
+  const start = allDay ? dateToIso(f.startDate) : schoolToIso(f.startDate, f.startTime);
 
   let end: string | null = null;
   if (allDay) {
@@ -202,13 +205,13 @@ export function toInput(f: EventForm): ManagedEventInput {
     // the API answered "End must be on or after the start." for every date
     // change on a timed event. `endDate` stays in the form because the all-day
     // branch above genuinely uses it.
-    end = localToIso(f.startDate, f.endTime);
+    end = schoolToIso(f.startDate, f.endTime);
     // An end at or before the start on the same day is how a single date field
     // has to express an event running past local midnight (21:00–01:00), which
     // is the one case the old `endDate` was carrying correctly. Equal times stay
     // a zero-length event rather than becoming a 24-hour one.
     if (new Date(end).getTime() < new Date(start).getTime()) {
-      end = localToIso(shiftDate(f.startDate, 1), f.endTime);
+      end = schoolToIso(shiftDate(f.startDate, 1), f.endTime);
     }
   }
 

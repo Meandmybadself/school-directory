@@ -26,6 +26,7 @@ FEEDBACK_EMAIL = "admin@eisenhower.school"
 SCHOOL_CITY = "Hopkins"
 SCHOOL_REGION = "Minnesota"
 SCHOOL_REGION_CODE = "MN"
+SCHOOL_TIMEZONE = "America/Chicago"
 
 [env.production.vars]
 SCHOOL_NAME = "Eisenhower PTO"
@@ -41,6 +42,7 @@ FEEDBACK_EMAIL = "admin@eisenhower.school"
 SCHOOL_CITY = "Hopkins"
 SCHOOL_REGION = "Minnesota"
 SCHOOL_REGION_CODE = "MN"
+SCHOOL_TIMEZONE = "America/Chicago"
 
 # Both hostnames are served by this Worker; www 301s to the apex in src/index.ts
 # rather than in a Cloudflare redirect rule, so the whole routing story for the

@@ -5,6 +5,7 @@
 import { useState, type ReactNode } from "react";
 import type { CalendarSourceDTO, ManagedCalendarRemovalImpactDTO, ManagedEventDTO } from "@sd/shared";
 import { CLOCK } from "@sd/shared";
+import { SCHOOL_TIME_ZONE } from "../lib/timezone.js";
 import { Btn } from "./atoms.js";
 import { Icon } from "./Icon.js";
 
@@ -33,7 +34,7 @@ export function ErrorText({ children }: { children: ReactNode }) {
 
 export function fmtTime(iso: string): string {
   try {
-    return new Date(iso).toLocaleString(undefined, { month: "short", day: "numeric", ...CLOCK });
+    return new Date(iso).toLocaleString(undefined, { timeZone: SCHOOL_TIME_ZONE, month: "short", day: "numeric", ...CLOCK });
   } catch {
     return iso;
   }
@@ -46,18 +47,18 @@ export function describeEvent(e: ManagedEventDTO): string {
   const start = new Date(e.start);
   const date = e.allDay
     ? start.toLocaleDateString(undefined, { timeZone: "UTC", month: "short", day: "numeric", year: "numeric" })
-    : start.toLocaleString(undefined, { month: "short", day: "numeric", ...CLOCK });
+    : start.toLocaleString(undefined, { timeZone: SCHOOL_TIME_ZONE, month: "short", day: "numeric", ...CLOCK });
   if (!e.recurrence) return e.allDay ? `${date} · all day` : date;
 
   const { freq, interval = 1, byDay, until } = e.recurrence;
   const every = interval > 1 ? `every ${interval} ${freq === "daily" ? "days" : freq === "weekly" ? "weeks" : "months"}` : freq;
   const days = freq === "weekly" && byDay?.length ? ` on ${byDay.join(", ")}` : "";
   // UNTIL is stored to match its event's kind: midnight UTC for an all-day
-  // series, the local END of the chosen day for a timed one (so a late-evening
+  // series, the END of the chosen day at the school for a timed one (so a late-evening
   // occurrence still falls inside it). Reading a timed UNTIL in UTC therefore
   // reports the following day — picking "Aug 29" rendered as "until Aug 30".
   const untilLabel = new Date(until).toLocaleDateString(undefined, {
-    ...(e.allDay ? { timeZone: "UTC" } : {}),
+    timeZone: e.allDay ? "UTC" : SCHOOL_TIME_ZONE,
     month: "short",
     day: "numeric",
     year: "numeric",

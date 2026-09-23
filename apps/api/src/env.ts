@@ -24,8 +24,9 @@ export interface Env {
   /** Public origin of the PTO site. Nothing this API sends by email points at
    *  it yet — it is here so the origin has one home, beside its siblings. */
   PTO_URL?: string;
-  /** IANA zone used to name the day/time of events rendered server-side (email
-   *  and public archive), which have no viewer to infer a zone from. */
+  /** The school's IANA zone. Everything server-side reads timed events in it
+   *  (email, public archive, Slack, unzoned feed times). Always read through
+   *  `resolveTimeZone`, which falls back to America/Chicago. */
   SCHOOL_TIMEZONE?: string;
   /** Override the Nominatim search endpoint (e.g. a self-hosted instance). */
   NOMINATIM_URL?: string;

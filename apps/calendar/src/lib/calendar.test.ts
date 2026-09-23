@@ -39,18 +39,18 @@ describe("eventDayKey", () => {
     expect(eventDayKey(ev({ allDay: true, start: "2027-01-01T00:00:00.000Z" }))).toBe("2027-01-01");
   });
 
-  it("reads a timed event locally, matching how its time is displayed", () => {
-    const start = "2026-09-14T23:30:00.000Z"; // 6:30pm CDT
-    const d = new Date(start);
-    const expected = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-    expect(eventDayKey(ev({ allDay: false, start }))).toBe(expected);
+  it("reads a timed event in the SCHOOL'S zone, whatever the reader's is", () => {
+    // 23:30 UTC is 6:30pm CDT on the 14th — and already the 15th in UTC or
+    // anywhere east of it. The school's day is the one that counts.
+    expect(eventDayKey(ev({ allDay: false, start: "2026-09-14T23:30:00.000Z" }))).toBe("2026-09-14");
+    // 04:30 UTC on the 15th is still 11:30pm on the 14th in Chicago.
+    expect(eventDayKey(ev({ allDay: false, start: "2026-09-15T04:30:00.000Z" }))).toBe("2026-09-14");
   });
 
-  it("groups a timed and an all-day event that share a calendar day together", () => {
-    // A 6:30pm CDT meeting and an all-day event, both on 2026-09-14 locally
-    // only when the host is Central. Assert on the all-day one being stable
-    // instead, which holds everywhere.
+  it("groups a timed and an all-day event that share a school day together", () => {
+    // A 6:30pm CDT meeting and an all-day event on 2026-09-14.
     expect(eventDayKey(ev({ allDay: true, start: "2026-09-14T00:00:00.000Z" }))).toBe("2026-09-14");
+    expect(eventDayKey(ev({ allDay: false, start: "2026-09-14T23:30:00.000Z" }))).toBe("2026-09-14");
   });
 });
 
@@ -74,10 +74,9 @@ describe("formatEventDay", () => {
     expect(label).toBe("May 3");
   });
 
-  it("labels a timed event from its local instant", () => {
-    const start = "2026-09-14T23:30:00.000Z";
-    const expected = new Date(start).toLocaleDateString("en-US", { month: "long", day: "numeric" });
-    expect(formatEventDay(ev({ allDay: false, start }), "en-US", { month: "long", day: "numeric" })).toBe(expected);
+  it("labels a timed event with the school's day, not the reader's", () => {
+    const start = "2026-09-15T04:30:00.000Z"; // 11:30pm CDT on the 14th
+    expect(formatEventDay(ev({ allDay: false, start }), "en-US", { month: "long", day: "numeric" })).toBe("September 14");
   });
 });
 

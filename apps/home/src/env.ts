@@ -26,4 +26,8 @@ export interface Env {
   SCHOOL_REGION: string;
   /** ISO 3166-2 subdivision code, e.g. "MN" — `addressRegion` in the JSON-LD. */
   SCHOOL_REGION_CODE: string;
+  /** IANA zone the school is in; the upcoming-events block names days and
+   *  times in it. Must match the API's. Unset or invalid → America/Chicago
+   *  (`resolveTimeZone` in @sd/shared). */
+  SCHOOL_TIMEZONE?: string;
 }

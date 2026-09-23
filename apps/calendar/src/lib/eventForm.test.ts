@@ -1,7 +1,6 @@
-// Conversions between the event form and the API payload. These assertions are
-// written to hold in ANY host timezone: the all-day rules are absolute (midnight
-// UTC, exclusive end), and the timed rules are checked as round-trips rather
-// than against hardcoded offsets.
+// Conversions between the event form and the API payload. Timed values are the
+// SCHOOL'S wall clock (America/Chicago by default), never the host's, so these
+// assertions hold in any host timezone — run them with TZ=Asia/Tokyo to see.
 
 import { describe, expect, it } from "vitest";
 import type { ManagedEventDTO } from "@sd/shared";
@@ -9,9 +8,9 @@ import {
   dateToIso,
   emptyForm,
   formFromEvent,
-  isoToLocalDate,
-  isoToLocalTime,
-  localToIso,
+  isoToSchoolDate,
+  isoToSchoolTime,
+  schoolToIso,
   shiftDate,
   toInput,
   untilToIso,
@@ -44,30 +43,45 @@ describe("date helpers", () => {
   });
 
   it("round-trips a local date and time through UTC", () => {
-    const iso = localToIso("2026-09-18", "17:30");
-    expect(isoToLocalDate(iso)).toBe("2026-09-18");
-    expect(isoToLocalTime(iso)).toBe("17:30");
+    const iso = schoolToIso("2026-09-18", "17:30");
+    expect(isoToSchoolDate(iso)).toBe("2026-09-18");
+    expect(isoToSchoolTime(iso)).toBe("17:30");
   });
 
   it("round-trips local times across both DST boundaries", () => {
     for (const date of ["2026-03-08", "2026-11-01", "2026-06-15", "2026-01-15"]) {
-      const iso = localToIso(date, "14:05");
-      expect(isoToLocalDate(iso)).toBe(date);
-      expect(isoToLocalTime(iso)).toBe("14:05");
+      const iso = schoolToIso(date, "14:05");
+      expect(isoToSchoolDate(iso)).toBe(date);
+      expect(isoToSchoolTime(iso)).toBe("14:05");
     }
+  });
+
+  it("reads timed values as the school's wall clock, not the host's", () => {
+    // 5:30pm in Chicago in September is CDT, UTC-5.
+    expect(schoolToIso("2026-09-18", "17:30")).toBe("2026-09-18T22:30:00.000Z");
+    // ...and CST, UTC-6, once daylight saving ends.
+    expect(schoolToIso("2026-12-03", "17:30")).toBe("2026-12-03T23:30:00.000Z");
+    expect(isoToSchoolDate("2026-09-19T03:00:00.000Z")).toBe("2026-09-18");
+    expect(isoToSchoolTime("2026-09-19T03:00:00.000Z")).toBe("22:00");
+  });
+
+  it("honours an explicitly configured zone", () => {
+    expect(schoolToIso("2026-09-18", "17:30", "America/New_York")).toBe("2026-09-18T21:30:00.000Z");
+    expect(isoToSchoolTime("2026-09-18T21:30:00.000Z", "America/Los_Angeles")).toBe("14:30");
   });
 
   it("uses midnight UTC for an all-day UNTIL so the emitted DATE is that day", () => {
     expect(untilToIso("2026-12-18", true)).toBe("2026-12-18T00:00:00.000Z");
   });
 
-  it("uses the local end of day for a timed UNTIL, so a late occurrence still counts", () => {
-    // An 8pm event's UTC instant can fall on the following day; UNTIL therefore
-    // has to be the END of the chosen local day, not its midnight.
+  it("uses the school's end of day for a timed UNTIL, so a late occurrence still counts", () => {
+    // An 8pm event's UTC instant falls on the following day; UNTIL therefore
+    // has to be the END of the chosen school day, not its midnight.
     const until = untilToIso("2026-12-18", false);
-    const lastOccurrence = localToIso("2026-12-18", "20:00");
+    const lastOccurrence = schoolToIso("2026-12-18", "20:00");
     expect(new Date(until).getTime()).toBeGreaterThan(new Date(lastOccurrence).getTime());
-    expect(isoToLocalDate(until)).toBe("2026-12-18");
+    expect(isoToSchoolDate(until)).toBe("2026-12-18");
+    expect(until).toBe("2026-12-19T05:59:59.999Z");
   });
 });
 
@@ -75,8 +89,8 @@ describe("toInput", () => {
   it("sends a timed event as UTC instants matching the local wall clock", () => {
     const input = toInput(form());
     expect(input.allDay).toBe(false);
-    expect(isoToLocalTime(input.start)).toBe("17:30");
-    expect(isoToLocalTime(input.end!)).toBe("20:00");
+    expect(isoToSchoolTime(input.start)).toBe("17:30");
+    expect(isoToSchoolTime(input.end!)).toBe("20:00");
     expect(input.recurrence).toBeNull();
   });
 
@@ -191,8 +205,8 @@ describe("formFromEvent", () => {
   });
 
   it("round-trips a timed recurring event through the form unchanged", () => {
-    const start = localToIso("2026-09-18", "17:30");
-    const end = localToIso("2026-09-18", "20:00");
+    const start = schoolToIso("2026-09-18", "17:30");
+    const end = schoolToIso("2026-09-18", "20:00");
     const until = untilToIso("2026-12-18", false);
     const input = toInput(
       formFromEvent(
@@ -210,7 +224,7 @@ describe("formFromEvent", () => {
   });
 
   it("falls back to the start date when the event has no end", () => {
-    const f = formFromEvent(dto({ allDay: false, start: localToIso("2026-09-18", "17:30"), end: null }));
+    const f = formFromEvent(dto({ allDay: false, start: schoolToIso("2026-09-18", "17:30"), end: null }));
     expect(f.endTime).toBe("");
     expect(f.endDate).toBe("2026-09-18");
   });
@@ -234,8 +248,8 @@ describe("moving a timed event's date", () => {
     location: null,
     description: null,
     meetingUrl: null,
-    start: localToIso("2026-09-14", "18:30"),
-    end: localToIso("2026-09-14", "20:00"),
+    start: schoolToIso("2026-09-14", "18:30"),
+    end: schoolToIso("2026-09-14", "20:00"),
     allDay: false,
     recurrence: null,
   } as ManagedEventDTO;
@@ -243,10 +257,10 @@ describe("moving a timed event's date", () => {
   it("carries the end onto the new date", () => {
     const moved = { ...formFromEvent(meeting), startDate: "2026-09-28" };
     const input = toInput(moved);
-    expect(isoToLocalDate(input.start)).toBe("2026-09-28");
+    expect(isoToSchoolDate(input.start)).toBe("2026-09-28");
     // The whole bug: this used to come back as 2026-09-14.
-    expect(isoToLocalDate(input.end!)).toBe("2026-09-28");
-    expect(isoToLocalTime(input.end!)).toBe("20:00");
+    expect(isoToSchoolDate(input.end!)).toBe("2026-09-28");
+    expect(isoToSchoolTime(input.end!)).toBe("20:00");
     expect(new Date(input.end!).getTime()).toBeGreaterThan(new Date(input.start).getTime());
   });
 
@@ -262,7 +276,7 @@ describe("moving a timed event's date", () => {
     // The one case the old `endDate` handled correctly, and the reason the fix
     // rolls forward a day instead of just clamping to the start's date.
     const input = toInput(form({ startDate: "2026-09-18", startTime: "21:00", endTime: "01:00" }));
-    expect(isoToLocalDate(input.end!)).toBe("2026-09-19");
+    expect(isoToSchoolDate(input.end!)).toBe("2026-09-19");
     expect(new Date(input.end!).getTime()).toBeGreaterThan(new Date(input.start).getTime());
   });
 

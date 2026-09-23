@@ -28,6 +28,7 @@ import { useI18n } from "../i18n/index.js";
 import { useIsDesktop } from "../lib/useIsDesktop.js";
 import { api } from "../lib/api.js";
 import { useSession } from "../lib/session.js";
+import { SCHOOL_TIME_ZONE } from "../lib/timezone.js";
 import {
   showsDescription,
   showsAllDayLabel,
@@ -108,7 +109,7 @@ function groupByDay(events: PublicCalendarEventDTO[]): DayGroup[] {
 }
 
 function timeOf(e: PublicCalendarEventDTO, locale: string, t: ReturnType<typeof useI18n>["t"]): string {
-  return e.allDay ? t("allDay") : formatClock(e.start, locale);
+  return e.allDay ? t("allDay") : formatClock(e.start, locale, SCHOOL_TIME_ZONE);
 }
 
 function EventRow({ e, locale, onOpen }: { e: PublicCalendarEventDTO; locale: string; onOpen: () => void }) {
@@ -379,10 +380,10 @@ export function Calendar() {
               {/* Out to the event's own URL rather than into a modal, so what a
                   reader is looking at is something they can share, bookmark or
                   reopen. The path is built from the event's content identity —
-                  see @sd/shared's eventPath — in the READER'S timezone, which is
+                  see @sd/shared's eventPath — in the SCHOOL'S timezone, which is
                   the same zone the day heading above was formatted in. */}
               {g.events.map((e) => (
-                <EventRow key={e.id} e={e} locale={locale} onOpen={() => navigate(eventPath(e))} />
+                <EventRow key={e.id} e={e} locale={locale} onOpen={() => navigate(eventPath(e, SCHOOL_TIME_ZONE))} />
               ))}
             </div>
           </div>

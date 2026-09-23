@@ -39,11 +39,11 @@ export const CLOCK = {
 
 /** One instant as a clock time — "1:30 PM".
  *
- *  `timeZone` is the caller's to decide and the choice is not cosmetic: a
- *  Worker has no reader timezone, so anything rendered server-side (the front
- *  door, a newsletter, an ICS-derived label) passes `SCHOOL_TIMEZONE`, while a
- *  browser passes nothing and gets the reader's own. Handing the wrong one in
- *  moves the event.
+ *  `timeZone` is the caller's to decide and the choice is not cosmetic: an
+ *  event's time is the school's wall clock, so anything showing one (the
+ *  calendar app, the front door, a newsletter) passes the school's zone
+ *  (timezone.ts). Omitted, it is the reader's own, which moves the event for
+ *  anyone not where the school is.
  *
  *  `locale` may be omitted for the browser's own, which is what the admin
  *  screens want: they are English-only operator chrome and take no part in the

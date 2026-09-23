@@ -32,8 +32,10 @@ PTO_URL = "http://localhost:5178"
 # expected to CHANGE ONCE, when this moves from a personal Printful store to the
 # PTO's — see migration 0022 on why that day is a re-point, not a migration.
 # PRINTFUL_STORE_ID = ""
-# Zone for naming event days/times in server-rendered output (newsletter email
-# and public archive), which has no viewer whose zone could be used instead.
+# The school's timezone (IANA). Every timed event is read in it: unzoned feed
+# times, the newsletter email and archive, Slack, PTO board dates. Keep it in
+# step with apps/home's SCHOOL_TIMEZONE and the calendar build's
+# VITE_SCHOOL_TIMEZONE (deploy.yml). Unset or invalid → America/Chicago.
 SCHOOL_TIMEZONE = "America/Chicago"
 # Geocoding endpoint (OpenStreetMap Nominatim). Override to a self-hosted/paid
 # instance if address volume ever outgrows the public endpoint's 1 rps policy.

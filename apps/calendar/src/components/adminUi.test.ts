@@ -1,7 +1,7 @@
 // The admin summary line for an event's schedule.
 //
 // The trap: an event's UNTIL is stored to match its kind — midnight UTC for an
-// all-day series, the local END of the chosen day for a timed one (so a
+// all-day series, the END of the chosen day at the school for a timed one (so a
 // late-evening occurrence still falls inside it). Formatting both in UTC made a
 // timed rule report the day AFTER the one the admin picked.
 
@@ -26,8 +26,8 @@ const ev = (over: Partial<ManagedEventDTO>): ManagedEventDTO => ({
 
 describe("describeEvent", () => {
   it("reports a timed rule's UNTIL as the day the admin actually picked", () => {
-    // untilToIso stores the LOCAL end of Aug 29; formatting that in UTC would
-    // read as Aug 30 for anyone west of UTC.
+    // untilToIso stores the school's end of Aug 29; formatting that in UTC
+    // would read as Aug 30.
     const out = describeEvent(ev({
       recurrence: { freq: "weekly", interval: 1, byDay: ["TU", "TH"], until: untilToIso("2026-08-29", false) },
     }));

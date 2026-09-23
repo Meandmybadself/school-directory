@@ -30,6 +30,7 @@
 // impure and differs per call site; rendering is pure and identical.
 
 import { formatClock } from "./clock.js";
+import { DEFAULT_TIME_ZONE } from "./timezone.js";
 import type {
   CalendarEventDTO,
   NewsletterBrandingDTO,
@@ -69,9 +70,6 @@ export interface NewsletterRenderOptions {
 }
 
 const DEFAULT_ACCENT = "#0068A8";
-/** Used whenever a caller has no zone to offer. Exported because the API and the
- *  composer both need to fall back to the same one the renderer would. */
-export const DEFAULT_TIME_ZONE = "America/Chicago";
 const DEFAULT_LOCALE = "en-US";
 
 const INK = "#1F2933";

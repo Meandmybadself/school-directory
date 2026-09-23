@@ -8,6 +8,7 @@
 // mailed issue from disagreeing.
 
 import type { CalendarEventDTO, NewsletterEventsBlockAttrs } from "./types.js";
+import { zonedWallClockToUtcMs } from "./timezone.js";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -46,35 +47,6 @@ export function visibleEvents(
 
 // ── Time window ─────────────────────────────────────────────────────────────
 
-/** Offset, in ms, between `timeZone` and UTC at a given instant. */
-function zoneOffsetMs(utcMs: number, timeZone: string): number {
-  // CLOCK-EXEMPT: the same wall-clock probe the API's lib/calendar.ts runs —
-  // `formatToParts` read as numbers, never shown to anyone. `hour12: false` is
-  // what makes the hour a value this function can subtract, not a formatting
-  // choice.
-  const parts = new Intl.DateTimeFormat("en-US", {
-    timeZone,
-    hour12: false,
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-    second: "2-digit",
-  }).formatToParts(new Date(utcMs));
-  const at = (type: string) => Number(parts.find((p) => p.type === type)?.value ?? "0");
-  // Some engines render midnight as hour 24 under hour12:false.
-  const asIfUtc = Date.UTC(
-    at("year"),
-    at("month") - 1,
-    at("day"),
-    at("hour") % 24,
-    at("minute"),
-    at("second"),
-  );
-  return asIfUtc - utcMs;
-}
-
 /** The UTC instant at which a calendar date begins in `timeZone`.
  *
  *  An author picking "Aug 1" means midnight where the school is, not midnight
@@ -82,11 +54,7 @@ function zoneOffsetMs(utcMs: number, timeZone: string): number {
  *  already. Resolved in two passes because the offset in effect at the naive
  *  guess can differ from the one at the answer across a DST boundary. */
 export function zonedDayStartUtc(date: string, timeZone: string): string {
-  const [y, m, d] = date.split("-").map(Number);
-  const naive = Date.UTC(y ?? 1970, (m ?? 1) - 1, d ?? 1);
-  const first = naive - zoneOffsetMs(naive, timeZone);
-  const second = naive - zoneOffsetMs(first, timeZone);
-  return new Date(second).toISOString();
+  return new Date(zonedWallClockToUtcMs(date, "00:00", timeZone)).toISOString();
 }
 
 /** Shift a YYYY-MM-DD by whole days, staying a calendar date. */

@@ -21,7 +21,7 @@ import type {
 import {
   blockWindow,
   collectEventsBlocks,
-  DEFAULT_TIME_ZONE,
+  resolveTimeZone,
   escapeHtml,
   newsletterExcerpt,
   NOTIFY_MODES,
@@ -218,7 +218,7 @@ export function defaultNewsletterSettings(env: Env): NewsletterSettingsDTO {
     newsletterTitle: `${school} Newsletter`,
     defaultCalendarIds: [],
     defaultLookaheadDays: 14,
-    timeZone: env.SCHOOL_TIMEZONE || DEFAULT_TIME_ZONE,
+    timeZone: resolveTimeZone(env.SCHOOL_TIMEZONE),
     calendarUrl: env.CALENDAR_URL ?? "",
     // Off until an admin asks for it, like every other notification (NFR-1).
     newSubscriberNotify: "off",
@@ -424,7 +424,7 @@ export async function resolveEventsSnapshot(
 ): Promise<Record<string, CalendarEventDTO[]>> {
   const blocks = collectEventsBlocks(doc);
   const snapshot: Record<string, CalendarEventDTO[]> = {};
-  const timeZone = env.SCHOOL_TIMEZONE || DEFAULT_TIME_ZONE;
+  const timeZone = resolveTimeZone(env.SCHOOL_TIMEZONE);
 
   for (const block of blocks) {
     if (!block.blockId) continue;
@@ -638,7 +638,7 @@ export function issueEmailArgs(input: IssueEmailInput): SendArgs {
     subtitle: issue.subtitle,
     doc: issue.content,
     resolveEvents: snapshotResolver(snapshot),
-    timeZone: env.SCHOOL_TIMEZONE,
+    timeZone: resolveTimeZone(env.SCHOOL_TIMEZONE),
     unsubscribeUrl: unsubscribeUrl(env, input.unsubscribeToken),
     unsubscribeWording: settings.unsubscribeWording,
     mailingAddress: settings.mailingAddress,

@@ -27,7 +27,7 @@ import type {
   PtoListDTO,
   PtoPersonDTO,
 } from "@sd/shared";
-import { PTO_LABEL_COLORS, eventPath } from "@sd/shared";
+import { PTO_LABEL_COLORS, eventPath, resolveTimeZone } from "@sd/shared";
 import type { AuthContext, Env } from "../env.js";
 import { getSetting } from "./db.js";
 import { rosterAccess } from "./rosterGate.js";
@@ -368,7 +368,7 @@ async function boardEvents(
       last_start: string | null;
     }>();
 
-  const tz = env.SCHOOL_TIMEZONE || "America/Chicago";
+  const tz = resolveTimeZone(env.SCHOOL_TIMEZONE);
   for (const r of rows.results) {
     const start = r.next_start ?? r.last_start;
     const allDay = r.all_day === 1;

@@ -24,6 +24,7 @@
 // signed-out affordance is "sign in to volunteer".
 import { useState } from "react";
 import { formatClock } from "@sd/shared";
+import { SCHOOL_TIME_ZONE } from "../lib/timezone.js";
 import type {
   ControllablePersonDTO,
   PublicVolunteerSheetDTO,
@@ -50,7 +51,7 @@ function signupsOf(p: VolunteerPositionDTO | AnySheet["positions"][number]): Vol
 }
 
 function formatTime(iso: string, locale: string): string {
-  return formatClock(iso, locale);
+  return formatClock(iso, locale, SCHOOL_TIME_ZONE);
 }
 
 /** "5:00 – 7:00 PM" for a position's optional shift window. */
