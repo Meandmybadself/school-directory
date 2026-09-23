@@ -41,6 +41,7 @@ import { useI18n } from "../i18n/index.js";
 import { useIsDesktop } from "../lib/useIsDesktop.js";
 import { api } from "../lib/api.js";
 import { useSession } from "../lib/session.js";
+import { SCHOOL_TIME_ZONE } from "../lib/timezone.js";
 import { rememberReturnPath } from "../lib/returnPath.js";
 import { showsDescription, showsAllDayLabel, showsTitle, formatEventDay } from "../lib/calendar.js";
 
@@ -77,8 +78,8 @@ function timeRange(
   allDayLabel: string,
 ): string {
   if (e.allDay) return allDayLabel;
-  const start = formatClock(e.start, locale);
-  const end = e.end ? formatClock(e.end, locale) : null;
+  const start = formatClock(e.start, locale, SCHOOL_TIME_ZONE);
+  const end = e.end ? formatClock(e.end, locale, SCHOOL_TIME_ZONE) : null;
   return end ? `${start} – ${end}` : start;
 }
 
@@ -403,7 +404,7 @@ export function Event() {
         // event is simply wherever it now starts.
         const next = saved.recurrence
           ? `/e/${date}/${encodeURIComponent(eventTitleSlug(saved.title))}`
-          : eventPath(saved);
+          : eventPath(saved, SCHOOL_TIME_ZONE);
         if (next === `${window.location.pathname}`) void loadEvent();
         else navigate(next, { replace: true });
       }}

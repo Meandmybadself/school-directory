@@ -27,7 +27,7 @@
 // and the two shared lookups below.
 
 import type { AuditAction } from "@sd/shared";
-import { eventPath } from "@sd/shared";
+import { eventPath, resolveTimeZone } from "@sd/shared";
 import type { Env } from "../env.js";
 import type { AuditDraft, AuditMeta } from "./audit.js";
 import { displayName, personListableSql } from "./privacy.js";
@@ -46,9 +46,6 @@ import { postToSlack } from "./slack.js";
  *  satisfies test/personListable.test.ts's scan, and gates nothing. */
 const NO_VIEWER = "";
 
-/** Where the school is, when `SCHOOL_TIMEZONE` is unset. Only ever affects how
- *  a date READS in a message; nothing is stored from it. */
-const SCHOOL_TZ_FALLBACK = "America/Chicago";
 
 /** What a Person is called in this channel.
  *
@@ -134,13 +131,13 @@ function money(cents: number): string {
 /** " on Oct 17" — the date an event starts, or "" when the bag has no usable
  *  one. Read in SCHOOL_TIMEZONE, never the Worker's UTC: a 7pm event would
  *  otherwise report the following day for half the year. */
-function whenOf(bag: NotifyBag): string {
+function whenOf(env: Env, bag: NotifyBag): string {
   const start = typeof bag.start === "string" ? bag.start : null;
   if (!start) return "";
   const d = new Date(start);
   if (Number.isNaN(d.getTime())) return "";
   // All-day values are stored at UTC midnight and must be read back that way.
-  const timeZone = bag.allDay === true ? "UTC" : SCHOOL_TZ_FALLBACK;
+  const timeZone = bag.allDay === true ? "UTC" : resolveTimeZone(env.SCHOOL_TIMEZONE);
   try {
     return ` on ${new Intl.DateTimeFormat("en-US", { timeZone, month: "short", day: "numeric" }).format(d)}`;
   } catch {
@@ -150,13 +147,13 @@ function whenOf(bag: NotifyBag): string {
 
 /** " on Oct 17" for an arbitrary key, where `whenOf` reads the fixed `start`.
  *  Same zone rule and the same "" on anything unusable. */
-function dayOf(bag: NotifyBag, key: string): string {
+function dayOf(env: Env, bag: NotifyBag, key: string): string {
   const v = bag[key];
   if (typeof v !== "string") return "";
   const d = new Date(v);
   if (Number.isNaN(d.getTime())) return "";
   try {
-    return ` ${new Intl.DateTimeFormat("en-US", { timeZone: SCHOOL_TZ_FALLBACK, month: "short", day: "numeric" }).format(d)}`;
+    return ` ${new Intl.DateTimeFormat("en-US", { timeZone: resolveTimeZone(env.SCHOOL_TIMEZONE), month: "short", day: "numeric" }).format(d)}`;
   } catch {
     return "";
   }
@@ -198,7 +195,7 @@ function eventLink(env: Env, bag: NotifyBag): string {
   if (!env.CALENDAR_URL || !title || !start) return "";
   const path = eventPath(
     { title, start, allDay: bag.allDay === true },
-    env.SCHOOL_TIMEZONE ?? SCHOOL_TZ_FALLBACK,
+    resolveTimeZone(env.SCHOOL_TIMEZONE),
   );
   return ` ${link(`${env.CALENDAR_URL}${path}`, "Open event")}`;
 }
@@ -322,7 +319,7 @@ const FORMATTERS = {
   // longer resolves (the URL is a content identity — invariant 8), so linking
   // it would send readers to the "event not found" card.
   "calendar.event.created": ({ env, notify, actor }) =>
-    `:calendar: New event *${str(notify, "title")}*${whenOf(notify)}` +
+    `:calendar: New event *${str(notify, "title")}*${whenOf(env, notify)}` +
     ` — ${actor}.${eventLink(env, notify)}`,
 
   "calendar.event.updated": ({ env, notify, actor }) => {
@@ -339,7 +336,7 @@ const FORMATTERS = {
         " moved with it"
       : "";
     return (
-      `:pencil2: Event *${str(notify, "title")}* edited${whenOf(notify)}${carried}` +
+      `:pencil2: Event *${str(notify, "title")}* edited${whenOf(env, notify)}${carried}` +
       ` — ${actor}.${eventLink(env, notify)}`
     );
   },
@@ -363,14 +360,14 @@ const FORMATTERS = {
    *  when an admin repairs a sheet the automatic re-anchor could not place, and
    *  it relocates everyone already signed up. Twice a year at most — counted
    *  before adding it, the way invariant 22 says to. */
-  "volunteer.sheet.moved": ({ notify }) => {
+  "volunteer.sheet.moved": ({ env, notify }) => {
     const signups = num(notify, "signups");
     const who = signups
       ? `, taking ${signups} sign-up${signups === 1 ? "" : "s"} with it`
       : "";
     return (
-      `:calendar: A volunteer sheet moved${dayOf(notify, "from")} →` +
-      `${dayOf(notify, "to") || " another date"}${who}.`
+      `:calendar: A volunteer sheet moved${dayOf(env, notify, "from")} →` +
+      `${dayOf(env, notify, "to") || " another date"}${who}.`
     );
   },
 

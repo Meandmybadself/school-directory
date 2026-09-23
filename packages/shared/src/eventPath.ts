@@ -55,11 +55,12 @@ export function eventTitleSlug(title: string): string {
 
 /** The `YYYY-MM-DD` half of an event's path.
  *
- *  `timeZone` omitted means the runtime's own zone, which is what the browser
- *  wants: the date in the link matches the day heading the reader tapped. The
- *  API passes SCHOOL_TIMEZONE when it needs to mint the same link server-side.
- *  Either way the lookup searches a ±1 day window, so the two can disagree
- *  about the boundary without breaking the link.
+ *  Every caller passes the school's zone (packages/shared/src/timezone.ts):
+ *  the calendar app groups its agenda by the school's day, so the date in the
+ *  link matches the heading the reader tapped, and the API and front door mint
+ *  the same link server-side. `timeZone` omitted means the runtime's own zone.
+ *  The lookup searches a ±1 day window regardless, so links minted before the
+ *  app used the school's zone still resolve.
  *
  *  All-day events are read in UTC regardless — they are stored at UTC midnight
  *  and the agenda reads them that way too (`eventDayKey`); resolving one in a

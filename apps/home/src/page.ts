@@ -14,6 +14,7 @@
 
 import {
   DEFAULT_TIME_ZONE,
+  resolveTimeZone,
   LOCALES,
   dictionaries,
   eventPath,
@@ -269,10 +270,11 @@ function renderEvents(env: Env, locale: Locale, events: PublicCalendarEventDTO[]
   if (events.length === 0) return "";
   const s = dictionaries[locale];
   const calendar = env.CALENDAR_URL.replace(/\/$/, "");
+  const tz = resolveTimeZone(env.SCHOOL_TIMEZONE);
 
   const rows = events
     .map((e) => {
-      const href = `${calendar}${eventPath(e, DEFAULT_TIME_ZONE)}?lang=${locale}`;
+      const href = `${calendar}${eventPath(e, tz)}?lang=${locale}`;
       const detail = e.location
         ? `<span class="ev-note">${escapeHtml(e.location)}</span>`
         : "";
@@ -281,9 +283,9 @@ function renderEvents(env: Env, locale: Locale, events: PublicCalendarEventDTO[]
               <a class="ev" href="${escapeHtml(href)}">
                 <span class="ev-when">
                   <time class="ev-date" datetime="${escapeHtml(e.start)}">${escapeHtml(
-                    eventDay(locale, e),
+                    eventDay(locale, e, tz),
                   )}</time>
-                  <span class="ev-time">${escapeHtml(eventTime(locale, s, e))}</span>
+                  <span class="ev-time">${escapeHtml(eventTime(locale, s, e, tz))}</span>
                 </span>
                 <span class="ev-what">
                   <span class="ev-name">${escapeHtml(e.title)}</span>
@@ -311,9 +313,9 @@ function renderEvents(env: Env, locale: Locale, events: PublicCalendarEventDTO[]
 
 /** "Tue, Oct 6" in the school's timezone — the day the calendar itself files
  *  the event under, not the day it falls on wherever the reader happens to be. */
-function eventDay(locale: Locale, e: PublicCalendarEventDTO): string {
+function eventDay(locale: Locale, e: PublicCalendarEventDTO, tz: string): string {
   return new Intl.DateTimeFormat(locale, {
-    timeZone: e.allDay ? "UTC" : DEFAULT_TIME_ZONE,
+    timeZone: e.allDay ? "UTC" : tz,
     weekday: "short",
     month: "short",
     day: "numeric",
@@ -323,9 +325,9 @@ function eventDay(locale: Locale, e: PublicCalendarEventDTO): string {
 /** The clock time, or the words "all day". An all-day event is stored at UTC
  *  midnight (see `eventDateSegment`), so rendering a time for it would be a
  *  lie in either direction. */
-function eventTime(locale: Locale, s: Strings, e: PublicCalendarEventDTO): string {
+function eventTime(locale: Locale, s: Strings, e: PublicCalendarEventDTO, tz: string): string {
   if (e.allDay) return s.allDay;
-  return formatClockRange(e.start, e.end, locale, DEFAULT_TIME_ZONE);
+  return formatClockRange(e.start, e.end, locale, tz);
 }
 
 /** Everything the district publishes that a family actually reaches for: the

@@ -5,7 +5,7 @@
 // pattern) and hand the string to the parser.
 
 import ICAL from "ical.js";
-import { DEFAULT_TIME_ZONE, eventTitleSlug, shiftIsoDate } from "@sd/shared";
+import { eventTitleSlug, resolveTimeZone, shiftIsoDate } from "@sd/shared";
 import type {
   CalendarEventDTO,
   CalendarEventKind,
@@ -54,7 +54,7 @@ export interface ParsedEvent {
 /** The wall clock an unzoned feed time belongs to. Configured per instance,
  *  because it is a property of where the school IS, not of where this code runs. */
 function schoolZone(env: Env): string {
-  return env.SCHOOL_TIMEZONE || DEFAULT_TIME_ZONE;
+  return resolveTimeZone(env.SCHOOL_TIMEZONE);
 }
 
 function userAgent(env: Env): string {

@@ -1,4 +1,5 @@
-import { htmlToText, type PublicCalendarEventDTO } from "@sd/shared";
+import { htmlToText, isoToZonedDate, type PublicCalendarEventDTO } from "@sd/shared";
+import { SCHOOL_TIME_ZONE } from "./timezone.js";
 
 /** The calendar whose description IS its content — the menu text itself, with a
  *  title that only repeats the calendar name. See `showsDescription` for when a
@@ -48,17 +49,13 @@ export function showsAllDayLabel(e: PublicCalendarEventDTO): boolean {
 // `new Date(start).getDate()` does — shifts it to the previous day for every
 // viewer west of UTC, so "No School" lands on the wrong day for a school in
 // Central Time. All-day values must therefore be read in UTC; timed events are
-// real instants and stay local.
-
-function pad(n: number): string {
-  return String(n).padStart(2, "0");
-}
+// real instants and are read in the SCHOOL'S zone (lib/timezone.ts), so an
+// evening event lands on the same day for every reader wherever they are.
 
 /** Stable "YYYY-MM-DD" key for the day an event belongs on. */
 export function eventDayKey(e: PublicCalendarEventDTO): string {
-  const d = new Date(e.start);
-  if (e.allDay) return d.toISOString().slice(0, 10);
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+  if (e.allDay) return new Date(e.start).toISOString().slice(0, 10);
+  return isoToZonedDate(e.start, SCHOOL_TIME_ZONE);
 }
 
 /** Locale-formatted day label for an event, read in the right zone for its kind.
@@ -73,7 +70,7 @@ export function formatEventDay(
 ): string {
   return new Date(e.start).toLocaleDateString(locale, {
     ...opts,
-    ...(e.allDay ? { timeZone: "UTC" } : {}),
+    timeZone: e.allDay ? "UTC" : SCHOOL_TIME_ZONE,
   });
 }
 

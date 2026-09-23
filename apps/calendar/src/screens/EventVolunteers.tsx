@@ -16,6 +16,9 @@ import {
   eventPath,
   formatClock,
   formatClockRange,
+  isoToZonedDate,
+  isoToZonedTime,
+  zonedToIso,
   type ManagedOccurrenceDTO,
   type VolunteerSheetDTO,
 } from "@sd/shared";
@@ -28,6 +31,7 @@ import { ErrorText, iconBtnStyle, occurrenceAction } from "../components/adminUi
 import { useSession } from "../lib/session.js";
 import { useIsDesktop } from "../lib/useIsDesktop.js";
 import { api, errorMessage } from "../lib/api.js";
+import { SCHOOL_TIME_ZONE } from "../lib/timezone.js";
 
 /** The link to hand out. A sheet no longer has a page of its own — it is read on
  *  its event's page — so this is normally the event's URL, which is also what a
@@ -47,7 +51,7 @@ import { api, errorMessage } from "../lib/api.js";
  *  this app builds; the lookup searches a ±1 day window, so a reader in another
  *  zone still resolves it. See packages/shared/src/eventPath.ts. */
 function sheetUrl(sheet: VolunteerSheetDTO): string {
-  const path = sheet.orphaned ? `/v/${sheet.slug}` : eventPath(sheet.event);
+  const path = sheet.orphaned ? `/v/${sheet.slug}` : eventPath(sheet.event, SCHOOL_TIME_ZONE);
   return `${window.location.origin}${path}`;
 }
 
@@ -87,7 +91,7 @@ function mailtoUrl(to: string, bcc: string[], subject: string): string {
 
 function fmtOccurrence(o: ManagedOccurrenceDTO): string {
   return new Date(o.start).toLocaleString(undefined, {
-    ...(o.allDay ? { timeZone: "UTC" } : {}),
+    timeZone: o.allDay ? "UTC" : SCHOOL_TIME_ZONE,
     weekday: "short",
     month: "short",
     day: "numeric",
@@ -96,7 +100,7 @@ function fmtOccurrence(o: ManagedOccurrenceDTO): string {
   });
 }
 
-/** "HH:MM" in local time, for the shift INPUTS and nothing else. HTML defines
+/** "HH:MM" at the school, for the shift INPUTS and nothing else. HTML defines
  *  `<input type="time">`'s value as 24-hour regardless of locale — the browser
  *  shows its own widget in whatever form the platform uses — so this is a
  *  serializer, not a formatter, and it is deliberately not `CLOCK`.
@@ -107,8 +111,7 @@ function fmtOccurrence(o: ManagedOccurrenceDTO): string {
  *  other time said "1:30 PM" came to print its shifts as "13:30". */
 function toTimeInput(iso: string | null): string {
   if (!iso) return "";
-  const d = new Date(iso);
-  return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+  return isoToZonedTime(iso, SCHOOL_TIME_ZONE);
 }
 
 /** A position's shift window as an admin reads it — "1:30 – 5:00 PM", or an
@@ -116,19 +119,22 @@ function toTimeInput(iso: string | null): string {
  *  `fmtOccurrence` above: this screen is operator chrome and takes no part in
  *  the app's i18n. */
 function shiftWindow(startsAt: string | null, endsAt: string | null): string {
-  if (startsAt && endsAt) return formatClockRange(startsAt, endsAt);
-  return `${startsAt ? formatClock(startsAt) : "—"} – ${endsAt ? formatClock(endsAt) : "—"}`;
+  if (startsAt && endsAt) return formatClockRange(startsAt, endsAt, undefined, SCHOOL_TIME_ZONE);
+  const one = (iso: string | null) => (iso ? formatClock(iso, undefined, SCHOOL_TIME_ZONE) : "—");
+  return `${one(startsAt)} – ${one(endsAt)}`;
 }
 
-/** Combine a "HH:MM" with the sheet's own date, read locally. A shift is always
- *  on the day of the event, so the date never needs its own input. */
-function fromTimeInput(time: string, occurrenceStart: string): string | null {
+/** Combine a "HH:MM" with the sheet's own date, read as the school's wall
+ *  clock. A shift is always on the day of the event, so the date never needs
+ *  its own input. An all-day event's date is its UTC date (it is stored at
+ *  midnight UTC); reading that in a western zone would put the shift on the
+ *  day before. */
+function fromTimeInput(time: string, event: { start: string; allDay: boolean }): string | null {
   if (!time) return null;
   const [h, m] = time.split(":").map(Number);
   if (!Number.isFinite(h) || !Number.isFinite(m)) return null;
-  const d = new Date(occurrenceStart);
-  d.setHours(h!, m!, 0, 0);
-  return d.toISOString();
+  const day = event.allDay ? event.start.slice(0, 10) : isoToZonedDate(event.start, SCHOOL_TIME_ZONE);
+  return zonedToIso(day, time, SCHOOL_TIME_ZONE);
 }
 
 interface PositionForm {
@@ -318,8 +324,8 @@ export function EventVolunteers() {
       title: f.title.trim(),
       description: f.description.trim() || null,
       slots: Number(f.slots) || 1,
-      startsAt: fromTimeInput(f.startTime, sheet.event.start),
-      endsAt: fromTimeInput(f.endTime, sheet.event.start),
+      startsAt: fromTimeInput(f.startTime, sheet.event),
+      endsAt: fromTimeInput(f.endTime, sheet.event),
     };
     setBusy(true);
     try {
