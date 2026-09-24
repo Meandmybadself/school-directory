@@ -12,7 +12,7 @@ import { sendNewSubscriberDigest, sendNewUserDigest } from "./lib/notify.js";
 import { runDailySweeps } from "./lib/sweep.js";
 import { contextMiddleware } from "./middleware/context.js";
 import { requireAuth, sessionMiddleware, UnauthorizedError } from "./middleware/session.js";
-import { DirectoryAccessError } from "./lib/directoryAccess.js";
+import { DirectoryAccessError, RateLimitedError } from "./lib/directoryAccess.js";
 import { personListableSql } from "./lib/privacy.js";
 import { auditMiddleware } from "./middleware/audit.js";
 import { auth } from "./routes/auth.js";
@@ -161,6 +161,11 @@ app.onError((err, c) => {
   // tells the caller only about their own account, so it discloses nothing.
   if (err instanceof DirectoryAccessError) {
     return c.json({ error: "directory_access_required" }, 403);
+  }
+  // `Retry-After` because the window is fixed and short: a client that honours
+  // it recovers on its own, and one that ignores it is the case this exists for.
+  if (err instanceof RateLimitedError) {
+    return c.json({ error: "rate_limited" }, 429, { "retry-after": "60" });
   }
   console.error("[api] unhandled", err);
   return c.json({ error: "internal" }, 500);

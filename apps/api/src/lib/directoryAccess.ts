@@ -143,3 +143,66 @@ export class DirectoryAccessError extends Error {
 export function requireApproved(auth: AuthContext): void {
   if (!auth.isApproved) throw new DirectoryAccessError();
 }
+
+// ── Rate limiting the same reads ────────────────────────────────────────────
+//
+// The gate above decides WHETHER an account may read other families; this
+// bounds HOW FAST. They are complements and both are needed: approval removes
+// the anonymous population, and this is what stops an approved member — or a
+// stolen session — from paging the whole roster with a script. Neither is a
+// substitute for the other, which is why they sit in one file and are called
+// together.
+//
+// Per USER, not per IP. The thing being limited is an authenticated member
+// enumerating people, and a family behind one NAT address (or a school's own
+// network) must not throttle itself because a neighbour is browsing.
+
+/** Thrown by `enforceReadRate`, turned into a 429 by the app's onError. */
+export class RateLimitedError extends Error {
+  constructor() {
+    super("rate_limited");
+  }
+}
+
+/**
+ * Bound one account's rate of reading OTHER families.
+ *
+ * Absent binding means off, the contract an absent `RESEND_API_KEY` has — so
+ * tests and local dev need no limiter and behave exactly as before.
+ *
+ * A system admin is NOT exempt. The temptation is to wave them through, and
+ * the reason not to is that an admin session is the most valuable one to steal:
+ * the account that can read every family is the one where an unbounded read
+ * rate costs the most. Nothing an admin legitimately does on these routes comes
+ * near a request a second — the bulk operations (backup, import) are single
+ * requests on other paths.
+ *
+ * Failures are LOUD but never fatal. `limit()` reaching for a service that is
+ * having a bad minute must not take the directory down, so a throw here admits
+ * the request and says so in the log — same direction as an unbound binding,
+ * for the same reason.
+ */
+export async function enforceReadRate(env: Env, auth: AuthContext): Promise<void> {
+  const limiter = env.READ_LIMIT;
+  if (!limiter) return;
+  let allowed = true;
+  try {
+    // Keyed on the effective user. During masquerade that is the TARGET, which
+    // is right: the budget belongs to whoever's data is being walked, and an
+    // admin who masquerades to scrape spends the budget they are borrowing.
+    ({ success: allowed } = await limiter.limit({ key: auth.userId }));
+  } catch (err) {
+    console.error(`[ratelimit] limiter unavailable, allowing: ${String(err)}`);
+    return;
+  }
+  if (!allowed) {
+    // Loud, and it names the account: this is a member reading other families
+    // faster than a person can, which is the shape the access gate exists to
+    // make attributable. It is deliberately not an audit row — `audit_log` is
+    // for mutations (invariant 5) and a refused GET changed nothing — nor a
+    // Slack line, matching the sign-in cap in routes/auth.ts, which is the
+    // closest precedent and logs rather than notifies.
+    console.warn(`[ratelimit] read budget exhausted user=${auth.userId}`);
+    throw new RateLimitedError();
+  }
+}

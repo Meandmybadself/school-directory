@@ -10,7 +10,7 @@ import type { Capability, PersonSummaryDTO } from "@sd/shared";
 import type { HonoEnv } from "../env.js";
 import { requireAuth } from "../middleware/session.js";
 import { displayName, personSearchSql } from "../lib/privacy.js";
-import { requireApproved } from "../lib/directoryAccess.js";
+import { enforceReadRate, requireApproved } from "../lib/directoryAccess.js";
 import { classroomsByPerson } from "../lib/serialize.js";
 
 export const directory = new Hono<HonoEnv>();
@@ -49,6 +49,7 @@ directory.get("/", async (c) => {
   // is what lets the app route to the application screen instead of rendering
   // a directory containing only you.
   requireApproved(auth);
+  await enforceReadRate(c.env, auth);
   const q = (c.req.query("q") ?? "").trim().toLowerCase();
   const offset = Math.max(0, Number.parseInt(c.req.query("offset") ?? "0", 10) || 0);
   const { caps: roles, invalid } = requestedCapabilities(c.req.queries("capability") ?? []);

@@ -34,8 +34,10 @@ import { personListableSql, personSearchSql } from "../src/lib/privacy.js";
 import {
   accessClaimStatus,
   accessStateOf,
+  enforceReadRate,
   requireApproved,
   DirectoryAccessError,
+  RateLimitedError,
 } from "../src/lib/directoryAccess.js";
 import { directory } from "../src/routes/directory.js";
 import { persons } from "../src/routes/persons.js";
@@ -596,5 +598,59 @@ describe("the admin queue survives a real instance", () => {
       approvedWithoutAsking.access_approved_at !== null &&
         approvedWithoutAsking.access_submitted_at !== null,
     ).toBe(true);
+  });
+});
+
+// ── 6. Rate limiting ────────────────────────────────────────────────────────
+//
+// The gate decides WHETHER, this bounds HOW FAST, and the pair is the answer to
+// the concern that prompted both: approval removes the anonymous population,
+// the budget stops an approved member walking the roster with a script.
+
+describe("the read budget", () => {
+  const limiterEnv = (success: boolean, seen: string[] = []) =>
+    ({
+      READ_LIMIT: {
+        async limit({ key }: { key: string }) {
+          seen.push(key);
+          return { success };
+        },
+      },
+    }) as unknown as Env;
+
+  it("refuses with 429 and a Retry-After once the budget is gone", async () => {
+    const env = limiterEnv(false);
+    await expect(enforceReadRate(env, viewer())).rejects.toBeInstanceOf(RateLimitedError);
+  });
+
+  it("keys on the user, not the IP — one NAT must not throttle a street", async () => {
+    const seen: string[] = [];
+    await enforceReadRate(limiterEnv(true, seen), viewer());
+    expect(seen).toEqual([ME]);
+  });
+
+  it("does NOT exempt a system admin, whose session is the one worth stealing", async () => {
+    await expect(
+      enforceReadRate(limiterEnv(false), viewer({ isSystemAdmin: true })),
+    ).rejects.toBeInstanceOf(RateLimitedError);
+  });
+
+  it("is OFF when the binding is absent, like an absent RESEND_API_KEY", async () => {
+    // Tests and local dev bind no limiter. The direction of this default is
+    // deliberate: an unbound limiter admits what it would have refused, which
+    // is today's posture; refusing everything would take the directory down on
+    // a config slip.
+    await expect(enforceReadRate({} as Env, viewer())).resolves.toBeUndefined();
+  });
+
+  it("admits the request when the limiter itself throws", async () => {
+    const broken = {
+      READ_LIMIT: {
+        async limit() {
+          throw new Error("limiter unavailable");
+        },
+      },
+    } as unknown as Env;
+    await expect(enforceReadRate(broken, viewer())).resolves.toBeUndefined();
   });
 });

@@ -150,6 +150,8 @@ export function siteFooter(env: Env, locale: Locale, s: Strings): string {
             env.FEEDBACK_EMAIL,
           )}">${escapeHtml(env.FEEDBACK_EMAIL)}</a>${escapeHtml(feedAfter)}
           <span aria-hidden="true"> · </span>
+          <a href="${escapeHtml(langHref(locale, "/privacy"))}">${escapeHtml(s.privacyNav)}</a>
+          <span aria-hidden="true"> · </span>
           <a href="${escapeHtml(SOURCE_URL)}">GitHub</a>
         </div>
       </div>

@@ -37,6 +37,18 @@ export interface Env {
    *  Used server-side only to render an address thumbnail; coords never leave. */
   STATIC_MAP_URL?: string;
   // secrets (may be empty in local dev)
+  /**
+   * Rate limiter for the reads that serve one family's data to another
+   * (invariant 32). Optional in the same sense `RESEND_API_KEY` is: absent
+   * means the feature is off rather than the request failing, so `vitest` and
+   * a bare `wrangler dev` need no binding and every route behaves as it did.
+   *
+   * That default is chosen knowing which way it fails. An unbound limiter
+   * admits traffic it would have refused, which is the same posture as today
+   * and is recoverable; refusing every read because a binding is missing
+   * would take the directory down on a config slip.
+   */
+  READ_LIMIT?: RateLimit;
   RESEND_API_KEY?: string;
   EMAIL_FROM?: string;
   /** Slack Incoming Webhook posting system events to the admins' channel

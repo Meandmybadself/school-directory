@@ -48,8 +48,14 @@ docs/               Product spec (PLAN/SRD/SDD). Source of truth for requirement
 one HTML document per request, rendered from the shared dictionaries, no client
 bundle and no API call.
 
-It now serves **two** pages. `/` is the landing page (`page.ts`); `/faq` is the
-one that EXPLAINS the site rather than being it (`faq.ts`) — written for a
+It now serves **three** pages. `/` is the landing page (`page.ts`); `/faq` is
+the one that EXPLAINS the site rather than being it (`faq.ts`); `/privacy` is
+the formal notice (`privacy.ts`), written because a parent asked what the
+directory holds and deserved an answer they could read without an account. It
+makes no subrequest either, carries the transportation commitment in all four
+languages, and names every third party data actually reaches — the bar for
+appearing on that list is "data reaches them", not "we have a contract with
+them", so a new outbound call is a change to that page. `/faq` — written for a
 parent handed the URL at back-to-school night, answering what is here, how to
 get in, and who can see what. The chrome they share — `<head>`, header, footer,
 the `?lang=` helpers — lives in `shell.ts` and is IMPORTED by both. The five
@@ -1678,6 +1684,22 @@ All five SPAs are separate Cloudflare Pages projects talking to the single
    its fake D1 evaluates the predicate, so a gate that admitted the school fails
    with another family's child in the result rather than passing a scan — and it
    pins the batch boundary, the promotion and both no-ops.
+   **The budget is the other half, and neither substitutes for the other.**
+   The gate decides WHETHER an account may read other families; `enforceReadRate`
+   (same file) bounds HOW FAST, through a `[[ratelimits]]` binding at 60 a
+   minute. Approval removes the anonymous population; the budget is what stops
+   an approved member — or a stolen session — paging the roster with a script,
+   which is the half the concern that prompted all this actually named. It is
+   keyed on the USER, not the IP, because the thing being limited is an
+   authenticated member enumerating people and a family behind one NAT address
+   must not throttle itself. A system admin is NOT exempt: theirs is the session
+   worth stealing, and nothing they legitimately do on these routes comes near a
+   request a second. Absent binding means OFF, the contract an absent
+   `RESEND_API_KEY` has, and a limiter that throws ADMITS the request — both
+   defaults chosen knowing the direction they fail, since refusing every read on
+   a config slip would take the directory down. `/photos/:key` is deliberately
+   unlimited: one directory page fires up to 50 at once, and a photo key is only
+   learnable from a listing that IS limited.
    **The grandfathering in migration 0029 is the part to re-read before any
    similar gate.** It approves every account that controls a Person, which on
    this instance was 66 of 76; without it the deploy locks out the school. The

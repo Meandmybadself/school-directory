@@ -28,6 +28,7 @@ import { LOCALES } from "@sd/shared";
 import type { Env } from "./env.js";
 import { langCookie, resolveLocale } from "./locale.js";
 import { FAQ_PATH, FAQ_PRINT_PATH, renderFaq, renderFaqPrint } from "./faq.js";
+import { PRIVACY_PATH, renderPrivacy } from "./privacy.js";
 import { renderHome, renderNotFound } from "./page.js";
 
 /** Vanity paths people type or get told over the phone ("go to
@@ -117,6 +118,17 @@ export default {
       );
     }
 
+    // The formal notice. Same language and cookie rules as `/faq`, and the
+    // same absence of a subrequest: a privacy notice that could be emptied by
+    // the API having a bad afternoon would be worse than not having one.
+    if (path === PRIVACY_PATH) {
+      return html(
+        renderPrivacy(env, locale, explicit),
+        200,
+        explicit ? langCookie(locale) : undefined,
+      );
+    }
+
     if (path !== "/") {
       return html(renderNotFound(env, locale), 404);
     }
@@ -141,7 +153,7 @@ function text(body: string): Response {
 /** One entry per language PER PAGE, since each `?lang=` URL is a distinct
  *  document with its own `hreflang` and its own canonical. A page added to this
  *  host and not to this list is a page no search engine is told about. */
-const INDEXED_PATHS = ["/", FAQ_PATH];
+const INDEXED_PATHS = ["/", FAQ_PATH, PRIVACY_PATH];
 
 function sitemap(env: Env): Response {
   const origin = trimSlash(env.SITE_ORIGIN);

@@ -92,6 +92,34 @@ bucket_name = "school-directory-newsletter-media"
 [triggers]
 crons = ["0 */3 * * *", "0 13 * * *", "*/15 * * * *"]
 
+# Rate limiting for the reads that serve ONE family's data to another
+# (invariant 32's routes). The threat this answers is the one the parent who
+# prompted the access gate actually named: not a stranger, but an APPROVED
+# member paging the roster with a script. Approval removes the anonymous
+# population; this bounds what an account can do once it is in, and the two are
+# complements rather than alternatives.
+#
+# 60 a minute, per USER rather than per IP — the thing being limited is an
+# authenticated member enumerating people, and a household behind one NAT
+# address must not throttle itself. A parent opening profiles rarely passes 20
+# a minute, so this is ~3x headroom; a crawler wanting all 168 profiles trips
+# it inside the first two pages.
+#
+# `period` accepts only 10 or 60 (wrangler's own schema), and the binding is
+# NOT inherited by named environments — hence the copy under env.production.
+# `namespace_id` is an arbitrary account-unique integer-as-string, not a
+# resource to create: nothing has to exist before this deploys.
+#
+# Photos are deliberately NOT limited: one directory page fires up to 50
+# `<img src="/photos/:key">` at once, so a shared budget would break ordinary
+# browsing on the first screen. A photo key is only learnable from a listing
+# this DOES limit, and a ULID is not guessable, so bounding the listing bounds
+# the photos.
+[[ratelimits]]
+name = "READ_LIMIT"
+namespace_id = "1001"
+simple = { limit = 60, period = 60 }
+
 # Secrets (set via `wrangler secret put --env production`, or .dev.vars locally):
 #   RESEND_API_KEY    — Resend email API key (magic links / invites)
 #   EMAIL_FROM        — verified Resend sender, e.g. "Eisenhower Directory <directory@…>"
@@ -148,6 +176,12 @@ bucket_name = "school-directory-newsletter-media"
 
 [env.production.triggers]
 crons = ["0 */3 * * *", "0 13 * * *", "*/15 * * * *"]
+
+# Not inherited from the top level — see the note there.
+[[env.production.ratelimits]]
+name = "READ_LIMIT"
+namespace_id = "1001"
+simple = { limit = 60, period = 60 }
 
 # Custom domain — wrangler provisions the DNS record + cert on deploy (zone is
 # on this account).

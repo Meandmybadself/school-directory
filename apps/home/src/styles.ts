@@ -526,4 +526,15 @@ a:focus-visible,.btn:focus-visible{outline:2px solid var(--blue);outline-offset:
   *,*::before,*::after{animation:none !important;transition:none !important}
   .tile:hover{transform:none}
 }
+/* The privacy notice. One readable column — a legal-ish page set to the full
+   content width is the shape people bounce off, and this is the page we most
+   want read to the end. */
+.pv-body{max-width:64ch}
+.pv-updated{color:var(--muted);font-size:.85rem;margin:.35rem 0 0}
+.pv-block{margin:0 0 1.9rem}
+.pv-block h2{font-size:1.05rem;margin:0 0 .45rem}
+.pv-block p{margin:0 0 .6rem;line-height:1.65}
+.pv-list{margin:.2rem 0 .9rem;padding-left:1.1rem;line-height:1.65}
+.pv-list li{margin:0 0 .35rem}
+
 `;

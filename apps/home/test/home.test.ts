@@ -796,3 +796,82 @@ describe("the printed sheet's type scale", () => {
     expect(html).toContain(".pr-sheet:last-child{break-after:auto");
   });
 });
+
+describe("/privacy", () => {
+  it("renders, and answers the questions it exists for", async () => {
+    const res = await get("/privacy");
+    expect(res.status).toBe(200);
+    expect(res.headers.get("content-type")).toContain("text/html");
+    const html = await res.text();
+    expect(html).toContain(escapeHtml(dictionaries.en.privacyTitle));
+    expect(html).toContain(escapeHtml(dictionaries.en.privacyHoldTitle));
+    expect(html).toContain(escapeHtml(dictionaries.en.privacyDefaultTitle));
+    expect(html).toContain(escapeHtml(dictionaries.en.privacyWhoTitle));
+    expect(html).toContain(escapeHtml(dictionaries.en.privacyDeleteTitle));
+  });
+
+  it("carries the transportation commitment, in every language", async () => {
+    // The promise a family was actually given. It is the reason this page was
+    // written, and it is the sentence that must not quietly disappear in a
+    // later edit — in any of the four languages, since a commitment that holds
+    // only in English is not one.
+    for (const l of LOCALES) {
+      const html = await body(`/privacy?lang=${l}`);
+      expect(html).toContain(escapeHtml(dictionaries[l].privacyBusTitle));
+      expect(html).toContain(escapeHtml(dictionaries[l].privacyBusBody));
+    }
+  });
+
+  it("names every third party that data actually reaches", async () => {
+    // The bar for this list is "data reaches them", not "we have a contract".
+    // A service added to the code and not to this page is the failure worth
+    // catching, so the test names them rather than counting.
+    const html = await body("/privacy");
+    for (const who of ["Cloudflare", "Resend", "OpenStreetMap", "Stripe", "Printful", "Slack"]) {
+      expect(html).toContain(who);
+    }
+  });
+
+  it("makes no subrequest at all", async () => {
+    // A privacy notice that could be emptied by the API having a bad afternoon
+    // would be worse than not having one — /faq's property, same reasoning.
+    const spy = vi.fn(async () => {
+      throw new Error("the privacy notice must not fetch anything");
+    });
+    vi.stubGlobal("fetch", spy);
+    const res = await get("/privacy");
+    expect(res.status).toBe(200);
+    expect(spy).not.toHaveBeenCalled();
+  });
+
+  it("exists in every language, and each is its own document", async () => {
+    for (const l of LOCALES) {
+      const html = await body(`/privacy?lang=${l}`);
+      expect(html).toContain(`<html lang="${l}">`);
+      expect(html).toContain(escapeHtml(dictionaries[l].privacyTitle));
+    }
+  });
+
+  it("is in the sitemap — a page nobody is told about is a page nobody reads", async () => {
+    const xml = await body("/sitemap.xml");
+    expect(xml).toContain("/privacy");
+    for (const l of LOCALES) expect(xml).toContain(`/privacy?lang=${l}`);
+  });
+
+  it("is reachable from every page on this host", async () => {
+    // The footer, so a family who lands anywhere can find it without knowing
+    // the URL. A notice nobody can navigate to is a notice in name only.
+    for (const path of ["/", "/faq", "/privacy"]) {
+      expect(await body(path)).toContain('href="/privacy');
+    }
+  });
+
+  it("asks nobody to agree to anything", async () => {
+    // No banner, no checkbox, no "by continuing you accept". A parent's real
+    // control here is the per-field visibility setting and the delete button.
+    const html = (await body("/privacy")).toLowerCase();
+    for (const theatre of ["i agree", "accept cookies", "by continuing"]) {
+      expect(html).not.toContain(theatre);
+    }
+  });
+});

@@ -10,7 +10,7 @@ import type { Capability, ClassroomCandidateDTO, ContactItemDTO, ContactItemInpu
 import type { HonoEnv } from "../env.js";
 import { requireAuth } from "../middleware/session.js";
 import { canSeeItem, displayName, personListableSql, personSearchSql, sharesForMany, sharesOf, viewerGroupIds, type ContactItemRow } from "../lib/privacy.js";
-import { DirectoryAccessError, requireApproved } from "../lib/directoryAccess.js";
+import { DirectoryAccessError, enforceReadRate, requireApproved } from "../lib/directoryAccess.js";
 import { capabilitiesFor, classroomsByPerson } from "../lib/serialize.js";
 import { loadGroupGraph, ancestors, subtree, wouldCycle } from "../lib/groupTree.js";
 import { ulid } from "../lib/ids.js";
@@ -121,6 +121,7 @@ groups.get("/", async (c) => {
   // (migration 0029), and there is no "their own" case here — a household they
   // belong to is reached through GET /me/households and GET /groups/:id.
   requireApproved(auth);
+  await enforceReadRate(c.env, auth);
   const q = (c.req.query("q") ?? "").trim().toLowerCase();
   const like = `%${q}%`;
   const { kinds, invalid } = requestedKinds(c.req.queries("kind") ?? []);
@@ -176,6 +177,7 @@ groups.get("/:id", async (c) => {
       .first<{ ok: number }>();
     if (!mine) throw new DirectoryAccessError();
   }
+  await enforceReadRate(c.env, auth);
 
   // Hierarchy closure: this group's roster rolls up its descendants' members.
   const graph = await loadGroupGraph(c.env);

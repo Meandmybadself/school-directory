@@ -9,7 +9,7 @@ import type { HonoEnv } from "../env.js";
 import { requireAuth } from "../middleware/session.js";
 import { approxDistance, boundingBox, haversineMiles } from "../lib/geo.js";
 import { displayName, personListableSql } from "../lib/privacy.js";
-import { requireApproved } from "../lib/directoryAccess.js";
+import { enforceReadRate, requireApproved } from "../lib/directoryAccess.js";
 import { classroomsByHousehold } from "../lib/serialize.js";
 
 export const home = new Hono<HonoEnv>();
@@ -23,6 +23,7 @@ home.get("/neighbors", async (c) => {
   // Neighbour cards name other families and, through `classroomsByHousehold`,
   // their children's rooms. Nothing here is the caller's own (migration 0029).
   requireApproved(auth);
+  await enforceReadRate(c.env, auth);
   if (!auth.activePersonId) return c.json<NeighborsResponse>({ addCta: true });
 
   // The viewer's household group ids (for address cascade + self-exclusion).

@@ -8,7 +8,7 @@ import type { CreateShareBody, ShareGranteeDTO, ShareTargetDTO } from "@sd/share
 import type { HonoEnv } from "../env.js";
 import { requireAuth } from "../middleware/session.js";
 import { isController, personSearchSql } from "../lib/privacy.js";
-import { requireApproved } from "../lib/directoryAccess.js";
+import { enforceReadRate, requireApproved } from "../lib/directoryAccess.js";
 import { ulid } from "../lib/ids.js";
 import { nowIso } from "../lib/time.js";
 
@@ -126,6 +126,7 @@ shares.get("/targets", async (c) => {
   // closed for (invariant 32). Sharing is a member's act anyway: there is
   // nobody outside your own family for a pending account to share WITH.
   requireApproved(auth);
+  await enforceReadRate(c.env, auth);
   const q = (c.req.query("q") ?? "").trim().toLowerCase();
   const like = `%${q}%`;
 

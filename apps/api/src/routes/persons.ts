@@ -7,6 +7,7 @@ import type { HonoEnv } from "../env.js";
 import { requireAuth } from "../middleware/session.js";
 import { buildProfile } from "../lib/serialize.js";
 import { isController, personListableSql } from "../lib/privacy.js";
+import { enforceReadRate } from "../lib/directoryAccess.js";
 import { clearActivePersonCookie } from "../lib/cookies.js";
 import { personCascadeStmts } from "../lib/personDelete.js";
 import { nowIso } from "../lib/time.js";
@@ -27,6 +28,11 @@ const MAX_PHOTO_BYTES = 5 * 1024 * 1024; // 5 MB
  *  so the view screen is an honest preview of what everyone else sees. */
 persons.get("/:id", async (c) => {
   const auth = requireAuth(c);
+  // Rate-limited but NOT gated: a member reads their own family here, and the
+  // gate is applied inside `buildProfile` instead (a 404, not a 403 — invariant
+  // 18's oracle). The budget still applies, because walking ULIDs is what this
+  // route is the target of.
+  await enforceReadRate(c.env, auth);
   const viewer = { userId: auth.userId, personId: auth.activePersonId };
   const profile = await buildProfile(c.env, viewer, c.req.param("id"), {
     asMember: c.req.query("as") === "member",

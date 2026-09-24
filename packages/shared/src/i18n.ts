@@ -483,6 +483,45 @@ export interface Strings {
   faqUnlistedTitle: string;
   faqUnlistedBody: string;
 
+  // privacy — eisenhower.school/privacy. The formal notice, and the page a
+  // family is pointed at when they ask "what do you actually hold?". It is the
+  // FIFTH indexed surface, so nothing member-private may appear on it; every
+  // word below is a dictionary string or a hostname.
+  privacyTitle: string;
+  privacyNav: string;
+  privacyLead: string; // uses {school}
+  privacyDescription: string; // uses {school}
+  privacyUpdated: string; // uses {date}
+  privacyHoldTitle: string;
+  privacyHoldBody: string;
+  privacyHoldName: string;
+  privacyHoldContact: string;
+  privacyHoldPhoto: string;
+  privacyHoldChild: string;
+  privacyHoldAddress: string;
+  privacyDefaultTitle: string;
+  privacyDefaultBody: string;
+  privacyChildrenTitle: string;
+  privacyChildrenBody: string;
+  privacyBusTitle: string;
+  privacyBusBody: string;
+  privacyWhoTitle: string;
+  privacyWhoBody: string;
+  privacyDeleteTitle: string;
+  privacyDeleteBody: string;
+  privacyServicesTitle: string;
+  privacyServicesBody: string;
+  privacyServiceHosting: string;
+  privacyServiceEmail: string;
+  privacyServiceMaps: string;
+  privacyServiceStore: string;
+  privacyServiceTranslate: string;
+  privacyServiceAdmin: string;
+  privacyNeverTitle: string;
+  privacyNeverBody: string;
+  privacyContactTitle: string;
+  privacyContactBody: string;
+
   landingSchoolSiteLabel: string;
   landingSchoolSiteLink: string;
 
@@ -1124,6 +1163,57 @@ const en: Strings = {
   faqUnlistedTitle: "You can step off the roster",
   faqUnlistedBody:
     "If you would rather not be listed at all, write to us and we'll take your family out of the directory. You keep your account, the calendar and the newsletter.",
+  privacyTitle: "Privacy",
+  privacyNav: "Privacy",
+  privacyLead:
+    "{school} runs this site for the families of the school. This page says what it holds, who can see it, and what we will never collect. It is written to be read, not to be agreed to.",
+  privacyDescription:
+    "What the {school} directory holds about your family, who can see it, what we never collect, and how to remove it.",
+  privacyUpdated: "Last updated {date}.",
+  privacyHoldTitle: "What we hold",
+  privacyHoldBody: "Only what a parent types in. Nothing is imported from the school or the district.",
+  privacyHoldName: "Your name, and the first name of each child you add.",
+  privacyHoldContact: "Any phone number, email or address you choose to add — each one optional.",
+  privacyHoldPhoto: "A photo, if you upload one.",
+  privacyHoldChild: "The classroom you tell us your child is in.",
+  privacyHoldAddress:
+    "If you add a street address, we turn it into map coordinates so the optional neighbours feature can work. Those coordinates never leave our server and are never shown to anyone.",
+  privacyDefaultTitle: "Private is the default",
+  privacyDefaultBody:
+    "Every contact detail starts private and stays private until you change it. Each one carries its own setting — visible to members, shared with a specific group, or private — so you can be listed without being reachable. There is no setting that makes anything public, anywhere in the site.",
+  privacyChildrenTitle: "Children",
+  privacyChildrenBody:
+    "A child has no account and cannot sign in. Everything about a child is entered and controlled by their own parent, who can change or remove it at any time. Today no child in this directory has a phone number or an address attached to them.",
+  privacyBusTitle: "What we will never collect",
+  privacyBusBody:
+    "We do not collect and will not collect transportation or bus information — no routes, no stop locations, no pick-up or drop-off times. We also ask for no birthdays, no medical information, no school records and no grades. If that ever needs to change, this page changes first.",
+  privacyWhoTitle: "Who can see it",
+  privacyWhoBody:
+    "Only signed-in members whose account someone has approved. Creating an account is not enough on its own: you tell us who your child is and which classroom they are in, and a person checks before the directory opens. Search engines are told to stay out of every members-only page, and we do not publish the directory anywhere.",
+  privacyDeleteTitle: "Removing your family",
+  privacyDeleteBody:
+    "You can delete anyone you manage from their profile, and it is immediate and permanent — their name, their contact details and their photo all go. You can also ask us and we will do it for you. We keep a dated record that an account acted, because that record is what makes the site accountable, but it holds no contact details.",
+  privacyServicesTitle: "Services we rely on",
+  privacyServicesBody:
+    "A handful of companies handle parts of this on our behalf. Each sees only what its job needs:",
+  privacyServiceHosting:
+    "Cloudflare — hosting, the database and file storage. Everything here lives on their infrastructure.",
+  privacyServiceEmail:
+    "Resend — delivers our email, so it handles the address a message is sent to and what the message says.",
+  privacyServiceMaps:
+    "OpenStreetMap — if you add an address, it is sent once to turn into coordinates. Map pictures are fetched by our server, by map square rather than by address, so your browser never asks anyone else for them.",
+  privacyServiceStore:
+    "Stripe and Printful — only if you buy something from the shop, and only the name and shipping address you type at checkout. A shop order is never linked to a directory profile.",
+  privacyServiceTranslate:
+    "Google Translate — offered on newsletter pages that are already public. Nothing members-only is ever sent to it.",
+  privacyServiceAdmin:
+    "Slack — a private channel the site's administrator uses receives a notice, including the email address, when someone new signs up.",
+  privacyNeverTitle: "What we don't do",
+  privacyNeverBody:
+    "We do not sell or share this information, we run no advertising, and there are no tracking or analytics scripts on any page of this site. Nobody is profiled and nothing is sent to a data broker.",
+  privacyContactTitle: "Questions",
+  privacyContactBody:
+    "Write to us and a person will answer. If you think something here is wrong, or you want your family removed, that is the address to use.",
   landingSchoolSiteLabel: "Looking for the school itself?",
   landingSchoolSiteLink: "Eisenhower Elementary website",
 
@@ -1711,6 +1801,57 @@ const es: Strings = {
   faqUnlistedTitle: "Puede salir del listado",
   faqUnlistedBody:
     "Si prefiere no aparecer, escríbanos y sacamos a su familia del directorio. Conserva su cuenta, el calendario y el boletín.",
+  privacyTitle: "Privacidad",
+  privacyNav: "Privacidad",
+  privacyLead:
+    "{school} mantiene este sitio para las familias de la escuela. Esta página explica qué guarda, quién puede verlo y qué nunca recopilaremos. Está escrita para leerse, no para aceptarse.",
+  privacyDescription:
+    "Qué guarda el directorio de {school} sobre su familia, quién puede verlo, qué nunca recopilamos y cómo eliminarlo.",
+  privacyUpdated: "Última actualización: {date}.",
+  privacyHoldTitle: "Qué guardamos",
+  privacyHoldBody: "Solo lo que escribe un padre o una madre. No importamos nada de la escuela ni del distrito.",
+  privacyHoldName: "Su nombre y el nombre de pila de cada hijo o hija que agregue.",
+  privacyHoldContact: "El teléfono, correo o dirección que decida agregar: cada uno es opcional.",
+  privacyHoldPhoto: "Una foto, si sube alguna.",
+  privacyHoldChild: "El salón en el que nos dice que está su hijo o hija.",
+  privacyHoldAddress:
+    "Si agrega una dirección, la convertimos en coordenadas de mapa para que funcione la función opcional de vecinos. Esas coordenadas nunca salen de nuestro servidor y no se le muestran a nadie.",
+  privacyDefaultTitle: "Lo privado es lo predeterminado",
+  privacyDefaultBody:
+    "Cada dato de contacto empieza siendo privado y sigue siéndolo hasta que usted lo cambie. Cada uno tiene su propia opción —visible para los miembros, compartido con un grupo concreto o privado— para que pueda aparecer sin ser localizable. No existe ninguna opción que haga algo público en ninguna parte del sitio.",
+  privacyChildrenTitle: "Los niños",
+  privacyChildrenBody:
+    "Un niño no tiene cuenta y no puede iniciar sesión. Todo lo relativo a un niño lo introduce y lo controla su propio padre o madre, que puede cambiarlo o eliminarlo en cualquier momento. Hoy ningún niño de este directorio tiene un teléfono ni una dirección asociados.",
+  privacyBusTitle: "Lo que nunca recopilaremos",
+  privacyBusBody:
+    "No recopilamos ni recopilaremos información de transporte ni de autobuses: ni rutas, ni paradas, ni horas de recogida o entrega. Tampoco pedimos fechas de nacimiento, información médica, expedientes escolares ni calificaciones. Si eso alguna vez tuviera que cambiar, esta página cambiaría primero.",
+  privacyWhoTitle: "Quién puede verlo",
+  privacyWhoBody:
+    "Solo los miembros que han iniciado sesión y cuya cuenta alguien ha aprobado. Crear una cuenta no basta por sí solo: usted nos dice quién es su hijo o hija y en qué salón está, y una persona lo revisa antes de abrir el directorio. A los buscadores se les indica que no entren en ninguna página para miembros, y no publicamos el directorio en ningún sitio.",
+  privacyDeleteTitle: "Eliminar a su familia",
+  privacyDeleteBody:
+    "Puede eliminar desde su perfil a cualquier persona que usted administre; es inmediato y permanente, y desaparecen su nombre, sus datos de contacto y su foto. También puede pedírnoslo y lo hacemos nosotros. Conservamos un registro fechado de que una cuenta actuó, porque ese registro es lo que hace que el sitio rinda cuentas, pero no contiene datos de contacto.",
+  privacyServicesTitle: "Servicios que utilizamos",
+  privacyServicesBody:
+    "Unas pocas empresas se encargan de partes de esto en nuestro nombre. Cada una ve solo lo que su función necesita:",
+  privacyServiceHosting:
+    "Cloudflare: alojamiento, base de datos y almacenamiento de archivos. Todo lo de aquí vive en su infraestructura.",
+  privacyServiceEmail:
+    "Resend: entrega nuestro correo, así que maneja la dirección a la que se envía un mensaje y lo que dice el mensaje.",
+  privacyServiceMaps:
+    "OpenStreetMap: si agrega una dirección, se envía una vez para convertirla en coordenadas. Las imágenes de mapa las obtiene nuestro servidor, por cuadrícula y no por dirección, así que su navegador nunca se las pide a nadie más.",
+  privacyServiceStore:
+    "Stripe y Printful: solo si compra algo en la tienda, y solo el nombre y la dirección de envío que escriba al pagar. Un pedido nunca se vincula a un perfil del directorio.",
+  privacyServiceTranslate:
+    "Google Traductor: se ofrece en páginas del boletín que ya son públicas. Nunca se le envía nada que sea solo para miembros.",
+  privacyServiceAdmin:
+    "Slack: un canal privado que usa el administrador del sitio recibe un aviso, con la dirección de correo, cuando alguien nuevo se registra.",
+  privacyNeverTitle: "Lo que no hacemos",
+  privacyNeverBody:
+    "No vendemos ni compartimos esta información, no mostramos publicidad y no hay scripts de rastreo ni de analítica en ninguna página de este sitio. No se crean perfiles de nadie y no se envía nada a intermediarios de datos.",
+  privacyContactTitle: "Preguntas",
+  privacyContactBody:
+    "Escríbanos y le responderá una persona. Si cree que algo de aquí está mal, o quiere que eliminemos a su familia, esa es la dirección.",
   landingSchoolSiteLabel: "¿Buscas la escuela?",
   landingSchoolSiteLink: "Sitio web de Eisenhower Elementary",
 
@@ -2277,6 +2418,52 @@ const zh: Strings = {
   faqUnlistedTitle: "您可以不出现在名册上",
   faqUnlistedBody:
     "如果您宁愿完全不被列出，请写信给我们，我们会把您一家从通讯录中移除。您的账号、日历和通讯都会保留。",
+  privacyTitle: "隐私",
+  privacyNav: "隐私",
+  privacyLead:
+    "{school} 为本校家庭运营这个网站。本页说明我们保存哪些信息、谁能看到，以及我们永远不会收集什么。它是写来给您读的，不是让您点同意的。",
+  privacyDescription:
+    "{school} 通讯录保存您家庭的哪些信息、谁能看到、我们从不收集什么，以及如何删除。",
+  privacyUpdated: "最后更新：{date}。",
+  privacyHoldTitle: "我们保存什么",
+  privacyHoldBody: "只有家长自己填写的内容。我们不从学校或学区导入任何数据。",
+  privacyHoldName: "您的姓名，以及您添加的每个孩子的名字。",
+  privacyHoldContact: "您选择添加的电话、邮箱或地址——每一项都是可选的。",
+  privacyHoldPhoto: "照片，如果您上传的话。",
+  privacyHoldChild: "您告诉我们孩子所在的班级。",
+  privacyHoldAddress:
+    "如果您填写街道地址，我们会将其转换为地图坐标，以便可选的「邻居」功能运作。这些坐标绝不会离开我们的服务器，也绝不会显示给任何人。",
+  privacyDefaultTitle: "默认即私密",
+  privacyDefaultBody:
+    "每一项联系方式默认都是私密的，在您更改之前一直如此。每一项都有自己的设置——对成员可见、与特定群组共享，或保持私密——所以您可以被列出而不被联系。本站任何地方都没有让内容公开的设置。",
+  privacyChildrenTitle: "关于孩子",
+  privacyChildrenBody:
+    "孩子没有账号，也无法登录。关于孩子的一切都由其家长填写和掌控，家长可随时修改或删除。目前本通讯录中没有任何一个孩子附有电话或地址。",
+  privacyBusTitle: "我们永远不会收集的内容",
+  privacyBusBody:
+    "我们不收集、也不会收集交通或校车信息——没有路线、没有站点位置、没有接送时间。我们同样不索取生日、医疗信息、学籍记录或成绩。如果这一点将来需要改变，本页会先改变。",
+  privacyWhoTitle: "谁能看到",
+  privacyWhoBody:
+    "只有已登录、且账户经过审核批准的成员。仅仅注册并不够：您告诉我们孩子是谁、在哪个班级，由人工核对后才会开放通讯录。我们告知搜索引擎不要收录任何仅限成员的页面，也不会在任何地方公开通讯录。",
+  privacyDeleteTitle: "删除您的家庭信息",
+  privacyDeleteBody:
+    "您可以在个人资料中删除任何由您管理的人，删除是立即且永久的——姓名、联系方式和照片都会一并消失。您也可以联系我们代为处理。我们会保留一条带日期的操作记录，因为正是这条记录让本站可被问责，但其中不含任何联系方式。",
+  privacyServicesTitle: "我们依赖的服务",
+  privacyServicesBody: "有几家公司代我们处理其中一部分工作。每一家只能看到其职责所需的内容：",
+  privacyServiceHosting: "Cloudflare——托管、数据库与文件存储。这里的一切都运行在他们的基础设施上。",
+  privacyServiceEmail: "Resend——负责投递我们的邮件，因此会接触收件地址和邮件内容。",
+  privacyServiceMaps:
+    "OpenStreetMap——如果您填写地址，它会被发送一次以转换为坐标。地图图片由我们的服务器获取，按地图方格而非按地址，所以您的浏览器不会向第三方请求。",
+  privacyServiceStore:
+    "Stripe 与 Printful——仅当您在商店购物时，且仅限您结账时填写的姓名和收货地址。订单绝不会与通讯录档案关联。",
+  privacyServiceTranslate: "Google 翻译——仅在本已公开的通讯页面上提供。仅限成员的内容绝不会发送给它。",
+  privacyServiceAdmin: "Slack——网站管理员使用的一个私人频道，会在有新用户注册时收到通知，其中包含其邮箱地址。",
+  privacyNeverTitle: "我们不做的事",
+  privacyNeverBody:
+    "我们不出售也不共享这些信息，不投放广告，本站任何页面上都没有追踪或分析脚本。我们不对任何人建立画像，也不向数据经纪商发送任何内容。",
+  privacyContactTitle: "疑问",
+  privacyContactBody:
+    "写信给我们，会有人回复。如果您认为这里有任何错误，或希望删除您的家庭信息，请使用该邮箱。",
   landingSchoolSiteLabel: "在找学校官网？",
   landingSchoolSiteLink: "Eisenhower Elementary 官网",
 
@@ -2911,6 +3098,57 @@ const so: Strings = {
   faqUnlistedTitle: "Waad ka bixi kartaa liiska",
   faqUnlistedBody:
     "Haddii aad doorbidayso inaan gabi ahaanba lagu liistin, noo soo qor waanan qoyskaaga ka saarnaa buugga xiriirka. Waxaad haysataa akoonkaaga, jadwalka iyo warsidaha.",
+  privacyTitle: "Asturaynta",
+  privacyNav: "Asturaynta",
+  privacyLead:
+    "{school} ayaa boggan u maamula qoysaska dugsiga. Boggan wuxuu sheegayaa waxa la kaydiyo, cidda arki karta, iyo waxa aanan weligeen ururin doonin. Waxaa loo qoray in la akhriyo, ee ma aha in la oggolaado.",
+  privacyDescription:
+    "Waxa buugga xiriirka ee {school} uu ka hayo qoyskaaga, cidda arki karta, waxa aanan weligeen ururin, iyo sida loo tirtiro.",
+  privacyUpdated: "Markii ugu dambeysay ee la cusboonaysiiyay {date}.",
+  privacyHoldTitle: "Waxa aan haysanno",
+  privacyHoldBody: "Kaliya waxa waalidku qoro. Waxba lagama soo dejiyo dugsiga ama degmada.",
+  privacyHoldName: "Magacaaga, iyo magaca hore ee ilmo kasta oo aad ku darto.",
+  privacyHoldContact: "Telefoon, iimayl ama cinwaan kasta oo aad doorato inaad ku darto — mid walba ikhtiyaari.",
+  privacyHoldPhoto: "Sawir, haddii aad mid soo gasho.",
+  privacyHoldChild: "Fasalka aad noo sheegto in ilmahaagu ku jiro.",
+  privacyHoldAddress:
+    "Haddii aad ku darto cinwaan guri, waxaan u beddelnaa qiyaasaha khariidadda si astaanta ikhtiyaariga ah ee deriska u shaqeyso. Qiyaasahaasi weligood kama baxaan server-keenna lagumana tuso cidna.",
+  privacyDefaultTitle: "Gaar ahaanshuhu waa caadiga",
+  privacyDefaultBody:
+    "Xog kasta oo xiriir waxay ku bilaabmaan gaar, wayna sii ahaanayaan ilaa aad beddesho. Mid walba wuxuu leeyahay doorashadiisa — la arki karo xubnaha, la wadaago koox gaar ah, ama gaar — sidaas darteed waad ku jiri kartaa liiska adigoon la gaadhi karin. Ma jirto hab wax loogu dhigo dadweynaha meelna oo ka mid ah boggan.",
+  privacyChildrenTitle: "Carruurta",
+  privacyChildrenBody:
+    "Ilmuhu akoon ma laha mana geli karo. Wax kasta oo ilmaha ku saabsan waxaa geliya oo xakameeya waalidkiisa, oo mar kasta beddeli kara ama tirtiri kara. Maanta ilmo midna oo buuggan ku jira ma laha telefoon ama cinwaan ku xidhan.",
+  privacyBusTitle: "Waxa aanan weligeen ururin doonin",
+  privacyBusBody:
+    "Ma ururinno oo ma ururin doonno macluumaadka gaadiidka ama baska — jidad ma jiraan, goobo joogsi ma jiraan, waqtiyo qaadis ama dejin ma jiraan. Sidoo kale ma weydiisanno taariikhda dhalashada, macluumaad caafimaad, diiwaanka dugsiga ama darajooyinka. Haddii taasi marnaba u baahato inay beddesho, boggan ayaa markii hore beddelaya.",
+  privacyWhoTitle: "Cidda arki karta",
+  privacyWhoBody:
+    "Kaliya xubnaha gashay oo akoonkooda qof ansixiyay. Abuurista akoon kaligeed kuma filna: waxaad noo sheegtaa cidda ilmahaagu yahay iyo fasalka uu ku jiro, qofna wuu hubiyaa ka hor inta buugga la furin. Mashiinada raadinta waxaa lagu wargeliyaa inaanay gelin bog kasta oo xubnaha u gaar ah, meelna kuma daabacno buugga.",
+  privacyDeleteTitle: "Ka saarista qoyskaaga",
+  privacyDeleteBody:
+    "Waxaad ka tirtiri kartaa profile-kooda qof kasta oo aad maamusho, waana isla markiiba oo joogto ah — magacooda, xiriirkooda iyo sawirkooda oo dhan way baxayaan. Waxaad sidoo kale na weydiisan kartaa annagana waan kuu samaynaa. Waxaan hayn diiwaan taariikhaysan oo sheegaya in akoon wax qabtay, maxaa yeelay diiwaankaasi waa waxa boggan xisaab looga qaadi karo, laakiin xog xiriir ma wato.",
+  privacyServicesTitle: "Adeegyada aan ku tiirsanahay",
+  privacyServicesBody:
+    "Dhowr shirkadood ayaa qayb ka qabta arrintan annaga oo matalaya. Mid walba wuxuu arkaa kaliya waxa shaqadiisu u baahan tahay:",
+  privacyServiceHosting:
+    "Cloudflare — martigelinta, xogta iyo kaydinta faylalka. Wax kasta oo halkan ah wuxuu ku nool yahay qalabkooda.",
+  privacyServiceEmail:
+    "Resend — wuxuu gaadhsiiyaa iimaylkeenna, sidaas darteed wuxuu qabtaa cinwaanka loo diro fariinta iyo waxa fariintu sheegayso.",
+  privacyServiceMaps:
+    "OpenStreetMap — haddii aad ku darto cinwaan, hal mar ayaa loo diraa si loogu beddelo qiyaaso. Sawirada khariidadda waxaa soo qaata server-keenna, oo ah sanduuq khariidad ee ma aha cinwaan, sidaas darteed browser-kaagu weligiis cidna kama weydiisto.",
+  privacyServiceStore:
+    "Stripe iyo Printful — kaliya haddii aad wax ka iibsato dukaanka, oo kaliya magaca iyo cinwaanka rarista ee aad qorto markaad bixinayso. Dalab dukaan weligiis lagama xidho profile buugga.",
+  privacyServiceTranslate:
+    "Google Translate — waxaa lagu bixiyaa bogagga warsidaha ee horeba u ahaa dadweyne. Wax xubnaha u gaar ah weligood looma diro.",
+  privacyServiceAdmin:
+    "Slack — kanaal gaar ah oo maamulaha boggu isticmaalo ayaa hela ogeysiis, oo ay ku jirto cinwaanka iimaylka, marka qof cusub isdiiwaangeliyo.",
+  privacyNeverTitle: "Waxa aanan samayn",
+  privacyNeverBody:
+    "Ma iibinno oo ma wadaagno macluumaadkan, xayaysiin ma wadno, bog kasta oo boggan ka mid ah kuma jiraan script raadraac ama falanqayn ah. Cidna lagama sameeyo profile waxbana looma diro dallaal xog.",
+  privacyContactTitle: "Su\u2019aalo",
+  privacyContactBody:
+    "Noo soo qor, qof baana kuu jawaabi doona. Haddii aad u malaynayso in wax halkan ku qaldan yihiin, ama aad doonayso in qoyskaaga la saaro, taasi waa cinwaanka.",
   landingSchoolSiteLabel: "Ma raadinaysaa dugsiga laftiisa?",
   landingSchoolSiteLink: "Bogga Eisenhower Elementary",
 
