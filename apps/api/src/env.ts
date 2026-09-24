@@ -95,6 +95,18 @@ export interface AuthContext {
   activePersonId: string | null;
   /** True when an admin is masquerading as `userId`. */
   isMasquerading: boolean;
+  /**
+   * May this account read OTHER families' data (migration 0029, invariant 32)?
+   *
+   * `user.access_approved_at IS NOT NULL`, or system admin — being one is a
+   * fact about the account rather than something a review queue confers, the
+   * same short-circuit `personListableSql` and `rosterAccess` both make.
+   *
+   * It rides the session join, so the gate costs no round trip. A masqueraded
+   * target resolves to the TARGET's flag, which is the point of masquerade:
+   * an admin viewing as a pending member sees the pending member's directory.
+   */
+  isApproved: boolean;
 }
 
 /** Hono generic env: bindings + per-request variables. */

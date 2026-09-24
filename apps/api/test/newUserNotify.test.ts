@@ -156,7 +156,7 @@ describe("/settings/notifications is the caller's own", () => {
   }
   const as = (id: string, isSystemAdmin = true): AuthContext => ({
     userId: id, realUserId: id, email: `${id}@x.org`, isSystemAdmin,
-    sessionId: "s", activePersonId: null, isMasquerading: false,
+    sessionId: "s", activePersonId: null, isMasquerading: false, isApproved: true,
   });
 
   it("reads and writes only the caller's row", async () => {

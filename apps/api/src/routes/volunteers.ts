@@ -46,7 +46,7 @@ function signupNotifyDetail(
 /** GET /volunteers/sheets/:slug — one sheet, with names. */
 volunteers.get("/sheets/:slug", async (c) => {
   const auth = requireAuth(c);
-  const viewer = await viewerOf(c.env, auth.userId, auth.isSystemAdmin);
+  const viewer = await viewerOf(c.env, auth.userId, auth.isSystemAdmin, auth.isApproved);
   const sheet = await loadSheetForMember(c.env, c.req.param("slug"), viewer);
   if (!sheet) return c.json({ error: "not_found" }, 404);
   return c.json({ sheet });
@@ -104,7 +104,7 @@ volunteers.post("/positions/:id/signups", async (c) => {
   };
   c.var.audit.push(draft);
 
-  const viewer = await viewerOf(c.env, auth.userId, auth.isSystemAdmin);
+  const viewer = await viewerOf(c.env, auth.userId, auth.isSystemAdmin, auth.isApproved);
   const sheet = await loadSheetForMember(c.env, result.slug!, viewer);
   // Same object the array above holds, and the flush runs after this handler
   // returns — so naming the spot is an enrichment of a record that already
@@ -141,7 +141,7 @@ volunteers.delete("/signups/:id", async (c) => {
   };
   c.var.audit.push(draft);
 
-  const viewer = await viewerOf(c.env, auth.userId, auth.isSystemAdmin);
+  const viewer = await viewerOf(c.env, auth.userId, auth.isSystemAdmin, auth.isApproved);
   const sheet = await loadSheetForMember(c.env, owner.slug, viewer);
   // The signup row is gone by now, which is why `signupOwner` carried its
   // position id out before the delete.

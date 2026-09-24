@@ -4,6 +4,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Navigate, useNavigate } from "react-router-dom";
 import type {
+  AccessRequestDTO,
   AdminUserDTO,
   AuditActionCountDTO,
   AuditEntryDTO,
@@ -545,7 +546,10 @@ export function Admin() {
   const [auditLoading, setAuditLoading] = useState(false);
   const auditReq = useRef(0);
   const [nextBefore, setNextBefore] = useState<string | null>(null);
-  const [tab, setTab] = useState<"users" | "audit" | "backup">("users");
+  // `?tab=access` so the notification email can link straight at the queue.
+  const [tab, setTab] = useState<"users" | "access" | "audit" | "backup">(() =>
+    new URLSearchParams(window.location.search).get("tab") === "access" ? "access" : "users",
+  );
   const [impactFor, setImpactFor] = useState<AdminUserDTO | null>(null);
 
   const loadUsers = () => void api.adminUsers().then((r) => setUsers(r.users)).catch(() => setUsers([]));
@@ -644,7 +648,7 @@ export function Admin() {
     setNextBefore(r.nextBefore);
   };
 
-  const tabs: [typeof tab, string][] = [["users", "Users"], ["audit", "Audit log"], ["backup", "Backup"]];
+  const tabs: [typeof tab, string][] = [["users", "Users"], ["access", "Access"], ["audit", "Audit log"], ["backup", "Backup"]];
   const tabBar = (
     <div className="sd-row" style={{ gap: 2, borderBottom: "1px solid var(--line)", marginBottom: 16 }}>
       {tabs.map(([key, label]) => (
@@ -908,6 +912,7 @@ export function Admin() {
     <>
       {tabBar}
       {tab === "users" && usersTab}
+      {tab === "access" && <AccessTab />}
       {tab === "audit" && auditTab}
       {tab === "backup" && <BackupTab />}
     </>
@@ -933,4 +938,137 @@ function iconForAction(action: string): import("../components/Icon.js").IconName
   if (action.startsWith("registration")) return "gear";
   if (action.startsWith("notify")) return "mail";
   return "bolt";
+}
+
+
+/**
+ * The directory-access queue (migration 0029, invariant 32).
+ *
+ * The screen exists to show a reviewer the one thing an email address could
+ * never tell them: who the applicant says they are, which children they
+ * entered, and which ROOMS those children are claimed to be in. The room names
+ * are the district's own, so one that does not exist reads as one that does not
+ * exist.
+ *
+ * Three lists, because they are three jobs. "Waiting" is the work. "Decided" is
+ * the record — worth keeping visible, since approving is reversible and a
+ * decline that was wrong should be easy to find again. "Never asked" is the
+ * population this gate exists to catch: accounts that signed up, entered nobody
+ * and stopped.
+ *
+ * Declining is deliberately the quieter button. A wrongly declined family is a
+ * worse outcome than a slow approval, and the copy on their side says so.
+ *
+ * English, like the rest of this file — admin chrome is operator tooling and is
+ * exempt from invariant 6 by the decision recorded at the top. The FAMILY's
+ * side of this feature (`screens/Access.tsx`) goes through the dictionaries in
+ * all four languages, which is where the rule actually bites. Don't add
+ * dictionary keys for the strings below; an earlier draft did, and thirteen of
+ * them sat unused in four locales.
+ */
+function AccessTab() {
+  const [state, setState] = useState<"pending" | "decided" | "never">("pending");
+  const [rows, setRows] = useState<AccessRequestDTO[] | null>(null);
+  const [busy, setBusy] = useState<string | null>(null);
+  const [note, setNote] = useState<string | null>(null);
+
+  const load = (s: typeof state) => {
+    setRows(null);
+    void api.accessRequests(s).then((r) => setRows(r.requests)).catch(() => setRows([]));
+  };
+  useEffect(() => { load(state); }, [state]);
+
+  const decide = async (userId: string, approve: boolean) => {
+    setBusy(userId);
+    try {
+      const r = await api.decideAccess(userId, approve);
+      setNote(
+        approve
+          ? `Approved${r.promoted ? ` — ${r.promoted} classroom placement${r.promoted === 1 ? "" : "s"} confirmed` : ""}.`
+          : "Declined. They can correct their details and ask again.",
+      );
+      load(state);
+    } catch {
+      setNote("That didn't work. Try again.");
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  return (
+    <>
+      <div className="sd-row" style={{ gap: 6, marginBottom: 12 }}>
+        {([["pending", "Waiting"], ["decided", "Decided"], ["never", "Never asked"]] as const).map(
+          ([key, label]) => (
+            <button
+              key={key}
+              type="button"
+              onClick={() => setState(key)}
+              className={`sd-btn sd-btn-sm ${state === key ? "sd-btn-primary" : "sd-btn-ghost"}`}
+            >
+              {label}
+            </button>
+          ),
+        )}
+      </div>
+
+      {state === "never" && (
+        <div className="sd-row" style={{ gap: 8, marginBottom: 12, padding: "11px 14px", background: "var(--bg-2)", borderRadius: 12, color: "var(--ink-2)", fontSize: 12.5, lineHeight: 1.4 }}>
+          <Icon name="info" size={16} style={{ flex: "0 0 auto", marginTop: 1 }} />
+          These accounts signed up and never entered a family. They cannot see the directory.
+        </div>
+      )}
+
+      {note && (
+        <div className="sd-card sd-card-pad" style={{ marginBottom: 12, fontSize: 13.5 }}>{note}</div>
+      )}
+
+      {rows === null && <div className="sd-meta">Loading…</div>}
+      {rows?.length === 0 && <div className="sd-meta">Nothing here right now.</div>}
+
+      {rows?.map((r) => (
+        <div key={r.userId} className="sd-card sd-card-pad" style={{ marginBottom: 10 }}>
+          <div style={{ fontSize: 14.5, fontWeight: 700 }}>{r.applicantName ?? "(no name entered)"}</div>
+          <div className="sd-meta" style={{ marginTop: 2 }}>{r.email}</div>
+
+          <div style={{ marginTop: 10 }}>
+            {r.students.length === 0 && <div className="sd-meta">No children entered.</div>}
+            {r.students.map((s) => (
+              <div key={s.id} className="sd-row" style={{ gap: 8, padding: "3px 0", alignItems: "baseline" }}>
+                <span style={{ fontSize: 13.5 }}>{s.name}</span>
+                <span className="sd-meta" style={{ fontSize: 12.5 }}>
+                  {s.classrooms.length ? s.classrooms.join(", ") : "no classroom chosen"}
+                </span>
+              </div>
+            ))}
+          </div>
+
+          {r.note && (
+            <div style={{ marginTop: 10, padding: "9px 12px", background: "var(--bg-2)", borderRadius: 10, fontSize: 13, lineHeight: 1.45 }}>
+              {r.note}
+            </div>
+          )}
+
+          <div className="sd-meta" style={{ marginTop: 10, fontSize: 12 }}>
+            {r.submittedAt ? `Asked ${new Date(r.submittedAt).toLocaleDateString()}` : `Signed up ${new Date(r.createdAt).toLocaleDateString()}`}
+            {r.state === "approved" && r.decidedBy ? ` · approved by ${r.decidedBy}` : ""}
+            {r.state === "declined" && r.decidedBy ? ` · declined by ${r.decidedBy}` : ""}
+          </div>
+
+          <div className="sd-row" style={{ gap: 8, marginTop: 12 }}>
+            {r.state !== "approved" && (
+              <Btn kind="primary" icon="check" disabled={busy === r.userId} onClick={() => void decide(r.userId, true)}>
+                Approve
+              </Btn>
+            )}
+            {r.state !== "declined" && (
+              <Btn kind="ghost" disabled={busy === r.userId} onClick={() => void decide(r.userId, false)}>
+                Decline
+              </Btn>
+            )}
+          </div>
+        </div>
+      ))}
+    </>
+  );
 }

@@ -112,6 +112,7 @@ const AUTH: AuthContext = {
   sessionId: "01SESSION",
   activePersonId: "01SELF",
   isMasquerading: false,
+  isApproved: true,
 };
 
 let audit: AuditDraft[] = [];

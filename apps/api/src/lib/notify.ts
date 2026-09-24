@@ -25,6 +25,7 @@ import type { Env } from "../env.js";
 import { bootstrapAdminEmails, getSetting, setSetting } from "./db.js";
 import { getNewsletterSettings } from "./newsletter.js";
 import {
+  accessRequestEmail,
   newSubscriberDigestEmail,
   newSubscriberEmail,
   newUserDigestEmail,
@@ -113,6 +114,30 @@ export async function notifyNewUser(env: Env, user: NewUserSummary): Promise<voi
     await fanOut(env, recipients, newUserEmail(env, user));
   } catch (err) {
     console.error(`[notify] new-user notification failed: ${String(err)}`);
+  }
+}
+
+/**
+ * Somebody asked to read the directory (migration 0029).
+ *
+ * Unlike the new-member notification above, this is NOT opt-in per admin and
+ * has no digest mode: a pending application is a queue item, and a family
+ * waiting on one cannot do anything about an admin who turned mail off. It
+ * goes to every system admin plus the bootstrap addresses, which is the same
+ * set `adminRecipients` already resolves for the things that need doing.
+ *
+ * The message carries the applicant's ADDRESS and nothing else about them —
+ * not the child's name, not the room. Those are the reviewer's to read behind a
+ * session, on a screen this email links to; putting them in mail would copy a
+ * family's claim into every admin's inbox to save one click.
+ */
+export async function notifyAccessRequest(env: Env, req: { email: string }): Promise<void> {
+  try {
+    const recipients = await adminRecipients(env, req.email);
+    if (recipients.length === 0) return;
+    await fanOut(env, recipients, accessRequestEmail(env, req));
+  } catch (err) {
+    console.error(`[notify] access-request notification failed: ${String(err)}`);
   }
 }
 

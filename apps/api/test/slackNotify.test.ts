@@ -187,6 +187,10 @@ describe("the allowlist is closed by construction", () => {
       "calendar.source.updated", // vs source.created/deleted — a re-fetch is not news
       "calendar.refreshed",
       "newsletter.subscriber.added",
+      // vs access.requested — the ASK needs a human, the answer does not, and
+      // a decision per applicant is the per-event noise this list exists for.
+      "access.approved",
+      "access.declined",
     ];
     for (const action of excluded) {
       expect(await lines([{ action, entityId: "01X" }])).toEqual([]);
@@ -359,6 +363,45 @@ describe("the widened allowlist — activity, not field edits", () => {
     ]);
     expect(line).toContain("Fall Festival");
     expect(line).toContain("deleted");
+  });
+});
+
+describe("a directory-access request names nobody", () => {
+  // The most sensitive claim in the system — a child's first name and their
+  // teacher — reaches Slack from this action or from none, so this is the test
+  // that would fail if someone later "improved" the line with who it was.
+  it("speaks, and carries no address, child or room", async () => {
+    const [line] = await lines([
+      {
+        action: "access.requested",
+        entityId: "01USER_NEW",
+        detail: { resubmitted: false, email: "parent@family.test" },
+        notify: { resubmitted: false },
+      },
+    ]);
+    expect(line).toContain("asked for directory access");
+    expect(line).not.toContain("parent@family.test");
+    expect(line).not.toMatch(/Grade|Rm |Ms\.|Mr\./);
+  });
+
+  it("distinguishes a re-ask after a decline, from `notify` and not `detail`", async () => {
+    const [first] = await lines([
+      { action: "access.requested", entityId: "01U", notify: { resubmitted: false } },
+    ]);
+    const [again] = await lines([
+      { action: "access.requested", entityId: "01U", notify: { resubmitted: true } },
+    ]);
+    expect(first).not.toContain("again");
+    expect(again).toContain("again");
+  });
+
+  it("falls back to the plain line when `detail` alone claims a re-ask", async () => {
+    // `detail` is not in a formatter's scope at all (invariant 22). If this
+    // ever starts saying "again", `detail` has leaked into the input type.
+    const [line] = await lines([
+      { action: "access.requested", entityId: "01U", detail: { resubmitted: true } },
+    ]);
+    expect(line).not.toContain("again");
   });
 });
 

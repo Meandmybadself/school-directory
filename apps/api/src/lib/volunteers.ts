@@ -101,6 +101,11 @@ export interface Viewer {
   userId: string;
   isSystemAdmin: boolean;
   controlledPersonIds: Set<string>;
+  /** May they read other families at all (migration 0029)? A sheet's COUNTS
+   *  are public (invariant 13); its NAMES are for approved members, so a
+   *  pending one reads this route as an anonymous visitor does — plus their
+   *  own household's claims, which `isPersonListable` keeps. */
+  isApproved?: boolean;
 }
 
 /** The Persons this User controls. One query, reused for every name on a sheet. */
@@ -108,6 +113,7 @@ export async function viewerOf(
   env: Env,
   userId: string,
   isSystemAdmin: boolean,
+  isApproved = true,
 ): Promise<Viewer> {
   const rows = await env.DB.prepare("SELECT person_id FROM control WHERE user_id = ?")
     .bind(userId)
@@ -115,6 +121,7 @@ export async function viewerOf(
   return {
     userId,
     isSystemAdmin,
+    isApproved,
     controlledPersonIds: new Set(rows.results.map((r) => r.person_id)),
   };
 }

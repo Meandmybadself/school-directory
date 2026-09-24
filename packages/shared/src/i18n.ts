@@ -180,6 +180,25 @@ export interface Strings {
   unlistedOff: string;
   unlistedRemove: string;
   unlistedRestore: string;
+
+  // Directory access (migration 0029, invariant 32). The copy a family reads
+  // while they are waiting is the whole of their experience of this gate, so it
+  // says what is happening, why, and what they can still do — never "denied".
+  accessPendingTitle: string;
+  accessPendingBody: string;
+  accessDeclinedTitle: string;
+  accessDeclinedBody: string;
+  accessFormTitle: string;
+  accessFormLead: string;
+  accessNeedName: string;
+  accessNeedStudent: string;
+  accessNeedClassroom: string;
+  accessNoteLabel: string;
+  accessNotePlaceholder: string;
+  accessSubmit: string;
+  accessSubmitFailed: string;
+  accessSubmitted: string;
+  accessMeanwhile: string;
   unlistedBadge: string;
   exitPreview: string;
   contact: string;
@@ -451,6 +470,8 @@ export interface Strings {
   faqStep3Body: string;
   faqFamilyTitle: string;
   faqFamilyBody: string;
+  faqApprovalTitle: string;
+  faqApprovalBody: string;
   faqPrivacyTitle: string;
   faqNoPublicLead: string;
   faqNoPublicBody: string; // uses {school}
@@ -821,6 +842,25 @@ const en: Strings = {
   unlistedOff: "Listed normally, like every other member.",
   unlistedRemove: "Remove from directory",
   unlistedRestore: "Restore to directory",
+  accessPendingTitle: "We're checking your request",
+  accessPendingBody:
+    "Someone from the PTO is reviewing what you entered. This is usually quick. You'll be able to see the directory as soon as it's approved.",
+  accessDeclinedTitle: "We couldn't match your request",
+  accessDeclinedBody:
+    "We weren't able to match what you entered to a family at the school. If something is wrong or missing — a misspelled name, the wrong classroom — fix it below and ask again.",
+  accessFormTitle: "Ask to see the directory",
+  accessFormLead:
+    "The directory holds other families' names and contact details, so we check that each account belongs to a school family before opening it. Tell us who you are and who your child is, and we'll take a look.",
+  accessNeedName: "Add your own first and last name",
+  accessNeedStudent: "Add at least one child",
+  accessNeedClassroom: "Choose your child's classroom",
+  accessNoteLabel: "Anything else we should know? (optional)",
+  accessNotePlaceholder: "e.g. we started in January, or my child goes by a different name",
+  accessSubmit: "Ask for access",
+  accessSubmitFailed: "That didn't go through. Check the steps above and try again.",
+  accessSubmitted: "Request sent",
+  accessMeanwhile:
+    "In the meantime you can use the calendar, sign up to volunteer, read the newsletter and manage your own family.",
   unlistedBadge: "Unlisted",
   exitPreview: "Exit preview",
   contact: "Contact",
@@ -1067,6 +1107,9 @@ const en: Strings = {
   faqFamilyTitle: "Then add your family.",
   faqFamilyBody:
     "The setup asks who else is in your home so your family appears together — your children, and your partner, who gets their own sign-in and can manage the same family. You can do this later instead; nothing is locked in.",
+  faqApprovalTitle: "We check before opening the directory",
+  faqApprovalBody:
+    "Because the directory holds other families' names and contact details, someone from the PTO checks that each new account belongs to a school family — you tell us who your child is and which classroom they're in, and we take a look. It's usually quick. While you wait you can already use the calendar, sign up to volunteer and read the newsletter.",
   faqPrivacyTitle: "Who sees what — you decide, detail by detail",
   faqNoPublicLead: "There is no fourth setting.",
   faqNoPublicBody:
@@ -1438,6 +1481,25 @@ const es: Strings = {
   unlistedOff: "Aparece con normalidad, como cualquier otro miembro.",
   unlistedRemove: "Quitar del directorio",
   unlistedRestore: "Restaurar en el directorio",
+  accessPendingTitle: "Estamos revisando su solicitud",
+  accessPendingBody:
+    "Alguien de la PTO está revisando lo que usted escribió. Suele ser rápido. Podrá ver el directorio en cuanto se apruebe.",
+  accessDeclinedTitle: "No pudimos verificar su solicitud",
+  accessDeclinedBody:
+    "No pudimos relacionar lo que escribió con una familia de la escuela. Si algo está mal o falta —un nombre mal escrito, el salón equivocado— corríjalo abajo y vuelva a solicitarlo.",
+  accessFormTitle: "Solicitar acceso al directorio",
+  accessFormLead:
+    "El directorio contiene nombres y datos de contacto de otras familias, así que verificamos que cada cuenta pertenezca a una familia de la escuela antes de abrirlo. Díganos quién es usted y quién es su hijo o hija, y lo revisaremos.",
+  accessNeedName: "Agregue su nombre y apellido",
+  accessNeedStudent: "Agregue al menos un hijo o hija",
+  accessNeedClassroom: "Elija el salón de su hijo o hija",
+  accessNoteLabel: "¿Algo más que debamos saber? (opcional)",
+  accessNotePlaceholder: "p. ej.: empezamos en enero, o mi hijo usa otro nombre",
+  accessSubmit: "Solicitar acceso",
+  accessSubmitFailed: "No se pudo enviar. Revise los pasos de arriba e inténtelo de nuevo.",
+  accessSubmitted: "Solicitud enviada",
+  accessMeanwhile:
+    "Mientras tanto puede usar el calendario, apuntarse como voluntario, leer el boletín y administrar a su propia familia.",
   unlistedBadge: "No listado",
   exitPreview: "Salir",
   contact: "Contacto",
@@ -1632,6 +1694,9 @@ const es: Strings = {
   faqFamilyTitle: "Después, agregue a su familia.",
   faqFamilyBody:
     "La configuración le pregunta quién más vive en su casa para que su familia aparezca junta: sus hijos y su pareja, que recibe su propio acceso y puede administrar la misma familia. También puede hacerlo más tarde; nada queda fijo.",
+  faqApprovalTitle: "Revisamos antes de abrir el directorio",
+  faqApprovalBody:
+    "Como el directorio contiene nombres y datos de contacto de otras familias, alguien de la PTO verifica que cada cuenta nueva pertenezca a una familia de la escuela: usted nos dice quién es su hijo o hija y en qué salón está, y lo revisamos. Suele ser rápido. Mientras espera ya puede usar el calendario, apuntarse como voluntario y leer el boletín.",
   faqPrivacyTitle: "Quién ve qué: usted decide, dato por dato",
   faqNoPublicLead: "No hay una cuarta opción.",
   faqNoPublicBody:
@@ -1994,6 +2059,25 @@ const zh: Strings = {
   unlistedOff: "正常显示，与其他成员一样。",
   unlistedRemove: "从名录中移除",
   unlistedRestore: "恢复到名录",
+  accessPendingTitle: "我们正在审核您的申请",
+  accessPendingBody:
+    "家长会的工作人员正在查看您填写的内容。通常很快就会完成。一经批准，您即可查看名录。",
+  accessDeclinedTitle: "我们无法核对您的申请",
+  accessDeclinedBody:
+    "我们无法将您填写的内容与学校的家庭对应起来。如果有误或缺失——姓名拼写错误、班级选错——请在下方更正后再次申请。",
+  accessFormTitle: "申请查看名录",
+  accessFormLead:
+    "名录中包含其他家庭的姓名和联系方式，因此我们会先确认每个账户属于本校家庭再开放访问。请告诉我们您是谁、您的孩子是谁，我们会尽快查看。",
+  accessNeedName: "填写您的姓和名",
+  accessNeedStudent: "至少添加一个孩子",
+  accessNeedClassroom: "选择您孩子的班级",
+  accessNoteLabel: "还有其他需要说明的吗？（选填）",
+  accessNotePlaceholder: "例如：我们一月份入学，或我的孩子使用另一个名字",
+  accessSubmit: "申请访问",
+  accessSubmitFailed: "提交未成功。请检查上面的步骤后重试。",
+  accessSubmitted: "申请已发送",
+  accessMeanwhile:
+    "在此期间，您仍可使用日历、报名志愿服务、阅读通讯，并管理自己的家庭信息。",
   unlistedBadge: "未列出",
   exitPreview: "退出",
   contact: "联系方式",
@@ -2176,6 +2260,9 @@ const zh: Strings = {
   faqFamilyTitle: "然后添加您的家人。",
   faqFamilyBody:
     "设置时会询问家里还有谁，好让一家人显示在一起——您的孩子，以及您的伴侣，对方会有自己的登录方式，并可管理同一个家庭。也可以以后再补，一切都能改。",
+  faqApprovalTitle: "开放名录前我们会先核对",
+  faqApprovalBody:
+    "由于名录中包含其他家庭的姓名和联系方式，家长会的工作人员会确认每个新账户属于本校家庭——您告诉我们孩子是谁、在哪个班级，我们会查看一下。通常很快。等待期间，您已经可以使用日历、报名志愿服务并阅读通讯。",
   faqPrivacyTitle: "谁能看到什么——由您逐项决定",
   faqNoPublicLead: "没有第四种设置。",
   faqNoPublicBody:
@@ -2541,6 +2628,25 @@ const so: Strings = {
   unlistedOff: "Si caadi ah ayuu u soo baxaa, sida xubin kasta oo kale.",
   unlistedRemove: "Ka saar buugga",
   unlistedRestore: "Ku celi buugga",
+  accessPendingTitle: "Waxaan eegaynaa codsigaaga",
+  accessPendingBody:
+    "Qof ka tirsan PTO-da ayaa eegaya waxaad buuxisay. Badanaa way dhaqsataa. Waxaad arki doontaa buugga marka la ansixiyo.",
+  accessDeclinedTitle: "Ma aanan xaqiijin karin codsigaaga",
+  accessDeclinedBody:
+    "Ma aanan ku xidhi karin waxaad buuxisay qoys ka tirsan iskuulka. Haddii wax qaldan yihiin ama maqan — magac si khaldan loo qoray, fasal khaldan — hoos ku saxo oo mar kale codso.",
+  accessFormTitle: "Codso inaad aragto buugga",
+  accessFormLead:
+    "Buuggu wuxuu ku jiraa magacyada iyo xiriirka qoysaska kale, sidaas darteed waxaan hubinnaa in akoon kastaa uu ka tirsan yahay qoys dugsiga ka tirsan ka hor inta aan la furin. Noo sheeg cidda aad tahay iyo cidda ilmahaagu yahay, waanan eegi doonaa.",
+  accessNeedName: "Ku dar magacaaga koowaad iyo kan dambe",
+  accessNeedStudent: "Ku dar ugu yaraan hal ilmo",
+  accessNeedClassroom: "Dooro fasalka ilmahaaga",
+  accessNoteLabel: "Wax kale oo aan ogaano? (ikhtiyaari)",
+  accessNotePlaceholder: "tusaale: waxaan bilownay Janaayo, ama ilmahaygu magac kale ayuu isticmaalaa",
+  accessSubmit: "Codso gelitaan",
+  accessSubmitFailed: "Ma dirsan. Fiiri tallaabooyinka kore oo mar kale isku day.",
+  accessSubmitted: "Codsiga waa la diray",
+  accessMeanwhile:
+    "Inta lagu jiro waxaad isticmaali kartaa jadwalka, iskaa wax u qabso, akhri wargeyska, oo maamul qoyskaaga.",
   unlistedBadge: "Aan la liisgelin",
   exitPreview: "Ka bax horudhaca",
   contact: "Xiriir",
@@ -2788,6 +2894,9 @@ const so: Strings = {
   faqFamilyTitle: "Kadibna ku dar qoyskaaga.",
   faqFamilyBody:
     "Habayntu waxay ku weydiinaysaa cidda kale ee gurigaaga jooga si qoyskaagu wadajir u soo baxo — carruurtaada, iyo lammaanahaaga, oo hela gelitaan u gaar ah kuna maamuli kara isla qoyska. Waxaad mar dambe samayn kartaa; waxba ma xidhna.",
+  faqApprovalTitle: "Waan hubinnaa ka hor inta aan buugga la furin",
+  faqApprovalBody:
+    "Sababtoo ah buuggu wuxuu ku jiraa magacyada iyo xiriirka qoysaska kale, qof ka tirsan PTO-da ayaa hubiya in akoon kastoo cusub uu ka tirsan yahay qoys dugsiga ka tirsan — waxaad noo sheegtaa cidda ilmahaagu yahay iyo fasalka uu ku jiro, annaguna waan eegnaa. Badanaa way dhaqsataa. Inta aad sugayso waxaad hore u isticmaali kartaa jadwalka, iskaa wax u qabso, oo akhri wargeyska.",
   faqPrivacyTitle: "Cidda arki karta waxa — adigaa go'aamiya, mid mid",
   faqNoPublicLead: "Ma jirto doorasho afraad.",
   faqNoPublicBody:

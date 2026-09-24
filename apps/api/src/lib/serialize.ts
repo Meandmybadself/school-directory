@@ -143,11 +143,16 @@ export async function classroomsByPerson(
 export async function classroomsByHousehold(
   env: Env,
   householdIds: string[],
-  viewer: { userId: string; isSystemAdmin: boolean },
+  viewer: { userId: string; isSystemAdmin: boolean; isApproved?: boolean },
 ): Promise<Map<string, ClassroomRefDTO[]>> {
   const out = new Map<string, ClassroomRefDTO[]>();
   if (!householdIds.length) return out;
-  const listable = personListableSql(viewer.userId, viewer.isSystemAdmin, "p");
+  const listable = personListableSql(
+    viewer.userId,
+    viewer.isSystemAdmin,
+    "p",
+    viewer.isApproved !== false,
+  );
   const rows = await env.DB.prepare(
     `SELECT m.group_id, m.person_id
      FROM membership m JOIN person p ON p.id = m.person_id
@@ -247,9 +252,14 @@ export async function householdsFor(
   env: Env,
   viewer: Viewer,
   personId: string,
-  opts: { isSystemAdmin: boolean; asMember: boolean },
+  opts: { isSystemAdmin: boolean; asMember: boolean; isApproved?: boolean },
 ): Promise<HouseholdMembersDTO[]> {
-  const listable = personListableSql(viewer.userId, opts.isSystemAdmin, "p");
+  const listable = personListableSql(
+    viewer.userId,
+    opts.isSystemAdmin,
+    "p",
+    opts.isApproved !== false,
+  );
   const rows = await env.DB.prepare(
     `SELECT m.group_id, g.name AS group_name,
             p.id, p.first_name, p.last_name, p.last_name_visibility, p.photo_object_key
@@ -349,6 +359,14 @@ export interface BuildProfileOptions {
    *  An admin previewing a member's-eye view of someone they don't control must
    *  still reach the row, so the two never gate each other. */
   isSystemAdmin?: boolean;
+  /** Whether the viewer may read OTHER families at all (migration 0029). A
+   *  pending member keeps full access to their own children — the application
+   *  they are in the middle of is edited through this very profile — and 404s
+   *  on everyone else, the same way an unlisted Person 404s rather than being
+   *  hidden from a list while still being served here (invariant 18's oracle).
+   *  Absent means approved, so a caller that never heard of the gate reads as
+   *  it always did; the routes that serve one family to another pass it. */
+  isApproved?: boolean;
 }
 
 /** Build a profile DTO for `viewer` looking at `personId`, or null if missing. */
@@ -362,7 +380,12 @@ export async function buildProfile(
   // an unlisted Person is simply not found — a member who guesses the ULID gets
   // the same 404 as for one that never existed. A listing that hides someone
   // while still serving their profile is the oracle invariant 18 describes.
-  const listable = personListableSql(viewer.userId, opts.isSystemAdmin === true);
+  const listable = personListableSql(
+    viewer.userId,
+    opts.isSystemAdmin === true,
+    "",
+    opts.isApproved !== false,
+  );
   const person = await env.DB.prepare(
     `SELECT id, first_name, last_name, last_name_visibility, photo_object_key, unlisted_at
      FROM person WHERE id = ? AND ${listable.sql}`,
@@ -509,6 +532,7 @@ export async function buildProfile(
   const households = await householdsFor(env, viewer, personId, {
     isSystemAdmin: opts.isSystemAdmin === true,
     asMember: previewAsMember,
+    isApproved: opts.isApproved !== false,
   });
   if (households.length) profile.households = households;
   // Safe to state plainly: anyone who reached this line already cleared the gate

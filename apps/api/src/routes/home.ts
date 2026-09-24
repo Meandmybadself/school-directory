@@ -9,6 +9,7 @@ import type { HonoEnv } from "../env.js";
 import { requireAuth } from "../middleware/session.js";
 import { approxDistance, boundingBox, haversineMiles } from "../lib/geo.js";
 import { displayName, personListableSql } from "../lib/privacy.js";
+import { requireApproved } from "../lib/directoryAccess.js";
 import { classroomsByHousehold } from "../lib/serialize.js";
 
 export const home = new Hono<HonoEnv>();
@@ -19,6 +20,9 @@ interface Coords { geo_lat: number; geo_lng: number }
 
 home.get("/neighbors", async (c) => {
   const auth = requireAuth(c);
+  // Neighbour cards name other families and, through `classroomsByHousehold`,
+  // their children's rooms. Nothing here is the caller's own (migration 0029).
+  requireApproved(auth);
   if (!auth.activePersonId) return c.json<NeighborsResponse>({ addCta: true });
 
   // The viewer's household group ids (for address cascade + self-exclusion).
@@ -101,7 +105,7 @@ home.get("/neighbors", async (c) => {
     ? ` AND ci.owner_id NOT IN (SELECT person_id FROM membership WHERE group_id IN (${householdIds.map(() => "?").join(",")}))`
     : "";
   // Aliased: `contact_item` has an `id` of its own, so a bare one is ambiguous.
-  const listable = personListableSql(auth.userId, auth.isSystemAdmin, "p");
+  const listable = personListableSql(auth.userId, auth.isSystemAdmin, "p", auth.isApproved);
   const personRows = await c.env.DB.prepare(
     `SELECT ci.owner_id, ci.geo_lat, ci.geo_lng, p.first_name, p.last_name, p.last_name_visibility
      FROM contact_item ci JOIN person p ON p.id = ci.owner_id

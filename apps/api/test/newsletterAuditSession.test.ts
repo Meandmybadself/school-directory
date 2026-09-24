@@ -31,6 +31,7 @@ const ADMIN: AuthContext = {
   sessionId: "01SESSION",
   activePersonId: null,
   isMasquerading: false,
+  isApproved: true,
 };
 
 const T0 = Date.UTC(2026, 7, 31, 0, 18, 0);

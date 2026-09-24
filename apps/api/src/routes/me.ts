@@ -11,6 +11,8 @@ import { setActivePersonCookie } from "../lib/cookies.js";
 import { displayName } from "../lib/privacy.js";
 import { ulid } from "../lib/ids.js";
 import { nowIso } from "../lib/time.js";
+import { accessClaimStatus, accessRowOf, accessStateOf, type AccessRow } from "../lib/directoryAccess.js";
+import { notifyAccessRequest } from "../lib/notify.js";
 
 export const me = new Hono<HonoEnv>();
 
@@ -171,9 +173,25 @@ me.get("/", async (c) => {
     });
   }
 
-  const userRow = await c.env.DB.prepare("SELECT locale FROM user WHERE id = ?")
+  // One read, not two: `/me` runs on every app load, and the access dates live
+  // on the same row the locale does. They are deliberately NOT taken from the
+  // session join — that one carries a boolean, and this has to distinguish
+  // "never asked" from "asked and waiting" from "declined".
+  const userRow = await c.env.DB.prepare(
+    `SELECT locale, access_submitted_at, access_approved_at, access_declined_at
+       FROM user WHERE id = ?`,
+  )
     .bind(auth.userId)
-    .first<{ locale: Locale | null }>();
+    .first<{ locale: Locale | null } & AccessRow>();
+
+  // The gate, reported on the one route deliberately outside it (migration
+  // 0029). A pending member has to be told WHY the directory is empty, and a
+  // route that refused them could not do the telling — the same reason
+  // `GET /pto/access` and `GET /newsletter/access` sit outside their own gates.
+  const access = accessStateOf(
+    userRow ?? { access_submitted_at: null, access_approved_at: null, access_declined_at: null },
+    auth.isSystemAdmin,
+  );
 
   const dto: MeDTO = {
     user: {
@@ -186,8 +204,102 @@ me.get("/", async (c) => {
     activePersonId: auth.activePersonId,
     // Surface the acting admin's id while masquerading so the client shows the banner.
     masqueradingAs: auth.isMasquerading ? auth.realUserId : null,
+    directoryAccess: access,
   };
+  // Itemised for the two states that SHOW the form. `pending` and `approved`
+  // have nothing to fill in, so a list of conditions there is noise — but a
+  // declined family is being asked to fix something and ask again, and without
+  // this their form would render every condition as unmet and keep the submit
+  // button disabled on a claim that is actually complete.
+  if (access === "incomplete" || access === "declined") {
+    dto.accessClaim = await accessClaimStatus(c.env, auth.userId);
+  }
   return c.json(dto);
+});
+
+/**
+ * GET /me/classroom-options — the rooms an applicant may choose from.
+ *
+ * Its own route because `GET /groups` is gated (invariant 32) and this is the
+ * one thing a PENDING account legitimately needs from it: you cannot name your
+ * child's classroom without being shown the list of classrooms. Narrow on
+ * purpose — `kind = 'classroom'`, id and name only, no counts, no rosters, no
+ * contacts, nothing about who is in them.
+ *
+ * What it discloses is the set of room names, which are the district's own
+ * (`Grade 1 · Community School · Leslie Neal · Rm 110`) and are printed on
+ * every class list sent home. Invariant 21 already accepts that any member may
+ * search every group's NAME; this gives a pending member strictly less than
+ * that, and gives it for the length of one form.
+ */
+me.get("/classroom-options", async (c) => {
+  requireAuth(c);
+  const rows = await c.env.DB.prepare(
+    "SELECT id, name FROM grp WHERE kind = 'classroom' ORDER BY name COLLATE NOCASE",
+  ).all<{ id: string; name: string }>();
+  return c.json({ classrooms: rows.results });
+});
+
+/**
+ * POST /me/access-request { note? } — ask to read the directory.
+ *
+ * The claim is not carried in this body: it is the Person rows the applicant
+ * already created, read live by the admin queue. All this route does is record
+ * that they are ready to be looked at — which is why it re-derives completeness
+ * server-side rather than trusting the client's own enabled/disabled button.
+ *
+ * Idempotent while pending: asking twice is an answer, not a failure, and must
+ * not push a second audit draft — an append-only log (invariant 5) is not
+ * paddable by a double tap, the rule invariants 27 and 28 both state for a
+ * repeated placement and a re-dropped card.
+ *
+ * Re-asking after a DECLINE is allowed and clears the decision back to pending:
+ * a family told "we could not find your child" fixes the room and asks again,
+ * which is the whole point of declining being reversible.
+ */
+me.post("/access-request", async (c) => {
+  const auth = requireAuth(c);
+  const body = await c.req.json<{ note?: string }>().catch(() => null);
+  const note = typeof body?.note === "string" ? body.note.trim().slice(0, 500) : null;
+
+  const row = await accessRowOf(c.env, auth.userId);
+  const state = accessStateOf(row, auth.isSystemAdmin);
+  if (state === "approved" || state === "pending") {
+    return c.json({ directoryAccess: state });
+  }
+
+  const claim = await accessClaimStatus(c.env, auth.userId);
+  if (!claim.complete) return c.json({ error: "claim_incomplete", accessClaim: claim }, 400);
+
+  await c.env.DB.prepare(
+    // The note is only REPLACED when they wrote one. Re-asking after a decline
+    // is the moment a reviewer most needs the original explanation ("we
+    // started in January"), and blanking it because the second form came back
+    // empty would delete the one thing that might answer why the first
+    // decision was wrong.
+    `UPDATE user
+        SET access_submitted_at = ?, access_declined_at = NULL,
+            access_note = COALESCE(?, access_note)
+      WHERE id = ?`,
+  )
+    .bind(nowIso(), note, auth.userId)
+    .run();
+
+  c.var.audit.push({
+    action: "access.requested",
+    entityKind: "user",
+    entityId: auth.userId,
+    detail: { resubmitted: state === "declined" },
+    // The ONLY thing this feature puts in a `notify` bag, and it is a boolean.
+    // A formatter cannot see `detail` (invariant 22), so without this the Slack
+    // line could not tell a first application from one made again after a
+    // decline — which is the one distinction a reviewer wants from a channel.
+    // Nothing identifying goes here on purpose: the claim is a child's name and
+    // a teacher, and it belongs on the queue screen behind a session.
+    notify: { resubmitted: state === "declined" },
+  });
+  c.executionCtx.waitUntil(notifyAccessRequest(c.env, { email: auth.email }));
+  return c.json({ directoryAccess: "pending" as const });
 });
 
 /** POST /me/active-person { personId } — switch the active Person. */

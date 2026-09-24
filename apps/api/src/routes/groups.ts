@@ -10,6 +10,7 @@ import type { Capability, ClassroomCandidateDTO, ContactItemDTO, ContactItemInpu
 import type { HonoEnv } from "../env.js";
 import { requireAuth } from "../middleware/session.js";
 import { canSeeItem, displayName, personListableSql, personSearchSql, sharesForMany, sharesOf, viewerGroupIds, type ContactItemRow } from "../lib/privacy.js";
+import { DirectoryAccessError, requireApproved } from "../lib/directoryAccess.js";
 import { capabilitiesFor, classroomsByPerson } from "../lib/serialize.js";
 import { loadGroupGraph, ancestors, subtree, wouldCycle } from "../lib/groupTree.js";
 import { ulid } from "../lib/ids.js";
@@ -114,7 +115,12 @@ function requestedKinds(raw: string[]): { kinds: GroupKind[]; invalid: boolean }
 /** GET /groups?q=&kind= — search groups by name, narrowed by kind (auth).
  *  Names only; detail is gated. */
 groups.get("/", async (c) => {
-  requireAuth(c);
+  const auth = requireAuth(c);
+  // Names and raw member counts for every group in the school. Invariant 21
+  // accepts that an approved member may read both; a pending one may not
+  // (migration 0029), and there is no "their own" case here — a household they
+  // belong to is reached through GET /me/households and GET /groups/:id.
+  requireApproved(auth);
   const q = (c.req.query("q") ?? "").trim().toLowerCase();
   const like = `%${q}%`;
   const { kinds, invalid } = requestedKinds(c.req.queries("kind") ?? []);
@@ -153,6 +159,24 @@ groups.get("/:id", async (c) => {
     .first<{ id: string; kind: GroupDetailDTO["kind"]; name: string; parent_id: string | null }>();
   if (!group) return c.json({ error: "not_found" }, 404);
 
+  // The one route the gate cannot simply refuse (migration 0029). A pending
+  // member is in the middle of an application whose family step RENDERS their
+  // own household through here (invariant 24), so refusing outright would lock
+  // them out of the form that gets them approved. So: approved, or a group one
+  // of their own Persons is actually on the roster of. The roster read below
+  // still composes the gate, so what they get back is their own family — the
+  // group's contact items and its counts are what this check withholds.
+  if (!auth.isApproved) {
+    const mine = await c.env.DB.prepare(
+      `SELECT 1 AS ok FROM membership m
+         JOIN control ct ON ct.person_id = m.person_id
+        WHERE m.group_id = ? AND ct.user_id = ? LIMIT 1`,
+    )
+      .bind(groupId, auth.userId)
+      .first<{ ok: number }>();
+    if (!mine) throw new DirectoryAccessError();
+  }
+
   // Hierarchy closure: this group's roster rolls up its descendants' members.
   const graph = await loadGroupGraph(c.env);
   const rosterGroupIds = subtree(graph.childrenOf, groupId); // group + descendants
@@ -165,7 +189,7 @@ groups.get("/:id", async (c) => {
   // viewer an unlisted member is hidden from. That is the intended withholding
   // and costs nothing: unlike a volunteer position's `filled`, no write path
   // reads this number as a capacity.
-  const listable = personListableSql(auth.userId, auth.isSystemAdmin, "p");
+  const listable = personListableSql(auth.userId, auth.isSystemAdmin, "p", auth.isApproved);
   const memberRows = await c.env.DB.prepare(
     `SELECT m.person_id,
             MAX(CASE WHEN m.group_id = ? THEN m.title END) AS title,
@@ -391,7 +415,7 @@ groups.get("/:id", async (c) => {
     // costs nothing and spends none of test/personListable.test.ts's remaining
     // exemption budget, where an exemption would have spent one to say "trust
     // the join above".
-    const enrollable = personListableSql(auth.userId, auth.isSystemAdmin, "p");
+    const enrollable = personListableSql(auth.userId, auth.isSystemAdmin, "p", auth.isApproved);
     const kids = await c.env.DB.prepare(
       `SELECT p.id, p.first_name, p.last_name, p.last_name_visibility
          FROM control ctl JOIN person p ON p.id = ctl.person_id
@@ -774,7 +798,7 @@ groups.get("/:id/candidates", async (c) => {
   // authority over a roster, not over a name, and no more over whether someone
   // is on the roster at all.
   const auth = requireAuth(c);
-  const search = personSearchSql(q, auth.userId, auth.isSystemAdmin);
+  const search = personSearchSql(q, auth.userId, auth.isSystemAdmin, auth.isApproved);
   const rows = await c.env.DB.prepare(
     `SELECT id, first_name, last_name FROM person
      WHERE id NOT IN (SELECT person_id FROM membership WHERE group_id = ?)

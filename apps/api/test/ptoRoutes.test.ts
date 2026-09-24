@@ -60,6 +60,7 @@ function auth(userId: string, isSystemAdmin = false): AuthContext {
     sessionId: "01SESSION",
     activePersonId: null,
     isMasquerading: false,
+    isApproved: true,
   };
 }
 

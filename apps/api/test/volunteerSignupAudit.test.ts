@@ -45,6 +45,7 @@ const AUTH: AuthContext = {
   sessionId: "01SESSION",
   activePersonId: null,
   isMasquerading: false,
+  isApproved: true,
 };
 
 const SHEET = {

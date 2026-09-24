@@ -12,6 +12,8 @@ import { sendNewSubscriberDigest, sendNewUserDigest } from "./lib/notify.js";
 import { runDailySweeps } from "./lib/sweep.js";
 import { contextMiddleware } from "./middleware/context.js";
 import { requireAuth, sessionMiddleware, UnauthorizedError } from "./middleware/session.js";
+import { DirectoryAccessError } from "./lib/directoryAccess.js";
+import { personListableSql } from "./lib/privacy.js";
 import { auditMiddleware } from "./middleware/audit.js";
 import { auth } from "./routes/auth.js";
 import { me } from "./routes/me.js";
@@ -103,7 +105,28 @@ app.post("/control-invites/:id/accept", (c) =>
 // SameSite=Lax and needs no crossorigin attribute. Still `private` in the cache
 // header: the response varies by who asked.
 app.get("/photos/:key", async (c) => {
-  requireAuth(c);
+  const auth = requireAuth(c);
+  // A ULID key is not an access rule, and neither is a session on its own any
+  // more (migration 0029): these are photographs of children, so an account
+  // waiting on approval may load only the ones belonging to a Person it
+  // controls. Checked against `person` rather than the key's own bytes,
+  // because the key says nothing about whose face it is.
+  if (!auth.isApproved) {
+    // Composed rather than exempted. With `isApproved` false this reduces to
+    // "a Person you control", which is the same set the join already implies —
+    // so the guard costs nothing here and spends none of
+    // test/personListable.test.ts's exemption budget, where an exemption would
+    // have spent one to say "trust the join".
+    const listable = personListableSql(auth.userId, auth.isSystemAdmin, "p", auth.isApproved);
+    const mine = await c.env.DB.prepare(
+      `SELECT 1 AS ok FROM person p
+         JOIN control ct ON ct.person_id = p.id
+        WHERE p.photo_object_key = ? AND ct.user_id = ? AND ${listable.sql} LIMIT 1`,
+    )
+      .bind(c.req.param("key"), auth.userId, ...listable.binds)
+      .first<{ ok: number }>();
+    if (!mine) return c.notFound();
+  }
   const obj = await c.env.PHOTOS.get(c.req.param("key"));
   if (!obj) return c.notFound();
   const headers = new Headers();
@@ -131,6 +154,13 @@ app.get("/newsletter-media/:key", async (c) => {
 app.onError((err, c) => {
   if (err instanceof UnauthorizedError) {
     return c.json({ error: "unauthorized" }, 401);
+  }
+  // 403 rather than 401: the session is fine, the account just isn't approved
+  // to read other families yet (migration 0029). The error code is named so the
+  // SPA can route to the application screen instead of showing a dead end; it
+  // tells the caller only about their own account, so it discloses nothing.
+  if (err instanceof DirectoryAccessError) {
+    return c.json({ error: "directory_access_required" }, 403);
   }
   console.error("[api] unhandled", err);
   return c.json({ error: "internal" }, 500);

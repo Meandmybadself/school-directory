@@ -19,6 +19,9 @@ import type {
   GroupRefDTO,
   GroupSummaryDTO,
   MeDTO,
+  AccessClaimStatusDTO,
+  AccessRequestDTO,
+  DirectoryAccessState,
   MyHouseholdDTO,
   NeighborsResponse,
   NewUserNotify,
@@ -237,6 +240,30 @@ export const api = {
     request<{ ok: true; unlisted: boolean }>(
       `/persons/${personId}/unlisted`,
       { method: "POST", body: JSON.stringify({ unlisted }) },
+    ),
+  // ── Directory access (migration 0029, invariant 32) ──────────────────────
+  /** The rooms the application form offers. Its own route because GET /groups
+   *  is gated and a pending account still has to name a classroom. */
+  classroomOptions: () =>
+    request<{ classrooms: { id: string; name: string }[] }>("/me/classroom-options"),
+  /** Ask to read the directory. The claim is the Person rows already entered,
+   *  so this body carries only the optional free-text line; the server
+   *  re-derives completeness rather than trusting the button being enabled. */
+  requestDirectoryAccess: (note?: string) =>
+    request<{ directoryAccess: DirectoryAccessState; accessClaim?: AccessClaimStatusDTO }>(
+      "/me/access-request",
+      { method: "POST", body: JSON.stringify({ note: note ?? null }) },
+    ),
+  /** The review queue. `pending` is the work, `decided` the record, and `never`
+   *  the accounts that signed up and entered nobody. */
+  accessRequests: (state: "pending" | "decided" | "never" = "pending") =>
+    request<{ requests: AccessRequestDTO[] }>(`/admin/access-requests?state=${state}`),
+  /** Approve or decline. Approving also promotes the applicant's classroom
+   *  placements to trusted, which is why the response reports a count. */
+  decideAccess: (userId: string, approve: boolean) =>
+    request<{ ok: true; state: DirectoryAccessState; promoted: number }>(
+      `/admin/access-requests/${userId}`,
+      { method: "POST", body: JSON.stringify({ approve }) },
     ),
   /** Dry run: what a permanent delete would remove. Writes nothing. */
   userDeletionImpact: (userId: string) =>

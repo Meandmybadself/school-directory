@@ -34,6 +34,7 @@ const ADMIN: AuthContext = {
   sessionId: "01SESSION",
   activePersonId: "01ADMINPERSON",
   isMasquerading: false,
+  isApproved: true,
 };
 
 interface Row {

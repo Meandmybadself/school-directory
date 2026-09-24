@@ -12,6 +12,7 @@ import { GroupDetail, GroupsIndex } from "./screens/Group.js";
 import { Admin } from "./screens/Admin.js";
 import { Import } from "./screens/Import.js";
 import { Directory } from "./screens/Directory.js";
+import { Access, RequireApproved } from "./screens/Access.js";
 import { Welcome } from "./screens/Welcome.js";
 import { AddPerson } from "./screens/AddPerson.js";
 import { DesktopShell } from "./components/DesktopShell.js";
@@ -104,9 +105,14 @@ export function App() {
       <Route path="/persons/:id/invite" element={<RequireProfile><Stub title="Invite a co-manager" /></RequireProfile>} />
 
       <Route path="/calendar" element={<ExternalRedirect to={CALENDAR_APP_URL} />} />
-      <Route path="/directory" element={<RequireProfile><Directory /></RequireProfile>} />
-      <Route path="/groups" element={<RequireProfile><GroupsIndex /></RequireProfile>} />
-      <Route path="/groups/:id" element={<RequireProfile><GroupDetail /></RequireProfile>} />
+      {/* Invariant 32: these three serve OTHER families, so they wait behind
+          the approval gate. Everything else — the calendar, volunteering, the
+          newsletter and a member's own family — stays open to any account, so
+          a family waiting on review still has a site to use. */}
+      <Route path="/directory" element={<RequireProfile><RequireApproved><Directory /></RequireApproved></RequireProfile>} />
+      <Route path="/groups" element={<RequireProfile><RequireApproved><GroupsIndex /></RequireApproved></RequireProfile>} />
+      <Route path="/groups/:id" element={<RequireProfile><RequireApproved><GroupDetail /></RequireApproved></RequireProfile>} />
+      <Route path="/access" element={<RequireAuth><Access /></RequireAuth>} />
       <Route path="/you" element={<RequireProfile><Stub title="You" nav="me" /></RequireProfile>} />
       <Route path="/admin" element={<RequireAuth><Admin /></RequireAuth>} />
       <Route path="/admin/import" element={<RequireAuth><Import /></RequireAuth>} />

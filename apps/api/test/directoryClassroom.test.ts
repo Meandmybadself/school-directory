@@ -29,6 +29,7 @@ const VIEWER: AuthContext = {
   sessionId: "01SESSION",
   activePersonId: "01ME",
   isMasquerading: false,
+  isApproved: true,
 };
 
 /** Two children with the same first name — the case the room exists to settle —

@@ -10,6 +10,7 @@ import type { Capability, PersonSummaryDTO } from "@sd/shared";
 import type { HonoEnv } from "../env.js";
 import { requireAuth } from "../middleware/session.js";
 import { displayName, personSearchSql } from "../lib/privacy.js";
+import { requireApproved } from "../lib/directoryAccess.js";
 import { classroomsByPerson } from "../lib/serialize.js";
 
 export const directory = new Hono<HonoEnv>();
@@ -42,6 +43,12 @@ function requestedCapabilities(raw: string[]): { caps: Capability[]; invalid: bo
 
 directory.get("/", async (c) => {
   const auth = requireAuth(c);
+  // The roster is the whole of this route, so the gate is the whole of its
+  // authorization (migration 0029). `personSearchSql` below would narrow to the
+  // caller's own family anyway; refusing outright is the honest answer, and it
+  // is what lets the app route to the application screen instead of rendering
+  // a directory containing only you.
+  requireApproved(auth);
   const q = (c.req.query("q") ?? "").trim().toLowerCase();
   const offset = Math.max(0, Number.parseInt(c.req.query("offset") ?? "0", 10) || 0);
   const { caps: roles, invalid } = requestedCapabilities(c.req.queries("capability") ?? []);
@@ -61,7 +68,7 @@ directory.get("/", async (c) => {
   // The WHERE is unconditional now. It used to be dropped for an empty query,
   // which was fine when "no query" meant "no predicate"; it no longer does, and
   // an unfiltered listing is exactly where an unlisted Person must not appear.
-  const search = personSearchSql(q, auth.userId, auth.isSystemAdmin);
+  const search = personSearchSql(q, auth.userId, auth.isSystemAdmin, auth.isApproved);
 
   // Several selected roles read as OR — "show me teachers and staff" — so the
   // filter is one `IN`, and a Person holding any of them matches once. It only

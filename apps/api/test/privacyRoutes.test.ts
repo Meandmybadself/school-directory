@@ -31,6 +31,7 @@ const VIEWER: AuthContext = {
   sessionId: "01SESSION",
   activePersonId: "01ME",
   isMasquerading: false,
+  isApproved: true,
 };
 
 interface Seen {

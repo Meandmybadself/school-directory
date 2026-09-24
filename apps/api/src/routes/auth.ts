@@ -4,7 +4,7 @@
 import { Hono } from "hono";
 import type { Context } from "hono";
 import type { AuthStartBody } from "@sd/shared";
-import type { HonoEnv } from "../env.js";
+import type { Env, HonoEnv } from "../env.js";
 import type { AuditDraft } from "../lib/audit.js";
 import { ulid } from "../lib/ids.js";
 import { randomToken, randomSessionId, sha256 } from "../lib/crypto.js";
@@ -383,6 +383,21 @@ function signInHandoffPage(token: string, school: string): string {
  *   the `household_admin` capability with it for the same reason POST /groups
  *   does: the badge and the authority are one fact.
  */
+/** `bindInvite`, exposed for test/directoryAccess.test.ts — the vouching scope
+ *  is the kind of rule a route test cannot reach, since getting here means
+ *  minting and consuming a token first. */
+export async function bindInviteForTest(
+  env: Env,
+  userId: string,
+  personId: string,
+  invitedBy: string | null,
+  email: string,
+  groupId: string | null,
+): Promise<void> {
+  const c = { env, var: { audit: [] as AuditDraft[] } } as unknown as Context<HonoEnv>;
+  return bindInvite(c, userId, personId, invitedBy, email, groupId);
+}
+
 async function bindInvite(
   c: Context<HonoEnv>,
   userId: string,
@@ -408,6 +423,48 @@ async function bindInvite(
   )
     .bind(personId, email)
     .run();
+
+  // VOUCHING (migration 0029), and `groupId` is the whole of what makes it
+  // safe. An invitation from a member who may already read the directory
+  // carries that access to the invitee, so a second parent accepting a link
+  // does not then wait in a queue to see the family they were just handed
+  // control of. This is the one path to approval that is not an admin
+  // decision.
+  //
+  // It is limited to the HOUSEHOLD invite — the opt-in path invariant 24
+  // describes, where the inviter ticked a box to share their whole family —
+  // and NOT to a bare co-controller invite, which carries no `group_id`.
+  // That distinction is the point rather than a detail: invariant 24 exists
+  // to stop "help me manage this one child" becoming "see my whole family",
+  // and an unconditional vouch here would have made it "see the whole
+  // school" — any approved member could hand a stranger the directory by
+  // inviting them as a co-controller of one Person, with no review. The
+  // narrower door is the one the reasoning actually supports.
+  //
+  // Enforced INSIDE the UPDATE (D1 has no read-then-write transaction) and it
+  // only ever grants — a declined or pending inviter changes nothing, and an
+  // invitee who is already approved is left alone.
+  if (invitedBy && groupId) {
+    const vouched = await c.env.DB.prepare(
+      `UPDATE user
+          SET access_approved_at = ?, access_submitted_at = COALESCE(access_submitted_at, ?),
+              access_declined_at = NULL, access_decided_by = ?
+        WHERE id = ? AND access_approved_at IS NULL
+          AND EXISTS (SELECT 1 FROM user inviter
+                       WHERE inviter.id = ? AND inviter.disabled_at IS NULL
+                         AND (inviter.access_approved_at IS NOT NULL OR inviter.is_system_admin = 1))`,
+    )
+      .bind(nowIso(), nowIso(), invitedBy, userId, invitedBy)
+      .run();
+    if (vouched.meta.changes) {
+      c.var.audit.push({
+        action: "access.approved",
+        entityKind: "user",
+        entityId: userId,
+        detail: { via: "household-invite", invitedBy, groupId },
+      });
+    }
+  }
   // Pushed here, before the household widening below, for invariant 22's
   // ordering reason: the control that was just granted is a committed write and
   // must have a record even if the widening throws. What the widening learns is

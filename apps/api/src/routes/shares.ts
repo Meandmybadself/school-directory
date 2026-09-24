@@ -8,6 +8,7 @@ import type { CreateShareBody, ShareGranteeDTO, ShareTargetDTO } from "@sd/share
 import type { HonoEnv } from "../env.js";
 import { requireAuth } from "../middleware/session.js";
 import { isController, personSearchSql } from "../lib/privacy.js";
+import { requireApproved } from "../lib/directoryAccess.js";
 import { ulid } from "../lib/ids.js";
 import { nowIso } from "../lib/time.js";
 
@@ -119,12 +120,18 @@ shares.delete("/:id", async (c) => {
 /** GET /share-targets?q= — Persons + Groups the user can share with. */
 shares.get("/targets", async (c) => {
   const auth = requireAuth(c);
+  // The Person half narrows to the caller's own family through
+  // `personSearchSql` below, but the GROUP half is every group in the school by
+  // name, 25 at a time and searchable — the same thing `GET /groups` was just
+  // closed for (invariant 32). Sharing is a member's act anyway: there is
+  // nobody outside your own family for a pending account to share WITH.
+  requireApproved(auth);
   const q = (c.req.query("q") ?? "").trim().toLowerCase();
   const like = `%${q}%`;
 
   // The picker renders a last initial, so it must not MATCH on more than that
   // for a Person set to 'initial' — see personSearchSql.
-  const search = personSearchSql(q, auth.userId, auth.isSystemAdmin);
+  const search = personSearchSql(q, auth.userId, auth.isSystemAdmin, auth.isApproved);
   const people = await c.env.DB.prepare(
     `SELECT id, first_name, last_name, last_name_visibility FROM person
      WHERE ${search.sql}

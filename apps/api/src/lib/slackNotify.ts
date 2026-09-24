@@ -249,6 +249,35 @@ const FORMATTERS = {
     return `:wave: *${str(notify, "email")}* ${how} — new account.`;
   },
 
+  /**
+   * Somebody is waiting for a human (invariant 32).
+   *
+   * This is the one line in this file that deliberately names NOBODY — no
+   * address, no child, no room. That is not caution, it is the shape of the
+   * data: the applicant's claim is their child's name and their teacher, which
+   * is the most sensitive thing this feature touches, and a channel is a third
+   * party with its own retention, search and export. The three `access.*`
+   * drafts carry no `notify` bag at all, so a formatter here has nothing
+   * identifying in scope even if a later edit wanted it — the same defence
+   * invariant 22 gets from a formatter's input type having no `detail` field.
+   *
+   * It earns its place because it is the one event in this feature that needs
+   * a person to DO something, and because `auth.registered` beside it no
+   * longer implies it: since 0029, signing up does not get anyone into the
+   * directory, so a channel that reported arrivals and nothing else would be
+   * silent on the only actionable step. The queue screen is where the claim is
+   * read; this is a nudge to go and read it.
+   *
+   * Its siblings stay off. `access.approved` and `access.declined` are the
+   * answer to this one and are already visible to whoever is working the
+   * queue, and a decision per applicant is the per-event noise the allowlist
+   * exists to keep out (invariant 22's counting rule).
+   */
+  "access.requested": ({ notify }) =>
+    notify.resubmitted === true
+      ? `:mailbox: A family corrected their details and asked for directory access again — one to review.`
+      : `:mailbox: A family asked for directory access — one to review.`,
+
   "person.created": async ({ env, entityId, actor }) => {
     const who = await personLabel(env, entityId ?? "");
     return `:bust_in_silhouette: *${who}* was added to the directory — ${actor}.`;

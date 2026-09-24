@@ -1564,6 +1564,128 @@ All five SPAs are separate Cloudflare Pages projects talking to the single
    gate each asks — a route added to the file and not to that list is what
    nothing else will notice.
 
+32. **Reading the directory is GRANTED, not conferred by signing up.**
+   `requireAuth` used to be the whole of it: any account that completed a magic
+   link could read every Person in the school, and with registration open that
+   meant anyone with an email address. Migration 0029 adds an application —
+   `user.access_approved_at`, non-null IS the authorization — and
+   `AuthContext.isApproved` carries it on the session join, so the gate costs no
+   round trip.
+   **An application, not an allowlist, and the difference is the design.** An
+   allowlist judges an EMAIL, which asserts nothing and can be checked against
+   nothing short of the district's family roster — and asking for that roster
+   would put education records in a system that today holds none, with the
+   FERPA obligations that follow. An application judges what the applicant
+   TYPED: their name, their child's name, and the room that child is in, picked
+   from the classroom groups this instance already carries under the district's
+   own names. A reviewer checks that in seconds; nobody can check an address.
+   Know what it is NOT: proof. A determined person can type a plausible room.
+   What it removes is the ANONYMOUS population — every reader of the directory
+   has named a child and a teacher, which is attribution. Rate limiting is the
+   other half and is a different mechanism.
+   **TWO SEAMS, and the first is the one that scales.** `personListableSql`
+   (invariant 21) takes an `approved` argument: false resolves to the caller's
+   OWN Persons — not to `"1"`, and not to the unlisted rule, which is true of
+   almost every row and would leak the roster. Because
+   `test/personListable.test.ts` already fails the build on a `FROM person` that
+   doesn't compose that function, the directory listing and its `COUNT(*)`, both
+   pickers, `buildProfile`'s 404, `householdsFor` and `classroomsByPerson` all
+   narrowed from one edit — and the eleventh call site nobody remembers is
+   caught by a test that already existed. The second seam is `requireApproved`
+   (`lib/directoryAccess.ts`), a function called at the top of a handler rather
+   than a middleware on a path, because the routes needing it are not a prefix:
+   a prefix mount would either lock a pending member out of their own family or,
+   worse, look like it covered routes it never ran on.
+   **What the predicate does not reach, four routes name explicitly**, because
+   they don't read `person`: `GET /groups` (names and raw `member_count`),
+   `GET /groups/:id` (the group's own contacts and counts), `GET /photos/:key`
+   (an R2 key lookup — and these are photographs of children, invariant 20), and
+   `GET /volunteers/sheets/:slug`, whose `positionsOf` filters in memory with
+   `isPersonListable` so `filled` still counts a name it withholds (invariant
+   13's reason, unchanged).
+   **Two routes deliberately survive the gate, and both would otherwise trap a
+   pending family in a form they cannot finish.** `GET /groups/:id` opens for a
+   group one of their own Persons is on the roster of — invariant 24's family
+   step renders their household through it — and the roster inside is still
+   narrowed by the predicate, so their child's CLASSROOM opens showing their own
+   child and not the twenty-five families in it. And `GET /me/classroom-options`
+   is a route of its own serving `kind = 'classroom'`, id and name only: you
+   cannot name your child's room without being shown the rooms, and invariant 21
+   already grants any member a search over every group's NAME, so this is
+   strictly less, for the length of one form.
+   `GET /me` is likewise outside the gate and reports the state, for the reason
+   `GET /pto/access` and `GET /newsletter/access` are outside theirs: a member
+   who is refused has to be told WHY, and a route that refused them could not do
+   the telling.
+   **Approving does TWO things**, and the second is the one to understand: it
+   promotes the applicant's classroom placements from `self_asserted = 1` to
+   `0`. A parent placing their own child writes the weak kind by construction
+   (invariant 27) — the row says where they CLAIM the child is, and nothing had
+   yet judged it. Approval is that judgement, so the placement starts counting
+   for `rosterAccess` and `viewerIsDirectMember` like any roster an authority
+   wrote, and classroom-scoped visibility becomes possible later without a
+   second pass over this data. Both effects ride ONE `batch()`: an account
+   approved with its placements left weak would read as verified while every
+   roster still treated it as hearsay. The promotion re-derives its own set
+   inside the batch rather than naming ids read a moment earlier, for invariant
+   27's race.
+   **Declining is reversible and quiet.** It sets a date; the account keeps the
+   calendar, the newsletter, volunteering and its own family, and only other
+   families are withheld. Approving later clears it, and the applicant may ask
+   again — which is the point, since the common decline is "we could not find
+   your child in that room" and the answer to that is a corrected room. A
+   wrongly declined family is a worse outcome than a slow approval, and
+   `screens/Access.tsx` says so: the word "denied" appears nowhere, the three
+   unmet conditions each link to the screen that fixes them, and every state
+   repeats what they CAN still do.
+   **One path to approval is not an admin decision**: accepting a household
+   invitation from a member who is already approved (`bindInvite`). It is
+   vouching, and **`group_id` is the whole of what makes it safe** — the clause
+   review found missing. A bare co-controller invite from
+   `POST /persons/:id/controllers` carries the same `kind = 'invite'` and the
+   same `invited_by` but NO `group_id`, so an unconditional vouch let any
+   approved member hand a stranger the entire directory by inviting them to
+   help with one child, with no review at all. That is invariant 24's own rule
+   read one level up: "help me manage this one child" must not become "see my
+   whole family", still less "see the whole school". The household invite is
+   different because the inviter ticked a box to share their family, so the
+   vouch matches something they actually chose. Enforced inside the UPDATE, it
+   only ever grants, and it leaves an already-approved invitee alone.
+   Asking twice while pending writes nothing and pushes no draft, and neither
+   does a decision that changes nothing: an append-only log (invariant 5) is not
+   paddable by a double tap, the rule invariants 27 and 28 both state.
+   **One of the three speaks to Slack and it names nobody.**
+   `access.requested` is curated (invariant 22), because it is the one event in
+   this feature that needs a human to act and because `auth.registered` beside
+   it no longer implies it: since signing up stopped granting access, a channel
+   that reported arrivals alone would be silent on the only actionable step.
+   The line carries no address, no child and no room — the applicant's claim is
+   the most sensitive thing this feature touches, and it belongs on the queue
+   screen behind a session. That is guaranteed structurally rather than by
+   care: the three drafts carry **one** `notify` value between them, the
+   boolean `resubmitted`, so a formatter has nothing identifying in scope even
+   if a later edit wanted it. `access.approved` and `access.declined` stay
+   silent — they are the ANSWER to a message the channel already has, and a
+   decision per applicant is the per-event noise the allowlist exists to keep
+   out. `test/slackNotify.test.ts` pins all three, including that a
+   `detail.resubmitted` alone cannot change the wording, which would mean
+   `detail` had leaked into a formatter's scope.
+   **The exemption budget moved 8 → 9**, once, for `accessClaimsFor` in
+   `routes/admin.ts`: the queue is system-admin-only, and `personListableSql`
+   short-circuits an admin to `"1"`, so composing it there would read as a guard
+   while gating nothing. The feature's other two reads of `person` DO compose
+   it. `test/directoryAccess.test.ts` is BEHAVIOURAL for invariant 22's reason —
+   its fake D1 evaluates the predicate, so a gate that admitted the school fails
+   with another family's child in the result rather than passing a scan — and it
+   pins the batch boundary, the promotion and both no-ops.
+   **The grandfathering in migration 0029 is the part to re-read before any
+   similar gate.** It approves every account that controls a Person, which on
+   this instance was 66 of 76; without it the deploy locks out the school. The
+   ten left pending control nobody, which is the shape the gate exists to catch.
+   `seed/dev-seed.sql` approves its two users for the same reason in reverse —
+   the seed runs AFTER migrations, so the grandfathering has already been and
+   gone by the time those rows exist.
+
 ## Conventions
 
 - TypeScript strict everywhere. `verbatimModuleSyntax` is on — use

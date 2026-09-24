@@ -17,6 +17,9 @@ interface SessionRow {
   email: string | null;
   is_system_admin: number | null;
   disabled_at: string | null;
+  /** Non-null IS the directory authorization (migration 0029). Joined here so
+   *  the gate costs nothing beyond the lookup every request already makes. */
+  access_approved_at: string | null;
 }
 
 /** Populates c.var.auth when a valid session exists. Does not reject.
@@ -31,7 +34,7 @@ export const sessionMiddleware = createMiddleware<HonoEnv>(async (c, next) => {
   if (sid) {
     const session = await c.env.DB.prepare(
       `SELECT s.id, s.user_id, s.expires_at, s.revoked_at, s.acting_admin_id, s.parent_session_id,
-              u.email, u.is_system_admin, u.disabled_at
+              u.email, u.is_system_admin, u.disabled_at, u.access_approved_at
          FROM session s LEFT JOIN user u ON u.id = s.user_id
         WHERE s.id = ?`,
     )
@@ -44,7 +47,12 @@ export const sessionMiddleware = createMiddleware<HonoEnv>(async (c, next) => {
       // `WHERE … AND disabled_at IS NULL` used to fold together.
       const user =
         session.email !== null && !session.disabled_at
-          ? { id: session.user_id, email: session.email, is_system_admin: session.is_system_admin ?? 0 }
+          ? {
+              id: session.user_id,
+              email: session.email,
+              is_system_admin: session.is_system_admin ?? 0,
+              access_approved_at: session.access_approved_at,
+            }
           : null;
 
       // A masquerade is resolved against the TARGET's account, so the check
@@ -77,6 +85,7 @@ export const sessionMiddleware = createMiddleware<HonoEnv>(async (c, next) => {
           sessionId: session.id,
           activePersonId,
           isMasquerading: !!session.acting_admin_id,
+          isApproved: user.is_system_admin === 1 || user.access_approved_at !== null,
         };
         c.set("auth", auth);
       }

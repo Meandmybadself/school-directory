@@ -68,6 +68,7 @@ const AUTH: AuthContext = {
   sessionId: "01SESSION",
   activePersonId: "01DANAPERSON",
   isMasquerading: false,
+  isApproved: true,
 };
 
 function app(): Hono<HonoEnv> {

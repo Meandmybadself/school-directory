@@ -2,7 +2,7 @@
 // (CSV import, audit-log table, registration toggle UI) is M4.
 
 import { Hono } from "hono";
-import type { AuditEntryDTO, BulkImportOptions, BulkImportRow, CalendarSourceDTO, CalendarSourceInput } from "@sd/shared";
+import type { AccessRequestDTO, AuditEntryDTO, BulkImportOptions, BulkImportRow, CalendarSourceDTO, CalendarSourceInput } from "@sd/shared";
 import { RESTORE_CONFIRM } from "@sd/shared";
 import type { Env, HonoEnv } from "../env.js";
 import { requireAuth } from "../middleware/session.js";
@@ -17,6 +17,7 @@ import { isoPlus, isExpired, nowIso, MAGIC_LINK_TTL, MASQUERADE_TTL, SESSION_TTL
 import { setSessionCookie, clearActivePersonCookie } from "../lib/cookies.js";
 import { findUserByEmail, normalizeEmail } from "../lib/db.js";
 import { computeUserDeletionImpact, userDeletionStmts } from "../lib/userAdmin.js";
+import { accessStateOf } from "../lib/directoryAccess.js";
 import { magicLinkEmail, directoryInviteEmail, sendEmail } from "../lib/email.js";
 import type { QueuedInvite } from "../lib/bulkImport.js";
 
@@ -880,4 +881,281 @@ admin.post("/calendar-sources/refresh", async (c) => {
   const result = await refreshAllSources(c.env);
   c.var.audit.push({ action: "calendar.refreshed", entityKind: "calendar_source", entityId: null, detail: result });
   return c.json({ ok: true, ...result });
+});
+
+// ── Directory access queue (migration 0029, invariant 32) ───────────────────
+//
+// Reading the directory is granted here. The queue's whole job is to put in
+// front of a reviewer the thing an email address could never give them: the
+// applicant's own name, the children they entered, and the ROOMS those
+// children are claimed to be in — matched against classroom groups this
+// instance already holds under the district's own names, so a room that does
+// not exist is visible as a room that does not exist.
+
+/** One applicant's claim, read live from the Person rows they created.
+ *
+ *  Not copied onto the request at submit time on purpose: a family who fixes a
+ *  typo before anyone looks should be reviewed on what is true now, and a
+ *  second copy of the claim is a second thing to keep in step.
+ *
+ *  UNLISTED-EXEMPT: system-admin only (every caller below checks), and the join
+ *  to `control` already restricts every row to the applicant's own family.
+ *  `personListableSql` would admit exactly the same rows — an admin
+ *  short-circuits it to "1" — so composing it here would be ceremony that reads
+ *  like a guard. */
+async function accessClaimsFor(env: Env, userIds: string[]) {
+  const out = new Map<string, { name: string | null; students: AccessRequestDTO["students"] }>();
+  if (!userIds.length) return out;
+
+  // D1 caps a statement at 100 bound parameters, which `lib/backup.ts` already
+  // knows (`IN_CHUNK`). The queue's own LIMIT is 200 accounts, and the person
+  // read below fans out to every Person those accounts control — on this
+  // instance the `decided` tab is ~66 users and ~150 Persons — so an unchunked
+  // `IN` does not degrade, it throws `too many SQL variables` and 500s the
+  // whole screen.
+  const CHUNK = 100;
+  const chunks = <T,>(xs: T[]): T[][] => {
+    const out: T[][] = [];
+    for (let i = 0; i < xs.length; i += CHUNK) out.push(xs.slice(i, i + CHUNK));
+    return out;
+  };
+
+  interface PersonRow {
+    user_id: string;
+    id: string;
+    first_name: string;
+    last_name: string | null;
+    is_student: number;
+  }
+  const people: PersonRow[] = [];
+  for (const batch of chunks(userIds)) {
+    const ph = batch.map(() => "?").join(",");
+    // UNLISTED-EXEMPT: system-admin only (every caller checks), and the join to
+    // `control` restricts each row to one applicant's own family. An admin
+    // short-circuits `personListableSql` to the literal "1", so composing it
+    // here would read as a guard while gating nothing — invariant 22's warning
+    // about exactly that shape.
+    const rows = await env.DB.prepare(
+      `SELECT ctl.user_id, p.id, p.first_name, p.last_name,
+              EXISTS (SELECT 1 FROM capability_grant g
+                       WHERE g.person_id = p.id AND g.capability = 'student') AS is_student
+         FROM control ctl JOIN person p ON p.id = ctl.person_id
+        WHERE ctl.user_id IN (${ph})
+        ORDER BY ctl.since ASC`,
+    )
+      .bind(...batch)
+      .all<PersonRow>();
+    people.push(...rows.results);
+  }
+
+  const personIds = people.map((r) => r.id);
+  const rooms = new Map<string, string[]>();
+  for (const batch of chunks(personIds)) {
+    const rph = batch.map(() => "?").join(",");
+    const roomRows = await env.DB.prepare(
+      `SELECT m.person_id, g.name
+         FROM membership m JOIN grp g ON g.id = m.group_id
+        WHERE m.person_id IN (${rph}) AND g.kind = 'classroom'
+        ORDER BY g.name COLLATE NOCASE`,
+    )
+      .bind(...batch)
+      .all<{ person_id: string; name: string }>();
+    for (const r of roomRows.results) {
+      rooms.set(r.person_id, [...(rooms.get(r.person_id) ?? []), r.name]);
+    }
+  }
+
+  for (const r of people) {
+    const entry = out.get(r.user_id) ?? { name: null, students: [] };
+    const full = [r.first_name, r.last_name].filter(Boolean).join(" ");
+    if (r.is_student) {
+      entry.students.push({ id: r.id, name: full, classrooms: rooms.get(r.id) ?? [] });
+    } else if (!entry.name) {
+      // The first non-student they entered is the applicant — `ORDER BY since`,
+      // and the wizard's first step creates them before anything else.
+      entry.name = full;
+    }
+    out.set(r.user_id, entry);
+  }
+  return out;
+}
+
+/** `accessClaimsFor`, exposed for test/directoryAccess.test.ts: the chunking is
+ *  invisible from the route, which returns the same shape either way — right up
+ *  until D1 refuses the statement. */
+export const accessClaimsForTest = accessClaimsFor;
+
+/** GET /admin/access-requests?state=pending|decided|never — the queue.
+ *
+ *  Three lists rather than one, because they are three different jobs.
+ *  `pending` is the work. `decided` is the record. `never` is the population
+ *  this gate exists to catch — accounts that signed up, entered nobody and
+ *  stopped — and it is deliberately reachable, because on this instance that
+ *  was ten accounts on the day the gate shipped. */
+admin.get("/access-requests", async (c) => {
+  const auth = requireAuth(c);
+  if (!auth.isSystemAdmin) return c.json({ error: "forbidden" }, 403);
+  const state = c.req.query("state") ?? "pending";
+
+  const where =
+    state === "decided"
+      ? "(u.access_declined_at IS NOT NULL OR (u.access_approved_at IS NOT NULL AND u.access_submitted_at IS NOT NULL))"
+      : state === "never"
+        // `access_declined_at IS NULL` matters: an account declined straight
+        // from this tab has no submitted date, so without it the same row
+        // would appear here AND under `decided`, labelled two ways.
+        ? "u.access_submitted_at IS NULL AND u.access_approved_at IS NULL AND u.access_declined_at IS NULL"
+        : "u.access_submitted_at IS NOT NULL AND u.access_approved_at IS NULL AND u.access_declined_at IS NULL";
+
+  const rows = await c.env.DB.prepare(
+    `SELECT u.id, u.email, u.created_at, u.access_submitted_at, u.access_approved_at,
+            u.access_declined_at, u.access_note, d.email AS decided_by_email
+       FROM user u LEFT JOIN user d ON d.id = u.access_decided_by
+      WHERE ${where} AND u.disabled_at IS NULL AND u.is_system_admin = 0
+      ORDER BY COALESCE(u.access_submitted_at, u.created_at) ASC
+      LIMIT 200`,
+  ).all<{
+    id: string;
+    email: string;
+    created_at: string;
+    access_submitted_at: string | null;
+    access_approved_at: string | null;
+    access_declined_at: string | null;
+    access_note: string | null;
+    decided_by_email: string | null;
+  }>();
+
+  const claims = await accessClaimsFor(c.env, rows.results.map((r) => r.id));
+  const requests: AccessRequestDTO[] = rows.results.map((r) => {
+    const claim = claims.get(r.id);
+    return {
+      userId: r.id,
+      email: r.email,
+      submittedAt: r.access_submitted_at,
+      createdAt: r.created_at,
+      state: accessStateOf(r),
+      applicantName: claim?.name ?? null,
+      students: claim?.students ?? [],
+      note: r.access_note,
+      decidedAt: r.access_approved_at ?? r.access_declined_at,
+      decidedBy: r.decided_by_email,
+    };
+  });
+  return c.json({ requests });
+});
+
+/**
+ * POST /admin/access-requests/:userId { approve, note? } — decide.
+ *
+ * Approving does TWO things, and the second is the one to understand:
+ * it promotes the applicant's classroom placements from `self_asserted = 1`
+ * to `0`. A parent placing their own child writes the weak kind by
+ * construction (invariant 27) — the row says where they claim the child is,
+ * and nothing had yet judged it. Approval IS that judgement, so the row
+ * becomes the trusted kind, and the placement starts counting for
+ * `rosterAccess` and for `viewerIsDirectMember` like any roster an
+ * authority wrote. That is also what makes classroom-scoped visibility
+ * possible later without a second pass over this data.
+ *
+ * Both effects ride ONE `batch()`, which is the transaction D1 gives: an
+ * account approved with its placements left weak would read as verified
+ * while every roster still treated it as hearsay.
+ *
+ * Declining sets a date and nothing else. The account keeps the calendar, the
+ * newsletter and its own family; only other families are withheld. It is
+ * reversible by approving, and the applicant may ask again — which is the
+ * point, since the common decline is "we could not find your child in that
+ * room", and the answer to that is a corrected room.
+ */
+admin.post("/access-requests/:userId", async (c) => {
+  const auth = requireAuth(c);
+  if (!auth.isSystemAdmin) return c.json({ error: "forbidden" }, 403);
+  // A masquerading admin is acting as somebody else; granting directory access
+  // to the whole school is not something to do while wearing another face.
+  if (auth.isMasquerading) return c.json({ error: "not_while_masquerading" }, 403);
+
+  const userId = c.req.param("userId");
+  const body = await c.req.json<{ approve?: boolean; note?: string }>().catch(() => null);
+  if (typeof body?.approve !== "boolean") return c.json({ error: "invalid_body" }, 400);
+
+  const target = await c.env.DB.prepare(
+    `SELECT id, email, access_submitted_at, access_approved_at, access_declined_at
+       FROM user WHERE id = ? AND disabled_at IS NULL`,
+  )
+    .bind(userId)
+    .first<{
+      id: string;
+      email: string;
+      access_submitted_at: string | null;
+      access_approved_at: string | null;
+      access_declined_at: string | null;
+    }>();
+  if (!target) return c.json({ error: "not_found" }, 404);
+
+  const before = accessStateOf(target);
+  const after = body.approve ? "approved" : "declined";
+  // A decision that changes nothing writes nothing and pushes no draft: an
+  // append-only log (invariant 5) must not be paddable by a double click.
+  if (before === after) return c.json({ ok: true, state: before, promoted: 0 });
+
+  const now = nowIso();
+  const stmts = [
+    c.env.DB.prepare(
+      // `access_submitted_at` is stamped when it is missing, because an admin
+      // may decide an account that never ASKED — the "Never asked" tab is for
+      // exactly those, and this route is how one of them gets let in. Without
+      // it the row would carry an approval and no submission, which matches
+      // none of the three filters above: the account would vanish from every
+      // tab the moment it was decided, taking any way to reverse the decision
+      // with it. COALESCE rather than an overwrite, so a real application
+      // keeps the date the family actually asked on.
+      `UPDATE user
+          SET access_approved_at = ?, access_declined_at = ?, access_decided_by = ?,
+              access_submitted_at = COALESCE(access_submitted_at, ?)
+        WHERE id = ?`,
+    ).bind(
+      body.approve ? now : null,
+      body.approve ? null : now,
+      auth.userId,
+      now,
+      userId,
+    ),
+  ];
+
+  let promoted = 0;
+  if (body.approve) {
+    const pending = await c.env.DB.prepare(
+      `SELECT COUNT(*) AS n
+         FROM membership m
+         JOIN grp g ON g.id = m.group_id AND g.kind = 'classroom'
+         JOIN control ctl ON ctl.person_id = m.person_id
+        WHERE ctl.user_id = ? AND m.self_asserted = 1`,
+    )
+      .bind(userId)
+      .first<{ n: number }>();
+    promoted = pending?.n ?? 0;
+    if (promoted) {
+      // Re-derived inside the batch rather than naming the ids read a moment
+      // ago, for invariant 27's reason: D1 has no read-then-write transaction,
+      // and the count above is for the audit row, not the guard.
+      stmts.push(
+        c.env.DB.prepare(
+          `UPDATE membership
+              SET self_asserted = 0
+            WHERE self_asserted = 1
+              AND group_id IN (SELECT id FROM grp WHERE kind = 'classroom')
+              AND person_id IN (SELECT person_id FROM control WHERE user_id = ?)`,
+        ).bind(userId),
+      );
+    }
+  }
+  await c.env.DB.batch(stmts);
+
+  c.var.audit.push({
+    action: body.approve ? "access.approved" : "access.declined",
+    entityKind: "user",
+    entityId: userId,
+    detail: { from: before, placementsPromoted: promoted },
+  });
+  return c.json({ ok: true, state: after, promoted });
 });

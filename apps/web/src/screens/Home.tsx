@@ -26,7 +26,8 @@ import { SiteFooter } from "../components/SiteFooter.js";
 import { showsDescription, showsAllDayLabel, formatEventDay } from "../lib/calendar.js";
 import { useSession } from "../lib/session.js";
 import { useIsDesktop } from "../lib/useIsDesktop.js";
-import { api, mediaUrl, CALENDAR_APP_URL, NEWSLETTER_APP_URL } from "../lib/api.js";
+import { api, ApiError, mediaUrl, CALENDAR_APP_URL, NEWSLETTER_APP_URL } from "../lib/api.js";
+import { AccessNudge } from "./Access.js";
 import { clearOnboardingSkipped, wasOnboardingSkipped } from "../lib/onboarding.js";
 import { capLabel, useI18n } from "../i18n/index.js";
 
@@ -42,7 +43,17 @@ export function Home() {
   useEffect(() => {
     if (!activeId) return;
     void api.person(activeId).then(setProfile).catch(() => setProfile(null));
-    void api.neighbors().then(setNeighbors).catch(() => setNeighbors({ addCta: true }));
+    void api
+      .neighbors()
+      .then(setNeighbors)
+      // A 403 here is the directory gate (invariant 32), not a missing
+      // address, and the two must not collapse into one card: telling a
+      // family waiting on approval to "add your address to find neighbours"
+      // offers them a fix that cannot work. The block simply stays empty, and
+      // `AccessNudge` above says what is actually happening.
+      .catch((err: unknown) =>
+        setNeighbors(err instanceof ApiError && err.status === 403 ? null : { addCta: true }),
+      );
   }, [activeId]);
 
   // The calendar is shared (not per-Person), so fetch once.
@@ -274,6 +285,7 @@ function DesktopHome({ activePerson, groups, hasNeighbors, noAddress, list, even
   const cards = useNeighborCards(list);
   return (
     <DesktopShell active="home" title={t("navHome")}>
+      <AccessNudge />
       <EventsSection events={events} />
       <LatestIssueSection issue={latestIssue} />
       <div>
@@ -346,6 +358,7 @@ function MobileHome({ activePerson, groups, hasNeighbors, noAddress, list, event
       />
       <div className="sd-scroll">
         <div className="sd-body">
+          <AccessNudge />
           <EventsSection events={events} />
           <LatestIssueSection issue={latestIssue} />
           <div>

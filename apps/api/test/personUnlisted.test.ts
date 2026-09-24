@@ -34,6 +34,7 @@ const ADMIN: AuthContext = {
   sessionId: "01S",
   activePersonId: "01ADMINPERSON",
   isMasquerading: false,
+  isApproved: true,
 };
 const MEMBER: AuthContext = { ...ADMIN, userId: "01USER", isSystemAdmin: false, activePersonId: "01ME" };
 

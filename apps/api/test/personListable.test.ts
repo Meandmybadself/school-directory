@@ -172,7 +172,17 @@ describe("invariant 21: no statement reads `person` without answering the gate",
   it("keeps the exemptions few enough to stay reviewable", () => {
     // Not a budget for its own sake: exemptions are the part of this rule no
     // machine checks, so they are the part worth noticing when it grows.
+    //
+    // Raised 8 → 9 by migration 0029 (invariant 32), for `accessClaimsFor` in
+    // routes/admin.ts — the access queue's read of an applicant's own family.
+    // That one cannot compose the gate honestly: the route is system-admin
+    // only, and `personListableSql` short-circuits an admin to the literal "1",
+    // which invariant 22 names as the shape that reads like a guard while
+    // gating nothing. The feature's other two reads of `person` DO compose it
+    // (the photo check in index.ts and `accessClaimStatus`), so the ceiling
+    // moved by one rather than by three. Move it again only for a read that
+    // genuinely cannot be guarded, and say here which one.
     const exempt = sites.filter((s) => s.exempt && !s.guarded);
-    expect(exempt.length).toBeLessThanOrEqual(8);
+    expect(exempt.length).toBeLessThanOrEqual(9);
   });
 });

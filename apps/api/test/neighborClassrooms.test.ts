@@ -26,6 +26,7 @@ const MEMBER: AuthContext = {
   sessionId: "01SESSION",
   activePersonId: "01ME",
   isMasquerading: false,
+  isApproved: true,
 };
 
 const ADMIN: AuthContext = { ...MEMBER, userId: "01ADMIN", realUserId: "01ADMIN", isSystemAdmin: true };

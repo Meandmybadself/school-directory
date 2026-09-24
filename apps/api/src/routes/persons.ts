@@ -31,6 +31,11 @@ persons.get("/:id", async (c) => {
   const profile = await buildProfile(c.env, viewer, c.req.param("id"), {
     asMember: c.req.query("as") === "member",
     isSystemAdmin: auth.isSystemAdmin,
+    // A pending member keeps their own family and 404s on everyone else's
+    // (migration 0029) — the same shape an unlisted Person already has here,
+    // and for invariant 18's reason: hiding someone from a listing while still
+    // serving their profile is an oracle one URL along.
+    isApproved: auth.isApproved,
   });
   if (!profile) return c.json({ error: "not_found" }, 404);
   return c.json(profile);
@@ -323,7 +328,7 @@ persons.delete("/:id", async (c) => {
   // them (invariant 21), which the isController check above has already
   // established — so the guard costs nothing here and spends none of
   // test/personListable.test.ts's remaining exemption budget.
-  const listable = personListableSql(auth.userId, auth.isSystemAdmin, "p");
+  const listable = personListableSql(auth.userId, auth.isSystemAdmin, "p", auth.isApproved);
   const person = await c.env.DB.prepare(
     `SELECT p.first_name, p.last_name, p.photo_object_key FROM person p
       WHERE p.id = ? AND ${listable.sql}`,

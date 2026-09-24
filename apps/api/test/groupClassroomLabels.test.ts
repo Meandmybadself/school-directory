@@ -27,6 +27,7 @@ const VIEWER: AuthContext = {
   sessionId: "01SESSION",
   activePersonId: DANA,
   isMasquerading: false,
+  isApproved: true,
 };
 
 /** Who is a student. Dana is a parent, and sits on the SAME classroom roster

@@ -115,6 +115,34 @@ export function newUserEmail(env: Env, u: NewUserSummary): SendArgs {
   };
 }
 
+/**
+ * Somebody asked to read the directory (migration 0029).
+ *
+ * Deliberately thin. The applicant's address is here because it is how an
+ * admin recognises the request and, for many families, who they are; the
+ * child's name and the room they claim are NOT, because those are the claim
+ * itself and belong on a screen behind a session rather than copied into
+ * several inboxes. The link is the point of the message.
+ */
+export function accessRequestEmail(env: Env, req: { email: string }): SendArgs {
+  const school = env.SCHOOL_NAME;
+  const queue = `${env.APP_URL}/admin?tab=access`;
+  return {
+    to: "",
+    subject: `Directory access requested: ${req.email}`,
+    text: `${req.email} asked to read the ${school} Directory.
+
+Review what they entered — their name, their child and the classroom they chose — and approve or decline:
+${queue}
+
+Until someone decides, they can use the calendar and the newsletter but cannot see any other family.`,
+    html: `<p><strong>${esc(req.email)}</strong> asked to read the <strong>${esc(school)} Directory</strong>.</p>
+<p>Review what they entered — their name, their child and the classroom they chose — and approve or decline:</p>
+<p><a href="${queue}">Open the access queue</a></p>
+<p style="color:#56636f;font-size:13px">Until someone decides, they can use the calendar and the newsletter but cannot see any other family.</p>`,
+  };
+}
+
 /** Daily roll-up of everyone who joined since the last digest (= "daily"). */
 export function newUserDigestEmail(env: Env, users: NewUserSummary[]): SendArgs {
   const school = env.SCHOOL_NAME;

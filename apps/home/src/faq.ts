@@ -171,6 +171,9 @@ function sections(env: Env, locale: Locale) {
     .join("")}</ol>
           <p class="fq-aside">
             <b>${escapeHtml(t("faqFamilyTitle"))}</b> ${escapeHtml(t("faqFamilyBody"))}
+          </p>
+          <p class="fq-aside">
+            <b>${escapeHtml(t("faqApprovalTitle"))}</b> ${escapeHtml(t("faqApprovalBody"))}
           </p>`;
 
   // Members / Private / Shared, in the app's own words and the app's own three

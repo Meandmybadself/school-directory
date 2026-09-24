@@ -912,6 +912,37 @@ export interface AuditActionCountDTO {
   count: number;
 }
 
+/**
+ * Where an account stands with the one gate that is not `requireAuth`
+ * (migration 0029, invariant 32).
+ *
+ *   incomplete — nothing asked for yet, or the claim is not answerable. The
+ *                app shows the form rather than an explanation.
+ *   pending    — asked, nobody has decided. The common case, and the one the
+ *                copy has to be kind about.
+ *   approved   — reads the directory. A system admin is always this.
+ *   declined   — a decision, reversible. The account still works everywhere
+ *                else; only the directory is closed.
+ *
+ * Derived from three dates on `user`, never stored as a word: two of them
+ * could otherwise disagree with it.
+ */
+export type DirectoryAccessState = "incomplete" | "pending" | "approved" | "declined";
+
+/** What `POST /me/access-request` needs before it will accept a submission, and
+ *  what the app checks to decide whether to enable the button. Each flag is one
+ *  sentence of the form, so a false one can be pointed at. */
+export interface AccessClaimStatusDTO {
+  /** The applicant has a Person of their own carrying a full name. */
+  selfNamed: boolean;
+  /** At least one Person they control holds `student`. */
+  hasStudent: boolean;
+  /** That student sits on a classroom roster — the part a reviewer checks. */
+  studentPlaced: boolean;
+  /** All three. The route re-derives this; the client never asserts it. */
+  complete: boolean;
+}
+
 export interface MeDTO {
   user: {
     id: string;
@@ -922,6 +953,40 @@ export interface MeDTO {
   persons: ControllablePersonDTO[];
   activePersonId: string | null;
   masqueradingAs: string | null;
+  /** The gate, on the one route that is deliberately outside it. A pending
+   *  member has to be told why the directory is empty, which a route that
+   *  refused them could not do — the reason `GET /pto/access` and
+   *  `GET /newsletter/access` sit outside their own gates too. */
+  directoryAccess: DirectoryAccessState;
+  /** Why the button is disabled, present only while `directoryAccess` is
+   *  `incomplete` — there is nothing to itemise once they have asked. */
+  accessClaim?: AccessClaimStatusDTO;
+}
+
+/** One pending (or decided) application, as the admin queue renders it.
+ *
+ *  The claim is READ LIVE from the Person rows the applicant created rather
+ *  than copied onto the request at submit time: a family who fixes a typo
+ *  before anyone looks should be reviewed on what is true now, and a second
+ *  copy is a second thing to keep in step. Nothing here is a projection of
+ *  `person` for an ordinary viewer — the route is system-admin only. */
+export interface AccessRequestDTO {
+  userId: string;
+  email: string;
+  /** ISO-8601. Null for an account that never asked (the queue can show
+   *  these separately — they are the ones that signed up and stopped). */
+  submittedAt: string | null;
+  createdAt: string;
+  state: DirectoryAccessState;
+  /** The applicant's own name, as they entered it. */
+  applicantName: string | null;
+  /** The children they entered, with the rooms they claim. */
+  students: { id: string; name: string; classrooms: string[] }[];
+  /** Their free-text line, if they wrote one. Never translated (invariant 6). */
+  note: string | null;
+  decidedAt: string | null;
+  /** Email of the admin who decided, for a queue that several people work. */
+  decidedBy: string | null;
 }
 
 export interface NeighborDTO {
@@ -1810,6 +1875,21 @@ export type AuditAction =
   | "auth.registered"
   | "auth.signin"
   | "auth.signout"
+  /** An account asked to read the directory (migration 0029, invariant 32).
+   *  Pushed by POST /me/access-request, which is idempotent while pending, so
+   *  one row is one ASKING rather than one tap — the rule invariants 27 and 28
+   *  state for a repeated placement and a re-dropped card. `detail.resubmitted`
+   *  distinguishes a first application from one made again after a decline,
+   *  which is the only thing the row cannot be re-derived from later: the dates
+   *  on `user` keep the latest of each, never the sequence. */
+  | "access.requested"
+  /** An admin decided. Two actions rather than one with a field, because the
+   *  question asked of this log is almost always "who let them in" — and
+   *  approving promotes the applicant's self-asserted classroom placements to
+   *  trusted (invariant 27), which is a second effect worth naming separately
+   *  from a decline that has none. */
+  | "access.approved"
+  | "access.declined"
   | "invite.sent"
   | "invite.accepted"
   | "control.granted"

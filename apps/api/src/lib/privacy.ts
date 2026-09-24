@@ -198,11 +198,19 @@ export function personListableSql(
   viewerUserId: string,
   isSystemAdmin: boolean,
   alias = "",
+  approved = true,
 ): { sql: string; binds: unknown[] } {
   if (isSystemAdmin) return { sql: "1", binds: [] };
   const col = alias ? `${alias}.` : "";
+  const mine = `${col}id IN (SELECT person_id FROM control WHERE user_id = ?)`;
+  // Not approved to read the directory (migration 0029): the only Persons that
+  // EXIST to this caller are their own. Spelled as the same shape rather than
+  // an early return of "0" so a pending member's own family still resolves —
+  // they have to be able to finish the application that gets them out of this
+  // state, and that means reading the children they just entered.
+  if (!approved) return { sql: `(${mine})`, binds: [viewerUserId] };
   return {
-    sql: `(${col}unlisted_at IS NULL OR ${col}id IN (SELECT person_id FROM control WHERE user_id = ?))`,
+    sql: `(${col}unlisted_at IS NULL OR ${mine})`,
     binds: [viewerUserId],
   };
 }
@@ -222,10 +230,16 @@ export function personListableSql(
 export function isPersonListable(
   personId: string,
   unlistedAt: string | null,
-  viewer: { isSystemAdmin: boolean; controlledPersonIds: Set<string> },
+  viewer: { isSystemAdmin: boolean; controlledPersonIds: Set<string>; isApproved?: boolean },
 ): boolean {
-  if (unlistedAt === null) return true;
   if (viewer.isSystemAdmin) return true;
+  // Migration 0029, and the reason this takes the whole viewer rather than a
+  // boolean: an unapproved caller sees only their own people, whatever the
+  // unlisted flag says. `filled` still counts everyone dropped here, for the
+  // reason invariant 13 gives — a count that shrank with the name would
+  // advertise a taken shift as needing help.
+  if (viewer.isApproved === false) return viewer.controlledPersonIds.has(personId);
+  if (unlistedAt === null) return true;
   return viewer.controlledPersonIds.has(personId);
 }
 
@@ -258,8 +272,9 @@ export function personSearchSql(
   q: string,
   viewerUserId: string,
   isSystemAdmin: boolean,
+  approved = true,
 ): { sql: string; binds: unknown[] } {
-  const listable = personListableSql(viewerUserId, isSystemAdmin);
+  const listable = personListableSql(viewerUserId, isSystemAdmin, "", approved);
   if (!q) return listable;
   const like = `%${q}%`;
   const term =

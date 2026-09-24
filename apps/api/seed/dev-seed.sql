@@ -13,10 +13,17 @@ DELETE FROM control; DELETE FROM grp; DELETE FROM person; DELETE FROM user;
 INSERT INTO setting (key, value) VALUES ('registration_open', 'true')
   ON CONFLICT(key) DO UPDATE SET value = 'true';
 
--- Users
-INSERT INTO user (id, email, email_verified_at, is_system_admin, created_at) VALUES
-  ('usr_dana',   'dana@eisenhower.edu',   '2025-01-01T00:00:00.000Z', 1, '2025-01-01T00:00:00.000Z'),
-  ('usr_marcus', 'marcus@eisenhower.edu', '2025-01-01T00:00:00.000Z', 0, '2025-01-01T00:00:00.000Z');
+-- Users. Both are APPROVED to read the directory (migration 0029): the seed
+-- runs AFTER migrations, so the grandfathering UPDATE in 0029 — which is what
+-- carries a real instance's existing families across — has already been and
+-- gone by the time these rows exist. Without this, `pnpm dev` would open on the
+-- access-request form for the demo login, which is a gate to test deliberately
+-- rather than one to walk through before every local session.
+-- `usr_marcus` is not a system admin, so he is the one to sign in as when
+-- testing what a PENDING member sees: clear his `access_approved_at` by hand.
+INSERT INTO user (id, email, email_verified_at, is_system_admin, created_at, access_submitted_at, access_approved_at) VALUES
+  ('usr_dana',   'dana@eisenhower.edu',   '2025-01-01T00:00:00.000Z', 1, '2025-01-01T00:00:00.000Z', '2025-01-01T00:00:00.000Z', '2025-01-01T00:00:00.000Z'),
+  ('usr_marcus', 'marcus@eisenhower.edu', '2025-01-01T00:00:00.000Z', 0, '2025-01-01T00:00:00.000Z', '2025-01-01T00:00:00.000Z', '2025-01-01T00:00:00.000Z');
 
 -- Persons
 INSERT INTO person (id, first_name, last_name, last_name_visibility, created_at) VALUES
