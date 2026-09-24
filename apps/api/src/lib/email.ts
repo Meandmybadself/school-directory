@@ -99,7 +99,7 @@ function fmtWhen(iso: string): string {
   return `${iso.slice(0, 10)} ${iso.slice(11, 16)} UTC`;
 }
 
-/** Sent to system admins the moment someone joins (notifications = "instant"). */
+/** Sent the moment someone joins, to each admin whose own mode is "instant". */
 export function newUserEmail(env: Env, u: NewUserSummary): SendArgs {
   const school = env.SCHOOL_NAME;
   const admin = `${env.APP_URL}/admin`;
@@ -107,11 +107,11 @@ export function newUserEmail(env: Env, u: NewUserSummary): SendArgs {
   return {
     to: "",
     subject: `New sign-up: ${u.email}`,
-    text: `${u.email} ${what} and joined the ${school} Directory.\n\n${fmtWhen(u.createdAt)}\n\nManage members: ${admin}\n\nYou're getting this because new-member notifications are on. Turn them off in Admin → Notifications.`,
+    text: `${u.email} ${what} and joined the ${school} Directory.\n\n${fmtWhen(u.createdAt)}\n\nManage members: ${admin}\n\nYou're getting this because you turned on new-member emails for yourself. Turn them off in Admin → Notifications.`,
     html: `<p><strong>${esc(u.email)}</strong> ${what} and joined the <strong>${esc(school)} Directory</strong>.</p>
 <p style="color:#56636f;font-size:13px">${fmtWhen(u.createdAt)}</p>
 <p><a href="${admin}">Manage members</a></p>
-<p style="color:#56636f;font-size:13px">You're getting this because new-member notifications are on. Turn them off in Admin → Notifications.</p>`,
+<p style="color:#56636f;font-size:13px">You're getting this because you turned on new-member emails for yourself. Turn them off in Admin → Notifications.</p>`,
   };
 }
 
@@ -131,11 +131,11 @@ export function newUserDigestEmail(env: Env, users: NewUserSummary[]): SendArgs 
   return {
     to: "",
     subject: `${n} new ${n === 1 ? "sign-up" : "sign-ups"} — ${school} Directory`,
-    text: `${heading}\n\n${lines.join("\n")}\n\nManage members: ${admin}\n\nYou're getting this because the daily new-member digest is on. Change it in Admin → Notifications.`,
+    text: `${heading}\n\n${lines.join("\n")}\n\nManage members: ${admin}\n\nYou're getting this because you chose the daily new-member digest. Change it in Admin → Notifications.`,
     html: `<p>${esc(heading)}.</p>
 <ul>${rows}</ul>
 <p><a href="${admin}">Manage members</a></p>
-<p style="color:#56636f;font-size:13px">You're getting this because the daily new-member digest is on. Change it in Admin → Notifications.</p>`,
+<p style="color:#56636f;font-size:13px">You're getting this because you chose the daily new-member digest. Change it in Admin → Notifications.</p>`,
   };
 }
 

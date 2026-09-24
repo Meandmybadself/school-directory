@@ -1045,18 +1045,20 @@ export interface PersonRemovalImpactDTO {
  *  - `instant` — one email per event, as it happens.
  *  - `daily`   — a single digest of everything since the last one.
  *
- *  Shared by new-member notifications and new-subscriber notifications; the two
- *  are separate settings on separate screens, but the shape and the machinery
- *  behind them (lib/notify.ts) are one. */
+ *  Shared by new-member notifications (chosen per admin) and new-subscriber
+ *  notifications (one instance-wide setting); they sit on separate screens, but
+ *  the shape and the machinery behind them (lib/notify.ts) are one. */
 export type NotifyMode = "off" | "instant" | "daily";
 
 export const NOTIFY_MODES = ["off", "instant", "daily"] as const;
 
-/** How system admins hear about new sign-ups specifically. */
+/** How ONE system admin hears about new sign-ups — each admin's own choice,
+ *  stored on their `user` row (migration 0026). */
 export type NewUserNotify = NotifyMode;
 
 export const NEW_USER_NOTIFY_MODES = NOTIFY_MODES;
 
+/** The CALLER's own notification choices, not the instance's. */
 export interface NotificationSettingsDTO {
   newUser: NewUserNotify;
 }

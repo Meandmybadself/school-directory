@@ -40,8 +40,9 @@ function fmtTime(iso: string): string {
   }
 }
 
-/** New-member notifications: a master switch plus, when on, the delivery mode.
- *  "off" is the stored default, so a fresh instance emails nobody. */
+/** New-member notifications for the signed-in admin ONLY: a switch plus, when
+ *  on, the delivery mode. Each admin opts in for themselves (migration 0026);
+ *  "off" is the default, so a newly promoted admin is emailed nothing. */
 function NotificationsSection() {
   const [mode, setMode] = useState<NewUserNotify | null>(null);
   const [busy, setBusy] = useState(false);
@@ -76,11 +77,11 @@ function NotificationsSection() {
       <div className="sd-card sd-card-pad" style={{ marginTop: 9 }}>
         <div className="sd-row" style={{ gap: 12 }}>
           <div style={{ flex: 1 }}>
-            <div style={{ fontSize: 14.5, fontWeight: 700 }}>Email admins about new members</div>
+            <div style={{ fontSize: 14.5, fontWeight: 700 }}>Email me about new members</div>
             <div className="sd-meta" style={{ marginTop: 2, lineHeight: 1.4 }}>
               {on
-                ? "Every system admin gets a notice when someone signs up or accepts an invite."
-                : "Nobody is notified when someone joins."}
+                ? "You get a notice when someone signs up or accepts an invite."
+                : "You aren't emailed when someone joins."}
             </div>
           </div>
           <button
@@ -114,8 +115,8 @@ function NotificationsSection() {
         )}
 
         <div className="sd-meta" style={{ marginTop: 10, lineHeight: 1.4 }}>
-          Accounts you create yourself don't send a notice. Switching to the digest starts
-          the window now — people who joined earlier won't be replayed.
+          This is just for you — each admin chooses their own, and other admins' choices
+          aren't changed by yours. Accounts created from this console don't send a notice.
         </div>
       </div>
     </div>
