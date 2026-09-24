@@ -421,23 +421,62 @@ admin.get("/audit/verify", async (c) => {
   return c.json(await verifyAuditChain(c.env, { limit }));
 });
 
-/** GET /admin/audit?action=&limit=&before= — append-only audit log (FR-32). */
+/**
+ * GET /admin/audit/actions — every action the log actually holds, with counts.
+ *
+ * The filter used to be a hand-kept list in the SPA, which had fallen well
+ * behind the `AuditAction` union — the newest actions were the unfilterable
+ * ones. Reading the log's own vocabulary means a new action is filterable the
+ * day it is first written. Registered above `/audit` for `/audit/verify`'s reason.
+ */
+admin.get("/audit/actions", async (c) => {
+  const auth = requireAuth(c);
+  if (!auth.isSystemAdmin) return c.json({ error: "forbidden" }, 403);
+  const rows = await c.env.DB.prepare(
+    "SELECT action, COUNT(*) AS n FROM audit_log GROUP BY action ORDER BY action",
+  ).all<{ action: string; n: number }>();
+  return c.json({ actions: rows.results.map((r) => ({ action: r.action, count: r.n })) });
+});
+
+/** Escape LIKE's wildcards so a search for `50%` or `user_id` means itself. */
+function likeTerm(q: string): string {
+  return `%${q.replace(/[\\%_]/g, (ch) => `\\${ch}`)}%`;
+}
+
+/**
+ * GET /admin/audit?action=&q=&limit=&before= — append-only audit log (FR-32).
+ *
+ * `q` is a case-insensitive substring match over every column the list
+ * RENDERS — action, entity kind and id, actor and masquerade-target emails, ip
+ * and `detail` — and nothing else (invariant 18's rule: a search may not match
+ * on more than it shows). That is why `detail` is now on the DTO: the name a
+ * `person.deleted` row keeps is the thing an admin most needs to search for,
+ * and a match on text the row then hid would be a result nobody could explain.
+ * `user_agent` and the hash columns are neither shown nor searched.
+ */
 admin.get("/audit", async (c) => {
   const auth = requireAuth(c);
   if (!auth.isSystemAdmin) return c.json({ error: "forbidden" }, 403);
 
   const action = c.req.query("action");
+  const q = (c.req.query("q") ?? "").trim().slice(0, 200);
   const before = c.req.query("before"); // id cursor; rows are ULID-ordered
   const limit = Math.min(Number.parseInt(c.req.query("limit") ?? "50", 10) || 50, 200);
 
   const where: string[] = [];
   const binds: unknown[] = [];
   if (action) { where.push("a.action = ?"); binds.push(action); }
+  if (q) {
+    const cols = ["a.action", "a.entity_kind", "a.entity_id", "actor.email", "masq.email", "a.ip", "a.detail_json"];
+    where.push(`(${cols.map((col) => `${col} LIKE ? ESCAPE '\\'`).join(" OR ")})`);
+    const term = likeTerm(q);
+    binds.push(...cols.map(() => term));
+  }
   if (before) { where.push("a.id < ?"); binds.push(before); }
   const whereSql = where.length ? `WHERE ${where.join(" AND ")}` : "";
 
   const rows = await c.env.DB.prepare(
-    `SELECT a.id, a.action, a.entity_kind, a.entity_id, a.ip, a.created_at,
+    `SELECT a.id, a.action, a.entity_kind, a.entity_id, a.detail_json, a.ip, a.created_at,
             actor.email AS actor_email, masq.email AS masq_email
      FROM audit_log a
      LEFT JOIN user actor ON actor.id = a.actor_user_id
@@ -448,7 +487,8 @@ admin.get("/audit", async (c) => {
     .bind(...binds, limit)
     .all<{
       id: string; action: string; entity_kind: string | null; entity_id: string | null;
-      ip: string | null; created_at: string; actor_email: string | null; masq_email: string | null;
+      detail_json: string | null; ip: string | null; created_at: string;
+      actor_email: string | null; masq_email: string | null;
     }>();
 
   const entries: AuditEntryDTO[] = rows.results.map((r) => ({
@@ -458,11 +498,23 @@ admin.get("/audit", async (c) => {
     masqueradingAsEmail: r.masq_email,
     entityKind: r.entity_kind,
     entityId: r.entity_id,
+    detail: parseDetail(r.detail_json),
     ip: r.ip,
     createdAt: r.created_at,
   }));
   return c.json({ entries, nextBefore: entries.length === limit ? entries[entries.length - 1]?.id : null });
 });
+
+/** A row's detail as written; a blob that won't parse is shown raw rather than dropped. */
+function parseDetail(json: string | null): Record<string, unknown> | null {
+  if (!json) return null;
+  try {
+    const v: unknown = JSON.parse(json);
+    return v && typeof v === "object" && !Array.isArray(v) ? (v as Record<string, unknown>) : { value: v };
+  } catch {
+    return { raw: json };
+  }
+}
 
 /** POST /admin/masquerade { userId } — start viewing as another User. */
 admin.post("/masquerade", async (c) => {

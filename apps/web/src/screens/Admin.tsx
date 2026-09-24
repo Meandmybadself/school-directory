@@ -1,10 +1,11 @@
 // Admin console: registration toggle, masquerade (user list), the append-only
 // audit log, and whole-database backup/restore. CSV bulk import + co-manager invite UI remain M4.
 // Admin chrome is intentionally English-only (operator tooling).
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Navigate, useNavigate } from "react-router-dom";
 import type {
   AdminUserDTO,
+  AuditActionCountDTO,
   AuditEntryDTO,
   BackupDocument,
   NewUserNotify,
@@ -21,16 +22,14 @@ import { useSession } from "../lib/session.js";
 import { useIsDesktop } from "../lib/useIsDesktop.js";
 import { api, ApiError, CALENDAR_APP_URL, NEWSLETTER_APP_URL } from "../lib/api.js";
 
-// The audit log is instance-wide, so the calendar actions stay filterable here
-// even though the UI that performs them now lives in the calendar app.
-const ACTION_FILTERS = [
-  "", "auth.signin", "invite.sent", "invite.accepted", "control.granted",
-  "masquerade.start", "masquerade.stop", "share.created", "share.revoked",
-  "person.updated", "contact.created", "contact.updated", "registration.toggled", "notify.toggled", "admin.action",
-  "calendar.source.created", "calendar.source.updated", "calendar.source.deleted", "calendar.refreshed",
-  "calendar.managed.created", "calendar.managed.updated", "calendar.managed.deleted",
-  "calendar.event.created", "calendar.event.updated", "calendar.event.deleted",
-];
+/** A row's detail as one line of `key: value` pairs, for scanning and for
+ *  showing why a search matched. Nested values are shown as JSON. */
+function detailLine(detail: Record<string, unknown> | null): string {
+  if (!detail) return "";
+  return Object.entries(detail)
+    .map(([k, v]) => `${k}: ${typeof v === "string" ? v : JSON.stringify(v)}`)
+    .join(" · ");
+}
 
 function fmtTime(iso: string): string {
   try {
@@ -541,6 +540,10 @@ export function Admin() {
   const [regOpen, setRegOpen] = useState<boolean | null>(null);
   const [entries, setEntries] = useState<AuditEntryDTO[]>([]);
   const [filter, setFilter] = useState("");
+  const [search, setSearch] = useState("");
+  const [actions, setActions] = useState<AuditActionCountDTO[]>([]);
+  const [auditLoading, setAuditLoading] = useState(false);
+  const auditReq = useRef(0);
   const [nextBefore, setNextBefore] = useState<string | null>(null);
   const [tab, setTab] = useState<"users" | "audit" | "backup">("users");
   const [impactFor, setImpactFor] = useState<AdminUserDTO | null>(null);
@@ -551,12 +554,29 @@ export function Admin() {
     void api.getRegistration().then((r) => setRegOpen(r.open)).catch(() => setRegOpen(null));
   }, []);
 
+  // The action list is the log's own vocabulary, read once when the tab opens.
   useEffect(() => {
-    void api.auditLog({ action: filter || undefined }).then((r) => {
-      setEntries(r.entries);
-      setNextBefore(r.nextBefore);
-    }).catch(() => setEntries([]));
-  }, [filter]);
+    if (tab !== "audit") return;
+    void api.auditActions().then((r) => setActions(r.actions)).catch(() => setActions([]));
+  }, [tab]);
+
+  // Debounced, and only the latest request may land — a slow response for
+  // "mil" must not overwrite the one for "milo".
+  useEffect(() => {
+    const id = ++auditReq.current;
+    setAuditLoading(true);
+    const handle = setTimeout(() => {
+      void api.auditLog({ action: filter || undefined, q: search.trim() || undefined })
+        .then((r) => {
+          if (id !== auditReq.current) return;
+          setEntries(r.entries);
+          setNextBefore(r.nextBefore);
+        })
+        .catch(() => { if (id === auditReq.current) { setEntries([]); setNextBefore(null); } })
+        .finally(() => { if (id === auditReq.current) setAuditLoading(false); });
+    }, search ? 250 : 0);
+    return () => clearTimeout(handle);
+  }, [filter, search]);
 
   if (me && !me.user.isSystemAdmin) return <Navigate to="/" replace />;
 
@@ -617,7 +637,9 @@ export function Admin() {
 
   const loadMore = async () => {
     if (!nextBefore) return;
-    const r = await api.auditLog({ action: filter || undefined, before: nextBefore });
+    const id = auditReq.current;
+    const r = await api.auditLog({ action: filter || undefined, q: search.trim() || undefined, before: nextBefore });
+    if (id !== auditReq.current) return; // the search changed while this page loaded
     setEntries((e) => [...e, ...r.entries]);
     setNextBefore(r.nextBefore);
   };
@@ -825,13 +847,27 @@ export function Admin() {
     <div>
       <SectLabel
           action={
-            <select className="sd-input" value={filter} onChange={(e) => setFilter(e.target.value)} style={{ height: 30, width: "auto", fontSize: 12.5, padding: "0 8px" }}>
-              {ACTION_FILTERS.map((a) => <option key={a} value={a}>{a || "All actions"}</option>)}
+            <select className="sd-input" value={filter} onChange={(e) => setFilter(e.target.value)} style={{ height: 30, width: "auto", maxWidth: 220, fontSize: 12.5, padding: "0 8px" }}>
+              <option value="">All actions</option>
+              {filter && !actions.some((a) => a.action === filter) && <option value={filter}>{filter}</option>}
+              {actions.map((a) => <option key={a.action} value={a.action}>{a.action} ({a.count})</option>)}
             </select>
           }
         >
           Audit log
         </SectLabel>
+        <div style={{ position: "relative", marginTop: 9 }}>
+          <Icon name="search" size={17} style={{ position: "absolute", left: 13, top: "50%", transform: "translateY(-50%)", color: "var(--ink-3)" }} />
+          <input
+            className="sd-input"
+            type="search"
+            aria-label="Search the audit log"
+            placeholder="Search email, action, id, IP or details"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            style={{ paddingLeft: 38 }}
+          />
+        </div>
         <div className="sd-card sd-card-pad" style={{ marginTop: 9, paddingTop: 4, paddingBottom: 4 }}>
           {entries.map((e) => (
             <div key={e.id} className="sd-crow" style={{ alignItems: "center" }}>
@@ -842,12 +878,21 @@ export function Admin() {
                   {e.actorEmail ?? "system"}
                   {e.masqueradingAsEmail ? ` (as ${e.masqueradingAsEmail})` : ""}
                   {e.entityKind ? ` · ${e.entityKind}` : ""}
+                  {e.entityId ? <span className="sd-mono" style={{ fontSize: 11 }}>{` ${e.entityId}`}</span> : null}
+                  {e.ip ? ` · ${e.ip}` : ""}
                 </div>
+                {e.detail && (
+                  <div className="sd-meta sd-mono" style={{ marginTop: 2, fontSize: 11, overflowWrap: "anywhere" }}>{detailLine(e.detail)}</div>
+                )}
               </div>
               <div className="sd-meta sd-mono" style={{ flex: "0 0 auto", fontSize: 11 }}>{fmtTime(e.createdAt)}</div>
             </div>
           ))}
-          {entries.length === 0 && <div className="sd-meta" style={{ padding: "12px 0" }}>No entries.</div>}
+          {entries.length === 0 && (
+            <div className="sd-meta" style={{ padding: "12px 0" }}>
+              {auditLoading ? "Searching…" : search.trim() || filter ? "Nothing matches." : "No entries."}
+            </div>
+          )}
           {nextBefore && (
             <button className="sd-btn sd-btn-ghost sd-btn-sm block" style={{ marginTop: 8 }} onClick={() => void loadMore()}>Load more</button>
           )}

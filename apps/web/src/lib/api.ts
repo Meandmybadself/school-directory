@@ -2,6 +2,7 @@
 import type {
   AdminUserDTO,
   UserDeletionImpactDTO,
+  AuditActionCountDTO,
   AuditEntryDTO,
   BackupDocument,
   BulkImportOptions,
@@ -252,13 +253,15 @@ export const api = {
   startMasquerade: (userId: string) =>
     request<{ ok: true }>("/admin/masquerade", { method: "POST", body: JSON.stringify({ userId }) }),
   stopMasquerade: () => request<{ ok: true }>("/admin/masquerade/stop", { method: "POST" }),
-  auditLog: (opts: { action?: string; before?: string } = {}) => {
+  auditLog: (opts: { action?: string; q?: string; before?: string } = {}) => {
     const q = new URLSearchParams();
     if (opts.action) q.set("action", opts.action);
+    if (opts.q) q.set("q", opts.q);
     if (opts.before) q.set("before", opts.before);
     const qs = q.toString();
     return request<{ entries: AuditEntryDTO[]; nextBefore: string | null }>(`/admin/audit${qs ? `?${qs}` : ""}`);
   },
+  auditActions: () => request<{ actions: AuditActionCountDTO[] }>("/admin/audit/actions"),
   bulkImport: (rows: BulkImportRow[], dryRun: boolean, options: BulkImportOptions & { sendInvites?: boolean }) =>
     request<BulkImportResult>("/admin/bulk-import", { method: "POST", body: JSON.stringify({ rows, dryRun, ...options }) }),
 

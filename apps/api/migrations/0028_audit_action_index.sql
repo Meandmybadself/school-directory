@@ -1,0 +1,14 @@
+-- 0028_audit_action_index.sql — let the audit log's action filter use an index.
+--
+-- `GET /admin/audit?action=` asks for `WHERE a.action = ? [AND a.id < ?]
+-- ORDER BY a.id DESC LIMIT n`, and `GET /admin/audit/actions` asks for
+-- `GROUP BY action`. With only the created_at and actor indexes from 0001, both
+-- read every row of the log, and D1 bills rows read. `(action, id)` serves the
+-- first as a range seek already in cursor order, and covers the second without
+-- touching the table.
+--
+-- The free-text `q` search is not helped and cannot be: a substring LIKE has a
+-- leading wildcard. It stays a scan, bounded by who may run it (system admins).
+--
+-- Index only — no data changes, so it is safe to apply and to re-run.
+CREATE INDEX IF NOT EXISTS idx_audit_action ON audit_log (action, id);

@@ -900,8 +900,16 @@ export interface AuditEntryDTO {
   masqueradingAsEmail: string | null;
   entityKind: string | null;
   entityId: string | null;
+  /** The row's `detail_json`, parsed. Admin-only, like the rest of this DTO;
+   *  it is here because `q` searches it, and a match must be visible. */
+  detail: Record<string, unknown> | null;
   ip: string | null;
   createdAt: string;
+}
+
+export interface AuditActionCountDTO {
+  action: string;
+  count: number;
 }
 
 export interface MeDTO {
