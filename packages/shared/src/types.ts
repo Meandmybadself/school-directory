@@ -939,6 +939,13 @@ export interface AccessClaimStatusDTO {
   hasStudent: boolean;
   /** That student sits on a classroom roster — the part a reviewer checks. */
   studentPlaced: boolean;
+  /** The applicant works at the school: a Person they control holds `teacher`
+   *  or `staff`. The OTHER route to a complete claim, because a teacher, the
+   *  office and the nurse have no child to name and would otherwise meet a
+   *  form they could never finish. Self-asserted like `student` is, and safe
+   *  for the same reason — it decides what a reviewer is shown, never what
+   *  anyone may read. */
+  isStaff: boolean;
   /** All three. The route re-derives this; the client never asserts it. */
   complete: boolean;
 }
@@ -982,6 +989,10 @@ export interface AccessRequestDTO {
   applicantName: string | null;
   /** The children they entered, with the rooms they claim. */
   students: { id: string; name: string; classrooms: string[] }[];
+  /** What the applicant says they are — `parent`, `teacher`, `staff`. Present
+   *  so a teacher does not read to a reviewer as a parent who forgot to enter
+   *  their children: a staff applicant has no child to name, by design. */
+  roles: Capability[];
   /** Their free-text line, if they wrote one. Never translated (invariant 6). */
   note: string | null;
   decidedAt: string | null;

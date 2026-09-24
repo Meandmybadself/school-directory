@@ -54,6 +54,27 @@ export function accessStateOf(row: AccessRow, isSystemAdmin = false): DirectoryA
  * is that they tell us the room and somebody then decides whether to believe
  * it. Approval is what promotes that row to trusted.
  *
+ * TWO ROUTES, because the school is not only parents. The first version asked
+ * every applicant for a child, which a teacher, the office or the nurse cannot
+ * produce — so they met a form with two conditions they could never satisfy and
+ * a button that never enabled. They were not locked out (an admin can approve
+ * from the "Never asked" tab) but they had no way to ASK, and nothing told
+ * anyone they were waiting. A gate with no door for a whole category of the
+ * people it serves is a bug, not a policy.
+ *
+ * So a Person the applicant controls holding `teacher` or `staff` is the other
+ * way to a complete claim. Anyone can assert that — both are in
+ * `ASSIGNABLE_CAPABILITIES` and `POST /me/persons` asks nobody, the same thing
+ * invariant 27 says about `student` — and that is fine for the same reason it
+ * is fine there: this decides what a reviewer is SHOWN, not what anyone may
+ * read. "I teach in Rm 110" is exactly as checkable by a human who has the
+ * staff list as "my child is in Rm 110", and both still wait for that human.
+ *
+ * Staff are deliberately NOT asked for a classroom. A teacher has a room; the
+ * office, the nurse and the custodian do not, and requiring one would rebuild
+ * the dead end a segment further along. The free-text note is where a staff
+ * applicant says which room or which job, and the admin queue shows it.
+ *
  * Reads `person` only through `control`, so which Persons exist to this caller
  * was already settled by the join: the applicant's own. It spends none of
  * test/personListable.test.ts's exemption budget.
@@ -90,19 +111,25 @@ export async function accessClaimStatus(env: Env, userId: string): Promise<Acces
           JOIN capability_grant g ON g.person_id = c.person_id AND g.capability = 'student'
           JOIN membership m ON m.person_id = c.person_id
           JOIN grp gr ON gr.id = m.group_id AND gr.kind = 'classroom'
-         WHERE c.user_id = ?) AS placed`,
+         WHERE c.user_id = ?) AS placed,
+       (SELECT COUNT(*) FROM control c
+          JOIN capability_grant g ON g.person_id = c.person_id
+         WHERE c.user_id = ? AND g.capability IN ('teacher','staff')) AS staff`,
   )
-    .bind(userId, ...listable.binds, userId, userId)
-    .first<{ named: number; students: number; placed: number }>();
+    .bind(userId, ...listable.binds, userId, userId, userId)
+    .first<{ named: number; students: number; placed: number; staff: number }>();
 
   const selfNamed = (row?.named ?? 0) > 0;
   const hasStudent = (row?.students ?? 0) > 0;
   const studentPlaced = (row?.placed ?? 0) > 0;
+  const isStaff = (row?.staff ?? 0) > 0;
   return {
     selfNamed,
     hasStudent,
     studentPlaced,
-    complete: selfNamed && hasStudent && studentPlaced,
+    isStaff,
+    // Either route, and a name on both: a reviewer needs somebody to be.
+    complete: selfNamed && (isStaff || (hasStudent && studentPlaced)),
   };
 }
 

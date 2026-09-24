@@ -147,6 +147,10 @@ export function Access() {
   // room or a misspelled name, which is precisely what the form below edits.
   const declined = state === "declined";
   const complete = claim?.complete === true;
+  // Whether the parent route is finished decides whether the staff alternative
+  // is worth showing — a family who has named a placed child does not need to
+  // be offered a second way in.
+  const parentRouteDone = claim?.hasStudent === true && claim.studentPlaced === true;
   return (
     <AppShell>
       <div className="sd-scroll">
@@ -169,6 +173,26 @@ export function Access() {
             />
             <Condition met={claim?.studentPlaced === true} label={t("accessNeedClassroom")} />
           </ul>
+
+          {/* The other route, and it has to be VISIBLE rather than inferred.
+              A teacher, the office and the nurse have no child to name; the
+              first version of this form left them with two conditions they
+              could never satisfy and a button that never enabled. Shown
+              whenever the parent route is unfinished, so somebody who has no
+              child sees the way through on the same screen rather than
+              guessing that a capability on their profile would do it. */}
+          {!parentRouteDone && (
+            <div style={{ marginTop: 14 }}>
+              <SectLabel>{t("accessOrStaff")}</SectLabel>
+              <ul style={{ margin: "4px 0 0", padding: 0 }}>
+                <Condition
+                  met={claim?.isStaff === true}
+                  label={t("accessNeedStaff")}
+                  to={me?.persons[0] ? `/persons/${me.persons[0].id}/edit` : "/welcome"}
+                />
+              </ul>
+            </div>
+          )}
         </div>
 
         {/* The classroom picker sits inline rather than behind a link: it is the

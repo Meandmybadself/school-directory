@@ -1028,11 +1028,24 @@ function AccessTab() {
 
       {rows?.map((r) => (
         <div key={r.userId} className="sd-card sd-card-pad" style={{ marginBottom: 10 }}>
-          <div style={{ fontSize: 14.5, fontWeight: 700 }}>{r.applicantName ?? "(no name entered)"}</div>
+          <div className="sd-row" style={{ gap: 8, alignItems: "baseline" }}>
+            <div style={{ fontSize: 14.5, fontWeight: 700 }}>{r.applicantName ?? "(no name entered)"}</div>
+            {/* A teacher has no child to name, by design — without this the
+                row below reads as a parent who forgot to enter their family. */}
+            {r.roles.filter((x) => x === "teacher" || x === "staff").map((x) => (
+              <Tag key={x} tone="line">{x === "teacher" ? "Teacher" : "Staff"}</Tag>
+            ))}
+          </div>
           <div className="sd-meta" style={{ marginTop: 2 }}>{r.email}</div>
 
           <div style={{ marginTop: 10 }}>
-            {r.students.length === 0 && <div className="sd-meta">No children entered.</div>}
+            {r.students.length === 0 && (
+              <div className="sd-meta">
+                {r.roles.some((x) => x === "teacher" || x === "staff")
+                  ? "Works at the school — no children to list. Check the note below."
+                  : "No children entered."}
+              </div>
+            )}
             {r.students.map((s) => (
               <div key={s.id} className="sd-row" style={{ gap: 8, padding: "3px 0", alignItems: "baseline" }}>
                 <span style={{ fontSize: 13.5 }}>{s.name}</span>

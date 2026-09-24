@@ -134,7 +134,12 @@ describe("what state an account is in", () => {
 
 describe("a claim a reviewer can actually look at", () => {
   /** Answers `accessClaimStatus`'s single statement from a tiny world. */
-  function claimEnv(world: { named: number; students: number; placed: number }): Env {
+  function claimEnv(world: {
+    named: number;
+    students: number;
+    placed: number;
+    staff?: number;
+  }): Env {
     return {
       DB: {
         prepare(sql: string) {
@@ -145,7 +150,7 @@ describe("a claim a reviewer can actually look at", () => {
             throw new Error("claim statement does not compose the gate");
           }
           return {
-            bind: () => ({ first: async () => world }),
+            bind: () => ({ first: async () => ({ staff: 0, ...world }) }),
           };
         },
       },
@@ -652,5 +657,48 @@ describe("the read budget", () => {
       },
     } as unknown as Env;
     await expect(enforceReadRate(broken, viewer())).resolves.toBeUndefined();
+  });
+});
+
+// ── 7. The school is not only parents ───────────────────────────────────────
+
+describe("a teacher or staff member can apply at all", () => {
+  /** Same shape as the claim fixture above, spelled out here so this block
+   *  reads on its own — it is the regression that matters most in it. */
+  function claim(world: { named: number; students: number; placed: number; staff: number }): Env {
+    return {
+      DB: {
+        prepare: () => ({ bind: () => ({ first: async () => world }) }),
+      },
+    } as unknown as Env;
+  }
+
+  it("completes on the staff route, with no child and no classroom", async () => {
+    // The dead end this fixes: a teacher has no child to name, so the first
+    // version left them with two conditions they could never satisfy and a
+    // submit button that never enabled. They were not locked out — an admin
+    // can approve from the "Never asked" tab — but they had no way to ASK,
+    // and nothing told anyone they were waiting.
+    const s = await accessClaimStatus(claim({ named: 1, students: 0, placed: 0, staff: 1 }), ME);
+    expect(s.isStaff).toBe(true);
+    expect(s.complete).toBe(true);
+  });
+
+  it("still needs a name on the staff route — a reviewer needs somebody to be", async () => {
+    const s = await accessClaimStatus(claim({ named: 0, students: 0, placed: 0, staff: 1 }), ME);
+    expect(s.complete).toBe(false);
+  });
+
+  it("does not let the staff claim skip the classroom for a PARENT", async () => {
+    // The two routes are alternatives, not a way around the parent one: a
+    // family that named a child still has to say which room.
+    const s = await accessClaimStatus(claim({ named: 1, students: 1, placed: 0, staff: 0 }), ME);
+    expect(s.complete).toBe(false);
+  });
+
+  it("leaves the parent route exactly as it was", async () => {
+    const s = await accessClaimStatus(claim({ named: 1, students: 1, placed: 1, staff: 0 }), ME);
+    expect(s.complete).toBe(true);
+    expect(s.isStaff).toBe(false);
   });
 });

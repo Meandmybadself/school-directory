@@ -193,6 +193,8 @@ export interface Strings {
   accessNeedName: string;
   accessNeedStudent: string;
   accessNeedClassroom: string;
+  accessOrStaff: string;
+  accessNeedStaff: string;
   accessNoteLabel: string;
   accessNotePlaceholder: string;
   accessSubmit: string;
@@ -893,6 +895,8 @@ const en: Strings = {
   accessNeedName: "Add your own first and last name",
   accessNeedStudent: "Add at least one child",
   accessNeedClassroom: "Choose your child's classroom",
+  accessOrStaff: "Or, if you work at the school",
+  accessNeedStaff: "Mark yourself as a teacher or staff member, and tell us below which room or job",
   accessNoteLabel: "Anything else we should know? (optional)",
   accessNotePlaceholder: "e.g. we started in January, or my child goes by a different name",
   accessSubmit: "Ask for access",
@@ -1583,6 +1587,8 @@ const es: Strings = {
   accessNeedName: "Agregue su nombre y apellido",
   accessNeedStudent: "Agregue al menos un hijo o hija",
   accessNeedClassroom: "Elija el salón de su hijo o hija",
+  accessOrStaff: "O, si usted trabaja en la escuela",
+  accessNeedStaff: "Márquese como maestro o personal, y díganos abajo qué salón o qué puesto",
   accessNoteLabel: "¿Algo más que debamos saber? (opcional)",
   accessNotePlaceholder: "p. ej.: empezamos en enero, o mi hijo usa otro nombre",
   accessSubmit: "Solicitar acceso",
@@ -2212,6 +2218,8 @@ const zh: Strings = {
   accessNeedName: "填写您的姓和名",
   accessNeedStudent: "至少添加一个孩子",
   accessNeedClassroom: "选择您孩子的班级",
+  accessOrStaff: "或者，如果您在学校工作",
+  accessNeedStaff: "请将自己标记为教师或教职员工，并在下方告诉我们您的教室或职务",
   accessNoteLabel: "还有其他需要说明的吗？（选填）",
   accessNotePlaceholder: "例如：我们一月份入学，或我的孩子使用另一个名字",
   accessSubmit: "申请访问",
@@ -2827,6 +2835,8 @@ const so: Strings = {
   accessNeedName: "Ku dar magacaaga koowaad iyo kan dambe",
   accessNeedStudent: "Ku dar ugu yaraan hal ilmo",
   accessNeedClassroom: "Dooro fasalka ilmahaaga",
+  accessOrStaff: "Ama, haddii aad dugsiga ka shaqayso",
+  accessNeedStaff: "Isku calaamadi macallin ama shaqaale, oo hoos noogu sheeg fasalka ama shaqada",
   accessNoteLabel: "Wax kale oo aan ogaano? (ikhtiyaari)",
   accessNotePlaceholder: "tusaale: waxaan bilownay Janaayo, ama ilmahaygu magac kale ayuu isticmaalaa",
   accessSubmit: "Codso gelitaan",

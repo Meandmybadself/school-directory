@@ -2,7 +2,7 @@
 // (CSV import, audit-log table, registration toggle UI) is M4.
 
 import { Hono } from "hono";
-import type { AccessRequestDTO, AuditEntryDTO, BulkImportOptions, BulkImportRow, CalendarSourceDTO, CalendarSourceInput } from "@sd/shared";
+import type { AccessRequestDTO, AuditEntryDTO, Capability, BulkImportOptions, BulkImportRow, CalendarSourceDTO, CalendarSourceInput } from "@sd/shared";
 import { RESTORE_CONFIRM } from "@sd/shared";
 import type { Env, HonoEnv } from "../env.js";
 import { requireAuth } from "../middleware/session.js";
@@ -904,7 +904,10 @@ admin.post("/calendar-sources/refresh", async (c) => {
  *  short-circuits it to "1" — so composing it here would be ceremony that reads
  *  like a guard. */
 async function accessClaimsFor(env: Env, userIds: string[]) {
-  const out = new Map<string, { name: string | null; students: AccessRequestDTO["students"] }>();
+  const out = new Map<
+    string,
+    { name: string | null; students: AccessRequestDTO["students"]; roles: Capability[] }
+  >();
   if (!userIds.length) return out;
 
   // D1 caps a statement at 100 bound parameters, which `lib/backup.ts` already
@@ -926,6 +929,24 @@ async function accessClaimsFor(env: Env, userIds: string[]) {
     first_name: string;
     last_name: string | null;
     is_student: number;
+  }
+  /** The applicant's OWN roles, so a teacher does not read to a reviewer as a
+   *  parent who forgot to enter their children. Read per user rather than per
+   *  person: the question is "what does this applicant claim to be". */
+  const roles = new Map<string, Capability[]>();
+  for (const batch of chunks(userIds)) {
+    const ph = batch.map(() => "?").join(",");
+    const roleRows = await env.DB.prepare(
+      `SELECT ctl.user_id, g.capability
+         FROM control ctl JOIN capability_grant g ON g.person_id = ctl.person_id
+        WHERE ctl.user_id IN (${ph}) AND g.capability IN ('teacher','staff','parent')`,
+    )
+      .bind(...batch)
+      .all<{ user_id: string; capability: Capability }>();
+    for (const r of roleRows.results) {
+      const have = roles.get(r.user_id) ?? [];
+      if (!have.includes(r.capability)) roles.set(r.user_id, [...have, r.capability]);
+    }
   }
   const people: PersonRow[] = [];
   for (const batch of chunks(userIds)) {
@@ -966,7 +987,7 @@ async function accessClaimsFor(env: Env, userIds: string[]) {
   }
 
   for (const r of people) {
-    const entry = out.get(r.user_id) ?? { name: null, students: [] };
+    const entry = out.get(r.user_id) ?? { name: null, students: [], roles: roles.get(r.user_id) ?? [] };
     const full = [r.first_name, r.last_name].filter(Boolean).join(" ");
     if (r.is_student) {
       entry.students.push({ id: r.id, name: full, classrooms: rooms.get(r.id) ?? [] });
@@ -1036,6 +1057,7 @@ admin.get("/access-requests", async (c) => {
       state: accessStateOf(r),
       applicantName: claim?.name ?? null,
       students: claim?.students ?? [],
+      roles: claim?.roles ?? [],
       note: r.access_note,
       decidedAt: r.access_approved_at ?? r.access_declined_at,
       decidedBy: r.decided_by_email,

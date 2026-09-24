@@ -1684,6 +1684,23 @@ All five SPAs are separate Cloudflare Pages projects talking to the single
    its fake D1 evaluates the predicate, so a gate that admitted the school fails
    with another family's child in the result rather than passing a scan — and it
    pins the batch boundary, the promotion and both no-ops.
+   **TWO ROUTES to a complete claim, because the school is not only parents.**
+   The first version asked every applicant for a child, which a teacher, the
+   office and the nurse cannot produce — so they met a form with two conditions
+   they could never satisfy and a button that never enabled. They were not
+   locked out (an admin can approve from the "Never asked" tab) but they had no
+   way to ASK and nothing told anyone they were waiting, which is the same dead
+   end the declined screen had. So `isStaff` — a Person the applicant controls
+   holding `teacher` or `staff` — is the other way through, and
+   `complete = selfNamed && (isStaff || (hasStudent && studentPlaced))`. Both
+   are self-asserted and that is fine for invariant 27's reason: this decides
+   what a REVIEWER is shown, never what anyone may read, and "I teach in
+   Rm 110" is as checkable by a human with the staff list as "my child is in
+   Rm 110". Staff are deliberately not asked for a classroom — a teacher has a
+   room, the office and the custodian do not, and requiring one would rebuild
+   the dead end a segment further along; the note is where they say which.
+   `AccessRequestDTO.roles` carries it to the queue so a teacher does not read
+   as a parent who forgot to enter their family.
    **The budget is the other half, and neither substitutes for the other.**
    The gate decides WHETHER an account may read other families; `enforceReadRate`
    (same file) bounds HOW FAST, through a `[[ratelimits]]` binding at 60 a
