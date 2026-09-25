@@ -34,6 +34,7 @@ import type {
 import { Icon } from "./Icon.js";
 import { Avatar, Btn, Tag } from "./atoms.js";
 import { Field, SheetOver } from "./parts.js";
+import { LinkifiedText } from "./LinkifiedText.js";
 import { useI18n, type I18nT } from "../i18n/index.js";
 import { api, ApiError, DIRECTORY_URL } from "../lib/api.js";
 import { useSession } from "../lib/session.js";
@@ -121,7 +122,7 @@ function PositionCard({
         )}
         {position.description && (
           <div style={{ fontSize: 13.5, lineHeight: 1.5, color: "var(--ink-2)", whiteSpace: "pre-wrap", wordBreak: "break-word", marginTop: 6 }}>
-            {position.description}
+            <LinkifiedText text={position.description} />
           </div>
         )}
       </div>
