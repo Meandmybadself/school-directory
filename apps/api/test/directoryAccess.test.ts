@@ -34,7 +34,9 @@ import { personListableSql, personSearchSql } from "../src/lib/privacy.js";
 import {
   accessClaimStatus,
   accessStateOf,
+  DAILY_READ_LIMIT,
   enforceReadRate,
+  readLimitSlackLine,
   requireApproved,
   DirectoryAccessError,
   RateLimitedError,
@@ -700,5 +702,138 @@ describe("a teacher or staff member can apply at all", () => {
     const s = await accessClaimStatus(claim({ named: 1, students: 1, placed: 1, staff: 0 }), ME);
     expect(s.complete).toBe(true);
     expect(s.isStaff).toBe(false);
+  });
+});
+
+// ── 7. The daily read budget and its alert ──────────────────────────────────
+//
+// The minute window slows a script; it does not stop one. The day's count is
+// what bounds a crawl, and the alert is what tells a human while it is still
+// happening. The fake D1 below keeps real state — a count per (user, day) and
+// an `alerted_at` claim — so a refusal that stopped counting, or an alert that
+// fired on every refused request, fails on a value.
+
+describe("the daily read budget", () => {
+  function budgetEnv(opts: { minuteOk?: boolean; startAt?: number } = {}) {
+    const rows = new Map<string, { reads: number; alerted_at: string | null }>();
+    const posted: string[] = [];
+    const key = (u: unknown, d: unknown) => `${String(u)}|${String(d)}`;
+    const env = {
+      READ_LIMIT: {
+        async limit() {
+          return { success: opts.minuteOk ?? true };
+        },
+      },
+      DB: {
+        prepare(sql: string) {
+          let binds: unknown[] = [];
+          return {
+            bind(...b: unknown[]) {
+              binds = b;
+              return this;
+            },
+            async first() {
+              if (!sql.includes("INSERT INTO read_budget")) throw new Error(`unexpected: ${sql}`);
+              const k = key(binds[0], binds[1]);
+              const r = rows.get(k) ?? { reads: opts.startAt ?? 0, alerted_at: null };
+              r.reads += 1;
+              rows.set(k, r);
+              return { reads: r.reads };
+            },
+            async run() {
+              if (!sql.includes("UPDATE read_budget SET alerted_at")) throw new Error(`unexpected: ${sql}`);
+              const r = rows.get(key(binds[1], binds[2]));
+              if (!r || r.alerted_at !== null) return { meta: { changes: 0 } };
+              r.alerted_at = String(binds[0]);
+              return { meta: { changes: 1 } };
+            },
+          };
+        },
+      },
+    } as unknown as Env;
+    // No webhook configured: postToSlack logs "[slack:dev] …" instead, which is
+    // what this captures.
+    const origLog = console.log;
+    console.log = (...a: unknown[]) => {
+      const line = a.map(String).join(" ");
+      if (line.includes("[slack:dev]")) posted.push(line);
+      else origLog(...a);
+    };
+    const restore = () => {
+      console.log = origLog;
+    };
+    return { env, rows, posted, restore };
+  }
+
+  const NOON = new Date("2026-09-25T12:00:00Z");
+
+  it("admits reads up to the limit and refuses the next with Retry-After to UTC midnight", async () => {
+    const t = budgetEnv({ startAt: DAILY_READ_LIMIT - 1 });
+    try {
+      await expect(enforceReadRate(t.env, viewer(), NOON)).resolves.toBeUndefined();
+      const err = await enforceReadRate(t.env, viewer(), NOON).catch((e: unknown) => e);
+      expect(err).toBeInstanceOf(RateLimitedError);
+      expect((err as RateLimitedError).retryAfter).toBe(12 * 60 * 60);
+    } finally {
+      t.restore();
+    }
+  });
+
+  it("alerts Slack ONCE per account per day, however many reads are refused", async () => {
+    const t = budgetEnv({ startAt: DAILY_READ_LIMIT });
+    try {
+      for (let i = 0; i < 5; i++) {
+        await expect(enforceReadRate(t.env, viewer(), NOON)).rejects.toBeInstanceOf(RateLimitedError);
+      }
+      expect(t.posted).toHaveLength(1);
+      expect(t.posted[0]).toContain("dana@eisenhower.edu");
+      expect(t.posted[0]).toContain(`daily limit of ${DAILY_READ_LIMIT}`);
+    } finally {
+      t.restore();
+    }
+  });
+
+  it("counts reads the minute window refuses, so retrying against a 429 spends the day", async () => {
+    const t = budgetEnv({ minuteOk: false });
+    try {
+      for (let i = 0; i < 3; i++) {
+        const err = await enforceReadRate(t.env, viewer(), NOON).catch((e: unknown) => e);
+        expect((err as RateLimitedError).retryAfter).toBe(60);
+      }
+      expect(t.rows.get(`${ME}|2026-09-25`)?.reads).toBe(3);
+      // The minute limit alerts too — once.
+      expect(t.posted).toHaveLength(1);
+      expect(t.posted[0]).toContain("per-minute");
+    } finally {
+      t.restore();
+    }
+  });
+
+  it("starts a fresh count on a new UTC day", async () => {
+    const t = budgetEnv({ startAt: DAILY_READ_LIMIT });
+    try {
+      await expect(enforceReadRate(t.env, viewer(), NOON)).rejects.toBeInstanceOf(RateLimitedError);
+      const tomorrow = new Date("2026-09-26T00:00:01Z");
+      // A new row starts from startAt again in this fake, so reset it to zero.
+      t.rows.set(`${ME}|2026-09-26`, { reads: 0, alerted_at: null });
+      await expect(enforceReadRate(t.env, viewer(), tomorrow)).resolves.toBeUndefined();
+    } finally {
+      t.restore();
+    }
+  });
+
+  it("admits the read when the counter itself fails, like the limiter", async () => {
+    const env = {
+      READ_LIMIT: { async limit() { return { success: true }; } },
+      DB: { prepare() { throw new Error("D1 down"); } },
+    } as unknown as Env;
+    await expect(enforceReadRate(env, viewer(), NOON)).resolves.toBeUndefined();
+  });
+
+  it("the alert names the account and never who was read", () => {
+    const line = readLimitSlackLine({ email: "a<b>@x.org", isMasquerading: true }, "minute", 61);
+    expect(line).toContain("a&lt;b&gt;@x.org");
+    expect(line).toContain("masquerading");
+    expect(line).not.toMatch(/<[^>]*>/);
   });
 });

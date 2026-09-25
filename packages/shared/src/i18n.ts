@@ -289,6 +289,9 @@ export interface Strings {
   shownAs: string;
   photo: string;
   addPhoto: string;
+  /** Under the photo upload: one family's upload must not expose another's
+   *  children. A request, not a control — nothing checks what is in a photo. */
+  photoOwnFamilyHint: string;
   addContact: string;
   showAsNeighbor: string;
   neighborWhy: string;
@@ -982,6 +985,7 @@ const en: Strings = {
   shownAs: "Shown as",
   photo: "Profile photo",
   addPhoto: "Add photo",
+  photoOwnFamilyHint: "Please only upload a photo of your own family — not other people's children.",
   addContact: "Add contact item",
   showAsNeighbor: "Show me as a neighbor",
   neighborWhy:
@@ -1415,6 +1419,7 @@ const en: Strings = {
 
 const es: Strings = {
   ...en,
+  photoOwnFamilyHint: "Por favor, sube solo una foto de tu propia familia, no de los hijos de otras personas.",
   myChildren: "Mis hijos",
   addMyChild: "Agregar a mi hijo/a",
   inThisClass: "En esta clase",
@@ -2055,6 +2060,7 @@ const es: Strings = {
 
 const zh: Strings = {
   ...en,
+  photoOwnFamilyHint: "请只上传您自己家人的照片，不要上传别人孩子的照片。",
   myChildren: "我的孩子",
   addMyChild: "添加我的孩子",
   inThisClass: "在此班级",
@@ -2922,6 +2928,7 @@ const so: Strings = {
   shownAs: "Waxaa lagu tusayaa",
   photo: "Sawirka profile-ka",
   addPhoto: "Ku dar sawir",
+  photoOwnFamilyHint: "Fadlan soo geli oo keliya sawirka qoyskaaga — ha soo gelin carruurta dadka kale.",
   addContact: "Ku dar xog xiriir",
   showAsNeighbor: "I tus sida deris",
   neighborWhy:

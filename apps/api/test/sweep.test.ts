@@ -14,6 +14,7 @@ import { describe, expect, it } from "vitest";
 import {
   runDailySweeps,
   sweepDeadSessions,
+  sweepReadBudget,
   sweepSettledInvites,
   sweepSpentAuthTokens,
 } from "../src/lib/sweep.js";
@@ -116,6 +117,16 @@ describe("sweepSettledInvites", () => {
   });
 });
 
+describe("sweepReadBudget", () => {
+  it("keeps today's counter — sweeping it would reset the daily budget", async () => {
+    const { env, sql, binds } = captureEnv();
+    await sweepReadBudget(env);
+    expect(sql[0]).toContain("DELETE FROM read_budget WHERE day < ?");
+    const today = new Date().toISOString().slice(0, 10);
+    expect(String(binds[0]![0]) < today).toBe(true);
+  });
+});
+
 describe("runDailySweeps", () => {
   it("runs every table, and one failure doesn't stop the rest", async () => {
     let calls = 0;
@@ -134,6 +145,6 @@ describe("runDailySweeps", () => {
       },
     } as unknown as Env;
     await expect(runDailySweeps(env)).resolves.toBeUndefined();
-    expect(calls).toBe(4);
+    expect(calls).toBe(5);
   });
 });

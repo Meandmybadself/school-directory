@@ -162,10 +162,11 @@ app.onError((err, c) => {
   if (err instanceof DirectoryAccessError) {
     return c.json({ error: "directory_access_required" }, 403);
   }
-  // `Retry-After` because the window is fixed and short: a client that honours
-  // it recovers on its own, and one that ignores it is the case this exists for.
+  // `Retry-After` because both windows are fixed: a client that honours it
+  // recovers on its own, and one that ignores it is the case this exists for.
+  // The error names the seconds — a minute, or the rest of the UTC day.
   if (err instanceof RateLimitedError) {
-    return c.json({ error: "rate_limited" }, 429, { "retry-after": "60" });
+    return c.json({ error: "rate_limited" }, 429, { "retry-after": String(err.retryAfter) });
   }
   console.error("[api] unhandled", err);
   return c.json({ error: "internal" }, 500);

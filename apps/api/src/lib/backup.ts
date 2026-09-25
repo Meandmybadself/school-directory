@@ -38,11 +38,11 @@ import { nowIso } from "./time.js";
  *  backup is worse than a rejected one. */
 export const BACKUP_FORMAT = 1;
 
-/** Tables a backup never contains, and it is deliberately the SAME four
+/** Tables a backup never contains, and it is deliberately the SAME five
  *  `lib/sweep.ts` sweeps, for a related reason.
  *
- *  Every one of them holds a live capability or backs a rate limit that counts
- *  rows, and writing them to a file has a cost in both directions:
+ *  Every one of them holds a live capability or backs a rate limit, and writing
+ *  them to a file has a cost in both directions:
  *
  *  · `session.id` IS the cookie value, stored in the clear — a backup file
  *    containing them is a file that signs its holder in as anybody who was
@@ -55,12 +55,21 @@ export const BACKUP_FORMAT = 1;
  *    security parameter, and a restore would reset it.
  *  · `control_invite` is the same shape one level down: a cancelled invitation
  *    to co-control somebody's child would come back pending.
+ *  · `read_budget` is only a counter (migration 0030), but restoring it would
+ *    reset or inflate somebody's daily read budget, and it holds nothing a
+ *    directory needs back.
  *
  *  The practical consequence, which the UI states: a restore does not bring
  *  back pending sign-in links or invitations. They get re-sent. It also leaves
  *  every current session alone, which is why the admin performing the restore
  *  is still signed in when it finishes. */
-export const EXCLUDED_TABLES = ["session", "auth_token", "newsletter_confirmation", "control_invite"] as const;
+export const EXCLUDED_TABLES = [
+  "session",
+  "auth_token",
+  "newsletter_confirmation",
+  "control_invite",
+  "read_budget",
+] as const;
 
 /** Exported, never written back.
  *

@@ -19,6 +19,8 @@
 import type { AccessClaimStatusDTO, DirectoryAccessState } from "@sd/shared";
 import type { AuthContext, Env } from "../env.js";
 import { personListableSql } from "./privacy.js";
+import { postToSlack } from "./slack.js";
+import { nowIso } from "./time.js";
 
 /** The dates the state is derived from. Never stored as a word: `approved` and
  *  `declined` are both dates, and a stored label could disagree with them. */
@@ -184,52 +186,153 @@ export function requireApproved(auth: AuthContext): void {
 // enumerating people, and a family behind one NAT address (or a school's own
 // network) must not throttle itself because a neighbour is browsing.
 
-/** Thrown by `enforceReadRate`, turned into a 429 by the app's onError. */
+/** Reads of other families one account may make in a UTC day.
+ *
+ *  The per-minute binding allows about 86,000 a day, which slows a scripted
+ *  crawl without stopping it. A parent looking people up makes a few dozen of
+ *  these requests on a busy day — a directory page is one read, a profile is
+ *  one read — so 500 is far above real use and far below a whole school. */
+export const DAILY_READ_LIMIT = 500;
+
+/** Thrown by `enforceReadRate`, turned into a 429 by the app's onError.
+ *  `retryAfter` is seconds: 60 for the per-minute window, the time to the next
+ *  UTC midnight for the daily one, so a client that honours it waits the right
+ *  amount either way. */
 export class RateLimitedError extends Error {
-  constructor() {
+  constructor(readonly retryAfter: number = 60) {
     super("rate_limited");
   }
 }
 
+/** Which limit refused a read. Named in the log and the alert because the two
+ *  mean different things: tripping the minute window can be one impatient
+ *  person, reaching 500 in a day is not. */
+export type ReadLimit = "minute" | "daily";
+
+function utcDay(now: Date): string {
+  return now.toISOString().slice(0, 10);
+}
+
+function secondsToUtcMidnight(now: Date): number {
+  const next = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + 1);
+  return Math.max(1, Math.ceil((next - now.getTime()) / 1000));
+}
+
 /**
- * Bound one account's rate of reading OTHER families.
+ * Bound one account's rate of reading OTHER families, per minute and per day.
  *
- * Absent binding means off, the contract an absent `RESEND_API_KEY` has — so
- * tests and local dev need no limiter and behave exactly as before.
+ * ONE switch for both: an absent `READ_LIMIT` binding means the whole budget is
+ * off, the contract an absent `RESEND_API_KEY` has — so tests and local dev
+ * need no limiter, write no counter rows, and behave exactly as before.
  *
  * A system admin is NOT exempt. The temptation is to wave them through, and
  * the reason not to is that an admin session is the most valuable one to steal:
  * the account that can read every family is the one where an unbounded read
  * rate costs the most. Nothing an admin legitimately does on these routes comes
- * near a request a second — the bulk operations (backup, import) are single
- * requests on other paths.
+ * near either limit — the bulk operations (backup, import) are single requests
+ * on other paths.
  *
- * Failures are LOUD but never fatal. `limit()` reaching for a service that is
- * having a bad minute must not take the directory down, so a throw here admits
- * the request and says so in the log — same direction as an unbound binding,
- * for the same reason.
+ * Every budgeted request is COUNTED, including ones the minute window then
+ * refuses. A script retrying against a 429 therefore spends its day, which is
+ * the point; a person does not retry fast enough for it to matter.
+ *
+ * Failures are LOUD but never fatal. The limiter or D1 having a bad minute must
+ * not take the directory down, so a throw here admits the request and says so
+ * in the log — same direction as an unbound binding, for the same reason.
  */
-export async function enforceReadRate(env: Env, auth: AuthContext): Promise<void> {
+export async function enforceReadRate(env: Env, auth: AuthContext, now: Date = new Date()): Promise<void> {
   const limiter = env.READ_LIMIT;
   if (!limiter) return;
+  const day = utcDay(now);
+
+  // Keyed on the effective user. During masquerade that is the TARGET, which
+  // is right: the budget belongs to whoever's data is being walked, and an
+  // admin who masquerades to scrape spends the budget they are borrowing.
+  let reads = 0;
+  try {
+    const row = await env.DB.prepare(
+      `INSERT INTO read_budget (user_id, day, reads) VALUES (?, ?, 1)
+       ON CONFLICT (user_id, day) DO UPDATE SET reads = reads + 1
+       RETURNING reads`,
+    )
+      .bind(auth.userId, day)
+      .first<{ reads: number }>();
+    reads = row?.reads ?? 0;
+  } catch (err) {
+    console.error(`[ratelimit] daily counter unavailable, allowing: ${String(err)}`);
+  }
+  if (reads > DAILY_READ_LIMIT) {
+    await refuse(env, auth, day, "daily", reads, secondsToUtcMidnight(now));
+  }
+
   let allowed = true;
   try {
-    // Keyed on the effective user. During masquerade that is the TARGET, which
-    // is right: the budget belongs to whoever's data is being walked, and an
-    // admin who masquerades to scrape spends the budget they are borrowing.
     ({ success: allowed } = await limiter.limit({ key: auth.userId }));
   } catch (err) {
     console.error(`[ratelimit] limiter unavailable, allowing: ${String(err)}`);
     return;
   }
-  if (!allowed) {
-    // Loud, and it names the account: this is a member reading other families
-    // faster than a person can, which is the shape the access gate exists to
-    // make attributable. It is deliberately not an audit row — `audit_log` is
-    // for mutations (invariant 5) and a refused GET changed nothing — nor a
-    // Slack line, matching the sign-in cap in routes/auth.ts, which is the
-    // closest precedent and logs rather than notifies.
-    console.warn(`[ratelimit] read budget exhausted user=${auth.userId}`);
-    throw new RateLimitedError();
+  if (!allowed) await refuse(env, auth, day, "minute", reads, 60);
+}
+
+/**
+ * Log, alert once per account per day, and throw.
+ *
+ * Loud, and it names the account: this is a member reading other families
+ * faster or further than a person does, which is the shape the access gate
+ * exists to make attributable. It is deliberately not an audit row —
+ * `audit_log` is for mutations (invariant 5) and a refused GET changed nothing.
+ *
+ * It IS a Slack line, unlike the sign-in cap in routes/auth.ts, because the two
+ * refusals mean different things. A sign-in cap trips on somebody else's
+ * address being typed; this trips on a signed-in, approved member walking the
+ * roster, and a copy that has left the building cannot be recalled — the only
+ * useful moment to hear about it is while it is happening. The alert carries
+ * the account's email (the identifier `auth.registered` and the admin lines
+ * already put in the channel), which limit, and a count. Nothing about who was
+ * READ: the channel is a third party (invariant 22), and the question it
+ * answers is "who is scraping", not "whom".
+ *
+ * Posted inline rather than in `waitUntil`, because it happens at most once per
+ * account per day and `postToSlack` never throws.
+ */
+async function refuse(
+  env: Env,
+  auth: AuthContext,
+  day: string,
+  which: ReadLimit,
+  reads: number,
+  retryAfter: number,
+): Promise<never> {
+  console.warn(`[ratelimit] ${which} read budget exhausted user=${auth.userId} reads_today=${reads}`);
+  try {
+    const claim = await env.DB.prepare(
+      `UPDATE read_budget SET alerted_at = ?
+        WHERE user_id = ? AND day = ? AND alerted_at IS NULL`,
+    )
+      .bind(nowIso(), auth.userId, day)
+      .run();
+    if ((claim.meta?.changes ?? 0) > 0) {
+      await postToSlack(env, { text: readLimitSlackLine(auth, which, reads) });
+    }
+  } catch (err) {
+    console.error(`[ratelimit] alert failed: ${String(err)}`);
   }
+  throw new RateLimitedError(retryAfter);
+}
+
+/** The alert's wording, exported so the test can pin what it may say. */
+export function readLimitSlackLine(auth: Pick<AuthContext, "email" | "isMasquerading">, which: ReadLimit, reads: number): string {
+  const what =
+    which === "daily"
+      ? `reached the daily limit of ${DAILY_READ_LIMIT} directory reads`
+      : `hit the per-minute directory read limit (${reads} reads today)`;
+  const masq = auth.isMasquerading ? " while an admin was masquerading as them" : "";
+  return `:rotating_light: *${escSlack(auth.email)}* ${what}${masq} — possible scraping. Further reads are refused until the limit resets.`;
+}
+
+/** Slack mrkdwn treats `&`, `<` and `>` as syntax; an email is escaped so it
+ *  cannot forge a link. Same rule as `esc` in lib/slackNotify.ts. */
+function escSlack(s: string): string {
+  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 }

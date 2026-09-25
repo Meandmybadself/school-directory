@@ -1451,8 +1451,9 @@ All five SPAs are separate Cloudflare Pages projects talking to the single
    controls are elsewhere — system admin only, never while masquerading,
    audited, and announced in Slack, since a complete copy of the school's data
    leaving the building is what that channel is for.
-   **`EXCLUDED_TABLES` is exactly `lib/sweep.ts`'s four**, and for a related
-   reason: each holds a live capability. `session.id` IS the cookie value in the
+   **`EXCLUDED_TABLES` is exactly `lib/sweep.ts`'s five**, and for a related
+   reason: four hold a live capability, and the fifth, `read_budget`, is a
+   rate-limit counter that a restore would only reset. `session.id` IS the cookie value in the
    clear, so a file containing it signs its holder in as anyone logged in when
    it was taken — nothing else in this schema is like that. `auth_token`,
    `newsletter_confirmation` and `control_invite` store hashes, so the file
@@ -1717,6 +1718,21 @@ All five SPAs are separate Cloudflare Pages projects talking to the single
    a config slip would take the directory down. `/photos/:key` is deliberately
    unlimited: one directory page fires up to 50 at once, and a photo key is only
    learnable from a listing that IS limited.
+   **The minute window slows a crawl; the DAILY one bounds it.** 60 a minute
+   is still ~86,000 a day, and the binding cannot count past 60 seconds, so
+   `read_budget` (migration 0030) counts one row per account per UTC day with
+   an upsert on every budgeted read — refused ones included, so a script
+   retrying against a 429 spends its day. Past `DAILY_READ_LIMIT` (500) reads
+   are refused until UTC midnight, with a `Retry-After` that says so. Either
+   limit also posts ONE Slack line per account per day, claimed by a guarded
+   `UPDATE … WHERE alerted_at IS NULL` (invariant 13's idiom). That line is
+   deliberately outside `slackLinesOf`: it is not an audit action, since a
+   refused GET changed nothing (invariant 5). It names the ACCOUNT by email, as
+   `auth.registered` does, and never whom they read. The sign-in cap stays
+   log-only because it trips on somebody ELSE's address; this one trips on a
+   signed-in member walking the roster, and a copy that has left cannot be
+   recalled, so the only useful time to hear about it is while it happens.
+   The counter shares the binding's switch: no `READ_LIMIT`, no rows written.
    **The grandfathering in migration 0029 is the part to re-read before any
    similar gate.** It approves every account that controls a Person, which on
    this instance was 66 of 76; without it the deploy locks out the school. The

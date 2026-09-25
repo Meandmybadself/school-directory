@@ -188,6 +188,9 @@ export function userDeletionStmts(
     env.DB.prepare("DELETE FROM share WHERE created_by = ?").bind(userId),
     env.DB.prepare("DELETE FROM session WHERE user_id = ? OR acting_admin_id = ?").bind(userId, userId),
     env.DB.prepare("DELETE FROM auth_token WHERE email = ?").bind(email),
+    // The daily read counter (migration 0030) — bookkeeping about this account
+    // and nothing else.
+    env.DB.prepare("DELETE FROM read_budget WHERE user_id = ?").bind(userId),
   );
 
   // Surviving records that merely ATTRIBUTE something to this account: keep the

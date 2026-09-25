@@ -1,6 +1,6 @@
 // Daily housekeeping: the tables that would otherwise only ever grow.
 //
-// Four tables here, and they are NOT all the same kind of problem — which is why
+// Five tables here, and they are NOT all the same kind of problem — which is why
 // they're collected in one file rather than scattered next to the features that
 // write them.
 //
@@ -11,6 +11,9 @@
 // `expires_at` alone — a magic link dies in fifteen minutes and the count needs
 // the row for a day.
 //
+// `read_budget` backs a rate limit too, but it counts in a column rather than
+// in rows, and its window is one UTC day — so it only has to outlive today.
+//
 // The other two (`session`, `control_invite`) are ordinary growth. Nothing
 // counts them, so retention there is only about keeping a month of history for
 // anyone looking into an incident.
@@ -20,8 +23,8 @@
 // erases the record of what an account did.
 //
 // One other file reads this list as a list: `lib/backup.ts` excludes exactly
-// these four tables from a backup, because "holds a live capability" and "is
-// swept on a schedule" turn out to be the same four rows. If a fifth table ever
+// these five tables from a backup, because "holds a live capability" and "is
+// swept on a schedule" turn out to be the same rows. If another table ever
 // joins this file, decide there too whether it belongs in a backup.
 
 import type { Env } from "../env.js";
@@ -127,6 +130,18 @@ export async function sweepSettledInvites(env: Env): Promise<void> {
   );
 }
 
+/**
+ * Old daily read counters (migration 0030).
+ *
+ * The budget only ever reads TODAY's row, so anything older is history. A week
+ * is kept so "who hit the limit on Tuesday" can still be answered from D1 after
+ * the Slack line has scrolled away.
+ */
+export async function sweepReadBudget(env: Env): Promise<void> {
+  const weekAgo = new Date(Date.now() - 7 * DAYS).toISOString().slice(0, 10);
+  await sweep(env, "old read budget row(s)", `DELETE FROM read_budget WHERE day < ?`, [weekAgo]);
+}
+
 /** Everything above, from the daily cron. Each is independently guarded, so one
  *  failing table doesn't stop the others. */
 export async function runDailySweeps(env: Env): Promise<void> {
@@ -134,4 +149,5 @@ export async function runDailySweeps(env: Env): Promise<void> {
   await sweepExpiredConfirmations(env);
   await sweepDeadSessions(env);
   await sweepSettledInvites(env);
+  await sweepReadBudget(env);
 }

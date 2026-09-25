@@ -512,6 +512,7 @@ export function ProfileEdit() {
           <button className="sd-btn sd-btn-secondary sd-btn-sm" style={{ marginTop: 7 }} disabled={uploading} onClick={() => fileRef.current?.click()}>
             <Icon name="upload" size={15} />{uploading ? "Uploading…" : t("addPhoto")}
           </button>
+          <div className="sd-meta" style={{ marginTop: 5 }}>{t("photoOwnFamilyHint")}</div>
           {photoError && <div className="sd-meta" style={{ color: "var(--warn)", marginTop: 5 }}>{photoError}</div>}
         </div>
         <input
