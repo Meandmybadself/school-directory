@@ -36,6 +36,7 @@ import { DesktopShell } from "../components/DesktopShell.js";
 import { ScreenHeader, SectLabel } from "../components/parts.js";
 import { SiteFooter } from "../components/SiteFooter.js";
 import { EditEventSheet } from "../components/EditEventSheet.js";
+import { LinkifiedText } from "../components/LinkifiedText.js";
 import { VolunteerPositions, type AnySheet } from "../components/VolunteerPositions.js";
 import { useI18n } from "../i18n/index.js";
 import { useIsDesktop } from "../lib/useIsDesktop.js";
@@ -278,7 +279,7 @@ export function Event() {
       )}
       {sheet.event.description && (
         <div style={{ fontSize: 13.5, lineHeight: 1.5, color: "var(--ink-2)", whiteSpace: "pre-wrap", wordBreak: "break-word", borderTop: "1px solid var(--line)", paddingTop: 12 }}>
-          {htmlToText(sheet.event.description)}
+          <LinkifiedText text={htmlToText(sheet.event.description)} />
         </div>
       )}
     </div>
@@ -344,7 +345,7 @@ export function Event() {
         )}
         {showsDescription(event) && (
           <div style={{ fontSize: 13.5, lineHeight: 1.5, color: "var(--ink-2)", whiteSpace: "pre-wrap", wordBreak: "break-word", borderTop: "1px solid var(--line)", paddingTop: 12 }}>
-            {htmlToText(event.description!)}
+            <LinkifiedText text={htmlToText(event.description!)} />
           </div>
         )}
       </div>
