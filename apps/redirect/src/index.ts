@@ -12,6 +12,9 @@
 //   short name people can say out loud for a link nobody can. ptomeet is that
 //   case: the PTO's standing Google Meet room. Nothing on such a host has a
 //   path worth keeping, so ptomeet.eisenhower.school/anything lands on the room.
+//   It answers 302, not 301: the target is expected to change (a Meet code can
+//   be replaced or expire), and browsers cache a 301 indefinitely, so a
+//   permanent redirect would keep sending past visitors to the old room.
 //
 // Add a hostname here AND as a custom_domain route in wrangler.toml; wrangler
 // provisions the DNS record and certificate on deploy. Don't reach for a
@@ -30,7 +33,7 @@ export function redirectFor(request: Request): Response {
   const url = new URL(request.url);
   const target = TARGETS[url.hostname];
   if (!target) return new Response("Not found", { status: 404 });
-  if (target.kind === "url") return Response.redirect(target.url, 301);
+  if (target.kind === "url") return Response.redirect(target.url, 302);
   url.hostname = target.host;
   url.protocol = "https:";
   url.port = "";

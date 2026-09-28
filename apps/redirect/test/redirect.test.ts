@@ -12,10 +12,10 @@ describe("hostname redirector", () => {
     );
   });
 
-  it("sends ptomeet to the Meet room whatever the path", () => {
+  it("sends ptomeet to the Meet room whatever the path, temporarily", () => {
     for (const path of ["/", "/anything?x=1"]) {
       const res = redirectFor(new Request(`https://ptomeet.eisenhower.school${path}`));
-      expect(res.status).toBe(301);
+      expect(res.status).toBe(302);
       expect(res.headers.get("location")).toBe("https://meet.google.com/res-vvmu-kaa");
     }
   });
