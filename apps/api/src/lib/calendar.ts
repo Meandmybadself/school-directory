@@ -237,6 +237,22 @@ export function parseIcs(
   return out;
 }
 
+/** The school's rotation-day markers: an all-day `Day "1"` / `Day "2"` /
+ *  `Day "3"` on nearly every school day of the Eisenhower feed, quotes and
+ *  all. They say which specials rotation runs, which no family reads a
+ *  calendar for, and at ~100 of them they buried every real event on the
+ *  agenda. We can't change the feed, so they are dropped at INGEST — never
+ *  stored, so no surface (agenda, public API, front door, newsletter blocks,
+ *  the mirrored `/ics/source/:id.ics`) has to remember to hide them, and they
+ *  don't count against `MAX_EVENTS_PER_SOURCE`. Anchored on both ends so a
+ *  real event that merely mentions a day ("Picture Re-Take Day") survives.
+ *  Imported feeds only: a managed event's title is one an admin typed. */
+const ROTATION_DAY_TITLE = /^day\s*["“”']?\s*\d+\s*["“”']?$/i;
+
+export function isRotationDayMarker(title: string): boolean {
+  return ROTATION_DAY_TITLE.test(title.trim());
+}
+
 interface SourceRow {
   id: string;
   url: string;
@@ -255,7 +271,9 @@ export async function refreshSource(env: Env, source: SourceRow): Promise<{ ok: 
     });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const text = await res.text();
-    const parsed = parseIcs(text, windowStart, windowEnd, schoolZone(env));
+    const parsed = parseIcs(text, windowStart, windowEnd, schoolZone(env)).filter(
+      (e) => !isRotationDayMarker(e.title),
+    );
     // Keep the earliest N upcoming events; bounds storage for pathological feeds.
     parsed.sort((a, b) => a.start.localeCompare(b.start));
     const events = parsed.slice(0, MAX_EVENTS_PER_SOURCE);
