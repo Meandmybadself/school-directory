@@ -236,6 +236,17 @@ describe("the print stylesheet", () => {
     // have no safe substitute for.
     expect(darkBlock).not.toContain("--nl-accent");
   });
+
+  it("pins dark ink on every surface that stays paper-white", () => {
+    // The dark block turns the BODY's colour near-white. A light surface that
+    // inherited its text colour then rendered the whole issue light-on-white —
+    // which shipped, because nothing checked what the card's text inherits.
+    for (const sel of [".nl-card", ".nl-archive-item", ".nl-input"]) {
+      const rule = NEWSLETTER_WEB_CSS.match(new RegExp(`\\${sel}\\{([^}]*)\\}`))?.[1] ?? "";
+      expect(rule, sel).toMatch(/background:#[0-9A-Fa-f]{6}/);
+      expect(rule, sel).toMatch(/(^|;)color:#[0-9A-Fa-f]{6}/);
+    }
+  });
 });
 
 // ── The two routes that reach a page ────────────────────────────────────────

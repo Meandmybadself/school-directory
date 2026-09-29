@@ -1181,7 +1181,7 @@ export const NEWSLETTER_WEB_CSS = `
 body{margin:0;background:${BACKDROP};color:${INK};font-family:${FONT};-webkit-font-smoothing:antialiased}
 a{color:var(--nl-accent,${DEFAULT_ACCENT})}
 .nl-wrap{max-width:680px;margin:0 auto;padding:24px 16px 56px}
-.nl-card{background:${PAPER};border-radius:14px;padding:28px 28px 32px;box-shadow:0 1px 3px rgba(16,24,40,.06)}
+.nl-card{background:${PAPER};color:${INK};border-radius:14px;padding:28px 28px 32px;box-shadow:0 1px 3px rgba(16,24,40,.06)}
 .nl-masthead{text-align:center;padding:8px 0 20px}
 .nl-masthead img{max-width:220px;height:auto;display:inline-block}
 .nl-masthead-title{font-size:18px;font-weight:700;color:var(--nl-accent,${DEFAULT_ACCENT});letter-spacing:.02em}
@@ -1213,7 +1213,7 @@ a{color:var(--nl-accent,${DEFAULT_ACCENT})}
 .nl-event-volunteer-link{color:${VOLUNTEER};text-decoration:none}
 .nl-event-volunteer-link:hover{text-decoration:underline}
 .nl-foot{margin-top:22px;padding-top:18px;border-top:1px solid ${RULE};font-size:13px;line-height:1.6;color:${MUTED}}
-.nl-archive-item{display:block;background:${PAPER};border-radius:12px;padding:18px 20px;margin-bottom:12px;text-decoration:none;color:inherit;box-shadow:0 1px 3px rgba(16,24,40,.06)}
+.nl-archive-item{display:block;background:${PAPER};border-radius:12px;padding:18px 20px;margin-bottom:12px;text-decoration:none;color:${INK};box-shadow:0 1px 3px rgba(16,24,40,.06)}
 .nl-archive-item h2{margin:0;font-size:19px;line-height:1.3}
 .nl-archive-item p{margin:6px 0 0;font-size:14.5px;line-height:1.55;color:${MUTED}}
 .nl-archive-date{display:block;font-size:12.5px;color:${MUTED};margin-bottom:4px}
@@ -1224,7 +1224,7 @@ a{color:var(--nl-accent,${DEFAULT_ACCENT})}
 .nl-subscribe-cta span{display:block;margin-top:3px;font-size:14px;color:${MUTED}}
 .nl-form{margin:22px 0 0}
 .nl-label{display:block;font-size:14px;font-weight:600;margin-bottom:6px}
-.nl-input{width:100%;font:inherit;font-size:16px;padding:11px 13px;border:1px solid ${RULE};border-radius:9px;background:${PAPER};color:inherit}
+.nl-input{width:100%;font:inherit;font-size:16px;padding:11px 13px;border:1px solid ${RULE};border-radius:9px;background:${PAPER};color:${INK}}
 .nl-input:focus{outline:2px solid var(--nl-accent,${DEFAULT_ACCENT});outline-offset:1px;border-color:transparent}
 .nl-btn{display:inline-block;margin-top:14px;font:inherit;font-size:16px;font-weight:600;padding:11px 20px;border:0;border-radius:9px;background:var(--nl-accent,${DEFAULT_ACCENT});color:#fff;cursor:pointer;text-decoration:none}
 .nl-btn:hover{filter:brightness(.93)}
@@ -1255,7 +1255,11 @@ a{color:var(--nl-accent,${DEFAULT_ACCENT})}
    admin per instance, so it is handed to us rather than chosen, and it could
    be a deep navy that vanishes on a dark card. Keeping the card light keeps
    that accent on the surface it was picked against. Most mail readers draw the
-   same line for the same reason. */
+   same line for the same reason.
+   The corollary: every surface that stays paper-white must pin its OWN ink rather
+   than inherit it, because the body's colour below turns near-white and an
+   inherited one lands light-on-light — which is how the whole issue body once
+   read in dark mode. */
 @media (prefers-color-scheme:dark){
   body{background:#0f151b;color:#e8eef4}
   /* Only background and text: the CTA's left border is the instance's accent,
