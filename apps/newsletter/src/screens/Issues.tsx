@@ -37,8 +37,11 @@ function fmtDate(iso: string): string {
 /** Date AND time for a draft's last edit: two sittings on one day are the
  *  common case while an issue is being written, and a date alone can't tell
  *  them apart. 12-hour via `formatClock`, like every clock time here. */
-function fmtEdited(iso: string): string {
-  return `${fmtDate(iso)}, ${formatClock(iso)}`;
+function fmtEdited(issue: NewsletterIssueSummaryDTO): string {
+  const when = `${fmtDate(issue.editedAt)}, ${formatClock(issue.editedAt)}`;
+  // Named only when the server could name them — see `editorNames` in the API.
+  const who = issue.editedBy ? ` by ${issue.editedBy.isYou ? "you" : issue.editedBy.displayName}` : "";
+  return `${when}${who}`;
 }
 
 function IssueList({
@@ -93,8 +96,8 @@ function IssueList({
               {issue.sentAt
                 ? `Sent ${fmtDate(issue.sentAt)} to ${issue.recipientTotal} ${issue.recipientTotal === 1 ? "person" : "people"}`
                 : issue.publishedAt
-                  ? `Published ${fmtDate(issue.publishedAt)} · not emailed · edited ${fmtEdited(issue.updatedAt)}`
-                  : `Edited ${fmtEdited(issue.updatedAt)}`}
+                  ? `Published ${fmtDate(issue.publishedAt)} · not emailed · edited ${fmtEdited(issue)}`
+                  : `Edited ${fmtEdited(issue)}`}
             </div>
           </div>
           <WebChip publishedAt={issue.publishedAt} />

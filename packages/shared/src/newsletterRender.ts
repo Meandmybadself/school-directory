@@ -1188,9 +1188,7 @@ export function renderNewsletterIssuePageHtml(input: NewsletterIssuePageInput): 
   // the live one, where every link on the page still works.
   const qr = publishedIssueQrSvg(input.publishedUrl);
   const qrBlock = qr
-    ? `<div class="nl-qr">${qr}<p>Scan to read online<br /><span class="nl-qr-url">${escapeHtml(
-        input.publishedUrl.replace(/^https?:\/\//, ""),
-      )}</span></p></div>`
+    ? `<div class="nl-qr">${qr}<p>Scan to read online</p></div>`
     : "";
 
   const languages = newsletterLanguageLinks(input.issueUrl, "proxy");
@@ -1362,6 +1360,5 @@ a{color:var(--nl-accent,${DEFAULT_ACCENT})}
   .nl-qr{display:block;float:right;width:1.25in;margin:0 0 10px 18px;text-align:center}
   .nl-qr svg{display:block;width:1.1in;height:1.1in;margin:0 auto}
   .nl-qr p{margin:4px 0 0;font-size:8.5pt;line-height:1.35;color:${INK}}
-  .nl-qr-url{font-size:7pt;color:${MUTED};word-break:break-all}
 }
 `.trim();

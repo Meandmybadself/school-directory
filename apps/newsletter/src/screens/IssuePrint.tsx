@@ -121,7 +121,7 @@ function build(
     dateLabel:
       issue.publishedAt !== null
         ? formatIssueDate(issue.sentAt ?? issue.publishedAt)
-        : `Last edited ${formatIssueDate(issue.updatedAt)}`,
+        : `Last edited ${formatIssueDate(issue.editedAt)}`,
     // Never the draft banner here, sent or not. It exists to warn a REVIEWER
     // holding a link (and says "private preview link", which this isn't); the
     // admin printing this knows what they're printing, and the banner would

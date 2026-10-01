@@ -35,6 +35,7 @@ import { getSetting, normalizeEmail, setSetting } from "./db.js";
 import { ulid } from "./ids.js";
 import { rosterAccess, rosterAdmits } from "./rosterGate.js";
 import { nowIso } from "./time.js";
+import { displayName, personListableSql } from "./privacy.js";
 import type { SendArgs } from "./email.js";
 
 const SETTINGS_KEY = "newsletter_settings";
@@ -61,6 +62,53 @@ export function newsletterAccess(env: Env, auth: AuthContext): Promise<Newslette
 /** The same gate as a boolean, with no read for a system admin. */
 export function newsletterAdmits(env: Env, auth: AuthContext): Promise<boolean> {
   return rosterAdmits(env, NEWSLETTER_EDITOR_GROUP_SETTING, auth);
+}
+
+/** "Edited … by Dana R." on the issue list: each account named by the Person it
+ *  controls, the oldest control first — the same answer the PTO boards give
+ *  for a comment's author, since an account has no name of its own.
+ *
+ *  A GUARDED read of `person`: it composes `personListableSql` for the viewer,
+ *  so an editor whose Person is unlisted (invariant 21) comes back unnamed
+ *  rather than being named on a screen the gate would hide them from, and it
+ *  spends none of test/personListable.test.ts's exemption budget. The surname
+ *  follows the person's own display rule, in full for whoever controls them.
+ *  An account with no Person, or one withheld, is simply absent from the map,
+ *  and the caller says nothing rather than inventing a label.
+ *
+ *  One statement for the whole list, not one per row. */
+export async function editorNames(
+  env: Env,
+  viewer: AuthContext,
+  userIds: (string | null)[],
+): Promise<Map<string, string>> {
+  const out = new Map<string, string>();
+  const ids = [...new Set(userIds.filter((u): u is string => !!u))];
+  if (!ids.length) return out;
+
+  const listable = personListableSql(viewer.userId, viewer.isSystemAdmin, "p", viewer.isApproved);
+  const rows = await env.DB.prepare(
+    `SELECT c.user_id, p.first_name, p.last_name, p.last_name_visibility,
+            (p.id IN (SELECT person_id FROM control WHERE user_id = ?)) AS mine
+       FROM control c
+       JOIN person p ON p.id = c.person_id
+      WHERE c.user_id IN (${ids.map(() => "?").join(",")}) AND ${listable.sql}
+      ORDER BY c.since ASC`,
+  )
+    .bind(viewer.userId, ...ids, ...listable.binds)
+    .all<{
+      user_id: string;
+      first_name: string;
+      last_name: string | null;
+      last_name_visibility: "full" | "initial";
+      mine: number;
+    }>();
+
+  for (const r of rows.results) {
+    if (out.has(r.user_id)) continue; // oldest control wins
+    out.set(r.user_id, displayName(r.first_name, r.last_name, r.last_name_visibility, r.mine === 1));
+  }
+  return out;
 }
 
 /** Cap on events materialized into one block. A newsletter that lists 200

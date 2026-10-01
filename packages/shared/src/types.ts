@@ -1276,6 +1276,13 @@ export interface NewsletterIssueSummaryDTO {
    *  Independent of `status`: a draft may be published, and a sent issue
    *  unpublished (migration 0031). Sending publishes one that isn't yet. */
   publishedAt: string | null;
+  /** Last write to the document itself (create or edit) — not a publish or a
+   *  send, which move `updatedAt` too (migration 0032). */
+  editedAt: string;
+  /** Who made that edit, as the directory would name them to this viewer, or
+   *  null when it can't say: an account with no Person, a Person the
+   *  enumeration gate withholds (invariant 21), or a deleted account. */
+  editedBy: { displayName: string; isYou: boolean } | null;
   /** Audience size measured when the send began; 0 while still a draft. */
   recipientTotal: number;
 }

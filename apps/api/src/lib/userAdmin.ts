@@ -203,6 +203,7 @@ export function userDeletionStmts(
     ["managed_calendar", "created_by"],
     ["managed_event", "created_by"],
     ["newsletter_issue", "created_by"],
+    ["newsletter_issue", "edited_by"],
     ["newsletter_send", "user_id"],
     ["volunteer_sheet", "created_by"],
     ["store_order", "user_id"],

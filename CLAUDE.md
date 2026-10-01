@@ -341,6 +341,12 @@ All five SPAs are separate Cloudflare Pages projects talking to the single
    Publish and unpublish are compare-and-swaps that write and log nothing when
    repeated; both are Slack-curated, being the web half of what `sent` already
    announces. `test/newsletterPublish.test.ts` pins all of it behaviourally.
+   The editors' issue list says **who last edited** a draft and when —
+   `edited_by`/`edited_at` (migration 0032), moved only by a write to the
+   document, since publish and send bump `updated_at` too. The name comes from
+   `editorNames` (`lib/newsletter.ts`): the account's oldest controlled Person,
+   read through `personListableSql`, so an unlisted editor goes unnamed rather
+   than spending a scan exemption; `userDeletionStmts` NULLs the column.
 11. **One recurrence engine.** Managed events are expanded by rendering them with
    `lib/icsWriter.ts` and parsing that text back through `parseIcs`
    (`lib/managedCalendar.ts`). Never hand-roll a second RRULE walker — the

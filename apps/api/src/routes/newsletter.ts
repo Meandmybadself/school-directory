@@ -51,6 +51,7 @@ import { startSubscriberDigestWindow } from "../lib/notify.js";
 import {
   NEWSLETTER_EDITOR_GROUP_SETTING,
   coerceNewsletterSettings,
+  editorNames,
   getNewsletterSettings,
   importSubscribers,
   isEmail,
@@ -101,7 +102,22 @@ const MAX_TEST_RECIPIENTS = 10;
  *  request does. */
 const MAX_IMPORT_SUBSCRIBERS = 5000;
 
-function summaryOf(row: IssueRow): NewsletterIssueSummaryDTO {
+/** Who last edited each row, named for this viewer — see `editorNames`. */
+async function editorLabels(
+  env: HonoEnv["Bindings"],
+  viewer: AuthContext,
+  rows: IssueRow[],
+): Promise<EditorLabels> {
+  return { names: await editorNames(env, viewer, rows.map((r) => r.edited_by)), you: viewer.realUserId };
+}
+
+interface EditorLabels {
+  names: Map<string, string>;
+  you: string;
+}
+
+function summaryOf(row: IssueRow, editors: EditorLabels): NewsletterIssueSummaryDTO {
+  const editorName = row.edited_by ? editors.names.get(row.edited_by) : undefined;
   return {
     id: row.id,
     slug: row.slug,
@@ -112,6 +128,11 @@ function summaryOf(row: IssueRow): NewsletterIssueSummaryDTO {
     updatedAt: row.updated_at,
     sentAt: row.sent_at,
     publishedAt: row.published_at,
+    editedAt: row.edited_at ?? row.updated_at,
+    editedBy:
+      row.edited_by && editorName !== undefined
+        ? { displayName: editorName, isYou: row.edited_by === editors.you }
+        : null,
     recipientTotal: row.recipient_total,
   };
 }
@@ -126,10 +147,11 @@ function parseContent(json: string): NewsletterNode {
 
 async function detailOf(
   env: HonoEnv["Bindings"],
+  viewer: AuthContext,
   row: IssueRow,
 ): Promise<NewsletterIssueDTO> {
   return {
-    ...summaryOf(row),
+    ...summaryOf(row, await editorLabels(env, viewer, [row])),
     subject: row.subject,
     content: parseContent(row.content_json),
     eventsSnapshot: row.events_snapshot_json
@@ -262,7 +284,8 @@ newsletter.get("/issues", async (c) => {
   const rows = await c.env.DB.prepare(
     "SELECT * FROM newsletter_issue ORDER BY created_at DESC LIMIT 200",
   ).all<IssueRow>();
-  return c.json({ issues: rows.results.map(summaryOf) });
+  const editors = await editorLabels(c.env, auth, rows.results);
+  return c.json({ issues: rows.results.map((r) => summaryOf(r, editors)) });
 });
 
 /** POST /newsletter/issues — create a draft. */
@@ -283,8 +306,8 @@ newsletter.post("/issues", async (c) => {
   await c.env.DB.prepare(
     `INSERT INTO newsletter_issue
        (id, slug, title, subtitle, subject, content_json, status, created_by, created_at,
-        updated_at, audit_session_at)
-     VALUES (?,?,?,?,?,?, 'draft', ?,?,?,?)`,
+        updated_at, audit_session_at, edited_at, edited_by)
+     VALUES (?,?,?,?,?,?, 'draft', ?,?,?,?,?,?)`,
   )
     .bind(
       id,
@@ -300,6 +323,9 @@ newsletter.post("/issues", async (c) => {
       // follow the author straight into the editor say nothing on top of the
       // `created` row that already reported them arriving.
       now,
+      now,
+      // The human at the keyboard, as the audit log records it (migration 0032).
+      auth.realUserId,
     )
     .run();
 
@@ -313,7 +339,7 @@ newsletter.post("/issues", async (c) => {
   const row = await c.env.DB.prepare("SELECT * FROM newsletter_issue WHERE id = ?")
     .bind(id)
     .first<IssueRow>();
-  return c.json({ issue: await detailOf(c.env, row!) }, 201);
+  return c.json({ issue: await detailOf(c.env, auth, row!) }, 201);
 });
 
 /** GET /newsletter/issues/:id — one issue, with live delivery counts. */
@@ -325,7 +351,7 @@ newsletter.get("/issues/:id", async (c) => {
     .bind(c.req.param("id"))
     .first<IssueRow>();
   if (!row) return c.json({ error: "not_found" }, 404);
-  return c.json({ issue: await detailOf(c.env, row) });
+  return c.json({ issue: await detailOf(c.env, auth, row) });
 });
 
 /** PATCH /newsletter/issues/:id — edit a draft. 409 once it has been sent. */
@@ -376,7 +402,8 @@ newsletter.patch("/issues/:id", async (c) => {
   const [, claim] = await c.env.DB.batch([
     c.env.DB.prepare(
       `UPDATE newsletter_issue
-          SET title = ?, subtitle = ?, subject = ?, slug = ?, content_json = ?, updated_at = ?
+          SET title = ?, subtitle = ?, subject = ?, slug = ?, content_json = ?, updated_at = ?,
+              edited_at = ?, edited_by = ?
         WHERE id = ?`,
     ).bind(
       title,
@@ -385,6 +412,8 @@ newsletter.patch("/issues/:id", async (c) => {
       slug,
       JSON.stringify(content),
       now,
+      now,
+      auth.realUserId,
       id,
     ),
     claimEditSession(c.env, id, now),
@@ -402,7 +431,7 @@ newsletter.patch("/issues/:id", async (c) => {
   const updated = await c.env.DB.prepare("SELECT * FROM newsletter_issue WHERE id = ?")
     .bind(id)
     .first<IssueRow>();
-  return c.json({ issue: await detailOf(c.env, updated!) });
+  return c.json({ issue: await detailOf(c.env, auth, updated!) });
 });
 
 /** DELETE /newsletter/issues/:id — drafts only. A sent issue stays: its URL is
@@ -633,7 +662,7 @@ newsletter.post("/issues/:id/publish", async (c) => {
       detail: { slug: row.slug },
     });
   }
-  return c.json({ issue: await detailOf(c.env, row) });
+  return c.json({ issue: await detailOf(c.env, auth, row) });
 });
 
 /** DELETE /newsletter/issues/:id/publish — take its page down. The archive
@@ -674,7 +703,7 @@ newsletter.delete("/issues/:id/publish", async (c) => {
       detail: { slug: row.slug, sent: row.status === "sent" },
     });
   }
-  return c.json({ issue: await detailOf(c.env, row) });
+  return c.json({ issue: await detailOf(c.env, auth, row) });
 });
 
 /** POST /newsletter/issues/:id/send — mail it, publishing its page if it isn't

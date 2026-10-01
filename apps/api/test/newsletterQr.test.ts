@@ -91,7 +91,7 @@ describe("publishedIssueQrSvg", () => {
 describe("the issue page's printed QR code", () => {
   it("renders for a published url and not for an empty one", () => {
     expect(page(URL_OK)).toContain('class="nl-qr"');
-    expect(page(URL_OK)).toContain("newsletter.eisenhower.school/n/2099-09-01-back-to-school");
+    expect(page(URL_OK)).toContain("Scan to read online");
     expect(page("")).not.toContain("nl-qr");
   });
 

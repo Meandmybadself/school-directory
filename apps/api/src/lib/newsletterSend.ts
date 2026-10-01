@@ -51,6 +51,11 @@ export interface IssueRow {
   /** When the public page went up, or null (migration 0031). Set by
    *  POST …/publish and, if still null, by the send. */
   published_at: string | null;
+  /** The last write to the DOCUMENT — create or PATCH — and the real user who
+   *  made it (migration 0032). Not bumped by publish or send, unlike
+   *  `updated_at`. */
+  edited_at: string | null;
+  edited_by: string | null;
   created_by: string | null;
   created_at: string;
   updated_at: string;
