@@ -5,6 +5,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import type { NewsletterIssueSummaryDTO } from "@sd/shared";
+import { formatClock } from "@sd/shared";
 import { AppShell, BottomNav } from "../components/AppShell.js";
 import { DesktopShell } from "../components/DesktopShell.js";
 import { ScreenHeader } from "../components/parts.js";
@@ -31,6 +32,13 @@ function fmtDate(iso: string): string {
     day: "numeric",
     year: "numeric",
   });
+}
+
+/** Date AND time for a draft's last edit: two sittings on one day are the
+ *  common case while an issue is being written, and a date alone can't tell
+ *  them apart. 12-hour via `formatClock`, like every clock time here. */
+function fmtEdited(iso: string): string {
+  return `${fmtDate(iso)}, ${formatClock(iso)}`;
 }
 
 function IssueList({
@@ -85,8 +93,8 @@ function IssueList({
               {issue.sentAt
                 ? `Sent ${fmtDate(issue.sentAt)} to ${issue.recipientTotal} ${issue.recipientTotal === 1 ? "person" : "people"}`
                 : issue.publishedAt
-                  ? `Published ${fmtDate(issue.publishedAt)} · not emailed`
-                  : `Edited ${fmtDate(issue.updatedAt)}`}
+                  ? `Published ${fmtDate(issue.publishedAt)} · not emailed · edited ${fmtEdited(issue.updatedAt)}`
+                  : `Edited ${fmtEdited(issue.updatedAt)}`}
             </div>
           </div>
           <WebChip publishedAt={issue.publishedAt} />
