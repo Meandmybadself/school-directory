@@ -99,6 +99,69 @@
   margin: 22px 0;
 }
 .nlx-editor .ProseMirror img { max-width: 100%; height: auto; border-radius: 8px; }
+/* A clicked image is a node selection; the outline is what tells the author the
+   toolbar's "Edit image" button now applies to it. */
+.nlx-editor .ProseMirror img.ProseMirror-selectednode { outline: 3px solid var(--blue); outline-offset: 2px; }
+
+/* ── Image editor (ImageEditor.tsx) ─────────────────────────────────────── */
+
+.nlx-imged-stage {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 160px;
+  padding: 10px;
+  margin-bottom: 12px;
+  border-radius: 12px;
+  /* A checkerboard, so a transparent PNG's edges are visible while cropping. */
+  background: repeating-conic-gradient(var(--bg-2) 0 25%, var(--paper) 0 50%) 0 0 / 16px 16px;
+  border: 1px solid var(--line);
+}
+.nlx-imged-loading { color: var(--ink-3); font-size: 13px; }
+.nlx-imged-frame {
+  position: relative;
+  line-height: 0;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  cursor: crosshair;
+}
+.nlx-imged-canvas {
+  display: block;
+  max-width: 100%;
+  max-height: 50vh;
+  width: auto;
+  height: auto;
+}
+/* Dims everything outside the crop; the clip layer stops the spread at the
+   image's edge. Literal colours on purpose here and on the crop box: they sit
+   over a photo, not over a themed surface. */
+.nlx-imged-clip { position: absolute; inset: 0; overflow: hidden; pointer-events: none; }
+.nlx-imged-shade { position: absolute; box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.5); }
+.nlx-imged-crop {
+  position: absolute;
+  border: 2px solid #fff;
+  cursor: move;
+}
+.nlx-imged-handle {
+  position: absolute;
+  width: 18px;
+  height: 18px;
+  background: #fff;
+  border: 2px solid var(--blue);
+  border-radius: 4px;
+}
+.nlx-imged-handle.nw { left: -10px; top: -10px; cursor: nwse-resize; }
+.nlx-imged-handle.ne { right: -10px; top: -10px; cursor: nesw-resize; }
+.nlx-imged-handle.sw { left: -10px; bottom: -10px; cursor: nesw-resize; }
+.nlx-imged-handle.se { right: -10px; bottom: -10px; cursor: nwse-resize; }
+.nlx-imged-row { display: flex; align-items: center; gap: 6px; margin-bottom: 12px; }
+.nlx-imged-row .nlx-tool { width: 36px; height: 36px; border-color: var(--line); background: var(--paper); }
+.nlx-imged-row .nlx-tool:disabled, .nlx-imged-row .sd-seg button:disabled { opacity: 0.5; cursor: default; }
+.nlx-imged-width { display: flex; align-items: center; gap: 10px; font-size: 13.5px; font-weight: 600; }
+.nlx-imged-width input { flex: 1; accent-color: var(--blue); }
+.nlx-imged-dims { min-width: 92px; text-align: right; font-variant-numeric: tabular-nums; }
+.nlx-imged-error { color: var(--warn); font-size: 13.5px; margin: 0 0 12px; }
 .nlx-editor .ProseMirror a { color: var(--blue-700); text-decoration: underline; }
 /* Placeholder, courtesy of @tiptap/extension-placeholder. */
 .nlx-editor .ProseMirror p.is-editor-empty:first-child::before {

@@ -6,7 +6,8 @@ export type IconName =
   | "chevright" | "chevleft" | "home" | "school" | "phone" | "mail" | "link"
   | "pin" | "x" | "wifioff" | "shield" | "search" | "arrowleft" | "bolt"
   | "upload" | "globe" | "gear" | "users3" | "file" | "table" | "swap"
-  | "dot3" | "star" | "minus" | "info" | "calendar" | "download" | "grid";
+  | "dot3" | "star" | "minus" | "info" | "calendar" | "download" | "grid"
+  | "crop" | "rotl" | "rotr";
 
 const paths: Record<IconName, ReactNode> = {
   lock: <><rect x="5" y="11" width="14" height="9" rx="2" /><path d="M8 11V8a4 4 0 0 1 8 0v3" /></>,
@@ -40,6 +41,9 @@ const paths: Record<IconName, ReactNode> = {
   dot3: <><circle cx="5" cy="12" r="1.4" fill="currentColor" stroke="none" /><circle cx="12" cy="12" r="1.4" fill="currentColor" stroke="none" /><circle cx="19" cy="12" r="1.4" fill="currentColor" stroke="none" /></>,
   star: <path d="M12 4l2.3 4.7 5.2.8-3.7 3.6.9 5.1L12 15.8 7.3 18.2l.9-5.1L4.5 9.5l5.2-.8z" />,
   minus: <path d="M5 12h14" />,
+  crop: <><path d="M7 3v14h14" /><path d="M3 7h14v14" /></>,
+  rotl: <><path d="M4 4v5h5" /><path d="M4.6 9A8 8 0 1 1 6 17.3" /></>,
+  rotr: <><path d="M20 4v5h-5" /><path d="M19.4 9A8 8 0 1 0 18 17.3" /></>,
   info: <><circle cx="12" cy="12" r="8.5" /><path d="M12 11v5M12 8h.01" /></>,
   calendar: <><rect x="4" y="5.5" width="16" height="14.5" rx="2" /><path d="M4 10h16M8 3.5v4M16 3.5v4" /></>,
   download: <><path d="M12 4v10M8 11l4 4 4-4" /><path d="M5 19h14" /></>,

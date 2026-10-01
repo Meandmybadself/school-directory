@@ -10,16 +10,32 @@
 // they're hard, but because each one is another thing to get right across Gmail,
 // Outlook and Apple Mail, and none of them earn that for a school newsletter.
 
-import { useCallback, useRef } from "react";
+import { useCallback, useRef, useState } from "react";
 import { EditorContent, useEditor, type Editor as TipTapEditor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import Link from "@tiptap/extension-link";
 import Image from "@tiptap/extension-image";
 import Placeholder from "@tiptap/extension-placeholder";
+import { NodeSelection } from "@tiptap/pm/state";
 import type { NewsletterNode } from "@sd/shared";
 import { Icon, type IconName } from "../Icon.js";
 import { EventsBlock } from "./EventsBlock.js";
+import { ImageEditor } from "./ImageEditor.js";
 import { api, errorMessage } from "../../lib/api.js";
+
+/** What the image editor sheet is open on: a picked file, or an image already
+ *  in the document (`replace` says which node, and what it held when opened). */
+type ImageEdit = { source: Blob | string; type: string; replace?: { pos: number; src: string } };
+
+/** An uploaded image's type from its URL. /newsletter/media names every object
+ *  `<ulid>.<ext>`, so the extension is reliable for anything that came from there. */
+function typeOfUrl(src: string): string {
+  const ext = /\.(\w+)(?:[?#].*)?$/.exec(src)?.[1]?.toLowerCase();
+  if (ext === "jpg" || ext === "jpeg") return "image/jpeg";
+  if (ext === "gif") return "image/gif";
+  if (ext === "webp") return "image/webp";
+  return "image/png";
+}
 
 function ToolButton({
   icon,
@@ -65,6 +81,10 @@ function Toolbar({ editor }: { editor: TipTapEditor }) {
     editor.chain().focus().extendMarkRange("link").setLink({ href }).run();
   }, [editor]);
 
+  const [imageEdit, setImageEdit] = useState<ImageEdit | null>(null);
+
+  // A GIF skips the editor and goes up as it is: a canvas holds one frame, so
+  // cropping an animated one would quietly freeze it.
   const upload = useCallback(
     async (file: File) => {
       try {
@@ -75,6 +95,42 @@ function Toolbar({ editor }: { editor: TipTapEditor }) {
       }
     },
     [editor],
+  );
+
+  const sel = editor.state.selection;
+  const selectedImage =
+    sel instanceof NodeSelection && sel.node.type.name === "image"
+      ? { pos: sel.from, src: String(sel.node.attrs.src ?? "") }
+      : null;
+  const canEditSelected = !!selectedImage?.src && typeOfUrl(selectedImage.src) !== "image/gif";
+
+  /** Upload the edited pixels, then put them where they belong. An edit of an
+   *  existing image swaps that node's `src` — keeping its alt text — but only if
+   *  the node at that position is still the one that was opened; if the document
+   *  moved underneath the sheet, the result is inserted rather than overwriting
+   *  whatever is there now. The old object stays in R2: an issue already sent
+   *  may show it. */
+  const saveEdited = useCallback(
+    async (blob: Blob) => {
+      if (!imageEdit) return;
+      const { url } = await api.uploadMedia(new File([blob], "image", { type: blob.type }));
+      const r = imageEdit.replace;
+      const node = r ? editor.state.doc.nodeAt(r.pos) : null;
+      if (r && node?.type.name === "image" && node.attrs.src === r.src) {
+        editor
+          .chain()
+          .focus()
+          .command(({ tr }) => {
+            tr.setNodeMarkup(r.pos, undefined, { ...node.attrs, src: url });
+            return true;
+          })
+          .run();
+      } else {
+        editor.chain().focus().setImage({ src: url }).run();
+      }
+      setImageEdit(null);
+    },
+    [editor, imageEdit],
   );
 
   return (
@@ -104,6 +160,10 @@ function Toolbar({ editor }: { editor: TipTapEditor }) {
         onClick={() => editor.chain().focus().setHorizontalRule().run()} />
       <span className="nlx-tool-sep" />
       <ToolButton icon="upload" label="Image" onClick={() => fileInput.current?.click()} />
+      {canEditSelected && (
+        <ToolButton icon="crop" label="Edit image"
+          onClick={() => setImageEdit({ source: selectedImage!.src, type: typeOfUrl(selectedImage!.src), replace: selectedImage! })} />
+      )}
       <ToolButton icon="calendar" label="Upcoming events"
         onClick={() => editor.chain().focus().insertEventsBlock().run()} />
       <input
@@ -114,9 +174,19 @@ function Toolbar({ editor }: { editor: TipTapEditor }) {
         onChange={(e) => {
           const file = e.target.files?.[0];
           e.target.value = "";
-          if (file) void upload(file);
+          if (!file) return;
+          if (file.type === "image/gif") void upload(file);
+          else setImageEdit({ source: file, type: file.type });
         }}
       />
+      {imageEdit && (
+        <ImageEditor
+          source={imageEdit.source}
+          type={imageEdit.type}
+          onSave={saveEdited}
+          onClose={() => setImageEdit(null)}
+        />
+      )}
     </div>
   );
 }
