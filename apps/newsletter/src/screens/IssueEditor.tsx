@@ -49,6 +49,12 @@ const MIN_SAVE_GAP_MS = 15_000;
 
 const POLL_MS = 2000;
 
+/** The issue's public archive page. The archive is served by this app's own
+ *  Pages Functions (`/n/:slug`), so it lives on the origin the editor is on. */
+function publicUrl(slug: string): string {
+  return `${window.location.origin}/n/${slug}`;
+}
+
 interface Draft {
   title: string;
   subtitle: string;
@@ -284,6 +290,7 @@ export function IssueEditor() {
   const [saveState, setSaveState] = useState<"idle" | "saving" | "saved" | "error">("idle");
   const [sheet, setSheet] = useState<"send" | "test" | "share" | null>(null);
   const [sending, setSending] = useState(false);
+  const [urlCopied, setUrlCopied] = useState(false);
 
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pendingDraft = useRef<Draft | null>(null);
@@ -296,6 +303,10 @@ export function IssueEditor() {
    *  that carries the author's last edit. */
   const inFlight = useRef<Promise<boolean> | null>(null);
   const readOnly = issue !== null && issue.status !== "draft";
+  /** The latest saved issue, for a handler that reads it after awaiting a
+   *  flush — the `issue` its closure captured is from before the save landed. */
+  const issueRef = useRef(issue);
+  issueRef.current = issue;
 
   useEffect(() => {
     Promise.all([api.issue(id), api.settings()])
@@ -349,6 +360,7 @@ export function IssueEditor() {
         });
         // The server may have adjusted the slug (uniqueness); reflect that back.
         setIssue(saved);
+        issueRef.current = saved; // before the re-render, for copyPublicUrl
         setDraft((d) => (d ? { ...d, slug: saved.slug } : d));
         setSaveState("saved");
         return true;
@@ -368,6 +380,28 @@ export function IssueEditor() {
     inFlight.current = run;
     return run;
   }, [id]);
+
+  /** Copy the address the issue WILL be published at. It's the SAVED slug, not
+   *  the one in the input: the server uniquifies on save (-2, -3, …), so a slug
+   *  typed a second ago may not be the one that ends up public. With nothing
+   *  pending the write happens straight off the click; otherwise it waits for
+   *  the flush, which some browsers refuse once the gesture has gone stale —
+   *  the address is still in the field's hint to select by hand. */
+  const copyPublicUrl = async () => {
+    if (pendingDraft.current || inFlight.current) {
+      if (timer.current) clearTimeout(timer.current);
+      if (!(await flush())) return;
+    }
+    const slug = issueRef.current?.slug;
+    if (!slug) return;
+    try {
+      await navigator.clipboard.writeText(publicUrl(slug));
+      setUrlCopied(true);
+      setTimeout(() => setUrlCopied(false), 1500);
+    } catch {
+      /* clipboard refused — the URL is on screen in the hint */
+    }
+  };
 
   const edit = useCallback(
     (patch: Partial<Draft>) => {
@@ -529,7 +563,7 @@ export function IssueEditor() {
               onChange={(e) => edit({ subject: e.target.value })} />
           </Field>
         </div>
-        <Field label="Web address" hint={`Public page: /n/${draft.slug}`}>
+        <Field label="Web address" hint={`Public page: ${publicUrl(draft.slug)}`}>
           {/* Dated from the issue's own createdAt, not today: re-deriving the
               slug for a draft started last week shouldn't silently move it to
               today's date. Same helper the server uses at create time, so the
@@ -549,6 +583,15 @@ export function IssueEditor() {
                 Generate
               </button>
             )}
+            <button
+              type="button"
+              className="sd-btn sd-btn-ghost sd-btn-sm"
+              style={{ flex: "0 0 auto" }}
+              onClick={() => void copyPublicUrl()}
+              disabled={!draft.slug.trim()}
+            >
+              {urlCopied ? "Copied" : "Copy URL"}
+            </button>
           </div>
         </Field>
       </div>
