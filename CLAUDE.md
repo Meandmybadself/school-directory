@@ -597,8 +597,10 @@ All five SPAs are separate Cloudflare Pages projects talking to the single
    url — a print of a review link must not put the token on paper, which is
    the most redistributed copy there is and the one nobody can revoke.
    `publishedIssueQrSvg` (`packages/shared/src/newsletterQr.ts`) refuses any
-   other shape and returns "", and an unsent issue gets no code rather than one
-   that 404s. `test/newsletterQr.test.ts` pins the refusal.
+   other shape and returns "". The public print views draw it only for a SENT
+   issue; the admin's print view draws it for a draft too, since that is how
+   copies get printed ahead of a send — a code that 404s until the send is the
+   admin's call there. `test/newsletterQr.test.ts` pins the refusal.
 
 17. **Removing a User is `disabled_at`, and deleting one has rules it does not
    yet execute.** `POST /admin/users/:id/disabled` is reversible and touches the

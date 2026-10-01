@@ -126,10 +126,12 @@ function build(
     // Nor a language bar: a print view is paper, and this one is behind an
     // admin session for an issue that may not even be sent yet.
     issueUrl: "",
-    // The QR code on paper, once there is a public page for it to open. A draft
-    // printed for proofreading gets none, rather than one that 404s.
-    publishedUrl:
-      issue.status === "sent" ? `${window.location.origin}/n/${encodeURIComponent(issue.slug)}` : "",
+    // The QR code on paper — for a draft too, unlike the public print views.
+    // This view is how an admin prints copies to hand out, often BEFORE the
+    // send, and the slug is already the permanent address (the editor shows it
+    // as the public page). Until the issue is sent that address 404s, which is
+    // the admin's call to make; the code can never carry a token either way.
+    publishedUrl: issue.slug ? `${window.location.origin}/n/${encodeURIComponent(issue.slug)}` : "",
     // No archive link and no link to a print view: this page IS the print view,
     // and it is reached from the editor rather than from a reader's journey.
     archiveHref: "",
