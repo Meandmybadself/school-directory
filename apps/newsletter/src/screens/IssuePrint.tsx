@@ -122,7 +122,11 @@ function build(
       issue.sentAt !== null
         ? formatIssueDate(issue.sentAt)
         : `Last edited ${formatIssueDate(issue.updatedAt)}`,
-    isDraft: issue.status !== "sent",
+    // Never the draft banner here, sent or not. It exists to warn a REVIEWER
+    // holding a link (and says "private preview link", which this isn't); the
+    // admin printing this knows what they're printing, and the banner would
+    // land on every copy they hand out. isDraft drives nothing but the banner.
+    isDraft: false,
     // Nor a language bar: a print view is paper, and this one is behind an
     // admin session for an issue that may not even be sent yet.
     issueUrl: "",
