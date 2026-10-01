@@ -60,6 +60,7 @@ function page(over: Partial<Parameters<typeof renderNewsletterIssuePageHtml>[0]>
     archiveHref: "/",
     printHref: "/n/back-to-school/print",
     issueUrl: ISSUE_URL,
+    publishedUrl: "",
     ...over,
   });
 }

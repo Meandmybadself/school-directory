@@ -591,6 +591,14 @@ All five SPAs are separate Cloudflare Pages projects talking to the single
    (`/admin/issues/:id/print`) is an SPA route rather than a Pages Function
    because the session cookie is host-only to the API and a Function on the
    newsletter origin cannot see it — see `apps/newsletter/ROUTING.md`.
+   **Paper carries a QR code back to the live issue** (`.nl-qr`, hidden on
+   screen), so it rides every print view and a plain Ctrl+P alike. It encodes
+   the sent issue's `/n/:slug`, built from the SLUG and never from the request
+   url — a print of a review link must not put the token on paper, which is
+   the most redistributed copy there is and the one nobody can revoke.
+   `publishedIssueQrSvg` (`packages/shared/src/newsletterQr.ts`) refuses any
+   other shape and returns "", and an unsent issue gets no code rather than one
+   that 404s. `test/newsletterQr.test.ts` pins the refusal.
 
 17. **Removing a User is `disabled_at`, and deleting one has rules it does not
    yet execute.** `POST /admin/users/:id/disabled` is reversible and touches the

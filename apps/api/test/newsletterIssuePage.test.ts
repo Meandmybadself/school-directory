@@ -165,6 +165,7 @@ function render(over: Partial<Parameters<typeof renderNewsletterIssuePageHtml>[0
     archiveHref: "/",
     printHref: "/n/x/print",
     issueUrl: "",
+    publishedUrl: "",
     ...over,
   });
 }

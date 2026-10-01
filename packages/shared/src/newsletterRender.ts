@@ -41,6 +41,7 @@ import { EVENTS_BLOCK_TYPE } from "./types.js";
 import { visibleEvents } from "./newsletterEvents.js";
 import { eventPath, type EventPathInput } from "./eventPath.js";
 import { htmlToText } from "./text.js";
+import { publishedIssueQrSvg } from "./newsletterQr.js";
 import {
   newsletterLanguageLinks,
   type NewsletterLanguageLink,
@@ -1128,6 +1129,14 @@ export interface NewsletterIssuePageInput extends NewsletterWrapperInput {
    *  (invariant 15) to a third party that caches. Every token-reached page and
    *  every print view therefore passes "". See newsletterTranslate.ts. */
   issueUrl: string;
+  /** The sent issue's permanent `/n/:slug` url, drawn as a QR code that shows
+   *  only on PAPER — so it rides every print view and an ordinary Ctrl+P alike —
+   *  or "" for none. Required for `issueUrl`'s reason: every caller states its
+   *  answer. Unlike `issueUrl` a token-reached page MAY pass one, because what
+   *  goes in is never the page's own url but the sent issue's public one;
+   *  `publishedIssueQrSvg` refuses anything that isn't `/n/:slug`. An unsent
+   *  issue passes "" — its `/n/` page would 404. */
+  publishedUrl: string;
 }
 
 /** The issue page body — masthead, title, date, rendered body, footer.
@@ -1173,6 +1182,15 @@ export function renderNewsletterIssuePageHtml(input: NewsletterIssuePageInput): 
     .filter(Boolean)
     .join("\n          ");
 
+  // After the footer, on paper only (`.nl-qr` is hidden on screen): the last
+  // thing a reader of a printed copy sees is the way back to the live one.
+  const qr = publishedIssueQrSvg(input.publishedUrl);
+  const qrBlock = qr
+    ? `<div class="nl-qr">${qr}<p>Scan to read this issue online, with working links.<br /><span class="nl-qr-url">${escapeHtml(
+        input.publishedUrl.replace(/^https?:\/\//, ""),
+      )}</span></p></div>`
+    : "";
+
   const languages = newsletterLanguageLinks(input.issueUrl, "proxy");
   const langBar =
     languages.length === 0
@@ -1201,6 +1219,7 @@ ${body}
         <div class="nl-foot">
           ${foot}
         </div>
+        ${qrBlock}
       </article>
     </div>`;
 }
@@ -1246,6 +1265,7 @@ a{color:var(--nl-accent,${DEFAULT_ACCENT})}
 .nl-event-volunteer{font-size:13px;font-weight:700;color:${VOLUNTEER};margin-top:3px}
 .nl-event-volunteer-link{color:${VOLUNTEER};text-decoration:none}
 .nl-event-volunteer-link:hover{text-decoration:underline}
+.nl-qr{display:none}
 .nl-foot{margin-top:22px;padding-top:18px;border-top:1px solid ${RULE};font-size:13px;line-height:1.6;color:${MUTED}}
 .nl-archive-item{display:block;background:${PAPER};border-radius:12px;padding:18px 20px;margin-bottom:12px;text-decoration:none;color:${INK};box-shadow:0 1px 3px rgba(16,24,40,.06)}
 .nl-archive-item h2{margin:0;font-size:19px;line-height:1.3}
@@ -1335,5 +1355,9 @@ a{color:var(--nl-accent,${DEFAULT_ACCENT})}
   /* Nothing on paper is clickable, so an accent-coloured title is just noise. */
   .nl-event-title-link{color:${INK}}
   .nl-foot{break-inside:avoid}
+  .nl-qr{display:flex;align-items:center;gap:14px;margin-top:18px;break-inside:avoid;page-break-inside:avoid}
+  .nl-qr svg{width:1.1in;height:1.1in;flex:none}
+  .nl-qr p{margin:0;font-size:10.5pt;line-height:1.45;color:${INK}}
+  .nl-qr-url{font-size:9.5pt;color:${MUTED};word-break:break-all}
 }
 `.trim();

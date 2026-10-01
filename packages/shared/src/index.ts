@@ -8,3 +8,4 @@ export * from "./eventPath.js";
 export * from "./newsletterEvents.js";
 export * from "./newsletterRender.js";
 export * from "./newsletterTranslate.js";
+export * from "./newsletterQr.js";

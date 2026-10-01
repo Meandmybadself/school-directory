@@ -263,6 +263,14 @@ export async function renderIssuePage(
     archiveHref: opts.archiveHref,
     printHref: opts.printHref,
     issueUrl: opts.issueUrl,
+    // The printed QR code, on all four routes — a print of a review link for an
+    // issue that has since gone out should point at it too. It is built from the
+    // issue's SLUG, never from this request's url, which on a token page is the
+    // token; and the slug is null until the issue is sent.
+    publishedUrl:
+      !isDraft && issue.slug
+        ? `${new URL(opts.canonical).origin}/n/${encodeURIComponent(issue.slug)}`
+        : "",
   });
 
   return send(

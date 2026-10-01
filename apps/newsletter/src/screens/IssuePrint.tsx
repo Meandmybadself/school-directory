@@ -126,6 +126,10 @@ function build(
     // Nor a language bar: a print view is paper, and this one is behind an
     // admin session for an issue that may not even be sent yet.
     issueUrl: "",
+    // The QR code on paper, once there is a public page for it to open. A draft
+    // printed for proofreading gets none, rather than one that 404s.
+    publishedUrl:
+      issue.status === "sent" ? `${window.location.origin}/n/${encodeURIComponent(issue.slug)}` : "",
     // No archive link and no link to a print view: this page IS the print view,
     // and it is reached from the editor rather than from a reader's journey.
     archiveHref: "",
