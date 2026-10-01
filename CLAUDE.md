@@ -591,8 +591,8 @@ All five SPAs are separate Cloudflare Pages projects talking to the single
    (`/admin/issues/:id/print`) is an SPA route rather than a Pages Function
    because the session cookie is host-only to the API and a Function on the
    newsletter origin cannot see it — see `apps/newsletter/ROUTING.md`.
-   **Paper carries a QR code back to the live issue** (`.nl-qr`, hidden on
-   screen), so it rides every print view and a plain Ctrl+P alike. It encodes
+   **Paper carries a QR code back to the live issue** (`.nl-qr`, top right,
+   hidden on screen), so it rides every print view and a plain Ctrl+P alike. It encodes
    the sent issue's `/n/:slug`, built from the SLUG and never from the request
    url — a print of a review link must not put the token on paper, which is
    the most redistributed copy there is and the one nobody can revoke.

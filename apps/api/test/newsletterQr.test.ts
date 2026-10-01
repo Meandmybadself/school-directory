@@ -104,6 +104,6 @@ describe("the issue page's printed QR code", () => {
   it("is hidden on screen and shown only in print", () => {
     const printAt = NEWSLETTER_WEB_CSS.indexOf("@media print");
     expect(NEWSLETTER_WEB_CSS.slice(0, printAt)).toContain(".nl-qr{display:none}");
-    expect(NEWSLETTER_WEB_CSS.slice(printAt)).toMatch(/\.nl-qr\{display:flex/);
+    expect(NEWSLETTER_WEB_CSS.slice(printAt)).toMatch(/\.nl-qr\{display:block/);
   });
 });

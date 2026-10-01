@@ -1182,11 +1182,12 @@ export function renderNewsletterIssuePageHtml(input: NewsletterIssuePageInput): 
     .filter(Boolean)
     .join("\n          ");
 
-  // After the footer, on paper only (`.nl-qr` is hidden on screen): the last
-  // thing a reader of a printed copy sees is the way back to the live one.
+  // On paper only (`.nl-qr` is hidden on screen), floated top-right beside the
+  // title: the first thing a reader of a printed copy sees is the way back to
+  // the live one, where every link on the page still works.
   const qr = publishedIssueQrSvg(input.publishedUrl);
   const qrBlock = qr
-    ? `<div class="nl-qr">${qr}<p>Scan to read this issue online, with working links.<br /><span class="nl-qr-url">${escapeHtml(
+    ? `<div class="nl-qr">${qr}<p>Scan to read online<br /><span class="nl-qr-url">${escapeHtml(
         input.publishedUrl.replace(/^https?:\/\//, ""),
       )}</span></p></div>`
     : "";
@@ -1210,6 +1211,7 @@ export function renderNewsletterIssuePageHtml(input: NewsletterIssuePageInput): 
       <div class="nl-masthead">${masthead}</div>
       ${langBar}
       <article class="nl-card">
+        ${qrBlock}
         <h1 class="nl-title">${escapeHtml(input.title)}</h1>
         ${input.subtitle ? `<p class="nl-subtitle">${escapeHtml(input.subtitle)}</p>` : ""}
         <p class="nl-date">${escapeHtml(input.dateLabel)}</p>
@@ -1219,7 +1221,6 @@ ${body}
         <div class="nl-foot">
           ${foot}
         </div>
-        ${qrBlock}
       </article>
     </div>`;
 }
@@ -1355,9 +1356,11 @@ a{color:var(--nl-accent,${DEFAULT_ACCENT})}
   /* Nothing on paper is clickable, so an accent-coloured title is just noise. */
   .nl-event-title-link{color:${INK}}
   .nl-foot{break-inside:avoid}
-  .nl-qr{display:flex;align-items:center;gap:14px;margin-top:18px;break-inside:avoid;page-break-inside:avoid}
-  .nl-qr svg{width:1.1in;height:1.1in;flex:none}
-  .nl-qr p{margin:0;font-size:10.5pt;line-height:1.45;color:${INK}}
-  .nl-qr-url{font-size:9.5pt;color:${MUTED};word-break:break-all}
+  /* Floated so the title, subtitle and date wrap beside it rather than
+     starting below a square of white space. */
+  .nl-qr{display:block;float:right;width:1.25in;margin:0 0 10px 18px;text-align:center}
+  .nl-qr svg{display:block;width:1.1in;height:1.1in;margin:0 auto}
+  .nl-qr p{margin:4px 0 0;font-size:8.5pt;line-height:1.35;color:${INK}}
+  .nl-qr-url{font-size:7pt;color:${MUTED};word-break:break-all}
 }
 `.trim();
