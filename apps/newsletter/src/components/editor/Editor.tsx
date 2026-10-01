@@ -17,15 +17,24 @@ import Link from "@tiptap/extension-link";
 import Image from "@tiptap/extension-image";
 import Placeholder from "@tiptap/extension-placeholder";
 import { NodeSelection } from "@tiptap/pm/state";
-import type { NewsletterNode } from "@sd/shared";
+import { isNewsletterFontSize, type NewsletterFontSize, type NewsletterNode } from "@sd/shared";
 import { Icon, type IconName } from "../Icon.js";
 import { EventsBlock } from "./EventsBlock.js";
+import { FontSize } from "./FontSize.js";
 import { ImageEditor } from "./ImageEditor.js";
 import { api, errorMessage } from "../../lib/api.js";
 
 /** What the image editor sheet is open on: a picked file, or an image already
  *  in the document (`replace` says which node, and what it held when opened). */
 type ImageEdit = { source: Blob | string; type: string; replace?: { pos: number; src: string } };
+
+/** The size picker's options, smallest first. "" is Normal — no mark. */
+const SIZE_OPTIONS: { value: NewsletterFontSize | ""; label: string }[] = [
+  { value: "small", label: "Small" },
+  { value: "", label: "Normal" },
+  { value: "large", label: "Large" },
+  { value: "xlarge", label: "Huge" },
+];
 
 /** An uploaded image's type from its URL. /newsletter/media names every object
  *  `<ulid>.<ext>`, so the extension is reliable for anything that came from there. */
@@ -148,6 +157,20 @@ function Toolbar({ editor }: { editor: TipTapEditor }) {
         onClick={() => editor.chain().focus().toggleItalic().run()} />
       <ToolButton label="S" active={editor.isActive("strike")}
         onClick={() => editor.chain().focus().toggleStrike().run()} />
+      <select
+        className="nlx-size"
+        title="Text size"
+        aria-label="Text size"
+        value={(editor.getAttributes("fontSize").size as string | undefined) ?? ""}
+        onChange={(e) => {
+          const v = e.target.value;
+          editor.chain().focus().setFontSize(isNewsletterFontSize(v) ? v : null).run();
+        }}
+      >
+        {SIZE_OPTIONS.map((o) => (
+          <option key={o.value} value={o.value}>{o.label}</option>
+        ))}
+      </select>
       <span className="nlx-tool-sep" />
       <ToolButton icon="link" label="Link" active={editor.isActive("link")} onClick={setLink} />
       <ToolButton label="• List" active={editor.isActive("bulletList")}
@@ -221,6 +244,7 @@ export function Editor({
         }),
         Link.configure({ openOnClick: false, autolink: true }),
         Image,
+        FontSize,
         Placeholder.configure({ placeholder: "Write the newsletter…" }),
         EventsBlock.configure({ accentColor, timeZone, calendarUrl }),
       ],

@@ -121,7 +121,22 @@ function safeImageSrc(raw: unknown): string | null {
 
 // ── Sanitization ────────────────────────────────────────────────────────────
 
-const ALLOWED_MARKS = new Set(["bold", "italic", "strike", "code", "link"]);
+const ALLOWED_MARKS = new Set(["bold", "italic", "strike", "code", "link", "fontSize"]);
+
+/** The text sizes an author may pick, as multiples of the surrounding text.
+ *  A fixed set rather than a number for the same reason the rest of this file
+ *  is an allowlist: the stored value is a NAME, so no attribute can carry a
+ *  `font-size` the renderer didn't write — and a newsletter with five sizes on
+ *  it reads as a ransom note anyway. Relative (`em`), so "Large" inside a
+ *  heading is larger than the heading, and the email's 16px body and the
+ *  archive's 17px each scale their own way. "Normal" is the absence of the mark.
+ *  The composer's size picker reads this list, so the two cannot disagree. */
+export const NEWSLETTER_FONT_SIZES = { small: 0.875, large: 1.25, xlarge: 1.5 } as const;
+export type NewsletterFontSize = keyof typeof NEWSLETTER_FONT_SIZES;
+
+export function isNewsletterFontSize(v: unknown): v is NewsletterFontSize {
+  return typeof v === "string" && Object.prototype.hasOwnProperty.call(NEWSLETTER_FONT_SIZES, v);
+}
 const ALLOWED_BLOCKS = new Set([
   "doc",
   "paragraph",
@@ -149,6 +164,13 @@ function sanitizeMarks(raw: unknown): NewsletterNode["marks"] {
       // dead or dangerous anchor.
       if (!href) continue;
       out.push({ type, attrs: { href } });
+      continue;
+    }
+    if (type === "fontSize") {
+      // An unknown size is dropped, leaving the text at the normal size.
+      const size = (m as { attrs?: { size?: unknown } }).attrs?.size;
+      if (!isNewsletterFontSize(size)) continue;
+      out.push({ type, attrs: { size } });
       continue;
     }
     out.push({ type });
@@ -547,7 +569,7 @@ function attr(ctx: Ctx, cls: string, style: string): string {
   return ctx.mode === "email" ? ` style="${style}"` : ` class="${cls}"`;
 }
 
-function renderText(node: NewsletterNode): string {
+function renderText(node: NewsletterNode, ctx: Ctx): string {
   let html = escapeHtml(node.text ?? "");
   // Marks wrap outward-in; link is applied last so it ends up outermost.
   for (const m of node.marks ?? []) {
@@ -564,6 +586,15 @@ function renderText(node: NewsletterNode): string {
       case "code":
         html = `<code>${html}</code>`;
         break;
+      case "fontSize": {
+        // Re-checked rather than trusted from the sanitizer: the renderer is
+        // the allowlist of record (invariant 9), so the value interpolated
+        // into a style attribute is always one this file defined.
+        const size = m.attrs?.size;
+        if (!isNewsletterFontSize(size)) break;
+        html = `<span${attr(ctx, `nl-fs-${size}`, `font-size:${NEWSLETTER_FONT_SIZES[size]}em`)}>${html}</span>`;
+        break;
+      }
       default:
         break;
     }
@@ -730,7 +761,7 @@ function renderNode(node: NewsletterNode, ctx: Ctx): string {
     case "doc":
       return renderChildren(node.content, ctx);
     case "text":
-      return renderText(node);
+      return renderText(node, ctx);
     case "paragraph": {
       const inner = renderChildren(node.content, ctx);
       // An empty paragraph is deliberate vertical space in the editor; keep it.
@@ -1195,6 +1226,9 @@ a{color:var(--nl-accent,${DEFAULT_ACCENT})}
 .nl-h3{margin:28px 0 12px;font-size:17px;line-height:1.3;font-weight:700}
 .nl-ul,.nl-ol{margin:0 0 16px;padding-left:22px;font-size:17px;line-height:1.7}
 .nl-li{margin:0 0 6px}
+.nl-fs-small{font-size:${NEWSLETTER_FONT_SIZES.small}em}
+.nl-fs-large{font-size:${NEWSLETTER_FONT_SIZES.large}em}
+.nl-fs-xlarge{font-size:${NEWSLETTER_FONT_SIZES.xlarge}em}
 .nl-quote{margin:0 0 16px;padding:2px 0 2px 14px;border-left:3px solid var(--nl-accent,${DEFAULT_ACCENT});color:${MUTED};font-style:italic}
 .nl-hr{border:0;border-top:1px solid ${RULE};margin:26px 0}
 .nl-img{display:block;max-width:100%;height:auto;border-radius:8px;margin:0 0 18px}

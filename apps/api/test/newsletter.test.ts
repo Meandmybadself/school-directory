@@ -96,6 +96,18 @@ describe("newsletter sanitizer", () => {
     )!;
     expect((out.content![0]!.attrs as { lookaheadDays: number }).lookaheadDays).toBe(365);
   });
+
+  it("keeps a known text size and drops anything else, keeping the text", () => {
+    const sized = (attrs: Record<string, unknown>) =>
+      doc({ type: "paragraph", content: [{ type: "text", text: "big news", marks: [{ type: "fontSize", attrs }] }] });
+    const ok = sanitizeNewsletterDoc(sized({ size: "large", style: "color:red" }))!;
+    // Only the size name survives — no other attribute rides along on the mark.
+    expect(ok.content![0]!.content![0]!.marks).toEqual([{ type: "fontSize", attrs: { size: "large" } }]);
+    for (const size of ["72px", "huge", "large;background:url(x)", 3, null]) {
+      const out = sanitizeNewsletterDoc(sized({ size }))!;
+      expect(out.content![0]!.content![0]).toEqual({ type: "text", text: "big news" });
+    }
+  });
 });
 
 describe("newsletter renderer", () => {
@@ -115,6 +127,22 @@ describe("newsletter renderer", () => {
     expect(email).not.toContain("class=");
     expect(web).toContain('class="nl-p"');
     expect(web).not.toContain("style=");
+  });
+
+  it("renders a text size as a style for email and a class for web", () => {
+    const sized = (size: unknown) =>
+      doc({ type: "paragraph", content: [{ type: "text", text: "hi", marks: [{ type: "fontSize", attrs: { size } }] }] });
+    expect(renderNewsletterBodyHtml(sized("large"), NO_EVENTS, { mode: "email" })).toContain(
+      '<span style="font-size:1.25em">hi</span>',
+    );
+    expect(renderNewsletterBodyHtml(sized("small"), NO_EVENTS, { mode: "web" })).toContain(
+      '<span class="nl-fs-small">hi</span>',
+    );
+    // The renderer re-checks rather than trusting its input: an unsanitized
+    // size never reaches a style attribute.
+    const bad = renderNewsletterBodyHtml(sized('1em" onmouseover="x'), NO_EVENTS, { mode: "email" });
+    expect(bad).not.toContain("onmouseover");
+    expect(bad).not.toContain("<span");
   });
 
   it("renders resolved events and says so when there are none", () => {

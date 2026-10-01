@@ -70,6 +70,18 @@
 }
 .nlx-tool:hover { background: var(--paper); border-color: var(--line); }
 .nlx-tool.on { background: var(--blue-tint); border-color: var(--blue); color: var(--blue-700); }
+.nlx-size {
+  height: 30px;
+  padding: 0 6px;
+  border-radius: 7px;
+  border: 1px solid var(--line);
+  background: var(--paper);
+  color: var(--ink-2);
+  font: inherit;
+  font-size: 12.5px;
+  font-weight: 700;
+  cursor: pointer;
+}
 .nlx-tool-sep { width: 1px; height: 20px; background: var(--line); margin: 0 4px; }
 
 .nlx-editor .ProseMirror {
