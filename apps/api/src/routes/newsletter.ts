@@ -21,6 +21,12 @@
 // draft. Once a send begins, its content and its frozen events snapshot are
 // what went out to real inboxes and what the permanent public archive shows, so
 // writes are refused with a 409 rather than quietly rewriting history.
+//
+// Whether its web page is up is a SEPARATE question (`published_at`, migration
+// 0031): a draft can be published and keep being edited, and any issue can be
+// unpublished. Two edits follow from a page being up — its slug is locked,
+// since changing it would break every link already shared, and it can't be
+// deleted until it comes down.
 
 import { Hono } from "hono";
 import type {
@@ -105,6 +111,7 @@ function summaryOf(row: IssueRow): NewsletterIssueSummaryDTO {
     createdAt: row.created_at,
     updatedAt: row.updated_at,
     sentAt: row.sent_at,
+    publishedAt: row.published_at,
     recipientTotal: row.recipient_total,
   };
 }
@@ -351,7 +358,18 @@ newsletter.patch("/issues/:id", async (c) => {
   let slug = row.slug;
   if (body.slug !== undefined) {
     const requested = slugifyTitle(body.slug);
-    if (requested && requested !== row.slug) slug = await uniqueSlug(c.env, requested, id);
+    if (requested && requested !== row.slug) {
+      // A published page's address is out in the world — on paper as a QR
+      // code, in messages, in the archive. The editor locks the field; this is
+      // the same rule for a request that didn't come through it.
+      if (row.published_at !== null) {
+        return c.json(
+          { error: "published", message: "Unpublish this issue to change its web address." },
+          409,
+        );
+      }
+      slug = await uniqueSlug(c.env, requested, id);
+    }
   }
 
   const now = nowIso();
@@ -394,15 +412,30 @@ newsletter.delete("/issues/:id", async (c) => {
   if (!auth) return c.json({ error: "forbidden" }, 403);
 
   const id = c.req.param("id");
-  const row = await c.env.DB.prepare("SELECT status FROM newsletter_issue WHERE id = ?")
+  const row = await c.env.DB.prepare("SELECT status, published_at FROM newsletter_issue WHERE id = ?")
     .bind(id)
-    .first<{ status: string }>();
+    .first<{ status: string; published_at: string | null }>();
   if (!row) return c.json({ error: "not_found" }, 404);
   if (row.status !== "draft") {
     return c.json({ error: "not_draft", message: "A sent issue can't be deleted." }, 409);
   }
+  if (row.published_at !== null) {
+    return c.json(
+      { error: "published", message: "Unpublish this issue before deleting it." },
+      409,
+    );
+  }
 
-  await c.env.DB.prepare("DELETE FROM newsletter_issue WHERE id = ?").bind(id).run();
+  // Re-checked inside the DELETE: a publish landing between the read and this
+  // write must not have its page vanish under it.
+  const gone = await c.env.DB.prepare(
+    "DELETE FROM newsletter_issue WHERE id = ? AND status = 'draft' AND published_at IS NULL",
+  )
+    .bind(id)
+    .run();
+  if (!gone.meta.changes) {
+    return c.json({ error: "conflict", message: "This issue changed — reload and try again." }, 409);
+  }
   c.var.audit.push({
     action: "newsletter.issue.deleted",
     entityKind: "newsletter_issue",
@@ -566,7 +599,86 @@ newsletter.post("/issues/:id/test-send", async (c) => {
   return c.json({ ok: true, sent, attempted: to.length });
 });
 
-/** POST /newsletter/issues/:id/send — publish and mail it. The response returns
+// ── Publishing ──────────────────────────────────────────────────────────────
+
+/** POST /newsletter/issues/:id/publish — put its `/n/:slug` page up without
+ *  mailing anyone. Works on a draft (which stays editable, its page showing
+ *  each save) and on a sent issue that was unpublished.
+ *
+ *  A compare-and-swap on `published_at IS NULL`, so publishing what is already
+ *  up writes nothing and pushes no draft: an append-only log is not paddable by
+ *  a double click (invariants 27, 28). */
+newsletter.post("/issues/:id/publish", async (c) => {
+  const auth = await requireEditor(c);
+  if (!auth) return c.json({ error: "forbidden" }, 403);
+
+  const id = c.req.param("id");
+  const now = nowIso();
+  const res = await c.env.DB.prepare(
+    "UPDATE newsletter_issue SET published_at = ?, updated_at = ? WHERE id = ? AND published_at IS NULL",
+  )
+    .bind(now, now, id)
+    .run();
+
+  const row = await c.env.DB.prepare("SELECT * FROM newsletter_issue WHERE id = ?")
+    .bind(id)
+    .first<IssueRow>();
+  if (!row) return c.json({ error: "not_found" }, 404);
+
+  if (res.meta.changes) {
+    c.var.audit.push({
+      action: "newsletter.issue.published",
+      entityKind: "newsletter_issue",
+      entityId: id,
+      detail: { slug: row.slug },
+    });
+  }
+  return c.json({ issue: await detailOf(c.env, row) });
+});
+
+/** DELETE /newsletter/issues/:id/publish — take its page down. The archive
+ *  drops it and `/n/:slug` 404s (after the edge cache's few minutes).
+ *
+ *  Allowed for a sent issue too, deliberately: a page that went out with a
+ *  mistake on it has to be removable, and the editor says what it costs — the
+ *  email's "view in browser" link and any printed QR code stop working.
+ *  Refused only mid-send, while mail carrying that link is still going out. */
+newsletter.delete("/issues/:id/publish", async (c) => {
+  const auth = await requireEditor(c);
+  if (!auth) return c.json({ error: "forbidden" }, 403);
+
+  const id = c.req.param("id");
+  const res = await c.env.DB.prepare(
+    `UPDATE newsletter_issue SET published_at = NULL, updated_at = ?
+      WHERE id = ? AND published_at IS NOT NULL AND status != 'sending'`,
+  )
+    .bind(nowIso(), id)
+    .run();
+
+  const row = await c.env.DB.prepare("SELECT * FROM newsletter_issue WHERE id = ?")
+    .bind(id)
+    .first<IssueRow>();
+  if (!row) return c.json({ error: "not_found" }, 404);
+  if (!res.meta.changes && row.status === "sending") {
+    return c.json(
+      { error: "sending", message: "Wait for the send to finish before unpublishing." },
+      409,
+    );
+  }
+
+  if (res.meta.changes) {
+    c.var.audit.push({
+      action: "newsletter.issue.unpublished",
+      entityKind: "newsletter_issue",
+      entityId: id,
+      detail: { slug: row.slug, sent: row.status === "sent" },
+    });
+  }
+  return c.json({ issue: await detailOf(c.env, row) });
+});
+
+/** POST /newsletter/issues/:id/send — mail it, publishing its page if it isn't
+ *  up already (the email's "view in browser" link is that page). The response returns
  *  as soon as the send is staged; delivery continues in waitUntil and progress
  *  is read back from GET /newsletter/issues/:id. */
 newsletter.post("/issues/:id/send", async (c) => {

@@ -497,6 +497,7 @@ export interface IssuePageRow {
   subtitle: string | null;
   status: NewsletterIssueStatus;
   sent_at: string | null;
+  published_at: string | null;
   updated_at: string;
   content_json: string;
   events_snapshot_json: string | null;
@@ -570,14 +571,15 @@ export async function issuePageOf(
     : await resolveEventsSnapshot(env, content, nowIso());
 
   return {
-    // Null rather than the stored slug for an unsent issue: that slug names a
-    // page which does not exist yet and 404s, and handing it to a reviewer
+    // Null rather than the stored slug for an unpublished issue: that slug names
+    // a page which does not exist and 404s, and handing it to a reviewer
     // invites them to share the wrong URL.
-    slug: row.status === "sent" ? row.slug : null,
+    slug: row.published_at !== null ? row.slug : null,
     title: row.title,
     subtitle: row.subtitle,
     status: row.status,
     sentAt: row.sent_at,
+    publishedAt: row.published_at,
     updatedAt: row.updated_at,
     excerpt: newsletterExcerpt(content),
     content,

@@ -429,6 +429,20 @@ const FORMATTERS = {
     );
   },
 
+  // A page going up without a send is the same "left the building" event for
+  // the web half — public, indexed, linkable — and rarer than a send. Coming
+  // down is worth a line too: it breaks links people may already be holding.
+  "newsletter.issue.published": async ({ env, entityId, actor }) => {
+    const issue = await issueLabel(env, entityId);
+    const read = issue && env.NEWSLETTER_URL ? ` ${link(`${env.NEWSLETTER_URL}/n/${issue.slug}`, "Read it")}` : "";
+    return `:globe_with_meridians: Newsletter *${esc(issue?.title ?? "(untitled)")}* published on the web — ${actor}.${read}`;
+  },
+
+  "newsletter.issue.unpublished": async ({ env, entityId, actor }) => {
+    const issue = await issueLabel(env, entityId);
+    return `:no_entry_sign: Newsletter *${esc(issue?.title ?? "(untitled)")}* taken off the web — ${actor}.`;
+  },
+
   "newsletter.issue.retried": async ({ env, entityId, actor }) => {
     const issue = await issueLabel(env, entityId);
     return `:arrows_counterclockwise: Retrying delivery of *${esc(issue?.title ?? "(untitled)")}* — ${actor}.`;

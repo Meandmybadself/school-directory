@@ -322,11 +322,25 @@ All five SPAs are separate Cloudflare Pages projects talking to the single
    `coerceNewsletterSettings` still promotes a legacy `footerText` into
    `footerHtml` on read, for settings blobs written before the fields merged;
    that fallback can go once every instance has saved settings again.
-10. **A sent newsletter is immutable, and its web page is public.** Events blocks
-   resolve live while a draft is edited and are FROZEN into `events_snapshot_json`
-   at send, so the archive keeps matching what was mailed. Issue URLs are
-   human-readable and therefore enumerable by design — nothing member-private may
-   ever go in one.
+10. **A sent newsletter is immutable; whether its web page is public is a
+   separate switch.** Events blocks resolve live while a draft is edited and are
+   FROZEN into `events_snapshot_json` at send, so the archive keeps matching what
+   was mailed. Issue URLs are human-readable and therefore enumerable by design —
+   nothing member-private may ever go in one.
+   **`published_at` (migration 0031) is the public gate, not `status`.** An
+   editor can publish an issue's page without mailing it (`POST
+   /newsletter/issues/:id/publish`), keep editing a published draft — its page
+   shows each save, events resolved live as on a review link — and send it
+   later; and can take any page down (`DELETE …/publish`), a sent one included,
+   because a page that went out with a mistake on it has to be removable. The
+   send still publishes (`COALESCE`, keeping an earlier date), since the email's
+   "view in browser" link is that page, and unpublishing is refused only while
+   a send is running. Two locks follow from a page being up, both because they
+   would break links already out — on paper as a QR code, in messages, in the
+   archive: its slug can't change, and a published draft can't be deleted.
+   Publish and unpublish are compare-and-swaps that write and log nothing when
+   repeated; both are Slack-curated, being the web half of what `sent` already
+   announces. `test/newsletterPublish.test.ts` pins all of it behaviourally.
 11. **One recurrence engine.** Managed events are expanded by rendering them with
    `lib/icsWriter.ts` and parsing that text back through `parseIcs`
    (`lib/managedCalendar.ts`). Never hand-roll a second RRULE walker — the
@@ -568,7 +582,8 @@ All five SPAs are separate Cloudflare Pages projects talking to the single
    into it: `newsletter_issue` holds `preview_token_hash`, so a spread would
    publish a live capability on an enumerable page. The two ways in are gated
    differently and deliberately — `/newsletter-public/issues/:slug` filters
-   `status = 'sent'` **in SQL** (a guessed draft slug reveals nothing), while
+   `published_at IS NOT NULL` **in SQL** (a guessed draft slug reveals nothing;
+   invariant 10 says why that is no longer `status = 'sent'`), while
    `/newsletter-public/preview/:token` has no status filter at all, because
    holding the token IS the authorization. Sharing a draft never required
    loosening the first gate, and must not.

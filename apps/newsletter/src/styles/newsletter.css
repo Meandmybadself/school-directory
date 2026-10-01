@@ -310,6 +310,8 @@
 .nlx-status.draft { background: var(--bg-2); color: var(--ink-3); border: 1px solid var(--line); }
 .nlx-status.sending { background: var(--orange-tint); color: var(--orange-ink); border: 1px solid var(--orange-tint-2); }
 .nlx-status.sent { background: var(--blue-tint); color: var(--blue-700); border: 1px solid var(--blue); }
+/* Independent of the status chips: whether the /n/ page is up. */
+.nlx-status.web { background: var(--paper); color: var(--ok); border: 1px solid var(--ok); }
 
 .nlx-warn {
   display: flex;

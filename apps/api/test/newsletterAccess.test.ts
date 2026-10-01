@@ -134,6 +134,8 @@ const EDITOR_ROUTES: Route[] = [
   ["DELETE", "/newsletter/issues/01ISSUE/preview-link"],
   ["GET", "/newsletter/issues/01ISSUE/preview"],
   ["POST", "/newsletter/issues/01ISSUE/test-send", { to: ["a@x.test"] }],
+  ["POST", "/newsletter/issues/01ISSUE/publish"],
+  ["DELETE", "/newsletter/issues/01ISSUE/publish"],
   ["POST", "/newsletter/issues/01ISSUE/send"],
   ["POST", "/newsletter/issues/01ISSUE/retry"],
   ["GET", "/newsletter/settings"],

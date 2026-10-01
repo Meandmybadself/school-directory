@@ -30,7 +30,7 @@ export const onRequestGet: PagesFunction<PagesEnv> = async (context) => {
   const items = issues
     .map(
       (issue) => `      <a class="nl-archive-item" href="/n/${escapeHtml(issue.slug)}">
-        <span class="nl-archive-date">${escapeHtml(formatIssueDate(issue.sentAt))}</span>
+        <span class="nl-archive-date">${escapeHtml(formatIssueDate(issue.publishedAt))}</span>
         <h2>${escapeHtml(issue.title)}</h2>
         <p>${escapeHtml(issue.subtitle ?? issue.excerpt)}</p>
       </a>`,

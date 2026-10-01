@@ -11,6 +11,13 @@
 //   A sent issue is read-only, here and on the server. The editor renders in
 //   view-only mode and the preview switches to the frozen event snapshot, so
 //   what you see afterwards is what people actually received.
+//
+//   Publishing is separate from sending (migration 0031). Publish puts the
+//   `/n/:slug` page up without mailing anyone, and a published draft stays
+//   editable — its page shows each save. Send still works afterwards, and
+//   publishes on its own if nobody did. While a page is up its web address is
+//   locked and the draft can't be deleted, because both would break links
+//   already shared.
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
@@ -23,7 +30,7 @@ import { Btn } from "../components/atoms.js";
 import { Icon } from "../components/Icon.js";
 import { Editor } from "../components/editor/Editor.js";
 import { PreviewPane } from "../components/PreviewPane.js";
-import { StatusChip } from "./Issues.js";
+import { StatusChip, WebChip } from "./Issues.js";
 import { useIsDesktop } from "../lib/useIsDesktop.js";
 import { ApiError, api, errorMessage } from "../lib/api.js";
 
@@ -77,21 +84,71 @@ function SendSheet({
   return (
     <SheetOver onClose={onClose}>
       <h2 className="sd-h2" style={{ marginBottom: 4 }}>Send this issue?</h2>
-      <p className="sd-lead" style={{ fontSize: 14, marginBottom: 14 }}>
-        “{issue.title}” goes out to everyone subscribed, and its web page becomes
-        public at <code>/n/{issue.slug}</code>. Neither can be undone.
-      </p>
-      <div className="nlx-warn" style={{ marginBottom: 16 }}>
-        <Icon name="info" size={16} stroke={2} style={{ flex: "0 0 auto", marginTop: 1 }} />
-        <span>
-          The web page is public — anyone with the link can read it, and the URL is
-          guessable by design. Don't include anything that shouldn't leave the school
-          community.
-        </span>
-      </div>
+      {issue.publishedAt ? (
+        <p className="sd-lead" style={{ fontSize: 14, marginBottom: 16 }}>
+          “{issue.title}” goes out to everyone subscribed. Its web page is already
+          public at <code>/n/{issue.slug}</code>. Sending can't be undone, and the
+          issue can't be edited afterwards.
+        </p>
+      ) : (
+        <>
+          <p className="sd-lead" style={{ fontSize: 14, marginBottom: 14 }}>
+            “{issue.title}” goes out to everyone subscribed, and its web page becomes
+            public at <code>/n/{issue.slug}</code>. Sending can't be undone.
+          </p>
+          <PublicWarning />
+        </>
+      )}
       <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
         <Btn block onClick={onConfirm} disabled={busy}>
           {busy ? "Sending…" : "Send now"}
+        </Btn>
+        <button className="sd-btn sd-btn-ghost" onClick={onClose} disabled={busy}>Cancel</button>
+      </div>
+    </SheetOver>
+  );
+}
+
+function PublicWarning() {
+  return (
+    <div className="nlx-warn" style={{ marginBottom: 16 }}>
+      <Icon name="info" size={16} stroke={2} style={{ flex: "0 0 auto", marginTop: 1 }} />
+      <span>
+        The web page is public — anyone with the link can read it, and the URL is
+        guessable by design. Don't include anything that shouldn't leave the school
+        community.
+      </span>
+    </div>
+  );
+}
+
+/** Put the page up without mailing anyone. Its own confirmation, because it is
+ *  the same publication a send makes, minus the email. */
+function PublishSheet({
+  issue,
+  onClose,
+  onConfirm,
+  busy,
+}: {
+  issue: NewsletterIssueDTO;
+  onClose: () => void;
+  onConfirm: () => void;
+  busy: boolean;
+}) {
+  return (
+    <SheetOver onClose={onClose}>
+      <h2 className="sd-h2" style={{ marginBottom: 4 }}>Publish to the web?</h2>
+      <p className="sd-lead" style={{ fontSize: 14, marginBottom: 14 }}>
+        “{issue.title}” goes up at <code>/n/{issue.slug}</code> and in the archive.
+        Nobody is emailed.
+        {issue.status === "draft" &&
+          " You can keep editing it — the page shows each change — and send it later."}
+        {" "}You can unpublish it at any time.
+      </p>
+      <PublicWarning />
+      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+        <Btn block onClick={onConfirm} disabled={busy}>
+          {busy ? "Publishing…" : "Publish"}
         </Btn>
         <button className="sd-btn sd-btn-ghost" onClick={onClose} disabled={busy}>Cancel</button>
       </div>
@@ -288,8 +345,9 @@ export function IssueEditor() {
   const [draft, setDraft] = useState<Draft | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [saveState, setSaveState] = useState<"idle" | "saving" | "saved" | "error">("idle");
-  const [sheet, setSheet] = useState<"send" | "test" | "share" | null>(null);
+  const [sheet, setSheet] = useState<"send" | "test" | "share" | "publish" | null>(null);
   const [sending, setSending] = useState(false);
+  const [publishing, setPublishing] = useState(false);
   const [urlCopied, setUrlCopied] = useState(false);
 
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -449,6 +507,39 @@ export function IssueEditor() {
     }
   };
 
+  const publish = async () => {
+    setPublishing(true);
+    if (timer.current) clearTimeout(timer.current);
+    // The page renders what's in the database, so the last edit lands first.
+    if (!(await flush())) {
+      setPublishing(false);
+      return;
+    }
+    try {
+      const { issue: updated } = await api.publishIssue(id);
+      setIssue(updated);
+      setSheet(null);
+    } catch (err) {
+      setError(errorMessage(err, "Couldn't publish this issue."));
+    } finally {
+      setPublishing(false);
+    }
+  };
+
+  const unpublish = async () => {
+    const cost =
+      issue?.status === "sent"
+        ? "The email's “view in browser” link, its translation links and any printed QR code will stop working."
+        : "Anyone holding the link — or a printed QR code — will get a “not available” page.";
+    if (!window.confirm(`Take this issue off the web? ${cost} You can publish it again later.`)) return;
+    try {
+      const { issue: updated } = await api.unpublishIssue(id);
+      setIssue(updated);
+    } catch (err) {
+      setError(errorMessage(err, "Couldn't unpublish this issue."));
+    }
+  };
+
   const testSend = async (addresses: string[]): Promise<string> => {
     if (timer.current) clearTimeout(timer.current);
     if (!(await flush())) return "Save failed — the test wasn't sent.";
@@ -508,6 +599,7 @@ export function IssueEditor() {
 
       <div className="sd-row" style={{ gap: 10, flexWrap: "wrap" }}>
         <StatusChip status={issue.status} />
+        <WebChip publishedAt={issue.publishedAt} />
         {!readOnly && <span className="sd-meta">{saveLabel}</span>}
         <div style={{ flex: 1 }} />
         {/* Available whether or not the issue has been sent — "give me a PDF of
@@ -525,6 +617,20 @@ export function IssueEditor() {
         <button className="sd-btn sd-btn-ghost" onClick={() => setSheet("share")}>
           {issue.previewLink.active ? "Sharing…" : "Share for review…"}
         </button>
+        {issue.publishedAt ? (
+          <>
+            <a className="sd-btn sd-btn-ghost" href={publicUrl(issue.slug)} target="_blank" rel="noopener">
+              View page
+            </a>
+            {issue.status !== "sending" && (
+              <button className="sd-btn sd-btn-ghost" onClick={() => void unpublish()}>Unpublish</button>
+            )}
+          </>
+        ) : (
+          issue.status !== "sending" && (
+            <button className="sd-btn sd-btn-ghost" onClick={() => setSheet("publish")}>Publish…</button>
+          )
+        )}
         {!readOnly && (
           <>
             <button className="sd-btn sd-btn-ghost" onClick={() => setSheet("test")}>Send test</button>
@@ -563,7 +669,14 @@ export function IssueEditor() {
               onChange={(e) => edit({ subject: e.target.value })} />
           </Field>
         </div>
-        <Field label="Web address" hint={`Public page: ${publicUrl(draft.slug)}`}>
+        <Field
+          label="Web address"
+          hint={
+            issue.publishedAt
+              ? `Live at ${publicUrl(issue.slug)} — unpublish to change it.`
+              : `Public page: ${publicUrl(draft.slug)}`
+          }
+        >
           {/* Dated from the issue's own createdAt, not today: re-deriving the
               slug for a draft started last week shouldn't silently move it to
               today's date. Same helper the server uses at create time, so the
@@ -571,9 +684,10 @@ export function IssueEditor() {
               still uniquifies on save (-2, -3, …) and flush() reflects that
               back, so a collision here isn't the author's problem. */}
           <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-            <input className="sd-input" style={{ flex: 1, minWidth: 0 }} value={draft.slug} readOnly={readOnly}
+            <input className="sd-input" style={{ flex: 1, minWidth: 0 }} value={draft.slug}
+              readOnly={readOnly || issue.publishedAt !== null}
               onChange={(e) => edit({ slug: e.target.value })} />
-            {!readOnly && (
+            {!readOnly && issue.publishedAt === null && (
               <button
                 type="button"
                 className="sd-btn sd-btn-ghost sd-btn-sm"
@@ -620,16 +734,22 @@ export function IssueEditor() {
         </div>
       </div>
 
-      {!readOnly && (
+      {!readOnly && issue.publishedAt === null && (
         <div>
           <button className="sd-btn sd-btn-ghost" style={{ color: "var(--warn)" }} onClick={() => void remove()}>
             Delete draft
           </button>
         </div>
       )}
+      {!readOnly && issue.publishedAt !== null && (
+        <p className="sd-meta" style={{ margin: 0 }}>Unpublish this draft to delete it.</p>
+      )}
 
       {sheet === "send" && (
         <SendSheet issue={issue} busy={sending} onClose={() => setSheet(null)} onConfirm={() => void send()} />
+      )}
+      {sheet === "publish" && (
+        <PublishSheet issue={issue} busy={publishing} onClose={() => setSheet(null)} onConfirm={() => void publish()} />
       )}
       {sheet === "test" && <TestSendSheet onClose={() => setSheet(null)} onSend={testSend} />}
       {sheet === "share" && (

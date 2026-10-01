@@ -48,6 +48,9 @@ export interface IssueRow {
   status: string;
   recipient_total: number;
   sent_at: string | null;
+  /** When the public page went up, or null (migration 0031). Set by
+   *  POST …/publish and, if still null, by the send. */
+  published_at: string | null;
   created_by: string | null;
   created_at: string;
   updated_at: string;
@@ -124,10 +127,13 @@ export async function startSend(env: Env, issueId: string): Promise<StartSendOut
 
     await env.DB.prepare(
       `UPDATE newsletter_issue
-          SET events_snapshot_json = ?, recipient_total = ?, sent_at = ?, updated_at = ?
+          SET events_snapshot_json = ?, recipient_total = ?, sent_at = ?, updated_at = ?,
+              -- Sending publishes: the email's "view in browser" link is this
+              -- page. COALESCE keeps the date of a page that went up earlier.
+              published_at = COALESCE(published_at, ?)
         WHERE id = ?`,
     )
-      .bind(JSON.stringify(snapshot), audience.length, startedAt, startedAt, issueId)
+      .bind(JSON.stringify(snapshot), audience.length, startedAt, startedAt, startedAt, issueId)
       .run();
 
     return { ok: true, recipientTotal: audience.length };

@@ -164,7 +164,7 @@ export async function productBySlug(
   publishedOnly: boolean,
 ): Promise<StoreProductRow | null> {
   // The published filter is in SQL, not applied afterwards, for the same reason
-  // invariant 15 gives for `status = 'sent'`: a guessed draft slug must reveal
+  // invariant 15 gives for the newsletter's `published_at` gate: a guessed draft slug must reveal
   // nothing, including how long the lookup took.
   const sql = publishedOnly
     ? `${SELECT_PRODUCT} WHERE slug = ? AND published_at IS NOT NULL`

@@ -11,7 +11,8 @@
 //   would publish it on an ENUMERABLE public page.
 //
 //   The subtler one: an issue page is reachable two ways, by public slug and by
-//   review token, and only the first is gated on `status = 'sent'`. The tests
+//   review token, and only the first is gated — on `published_at IS NOT NULL`
+//   since migration 0031, which split publishing from sending. The tests
 //   below pin both — that a draft slug still 404s on the public route, and that
 //   the token route answers without a session — because "is gated" is expressed
 //   by a WHERE clause in one query and its ABSENCE in the other, and absence is
@@ -36,6 +37,7 @@ const PAGE_KEYS = [
   "subtitle",
   "status",
   "sentAt",
+  "publishedAt",
   "updatedAt",
   "excerpt",
   "content",
@@ -80,6 +82,7 @@ function row(over: Partial<IssuePageRow> = {}): IssuePageRow {
     subtitle: "What to expect",
     status: "sent",
     sent_at: "2099-09-01T12:00:00.000Z",
+    published_at: "2099-09-01T12:00:00.000Z",
     updated_at: "2099-08-30T12:00:00.000Z",
     content_json: JSON.stringify(DOC),
     events_snapshot_json: JSON.stringify({ blk: [EVENT] }),
@@ -127,17 +130,32 @@ describe("issuePageOf — the issue-page projection", () => {
     expect(JSON.stringify(page)).not.toContain("01SERIES");
   });
 
-  it("withholds the slug of an issue that hasn't been sent", async () => {
+  it("withholds the slug of an issue that isn't published", async () => {
     // That slug names a page which 404s. Handing it to a reviewer invites them
     // to circulate the wrong URL.
     const page = await issuePageOf(
       NO_ENV,
-      row({ status: "draft", sent_at: null, events_snapshot_json: null }) ,
+      row({ status: "draft", sent_at: null, published_at: null, events_snapshot_json: "{}" }),
       BRANDING,
     );
     expect(page.slug).toBeNull();
     expect(page.status).toBe("draft");
     expect(page.sentAt).toBeNull();
+    expect(page.publishedAt).toBeNull();
+  });
+
+  it("reports the slug of a published draft — publishing, not sending, decides", async () => {
+    const page = await issuePageOf(
+      NO_ENV,
+      row({ status: "draft", sent_at: null, published_at: "2099-09-02T00:00:00.000Z", events_snapshot_json: "{}" }),
+      BRANDING,
+    );
+    expect(page.slug).toBe("2099-09-01-back-to-school");
+  });
+
+  it("withholds the slug of a sent issue that was unpublished", async () => {
+    const page = await issuePageOf(NO_ENV, row({ published_at: null }), BRANDING);
+    expect(page.slug).toBeNull();
   });
 
   it("still reports the slug of a sent one", async () => {
@@ -252,7 +270,10 @@ describe("the print stylesheet", () => {
 
 // ── The two routes that reach a page ────────────────────────────────────────
 
-/** D1 stand-in. `sent` resolves by slug; `draft` resolves only by token hash.
+/** D1 stand-in that EVALUATES the slug gate rather than matching its text: the
+ *  slug lookup filters on `published_at` only if the SQL says so, so a route
+ *  that dropped the clause would serve the unpublished draft and fail here.
+ *  `draft` is also reachable by token hash.
  *
  *  The hash is computed with the real `sha256`, not hard-coded: the route hashes
  *  the token before looking it up, and a fixture that hard-coded a digest would
@@ -265,8 +286,21 @@ function testEnv(goodHash: string): HonoEnv["Bindings"] {
     title: "October news",
     status: "draft",
     sent_at: null,
-    events_snapshot_json: null,
+    published_at: null,
+    events_snapshot_json: "{}",
   });
+  // Up on the web, never mailed.
+  const publishedDraft = row({
+    slug: "2099-10-15-printed",
+    title: "Printed only",
+    status: "draft",
+    sent_at: null,
+    published_at: "2099-10-15T12:00:00.000Z",
+    events_snapshot_json: "{}",
+  });
+  // Mailed, then taken down.
+  const unpublished = row({ slug: "2099-08-01-oops", published_at: null });
+  const bySlug = [sent, draft, publishedDraft, unpublished];
 
   return {
     // getNewsletterSettings falls back to defaults built from these when the
@@ -286,9 +320,11 @@ function testEnv(goodHash: string): HonoEnv["Bindings"] {
                 // guessed token would.
                 return arg === goodHash ? draft : null;
               }
-              // The public slug route, gated on status='sent' in its own SQL.
-              if (sql.includes("status = 'sent'")) {
-                return arg === sent.slug ? sent : null;
+              // The public slug route.
+              if (sql.includes("slug = ?")) {
+                const hit = bySlug.find((r) => r.slug === arg) ?? null;
+                if (!hit) return null;
+                return sql.includes("published_at IS NOT NULL") && hit.published_at === null ? null : hit;
               }
               return null;
             },
@@ -323,12 +359,25 @@ describe("issue pages answer without a session", () => {
     expect(Object.keys(body).sort()).toEqual(PAGE_KEYS);
   });
 
-  it("404s a slug that names an unsent issue — the gate this feature never touched", async () => {
+  it("404s a slug that names an unpublished draft — the gate review links never touched", async () => {
     const res = await appWith().request(
       "/newsletter-public/issues/2099-10-01-october",
       {},
       await envFor(),
     );
+    expect(res.status).toBe(404);
+  });
+
+  it("serves a published draft that was never mailed", async () => {
+    const res = await appWith().request("/newsletter-public/issues/2099-10-15-printed", {}, await envFor());
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as Record<string, unknown>;
+    expect(body.status).toBe("draft");
+    expect(body.slug).toBe("2099-10-15-printed");
+  });
+
+  it("404s a sent issue that was taken down", async () => {
+    const res = await appWith().request("/newsletter-public/issues/2099-08-01-oops", {}, await envFor());
     expect(res.status).toBe(404);
   });
 

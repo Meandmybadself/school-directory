@@ -1109,9 +1109,9 @@ export interface NewsletterIssuePageInput extends NewsletterWrapperInput {
   /** Already formatted by the caller — usually `formatIssueDate(sentAt)`, or a
    *  "last edited …" line for an issue that hasn't gone out. */
   dateLabel: string;
-  /** Draws the "not sent yet" banner. Drives nothing else: an unsent issue and
-   *  a sent one render identically otherwise, which is the point of showing a
-   *  reviewer the real thing. */
+  /** Draws the "not published yet" banner. Drives nothing else: an unpublished
+   *  issue and a published one render identically otherwise, which is the
+   *  point of showing a reviewer the real thing. */
   isDraft: boolean;
   /** Href for the masthead and the "See all issues" link, or "" to omit both —
    *  an issue reached by a review token has no archive entry to return to, and
@@ -1135,7 +1135,8 @@ export interface NewsletterIssuePageInput extends NewsletterWrapperInput {
    *  answer. Unlike `issueUrl` a token-reached page MAY pass one, because what
    *  goes in is never the page's own url but the sent issue's public one;
    *  `publishedIssueQrSvg` refuses anything that isn't `/n/:slug`. An unsent
-   *  issue passes "" — its `/n/` page would 404. */
+   *  issue passes "" — its `/n/` page would 404. (The admin's own print view
+   *  is the exception, by choice: see IssuePrint.tsx.) */
   publishedUrl: string;
 }
 
@@ -1167,7 +1168,7 @@ export function renderNewsletterIssuePageHtml(input: NewsletterIssuePageInput): 
   // was sent a link has no other way to tell a draft from the real thing, and
   // finding out after reading is finding out too late.
   const banner = input.isDraft
-    ? `<div class="nl-draft-banner">Draft — not sent yet. This is a private preview link.</div>`
+    ? `<div class="nl-draft-banner">Draft — not published yet. This is a private preview link.</div>`
     : "";
 
   const foot = [

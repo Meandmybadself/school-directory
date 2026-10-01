@@ -133,6 +133,11 @@ export const api = {
     request<{ status: string; recipientTotal: number }>(`/newsletter/issues/${id}/send`, {
       method: "POST",
     }),
+  /** Put the issue's public page up, or take it down, without mailing anyone. */
+  publishIssue: (id: string) =>
+    request<{ issue: NewsletterIssueDTO }>(`/newsletter/issues/${id}/publish`, { method: "POST" }),
+  unpublishIssue: (id: string) =>
+    request<{ issue: NewsletterIssueDTO }>(`/newsletter/issues/${id}/publish`, { method: "DELETE" }),
   retryIssue: (id: string) =>
     request<{ status: string }>(`/newsletter/issues/${id}/retry`, { method: "POST" }),
 

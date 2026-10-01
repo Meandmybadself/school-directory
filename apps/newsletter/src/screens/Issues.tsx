@@ -18,6 +18,13 @@ export function StatusChip({ status }: { status: NewsletterIssueSummaryDTO["stat
   return <span className={`nlx-status ${status}`}>{label}</span>;
 }
 
+/** Whether the issue's web page is up. Its own chip, beside the status one,
+ *  because the two are independent: a draft can be on the web, and a sent
+ *  issue can have been taken off it. */
+export function WebChip({ publishedAt }: { publishedAt: string | null }) {
+  return publishedAt ? <span className="nlx-status web">On the web</span> : null;
+}
+
 function fmtDate(iso: string): string {
   return new Date(iso).toLocaleDateString(undefined, {
     month: "short",
@@ -56,7 +63,7 @@ function IssueList({
       {issues.length === 0 && (
         <div className="sd-card" style={{ padding: 32, textAlign: "center" }}>
           <p className="sd-lead" style={{ margin: 0 }}>
-            Start your first newsletter. Drafts stay private until you send them.
+            Start your first newsletter. Drafts stay private until you publish or send them.
           </p>
         </div>
       )}
@@ -77,9 +84,12 @@ function IssueList({
             <div className="sd-meta" style={{ marginTop: 3 }}>
               {issue.sentAt
                 ? `Sent ${fmtDate(issue.sentAt)} to ${issue.recipientTotal} ${issue.recipientTotal === 1 ? "person" : "people"}`
-                : `Edited ${fmtDate(issue.updatedAt)}`}
+                : issue.publishedAt
+                  ? `Published ${fmtDate(issue.publishedAt)} · not emailed`
+                  : `Edited ${fmtDate(issue.updatedAt)}`}
             </div>
           </div>
+          <WebChip publishedAt={issue.publishedAt} />
           <StatusChip status={issue.status} />
           <Icon name="chevright" size={17} style={{ color: "var(--ink-3)", flex: "0 0 auto" }} />
         </button>

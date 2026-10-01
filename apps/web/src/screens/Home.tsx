@@ -92,7 +92,7 @@ interface ViewProps {
 function LatestIssueSection({ issue }: { issue: PublicNewsletterIssueSummaryDTO | null }) {
   const { t, locale } = useI18n();
   if (!issue) return null;
-  const sent = new Date(issue.sentAt).toLocaleDateString(locale, { month: "short", day: "numeric" });
+  const sent = new Date(issue.publishedAt).toLocaleDateString(locale, { month: "short", day: "numeric" });
   return (
     <div>
       <SectLabel>{t("latestIssue")}</SectLabel>

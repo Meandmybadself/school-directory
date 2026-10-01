@@ -119,8 +119,8 @@ function build(
     doc: issue.content,
     resolveEvents: (attrs) => events[attrs.blockId] ?? [],
     dateLabel:
-      issue.sentAt !== null
-        ? formatIssueDate(issue.sentAt)
+      issue.publishedAt !== null
+        ? formatIssueDate(issue.sentAt ?? issue.publishedAt)
         : `Last edited ${formatIssueDate(issue.updatedAt)}`,
     // Never the draft banner here, sent or not. It exists to warn a REVIEWER
     // holding a link (and says "private preview link", which this isn't); the

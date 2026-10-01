@@ -7,8 +7,9 @@
 // open from an inbox, a text message or a Facebook group with no sign-in — but
 // it means an issue's body must never contain member-private content.
 //
-// Only issues that have actually been sent are visible; a draft's slug resolves
-// to a 404, so guessing tomorrow's URL reveals nothing.
+// Only PUBLISHED issues are visible (`published_at IS NOT NULL`, migration
+// 0031) — sent ones, and any an editor put up without mailing. An unpublished
+// draft's slug resolves to a 404, so guessing tomorrow's URL reveals nothing.
 //
 // Sign-up lives here too, and is DOUBLE opt-in: POST /subscribe only mails a
 // confirmation link, and POST /subscribe/confirm/:token is the sole thing that
@@ -46,7 +47,7 @@ interface PublicRow {
   subtitle: string | null;
   content_json: string;
   events_snapshot_json: string | null;
-  sent_at: string;
+  published_at: string;
 }
 
 function parseDoc(json: string): NewsletterNode {
@@ -62,21 +63,21 @@ function summaryOf(row: PublicRow): PublicNewsletterIssueSummaryDTO {
     slug: row.slug,
     title: row.title,
     subtitle: row.subtitle,
-    sentAt: row.sent_at,
+    publishedAt: row.published_at,
     excerpt: newsletterExcerpt(parseDoc(row.content_json)),
   };
 }
 
-/** GET /newsletter-public/issues?limit= — sent issues, newest first. Also backs
+/** GET /newsletter-public/issues?limit= — published issues, newest first. Also backs
  *  the "latest issue" card on the directory's Home screen, which is why it
  *  takes a limit rather than always returning the whole archive. */
 newsletterPublic.get("/issues", async (c) => {
   const limit = Math.min(Math.max(Number(c.req.query("limit")) || ARCHIVE_PAGE_SIZE, 1), ARCHIVE_PAGE_SIZE);
   const rows = await c.env.DB.prepare(
-    `SELECT slug, title, subtitle, content_json, events_snapshot_json, sent_at
+    `SELECT slug, title, subtitle, content_json, events_snapshot_json, published_at
        FROM newsletter_issue
-      WHERE status = 'sent' AND sent_at IS NOT NULL
-      ORDER BY sent_at DESC
+      WHERE published_at IS NOT NULL
+      ORDER BY published_at DESC
       LIMIT ?`,
   )
     .bind(limit)
@@ -89,21 +90,24 @@ newsletterPublic.get("/issues", async (c) => {
   });
 });
 
-/** GET /newsletter-public/issues/:slug — one sent issue.
+/** GET /newsletter-public/issues/:slug — one published issue.
  *
  *  Returns the stored document and the frozen events snapshot rather than
  *  pre-rendered HTML: the page runs the same @sd/shared renderer the email did,
- *  over the same inputs, so the archive can't drift from what was mailed.
+ *  over the same inputs, so the archive can't drift from what was mailed. A
+ *  published issue not yet SENT has no snapshot, and `issuePageOf` resolves its
+ *  events live, as it does for a review link.
  *
- *  The `status = 'sent'` gate below is the whole reason a guessed draft slug
- *  reveals nothing (invariant 10). It stays in this query, in SQL — the review
+ *  The `published_at IS NOT NULL` gate below is the whole reason a guessed
+ *  draft slug reveals nothing (invariant 10). It stays in this query, in SQL — the review
  *  link added in migration 0015 is a SEPARATE route on a SEPARATE column, so
  *  sharing a draft never involved loosening this one. */
 newsletterPublic.get("/issues/:slug", async (c) => {
   const row = await c.env.DB.prepare(
-    `SELECT slug, title, subtitle, status, content_json, events_snapshot_json, sent_at, updated_at
+    `SELECT slug, title, subtitle, status, content_json, events_snapshot_json, sent_at,
+            published_at, updated_at
        FROM newsletter_issue
-      WHERE slug = ? AND status = 'sent' AND sent_at IS NOT NULL`,
+      WHERE slug = ? AND published_at IS NOT NULL`,
   )
     .bind(c.req.param("slug"))
     .first<IssuePageRow>();
@@ -135,7 +139,8 @@ newsletterPublic.get("/preview/:token", async (c) => {
   if (!token) return c.json({ error: "not_found" }, 404);
 
   const row = await c.env.DB.prepare(
-    `SELECT slug, title, subtitle, status, content_json, events_snapshot_json, sent_at, updated_at
+    `SELECT slug, title, subtitle, status, content_json, events_snapshot_json, sent_at,
+            published_at, updated_at
        FROM newsletter_issue
       WHERE preview_token_hash = ?`,
   )

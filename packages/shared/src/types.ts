@@ -1272,6 +1272,10 @@ export interface NewsletterIssueSummaryDTO {
   createdAt: string;
   updatedAt: string;
   sentAt: string | null;
+  /** When its public `/n/:slug` page went up, or null while it has none.
+   *  Independent of `status`: a draft may be published, and a sent issue
+   *  unpublished (migration 0031). Sending publishes one that isn't yet. */
+  publishedAt: string | null;
   /** Audience size measured when the send began; 0 while still a draft. */
   recipientTotal: number;
 }
@@ -1357,8 +1361,10 @@ export interface PublicNewsletterIssueSummaryDTO {
   slug: string;
   title: string;
   subtitle: string | null;
-  /** ISO-8601. Only sent issues are ever public, so this is never null. */
-  sentAt: string;
+  /** ISO-8601. When the page went up — the archive's date and sort key. Only
+   *  published issues are listed, so never null. An issue may be published
+   *  without ever being emailed (migration 0031). */
+  publishedAt: string;
   /** First few lines of body text, for the archive card and OG description. */
   excerpt: string;
 }
@@ -1376,13 +1382,15 @@ export interface PublicNewsletterIssueSummaryDTO {
  *  `newsletter_issue` must not be able to reach a reader until someone edits
  *  that projection on purpose. */
 export interface NewsletterIssuePageDTO {
-  /** The permanent archive URL's slug — null for an issue that hasn't been
-   *  sent, which has no `/n/` page of its own yet, only its token's. */
+  /** The permanent archive URL's slug — null for an issue that isn't
+   *  published, which has no `/n/` page of its own, only its token's. */
   slug: string | null;
   title: string;
   subtitle: string | null;
   status: NewsletterIssueStatus;
   sentAt: string | null;
+  /** Null while unpublished — what decides the draft banner, not `status`. */
+  publishedAt: string | null;
   /** For the "last edited …" line an unsent issue shows in place of a date. */
   updatedAt: string;
   /** First few lines of body text, for the OG description. */
@@ -1927,6 +1935,11 @@ export type AuditAction =
   | "newsletter.issue.deleted"
   | "newsletter.issue.sent"
   | "newsletter.issue.retried"
+  /** Its public page went up or came down without a send (migration 0031).
+   *  A send that publishes as a side effect records `newsletter.issue.sent`
+   *  only — one act, one row. */
+  | "newsletter.issue.published"
+  | "newsletter.issue.unpublished"
   /** A review link was minted (or re-minted, invalidating the previous one) or
    *  revoked. Deliberately not the generic share.created/share.revoked above:
    *  those belong to routes/shares.ts, which grants a Person or Group sight of

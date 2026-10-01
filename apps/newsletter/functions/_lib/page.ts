@@ -248,7 +248,9 @@ export async function renderIssuePage(
   }
 
   const { branding } = issue;
-  const isDraft = issue.status !== "sent";
+  // "Draft" to a reader means "not public yet" — a page an editor published
+  // without mailing it is the real thing, and must not wear the banner.
+  const isDraft = issue.publishedAt === null;
   const body = renderNewsletterIssuePageHtml({
     branding,
     title: issue.title,
@@ -256,21 +258,20 @@ export async function renderIssuePage(
     doc: issue.content,
     resolveEvents: (attrs) => issue.eventsSnapshot[attrs.blockId] ?? [],
     dateLabel:
-      issue.sentAt !== null
-        ? formatIssueDate(issue.sentAt)
+      issue.publishedAt !== null
+        ? formatIssueDate(issue.sentAt ?? issue.publishedAt)
         : `Last edited ${formatIssueDate(issue.updatedAt)}`,
     isDraft,
     archiveHref: opts.archiveHref,
     printHref: opts.printHref,
     issueUrl: opts.issueUrl,
     // The printed QR code, on all four routes — a print of a review link for an
-    // issue that has since gone out should point at it too. It is built from the
-    // issue's SLUG, never from this request's url, which on a token page is the
-    // token; and the slug is null until the issue is sent.
-    publishedUrl:
-      !isDraft && issue.slug
-        ? `${new URL(opts.canonical).origin}/n/${encodeURIComponent(issue.slug)}`
-        : "",
+    // issue that has since been published should point at it too. It is built
+    // from the issue's SLUG, never from this request's url, which on a token
+    // page is the token; and the slug is null while the issue is unpublished.
+    publishedUrl: issue.slug
+      ? `${new URL(opts.canonical).origin}/n/${encodeURIComponent(issue.slug)}`
+      : "",
   });
 
   return send(

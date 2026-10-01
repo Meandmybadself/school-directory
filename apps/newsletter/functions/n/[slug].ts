@@ -7,10 +7,11 @@
 // over the SAME frozen events snapshot, which is what guarantees the archive
 // can't drift from what was mailed.
 //
-// Only issues whose status is 'sent' are served; a guessed draft slug 404s,
-// because the API gates this path on `status = 'sent'` in SQL. An unsent issue
-// is readable only through a review link an admin minted on purpose, which is a
-// different route on a different column (see /preview/[token].ts).
+// Only PUBLISHED issues are served (sent ones, and any an editor put up without
+// mailing); a guessed draft slug 404s, because the API gates this path on
+// `published_at IS NOT NULL` in SQL. An unpublished issue is readable only
+// through a review link an editor minted on purpose, which is a different route
+// on a different column (see /preview/[token].ts).
 
 import { localeFromSearch, translateProxyUrl } from "@sd/shared";
 import { renderIssuePage, type PagesEnv } from "../_lib/page.js";
