@@ -15,7 +15,7 @@
 // email. Nothing about it is print-specific except the @media print block that
 // already lives in NEWSLETTER_WEB_CSS and the dialog fired below.
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useParams } from "react-router-dom";
 import type { CalendarEventDTO, NewsletterIssueDTO, NewsletterSettingsDTO } from "@sd/shared";
 import {
@@ -25,6 +25,9 @@ import {
 } from "@sd/shared";
 import { api, errorMessage } from "../lib/api.js";
 import { brandingOf } from "../lib/branding.js";
+
+/** Longest the dialog waits on images before printing whatever has arrived. */
+const IMAGE_WAIT_MS = 10_000;
 
 export function IssuePrint() {
   const { id = "" } = useParams();
@@ -53,15 +56,39 @@ export function IssuePrint() {
     };
   }, [id]);
 
-  // Fires once, after the markup is in the DOM. `requestAnimationFrame` lets the
-  // browser lay it out first; without it Safari can open the dialog over a page
-  // it hasn't painted. A logo still decoding is the remaining risk, which is why
-  // the public print pages wait for `load` instead — here the bundle has already
-  // loaded, so there is no load event left to wait for.
+  // Fires once, after the markup is in the DOM AND its images have arrived.
+  // The public print pages wait for `load`, which covers images; here the bundle
+  // loaded long ago, so there is no load event left to wait for, and printing on
+  // the next frame — as this once did — sent every body image to the dialog
+  // still downloading, which prints as a blank gap. So it waits on each <img>
+  // itself: settled means loaded OR failed (a broken image must not hold the
+  // dialog forever), and IMAGE_WAIT_MS caps the whole thing for a slow network,
+  // where a page with a gap beats a dialog that never opens.
+  // `requestAnimationFrame` then lets the browser lay out what arrived; without
+  // it Safari can open the dialog over a page it hasn't painted.
+  const body = useRef<HTMLDivElement>(null);
   useEffect(() => {
-    if (html === null) return;
-    const frame = requestAnimationFrame(() => window.print());
-    return () => cancelAnimationFrame(frame);
+    if (html === null || !body.current) return;
+    let cancelled = false;
+    let frame = 0;
+    const pending = Array.from(body.current.querySelectorAll("img"))
+      .filter((img) => !img.complete)
+      .map(
+        (img) =>
+          new Promise<void>((resolve) => {
+            img.addEventListener("load", () => resolve(), { once: true });
+            img.addEventListener("error", () => resolve(), { once: true });
+          }),
+      );
+    const timeout = new Promise<void>((resolve) => setTimeout(resolve, IMAGE_WAIT_MS));
+    void Promise.race([Promise.all(pending), timeout]).then(() => {
+      if (cancelled) return;
+      frame = requestAnimationFrame(() => window.print());
+    });
+    return () => {
+      cancelled = true;
+      cancelAnimationFrame(frame);
+    };
   }, [html]);
 
   if (error) return <p style={{ padding: 24, fontFamily: "system-ui" }}>{error}</p>;
@@ -75,7 +102,7 @@ export function IssuePrint() {
       <style dangerouslySetInnerHTML={{ __html: NEWSLETTER_WEB_CSS }} />
       {/* Same trust level as PreviewPane: this HTML came from the one renderer,
           over a document the API sanitized on write. */}
-      <div dangerouslySetInnerHTML={{ __html: html }} />
+      <div ref={body} dangerouslySetInnerHTML={{ __html: html }} />
     </>
   );
 }
