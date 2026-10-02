@@ -1886,6 +1886,163 @@ export interface PtoEventOptionDTO {
   calendarName: string;
 }
 
+// ── Lost & found ─────────────────────────────────────────────────────────────
+//
+// lostandfound.eisenhower.school. Staff photograph what turns up at school, a
+// vision model describes it, and anyone can browse and say "that's mine". See
+// invariant 33 in CLAUDE.md and the header of migration 0033.
+
+/** The categories the vision model must choose from, and the browse filter.
+ *  Parent-facing words, short on purpose: a filter row nobody can scan is a
+ *  filter nobody uses. */
+export const LF_CATEGORIES = [
+  "Water bottle",
+  "Lunch box",
+  "Jacket or coat",
+  "Sweatshirt or hoodie",
+  "Clothing (other)",
+  "Hat, gloves, or scarf",
+  "Shoes or boots",
+  "Backpack or bag",
+  "Electronics",
+  "Glasses",
+  "Jewelry or accessory",
+  "Toy",
+  "Book or school supplies",
+  "Sports equipment",
+  "Other",
+] as const;
+export type LfCategory = (typeof LF_CATEGORIES)[number];
+
+/** Colour words the model must choose from. Each app's swatch map must cover
+ *  every one; an unknown colour falls back to grey rather than breaking. */
+export const LF_COLORS = [
+  "black",
+  "white",
+  "gray",
+  "silver",
+  "red",
+  "pink",
+  "orange",
+  "yellow",
+  "gold",
+  "green",
+  "blue",
+  "navy",
+  "purple",
+  "brown",
+  "tan",
+  "multicolor",
+] as const;
+export type LfColor = (typeof LF_COLORS)[number];
+
+/** A found item as ANYONE on the internet sees it — built field by field by
+ *  `publicItemOf`, never by spreading a row (invariant 12's rule).
+ *
+ *  What is missing is the point. `visibleText` — whatever the model read off
+ *  the item, which on a school jacket is usually a child's name — is staff-only
+ *  (invariant 33). So are who uploaded it, its claims, and its tagging state
+ *  beyond "still being described". */
+export interface LfPublicItemDTO {
+  id: string;
+  title: string;
+  description: string;
+  category: string;
+  colors: string[];
+  brand: string;
+  material: string;
+  tags: string[];
+  location: string;
+  /** ISO-8601 UTC. */
+  foundAt: string;
+  /** The model hasn't described it yet; the photo is all there is. */
+  pending: boolean;
+  photoUrl: string;
+  thumbUrl: string;
+}
+
+export interface LfPublicListDTO {
+  items: LfPublicItemDTO[];
+  /** Another page exists. Always false for a search, which returns its best
+   *  matches in one go. */
+  hasMore: boolean;
+}
+
+/** POST /lostfound-public/items/:id/claims. `website` is a honeypot: a person
+ *  never sees the field, so anything in it is a script. */
+export interface LfClaimInput {
+  name: string;
+  contact: string;
+  message?: string;
+  website?: string;
+}
+
+export type LfItemStatus = "found" | "returned";
+export type LfTagStatus = "pending" | "tagged" | "failed";
+
+/** A found item as STAFF see it. */
+export interface LfStaffItemDTO extends Omit<LfPublicItemDTO, "pending"> {
+  status: LfItemStatus;
+  tagStatus: LfTagStatus;
+  tagError: string | null;
+  /** Writing the model read off the item — often a child's name. Staff-only. */
+  visibleText: string;
+  /** Hidden from the public listing by staff (a face in frame, a duplicate). */
+  hiddenAt: string | null;
+  /** Held back until staff publish it: every item starts held, and the model
+   *  releases it only if it read no writing on it — the PHOTO could show a
+   *  child's name (invariant 33). Non-null while the model is still looking,
+   *  after it read something, or after it failed. */
+  heldAt: string | null;
+  returnedAt: string | null;
+  /** Unclaimed long enough that it's time to donate it (LF_DONATE_AFTER_DAYS). */
+  donateDue: boolean;
+  openClaims: number;
+  createdByEmail: string | null;
+  updatedAt: string;
+}
+
+export interface LfClaimDTO {
+  id: string;
+  itemId: string;
+  itemTitle: string;
+  thumbUrl: string;
+  name: string;
+  contact: string;
+  message: string;
+  createdAt: string;
+  resolvedAt: string | null;
+  resolution: "returned" | "dismissed" | null;
+}
+
+export interface LfStaffItemDetailDTO extends LfStaffItemDTO {
+  claims: LfClaimDTO[];
+}
+
+/** PATCH /lostfound/items/:id — every editable field, sent whole. */
+export interface LfItemPatch {
+  title: string;
+  description: string;
+  category: string;
+  colors: string[];
+  brand: string;
+  material: string;
+  visibleText: string;
+  tags: string[];
+  location: string;
+}
+
+/** GET /lostfound/access — `PtoAccessDTO`'s shape, for the same reason. */
+export interface LfAccessDTO {
+  canUse: boolean;
+  isSystemAdmin: boolean;
+  groupName: string | null;
+  groupId: string | null;
+}
+
+/** Days after which an unclaimed item is flagged for donation. */
+export const LF_DONATE_AFTER_DAYS = 120;
+
 // ── Audit ─────────────────────────────────────────────────────────────────
 
 /** Actions captured in the append-only audit log (FR-31). */
@@ -2091,4 +2248,27 @@ export type AuditAction =
    *  boards. Rare, deliberate, and the single lever over who gets in — the
    *  same shape of act `registration.toggled` records. */
   | "pto.group.configured"
+  /** Lost & found (migration 0033). Staff acts on items — none Slack-curated:
+   *  a morning's uploads would be a dozen lines nobody needs. The AI's own
+   *  tagging writes no row; it is a machine filling in fields, and a retry
+   *  per failure would pad the log (invariant 5). */
+  | "lostfound.item.created"
+  | "lostfound.item.updated"
+  /** Staff released a held item to the public listing — they've checked the
+   *  photo shows no name. Not pushed when the model releases one itself. */
+  | "lostfound.item.published"
+  | "lostfound.item.hidden"
+  | "lostfound.item.unhidden"
+  | "lostfound.item.returned"
+  | "lostfound.item.restored"
+  | "lostfound.item.retagged"
+  | "lostfound.item.deleted"
+  /** Somebody said "that's mine". Anonymous — no session on that route — so
+   *  the actor is null, as `newsletter.subscribed`'s is. The one lost & found
+   *  action that reaches Slack, because it is the one that needs a human; the
+   *  line names no claimant and no item text (invariant 22). */
+  | "lostfound.claim.created"
+  | "lostfound.claim.dismissed"
+  /** A system admin named the group whose roster runs the lost & found. */
+  | "lostfound.staff.configured"
   | "admin.action";
