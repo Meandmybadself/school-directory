@@ -57,7 +57,7 @@ export const PRIVACY_PATH = "/privacy";
  * shape of a dark pattern. Bump it when the WORDS change, not when the Worker
  * redeploys.
  */
-const LAST_UPDATED = "2026-09-24";
+const LAST_UPDATED = "2026-10-02";
 
 function updatedLabel(locale: Locale): string {
   // The day is formatted in the reader's locale but fixed in the school's
@@ -95,6 +95,10 @@ export function renderPrivacy(env: Env, locale: Locale, explicit: boolean): stri
     s.privacyServiceStore,
     s.privacyServiceTranslate,
     s.privacyServiceAdmin,
+    // Workers AI is Cloudflare too, but it is named on its own line: "a model
+    // looks at photos" is a different act from "stores the database", and a
+    // reader deciding whether to trust the lost & found should find it.
+    s.privacyServiceAi,
   ]
     .map((line) => `<li>${escapeHtml(line)}</li>`)
     .join("");
@@ -135,6 +139,7 @@ export function renderPrivacy(env: Env, locale: Locale, explicit: boolean): stri
           ${block(s.privacyBusTitle, s.privacyBusBody)}
           ${block(s.privacyWhoTitle, s.privacyWhoBody)}
           ${block(s.privacyDeleteTitle, s.privacyDeleteBody)}
+          ${block(s.privacyLostFoundTitle, s.privacyLostFoundBody)}
 
           <div class="pv-block">
             <h2>${escapeHtml(t("privacyServicesTitle"))}</h2>

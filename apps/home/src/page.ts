@@ -138,6 +138,17 @@ export async function renderHome(
       more: escapeHtml(t("landingNewsMore")),
       membersOnly: false,
     },
+    // Open to all — browsing and saying "that's mine" need no account — but
+    // not indexed: the item pages are a school's lost property, not something
+    // for a search engine (invariant 33).
+    {
+      title: t("navLostFound"),
+      href: appHref(env.LOSTFOUND_URL, "/", locale),
+      host: hostOf(env.LOSTFOUND_URL),
+      body: t("landingLfBody"),
+      more: escapeHtml(t("landingLfMore")),
+      membersOnly: false,
+    },
     // The store's tile is deliberately ABSENT while the shop is unannounced.
     //
     // The code ships and store.eisenhower.school is live, but nothing on this

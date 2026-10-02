@@ -205,6 +205,7 @@ function sections(env: Env, locale: Locale) {
     [s.faqAddressTitle, s.faqAddressBody],
     [s.faqNeighborsTitle, s.faqNeighborsBody],
     [s.faqUnlistedTitle, s.faqUnlistedBody],
+    [s.faqLostFoundTitle, s.faqLostFoundBody],
   ];
   const notesHtml = `<div class="fq-notes">${notes
     .map(
