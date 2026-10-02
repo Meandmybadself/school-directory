@@ -1,0 +1,3 @@
+# Lost & found is public to browse but not for search engines (invariant 33).
+User-agent: *
+Disallow: /

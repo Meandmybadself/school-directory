@@ -1,5 +1,5 @@
 // The site credit line: whose site this is, where to send feedback, where the
-// code is. Three items, one line, the same three in all five apps and on all
+// code is. Three items, one line, the same three in all six apps and on all
 // four server-rendered public surfaces.
 //
 // Copied into each app rather than imported, like the rest of the design system

@@ -35,6 +35,7 @@ export const PLATFORM_ORIGINS: PlatformOrigins = {
   directory: import.meta.env.VITE_DIRECTORY_URL ?? "http://localhost:5173",
   calendar: import.meta.env.VITE_CALENDAR_URL ?? "http://localhost:5174",
   newsletter: "",
+  lostandfound: import.meta.env.VITE_LOSTFOUND_URL ?? "http://localhost:5179",
   pto: import.meta.env.VITE_PTO_URL ?? "http://localhost:5178",
 };
 

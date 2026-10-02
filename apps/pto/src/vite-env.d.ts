@@ -11,6 +11,7 @@ interface ImportMetaEnv {
   readonly VITE_CALENDAR_URL?: string;
   readonly VITE_NEWSLETTER_URL?: string;
   readonly VITE_PTO_URL?: string;
+  readonly VITE_LOSTFOUND_URL?: string;
   readonly VITE_STORE_URL?: string;
 }
 interface ImportMeta {

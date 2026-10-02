@@ -30,6 +30,7 @@ const PLATFORM_ORIGINS: PlatformOrigins = {
   directory: DIRECTORY_URL,
   calendar: CALENDAR_URL,
   newsletter: NEWSLETTER_URL,
+  lostandfound: "https://lostandfound.eisenhower.school",
   pto: PTO_URL,
 };
 
