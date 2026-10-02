@@ -15,7 +15,7 @@
   },
   "dependencies": {
     "@sd/shared": "workspace:*",
-    "hono": "^4.6.14",
+    "hono": "^4.12.34",
     "ical.js": "^2.2.1"
   },
   "devDependencies": {
