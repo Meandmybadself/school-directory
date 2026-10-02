@@ -16,12 +16,16 @@ import { Screen } from "../components/Screen.js";
 import { Swatch } from "../components/items.js";
 import { Btn } from "../components/atoms.js";
 import { useI18n } from "../i18n/index.js";
+import { useAccess } from "../lib/access.js";
 import { ApiError, api } from "../lib/api.js";
 import { categoryLabel, colorLabel, formatDay } from "../lib/lf.js";
 
 export function Item() {
   const { t } = useI18n();
   const { id = "" } = useParams();
+  // Staff browsing the public site are where a wrong description gets noticed,
+  // so they get a way straight into the editor. Nobody else sees the link.
+  const { access } = useAccess();
   const [item, setItem] = useState<LfPublicItemDTO | null>(null);
   const [state, setState] = useState<"loading" | "ready" | "gone" | "error">("loading");
 
@@ -41,9 +45,16 @@ export function Item() {
   return (
     <Screen active="browse" title={t("navLostFound")} back="/">
       <div className="lf-page">
-        <Link className="sd-link" to="/" style={{ fontSize: 14 }}>
-          ← {t("lfBackToAll")}
-        </Link>
+        <div style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
+          <Link className="sd-link" to="/" style={{ fontSize: 14 }}>
+            ← {t("lfBackToAll")}
+          </Link>
+          {access?.canUse && state === "ready" && (
+            <Link className="sd-link" to={`/staff/item/${encodeURIComponent(id)}`} style={{ fontSize: 14 }}>
+              {t("lfStaffEdit")}
+            </Link>
+          )}
+        </div>
 
         {state === "loading" && (
           <div className="sd-boot" style={{ minHeight: 200 }}>
