@@ -14,8 +14,8 @@ APP_URL = "http://localhost:5173"
 # the allowlist of valid magic-link return targets — same trust boundary.
 # 5173 = directory (apps/web), 5174 = calendar (apps/calendar),
 # 5175 = newsletter (apps/newsletter), 5177 = store (apps/store),
-# 5178 = pto (apps/pto).
-ALLOWED_ORIGINS = "http://localhost:5173,http://localhost:5174,http://localhost:5175,http://localhost:5177,http://localhost:5178"
+# 5178 = pto (apps/pto), 5179 = lost & found (apps/lostandfound).
+ALLOWED_ORIGINS = "http://localhost:5173,http://localhost:5174,http://localhost:5175,http://localhost:5177,http://localhost:5178,http://localhost:5179"
 # Public origin of the newsletter app. Sent emails link here for "view in
 # browser" and unsubscribe, so it must be the reader-facing host, not the API.
 # Public calendar site. Newsletter events blocks link out to it ("See all
@@ -28,6 +28,8 @@ STORE_URL = "http://localhost:5177"
 # Public origin of the PTO site. The front door links here; nothing the API
 # sends by email points at it yet.
 PTO_URL = "http://localhost:5178"
+# Public origin of the lost & found. Nothing the API sends points at it yet.
+LOSTFOUND_URL = "http://localhost:5179"
 # Which Printful store the API key acts on (X-PF-Store-Id). Not a secret, but
 # expected to CHANGE ONCE, when this moves from a personal Printful store to the
 # PTO's — see migration 0022 on why that day is a re-point, not a migration.
@@ -72,6 +74,28 @@ bucket_name = "school-directory-photos"
 [[r2_buckets]]
 binding = "NEWSLETTER_MEDIA"
 bucket_name = "school-directory-newsletter-media"
+
+# R2 for lost & found photos. Public like NEWSLETTER_MEDIA and separate from
+# PHOTOS for the same reason (invariant 33).
+[[r2_buckets]]
+binding = "LOSTFOUND_MEDIA"
+bucket_name = "school-directory-lostfound-media"
+
+# Workers AI: the lost & found vision model and text embeddings. ALWAYS remote,
+# even under `wrangler dev`, so local tagging spends the account's real daily
+# allocation (10k neurons on the free plan; a photo costs ~10-30). Optional in
+# code — with no binding, items stay held for staff to publish (env.ts).
+[ai]
+binding = "AI"
+
+# Semantic search over lost & found descriptions. Create once, by hand, before
+# the first deploy that carries this block:
+#   wrangler vectorize create school-directory-lostfound --dimensions=384 --metric=cosine
+# 384 matches @cf/baai/bge-small-en-v1.5. Vectorize has no local mode; under
+# `wrangler dev` calls fail and search falls back to keywords.
+[[vectorize]]
+binding = "LOSTFOUND_VECTORS"
+index_name = "school-directory-lostfound"
 
 # Cron schedules, dispatched by the `scheduled` handler in src/index.ts:
 #   0 */3 * * *  shared-calendar refresh — re-fetch all ICS feeds every 3 hours
@@ -144,18 +168,20 @@ simple = { limit = 60, period = 60 }
 # Newsletter: https://newsletter.eisenhower.school (Pages, apps/newsletter)
 # Store:      https://store.eisenhower.school      (Pages, apps/store)
 # PTO:        https://pto.eisenhower.school        (Pages, apps/pto)
+# Lost&found: https://lostandfound.eisenhower.school (Pages, apps/lostandfound)
 # API:        https://api-directory.eisenhower.school (this Worker, custom domain below)
-# All five SPAs share this API, its D1, and its session cookie — the cookie is
+# All six SPAs share this API, its D1, and its session cookie — the cookie is
 # host-only to this Worker and same-site across eisenhower.school subdomains.
 # The former host (directory.meandmybadself.com) 301s here via apps/redirect.
 [env.production.vars]
 SCHOOL_NAME = "Eisenhower PTO"
 APP_URL = "https://directory.eisenhower.school"
-ALLOWED_ORIGINS = "https://directory.eisenhower.school,https://calendar.eisenhower.school,https://newsletter.eisenhower.school,https://store.eisenhower.school,https://pto.eisenhower.school"
+ALLOWED_ORIGINS = "https://directory.eisenhower.school,https://calendar.eisenhower.school,https://newsletter.eisenhower.school,https://store.eisenhower.school,https://pto.eisenhower.school,https://lostandfound.eisenhower.school"
 CALENDAR_URL = "https://calendar.eisenhower.school"
 NEWSLETTER_URL = "https://newsletter.eisenhower.school"
 STORE_URL = "https://store.eisenhower.school"
 PTO_URL = "https://pto.eisenhower.school"
+LOSTFOUND_URL = "https://lostandfound.eisenhower.school"
 SCHOOL_TIMEZONE = "America/Chicago"
 NOMINATIM_URL = "https://nominatim.openstreetmap.org/search"
 BOOTSTRAP_ADMIN_EMAILS = "meandmybadself@gmail.com"
@@ -173,6 +199,18 @@ bucket_name = "school-directory-photos"
 [[env.production.r2_buckets]]
 binding = "NEWSLETTER_MEDIA"
 bucket_name = "school-directory-newsletter-media"
+
+[[env.production.r2_buckets]]
+binding = "LOSTFOUND_MEDIA"
+bucket_name = "school-directory-lostfound-media"
+
+# Not inherited from the top level, like every binding here.
+[env.production.ai]
+binding = "AI"
+
+[[env.production.vectorize]]
+binding = "LOSTFOUND_VECTORS"
+index_name = "school-directory-lostfound"
 
 [env.production.triggers]
 crons = ["0 */3 * * *", "0 13 * * *", "*/15 * * * *"]

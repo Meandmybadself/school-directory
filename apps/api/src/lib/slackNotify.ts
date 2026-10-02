@@ -574,6 +574,14 @@ const FORMATTERS = {
     `:rotating_light: Store order \`${esc(entityId ?? "(unknown)")}\` was PAID (${money(
       num(notify, "totalCents"),
     )}) but Printful refused it after ${num(notify, "attempts")} attempts — it needs a person.`,
+
+  // ── Lost & found ─────────────────────────────────────────────────────────
+
+  /** "That's mine." The only lost & found action in this map, because it is
+   *  the only one that needs a person. It names no claimant and no item text —
+   *  the route hands this formatter an empty `notify`, and the item's own words
+   *  may include a child's name (invariant 33). */
+  "lostfound.claim.created": () => `:raising_hand: Someone said "that's mine" on a lost & found item — one to look at.`,
 } satisfies Partial<Record<AuditAction, SlackFormatter>>;
 
 // ── Shared lookups ──────────────────────────────────────────────────────────

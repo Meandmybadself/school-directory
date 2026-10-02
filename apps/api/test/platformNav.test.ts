@@ -1,5 +1,5 @@
 // The platform switcher (packages/shared/src/nav.ts) is ONE list rendered by
-// five copied shells and two server-rendered headers. The list can't drift —
+// six copied shells and two server-rendered headers. The list can't drift —
 // it is imported — but the things around it can, and this pins the two that
 // matter:
 //
@@ -36,11 +36,11 @@ const SHELLS: Record<string, string> = import.meta.glob("../../*/src/components/
   eager: true,
 });
 
-const APPS = ["web", "calendar", "newsletter", "pto", "store"];
+const APPS = ["web", "calendar", "newsletter", "pto", "store", "lostandfound"];
 
 describe("platform switcher", () => {
-  it("lists the four apps, directory first and PTO last, none of them the store", () => {
-    expect(PLATFORM_APPS.map((a) => a.key)).toEqual(["directory", "calendar", "newsletter", "pto"]);
+  it("lists the five apps, directory first and PTO last, none of them the store", () => {
+    expect(PLATFORM_APPS.map((a) => a.key)).toEqual(["directory", "calendar", "newsletter", "lostandfound", "pto"]);
   });
 
   it("names only icons every app's Icon.tsx copy defines", () => {

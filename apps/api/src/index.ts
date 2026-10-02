@@ -38,6 +38,9 @@ import { store } from "./routes/store.js";
 import { storePublic } from "./routes/storePublic.js";
 import { storeWebhooks } from "./routes/storeWebhooks.js";
 import { pto } from "./routes/pto.js";
+import { lostFound } from "./routes/lostFound.js";
+import { lostFoundPublic } from "./routes/lostFoundPublic.js";
+import { getItem as getLfItem, isListed, itemIdOfKey, retagStuck, sweepLostFound } from "./lib/lostFound.js";
 
 const app = new Hono<HonoEnv>();
 
@@ -88,6 +91,8 @@ app.route("/store-webhooks", storeWebhooks);
 // other feature router above: a board has ONE audience and the public seam
 // deliberately does not exist (migration 0024).
 app.route("/pto", pto);
+app.route("/lostfound", lostFound); // staff — system admins + the staff group (invariant 33)
+app.route("/lostfound-public", lostFoundPublic); // browse, search, "that's mine" — no auth by design
 // share-targets is exposed under /shares/targets via the shares router.
 app.route("/", contacts); // /persons/:id/contacts + /contacts/:id
 app.route("/", controllers); // /persons/:id/controllers + /control-invites
@@ -147,6 +152,28 @@ app.get("/newsletter-media/:key", async (c) => {
   obj.writeHttpMetadata(headers);
   headers.set("etag", obj.httpEtag);
   headers.set("cache-control", "public, max-age=31536000, immutable");
+  headers.set("access-control-allow-origin", "*");
+  return new Response(obj.body, { headers });
+});
+
+// Lost & found photos (R2), from a bucket of their own (invariant 33). Served
+// here ONLY while the item is listed — a held photo may show a child's name, a
+// hidden one a face — so the key alone is not an access rule, the same lesson
+// /photos learned (invariant 20). Staff see every photo through
+// /lostfound/media/:key instead. An hour's cache rather than a year's, so that
+// hiding an item takes the photo down within the hour, not whenever a browser
+// gets round to it.
+app.get("/lostfound-media/:key", async (c) => {
+  const key = c.req.param("key");
+  const id = itemIdOfKey(key);
+  const item = id ? await getLfItem(c.env, id) : null;
+  if (!item || !isListed(item)) return c.notFound();
+  const obj = await c.env.LOSTFOUND_MEDIA.get(key);
+  if (!obj) return c.notFound();
+  const headers = new Headers();
+  obj.writeHttpMetadata(headers);
+  headers.set("etag", obj.httpEtag);
+  headers.set("cache-control", "public, max-age=3600");
   headers.set("access-control-allow-origin", "*");
   return new Response(obj.body, { headers });
 });
@@ -218,6 +245,12 @@ const scheduled: ExportedHandlerScheduledHandler<Env> = (event, env, ctx) => {
     // 0022. It rides the daily sweep rather than lib/sweep.ts because it is an
     // UPDATE, and that file is deliberately only DELETEs of growing tables.
     ctx.waitUntil(sweepAbandonedOrders(env));
+    // Lost & found: retention (returned items, settled claims) and a retry of
+    // descriptions that failed — typically yesterday's photos taken after the
+    // Workers AI daily allocation ran out (it resets at 00:00 UTC, well before
+    // this fires). It rides this schedule because there is no slot for its own.
+    ctx.waitUntil(sweepLostFound(env));
+    ctx.waitUntil(retagStuck(env, 40));
     return;
   }
   ctx.waitUntil(refreshAllSources(env));
