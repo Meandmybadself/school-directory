@@ -36,6 +36,7 @@ apps/newsletter     Newsletter SPA (Vite) → newsletter.eisenhower.school. Admi
 apps/store          Store SPA (Vite) → store.eisenhower.school. Cart + admin in the bundle, PLUS Pages Functions serving the PUBLIC, INDEXED storefront. Printful catalog, Stripe checkout. Design system COPIED. Vendor/DNS setup: SETUP.md.
 apps/api            Hono Worker → api-directory.eisenhower.school. Serves ALL FOUR SPAs. Routes in src/routes, logic in src/lib, middleware in src/middleware.
 apps/pto            PTO SPA (Vite) → pto.eisenhower.school. Trello-like planning boards in the bundle (members AND PTO-board only), PLUS Pages Functions serving the PUBLIC, INDEXED explanatory page — who the PTO is, the year, how to help, how to donate. Design system COPIED. Routing: ROUTING.md.
+apps/lostandfound   Lost & found SPA (Vite) → lostandfound.eisenhower.school. PUBLIC browse/search/item/claim screens (open to all, NOT indexed) plus staff screens (roster-gated) in one bundle; no Pages Functions. Design system COPIED. Routing: ROUTING.md. Invariant 33.
 apps/redirect       One-file Worker owning hostnames that exist only to 301 elsewhere: the retired directory.meandmybadself.com (path-preserving, to the live host) and ptomeet.eisenhower.school (a vanity name for the PTO's Google Meet room). Host map in src/index.ts; each host is also a custom_domain route in wrangler.toml.
 apps/api/migrations Ordered D1 SQL migrations (NNNN_name.sql). Never edit an applied migration — add a new one.
 packages/shared     Domain types (types.ts) + i18n dictionaries (i18n.ts). Imported as `@sd/shared`.
@@ -136,23 +137,24 @@ look for a resurrected rule in the `eisenhower.school` zone before debugging the
 Worker. People still arrive here looking for the district's site, which is why
 every rendering carries a link out to it in the header.
 
-## Five front ends, one API
+## Six front ends, one API
 
-All five SPAs are separate Cloudflare Pages projects talking to the single
+All six SPAs are separate Cloudflare Pages projects talking to the single
 `apps/api` Worker, and they share one session:
 
 - The `sd_session` cookie has **no `Domain`** — it's host-only to the API's own
-  hostname. All five SPAs are on `eisenhower.school` subdomains, so a credentialed
+  hostname. All six SPAs are on `eisenhower.school` subdomains, so a credentialed
   `fetch` to the API is same-site and the cookie rides along. Don't "fix" this by
   adding a `Domain` attribute.
 - **Every new front-end origin must be added to `ALLOWED_ORIGINS`** in
   `apps/api/wrangler.toml` (both `[vars]` and `[env.production.vars]`). That one
   list is also the allowlist of valid magic-link `returnTo` targets — same trust
   boundary, deliberately one variable.
-- `apps/calendar`, `apps/newsletter`, `apps/store` and `apps/pto` **copy**
+- `apps/calendar`, `apps/newsletter`, `apps/store`, `apps/pto` and
+  `apps/lostandfound` **copy**
   `tokens.css`, `Icon.tsx`, `atoms.tsx` and the generic half of `parts.tsx` from
   `apps/web` rather than importing them. They're expected to drift. If you change
-  a shared-looking component, decide which of the five copies need it.
+  a shared-looking component, decide which of the six copies need it.
 - **Navigation has two tiers, and only one of them is per-app.** An app's OWN
   screens are its `navItems()` in `AppShell.tsx` — one list, read by both the
   bottom bar and the desktop sidebar; labels are dictionary keys, and the admin
@@ -1781,6 +1783,53 @@ All five SPAs are separate Cloudflare Pages projects talking to the single
    the seed runs AFTER migrations, so the grandfathering has already been and
    gone by the time those rows exist.
 
+33. **Lost & found: the item is public, what is WRITTEN on it is not — and
+   neither is the photo until somebody has looked.** `lostandfound.eisenhower.school`
+   (apps/lostandfound, routes/lostFound*.ts, lib/lostFound.ts, migration 0033)
+   is the one surface here that shows a stranger something nobody signed in to
+   share: staff photograph what turns up at school, a vision model on Workers AI
+   describes it, and anyone may browse and say "that's mine". Four rules make
+   that compatible with `/privacy`'s promise that nothing about a child is public.
+   - **`visible_text` is staff-only.** It is whatever the model read off the item,
+     and on a school water bottle that is a child's name. `publicItemOf` is the
+     only builder of the public shape, field by field, and never reads it;
+     test/lostFound.test.ts pins the key set and that a widened row can't ride
+     through. `scrubNames` then cuts those words from the title, description and
+     tags — the prompt asks for names only in `visible_text`, and asking a model
+     is not a guarantee.
+   - **The public search can't confirm a name.** `search_text` and the Vectorize
+     embedding are built WITHOUT `visible_text` (invariant 18: a search may not
+     match on more than it renders). A public "does any item say Milo?" would be
+     the name oracle invariant 24 forbids.
+   - **Every item starts HELD** (`held_at` set on insert). The model releases it
+     only when it read no writing; writing, a failure, or no AI binding leaves it
+     held until staff tap Publish (`lostfound.item.published`) — after retaking
+     the photo with the label turned away, or deciding the writing is a brand.
+     The PHOTO can show a name no text field does; this is the rule that covers
+     it. The public gate is `LISTED` in lib/lostFound.ts, in SQL: found, not
+     hidden, not held. A staff save never moves the hold — publishing is its own
+     act — and the model's write is guarded on `tag_status = 'pending'`, so staff
+     edits made while it is still thinking win.
+   - **The claim form is anonymous and bounded like newsletter subscribe**
+     (invariant 14): a `website` honeypot, per-contact (3/day), per-item (10
+     open) and instance-wide (50/day) caps counted from `lf_claim` rows, and the
+     SAME `{ ok: true }` for stored, suppressed, capped and unlisted. Claimant
+     details never reach `detail` (audit rows are forever; claims aren't) or
+     Slack — `lostfound.claim.created` is the only curated action, and its line
+     names nothing.
+   Staff are a ROSTER (`lostfound_staff_group_id`, `rosterAccess` — invariant
+   31), never the self-assertable `staff` capability. Photos live in
+   `LOSTFOUND_MEDIA`, a bucket of their own behind a public route, so it can
+   never reach `PHOTOS` (invariant 20). Retention rides the daily cron (no slot
+   for its own — src/index.ts): returned items with photos, vector and claims go
+   after 30 days, settled claims after 60, and failed descriptions are retried.
+   No FTS5: lib/backup.ts discovers tables from `sqlite_master`, and FTS5's
+   shadow tables don't round-trip; a LIKE over `search_text` plus Vectorize is
+   plenty at a school's scale. AI and Vectorize are optional bindings in the
+   absent-means-off sense: without them items stay held and search is keyword-only.
+   **`/privacy` changed first** (its own rule): the lost & found block and the
+   Workers AI line, in all four languages.
+
 ## Conventions
 
 - TypeScript strict everywhere. `verbatimModuleSyntax` is on — use
@@ -1791,7 +1840,7 @@ All five SPAs are separate Cloudflare Pages projects talking to the single
 - Design tokens are CSS variables under the `.sd` scope: `--blue #0068A8`,
   `--orange #FAAB1C`, etc. `apps/web/src/styles/tokens.css` is the source of
   truth (the hi-fi handoff board they were ported from has been deleted), and
-  the other four apps hold copies — see "Five front ends, one API".
+  the other five apps hold copies — see "Six front ends, one API".
 - **Every clock time is 12-hour with AM/PM**, in all six apps, for every
   reader — `CLOCK` / `formatClock` / `formatClockRange` in
   `packages/shared/src/clock.ts`. This is a product decision about an American
@@ -1863,12 +1912,13 @@ All five SPAs are separate Cloudflare Pages projects talking to the single
     pins both.
   Contrast was measured rather than eyeballed; every text pair clears AA. The
   `tokens.css` copies got the same block — they are copies, so a change to one is
-  a decision about all five (see "Five front ends, one API"). The store's copy is
-  the fourth and the PTO's the fifth; neither app's server-rendered public page
-  uses it — each carries its own small token subset in
+  a decision about all six (see "Six front ends, one API"). The store's copy is
+  the fourth, the PTO's the fifth and the lost & found's the sixth (it has no
+  server-rendered pages). Neither the store's nor the PTO's server-rendered
+  public page uses its copy — each carries its own small token subset in
   `functions/_lib/styles.ts`, and each repeats the same `prefers-color-scheme`
   block. With `apps/pto/src/styles/board.css`, which adds the six label colours
-  on the same inversion rule, that makes EIGHT places a colour decision lands.
+  on the same inversion rule, that makes NINE places a colour decision lands.
 - **The mobile shell's layout has one rule you can't skip.** `.sd-app` is
   exactly `100dvh`, so an
   `AppShell` screen must put its scrolling content inside a `.sd-scroll` child —
@@ -1877,7 +1927,7 @@ All five SPAs are separate Cloudflare Pages projects talking to the single
   bottom nav stays pinned only because the column can't outgrow the viewport.
   **The corollary is that an overlay may not live inside that scroller**, which
   is why `SheetOver` portals every bottom sheet to a `#sd-sheet-host` div on
-  `<body>` (all five copies). A `position: fixed` child of `.sd-scroll` is laid
+  `<body>` (all six copies). A `position: fixed` child of `.sd-scroll` is laid
   out and clipped against the SCROLLER on iOS Safari rather than the viewport,
   so the scrim stopped at the app bar and a tall sheet's last row — the button
   that takes a volunteer spot — was cut off behind the bottom nav. Desktop
@@ -1894,7 +1944,7 @@ cp apps/api/.dev.vars.example apps/api/.dev.vars
 pnpm db:migrate:local && pnpm db:seed:local
 pnpm dev          # every app in apps/* that has a dev script, in parallel:
                   # web :5173, calendar :5174, newsletter :5175, home :5176,
-                  # store :5177, pto :5178, api :8787
+                  # store :5177, pto :5178, lostandfound :5179, api :8787
 pnpm dev:home     # just the apex landing page (wrangler dev) on :5176
 ```
 
@@ -1944,9 +1994,9 @@ Create `apps/api/migrations/NNNN_description.sql` (next number). Update
   ship rather than racing it — but a migration that typechecks and still ruins
   the data is not something that gate can catch. A migration is the one change
   worth re-reading before merge.
-- The Worker deploys (`api`, `redirect`, `home`) and the five Pages projects
+- The Worker deploys (`api`, `redirect`, `home`) and the six Pages projects
   (`school-directory`, `school-calendar`, `school-newsletter`, `school-store`,
-  `school-pto`) all ship from that one workflow. A new front end means a step
+  `school-pto`, `school-lostandfound`) all ship from that one workflow. A new front end means a step
   there, an origin in `ALLOWED_ORIGINS`, a line in the root `build` script (CI's
   `verify` job runs it, so an app missing from it is never built before it
   ships), and a Pages project plus custom domain attached BY HAND — CI deploys
