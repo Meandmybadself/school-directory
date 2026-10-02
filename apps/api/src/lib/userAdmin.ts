@@ -210,6 +210,8 @@ export function userDeletionStmts(
     ["pto_board", "created_by"],
     ["pto_card", "created_by"],
     ["pto_card_assignee", "assigned_by"],
+    // Who photographed a found item. The item outlives the staff member.
+    ["lf_item", "created_by"],
     // Which admin approved somebody's directory access (migration 0029).
     // Attribution on a surviving record — the approval itself is a date on the
     // approved account and is unaffected by the reviewer leaving.

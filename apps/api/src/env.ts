@@ -8,6 +8,21 @@ export interface Env {
    *  with no private data co-resident cannot leak a member's profile photo
    *  through a forgotten prefix check. */
   NEWSLETTER_MEDIA: R2Bucket;
+  /** Lost & found photos (invariant 33). Public for the same reason
+   *  NEWSLETTER_MEDIA is, and separate from PHOTOS for the same reason too:
+   *  a public route over a bucket with no member photos in it cannot leak one. */
+  LOSTFOUND_MEDIA: R2Bucket;
+  /** Workers AI — the lost & found vision model and its embeddings. Optional
+   *  in the absent-means-off sense: with no binding, every item stays HELD for
+   *  staff to describe and publish by hand, and search is keyword-only. That keeps `vitest` and a bare `wrangler dev` binding-free. */
+  AI?: Ai;
+  /** Semantic index over lost & found descriptions (384-dim, bge-small).
+   *  Optional, same contract as AI. Holds only LISTED items (found, not
+   *  hidden, not held); any other item's vector is deleted. */
+  LOSTFOUND_VECTORS?: VectorizeIndex;
+  /** Override the vision model (any Workers AI model that accepts an image and
+   *  supports JSON mode). Unset → `LF_VISION_MODEL` in lib/lostFound.ts. */
+  LOSTFOUND_VISION_MODEL?: string;
   // vars
   SCHOOL_NAME: string;
   APP_URL: string;
@@ -24,6 +39,9 @@ export interface Env {
   /** Public origin of the PTO site. Nothing this API sends by email points at
    *  it yet — it is here so the origin has one home, beside its siblings. */
   PTO_URL?: string;
+  /** Public origin of the lost & found. Like PTO_URL, nothing the API sends
+   *  points at it yet; it lives here beside its siblings. */
+  LOSTFOUND_URL?: string;
   /** The school's IANA zone. Everything server-side reads timed events in it
    *  (email, public archive, Slack, unzoned feed times). Always read through
    *  `resolveTimeZone`, which falls back to America/Chicago. */
