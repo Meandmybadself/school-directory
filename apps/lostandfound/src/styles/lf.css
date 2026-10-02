@@ -1,0 +1,74 @@
+/* Lost & found screens. Built on the copied tokens in tokens.css — every colour
+   here is a token, so dark mode (prefers-color-scheme, see CLAUDE.md) comes for
+   free. The only literal colours in this app are the item swatches in
+   lib/lf.ts, which are DATA: a red jacket is red in both themes. */
+
+.lf-page { padding: 16px 16px 32px; display: flex; flex-direction: column; gap: 14px; }
+.lf-narrow { max-width: 620px; }
+
+.lf-search { display: flex; gap: 8px; }
+.lf-search input { font-size: 16px; } /* 16px stops iOS zooming on focus */
+
+.lf-filters { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.lf-filters select { width: auto; }
+
+.lf-chip {
+  display: inline-flex; align-items: center; gap: 6px; padding: 6px 11px; border-radius: 999px;
+  border: 1px solid var(--line); background: var(--paper); color: var(--ink-2); cursor: pointer;
+  font: inherit; font-size: 13px; font-weight: 600;
+}
+.lf-chip[aria-pressed="true"] { border-color: var(--blue); background: var(--blue-tint); color: var(--ink); }
+.lf-chip:focus-visible, .lf-card:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; }
+
+.lf-swatch {
+  width: 14px; height: 14px; border-radius: 50%; display: inline-block; flex: 0 0 auto;
+  border: 1px solid var(--line-2);
+}
+
+.lf-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 12px; }
+.lf-card {
+  display: flex; flex-direction: column; overflow: hidden; text-decoration: none; color: inherit;
+  background: var(--paper); border: 1px solid var(--line); border-radius: var(--r-card);
+}
+.lf-card:hover { border-color: var(--blue); }
+.lf-card img { width: 100%; aspect-ratio: 1; object-fit: cover; background: var(--bg-2); display: block; }
+.lf-card-body { padding: 9px 11px 11px; display: flex; flex-direction: column; gap: 5px; }
+.lf-card-title { font-weight: 700; font-size: 14px; line-height: 1.25; }
+.lf-card-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; font-size: 12px; color: var(--ink-3); }
+
+.lf-empty { grid-column: 1 / -1; text-align: center; padding: 40px 12px; color: var(--ink-3); }
+
+.lf-detail { display: grid; gap: 18px; grid-template-columns: minmax(0, 1fr); }
+@media (min-width: 860px) { .lf-detail { grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); } }
+.lf-photo {
+  width: 100%; max-height: 70vh; object-fit: contain; border-radius: var(--r-card);
+  background: var(--bg-2); display: block;
+}
+.lf-facts { display: grid; grid-template-columns: max-content 1fr; gap: 6px 14px; margin: 0; font-size: 14.5px; }
+.lf-facts dt { color: var(--ink-3); }
+.lf-facts dd { margin: 0; }
+.lf-tags { display: flex; flex-wrap: wrap; gap: 6px; }
+
+.lf-honeypot { position: absolute; left: -10000px; width: 1px; height: 1px; overflow: hidden; }
+
+.lf-notice { border-radius: 12px; padding: 11px 14px; background: var(--blue-tint); font-size: 14px; }
+.lf-notice.warn { background: var(--orange-tint); color: var(--orange-ink); }
+
+.lf-queue { display: flex; flex-direction: column; gap: 8px; }
+.lf-queue-row {
+  display: grid; grid-template-columns: 56px 1fr auto; gap: 12px; align-items: center;
+  padding: 8px; border: 1px solid var(--line); border-radius: 12px; background: var(--paper);
+}
+.lf-queue-row img { width: 56px; height: 56px; object-fit: cover; border-radius: 8px; background: var(--bg-2); }
+
+.lf-drop {
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px;
+  padding: 34px 16px; border: 2px dashed var(--line-2); border-radius: var(--r-card);
+  background: var(--paper); cursor: pointer; text-align: center;
+}
+.lf-drop:hover, .lf-drop:focus-within { border-color: var(--blue); }
+
+.lf-claim { display: grid; grid-template-columns: 64px 1fr; gap: 12px; align-items: start; }
+.lf-claim img { width: 64px; height: 64px; object-fit: cover; border-radius: 10px; background: var(--bg-2); }
+
+.lf-actions { display: flex; flex-wrap: wrap; gap: 8px; }

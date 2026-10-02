@@ -94,6 +94,7 @@ jobs:
           VITE_CALENDAR_URL: https://calendar.eisenhower.school
           VITE_NEWSLETTER_URL: https://newsletter.eisenhower.school
           VITE_PTO_URL: https://pto.eisenhower.school
+          VITE_LOSTFOUND_URL: https://lostandfound.eisenhower.school
         run: |
           pnpm build
           pnpm exec wrangler pages deploy dist --project-name school-directory --branch main
@@ -106,6 +107,7 @@ jobs:
           VITE_DIRECTORY_URL: https://directory.eisenhower.school
           VITE_NEWSLETTER_URL: https://newsletter.eisenhower.school
           VITE_PTO_URL: https://pto.eisenhower.school
+          VITE_LOSTFOUND_URL: https://lostandfound.eisenhower.school
           # The school's zone — must match SCHOOL_TIMEZONE in apps/api/wrangler.toml.
           VITE_SCHOOL_TIMEZONE: America/Chicago
         run: |
@@ -124,6 +126,7 @@ jobs:
           VITE_DIRECTORY_URL: https://directory.eisenhower.school
           VITE_CALENDAR_URL: https://calendar.eisenhower.school
           VITE_PTO_URL: https://pto.eisenhower.school
+          VITE_LOSTFOUND_URL: https://lostandfound.eisenhower.school
         run: |
           pnpm build
           pnpm exec wrangler pages deploy --branch main
@@ -141,6 +144,7 @@ jobs:
           VITE_CALENDAR_URL: https://calendar.eisenhower.school
           VITE_NEWSLETTER_URL: https://newsletter.eisenhower.school
           VITE_PTO_URL: https://pto.eisenhower.school
+          VITE_LOSTFOUND_URL: https://lostandfound.eisenhower.school
         run: |
           pnpm build
           pnpm exec wrangler pages deploy --branch main
@@ -162,6 +166,30 @@ jobs:
           VITE_CALENDAR_URL: https://calendar.eisenhower.school
           VITE_NEWSLETTER_URL: https://newsletter.eisenhower.school
           VITE_STORE_URL: https://store.eisenhower.school
+          VITE_LOSTFOUND_URL: https://lostandfound.eisenhower.school
         run: |
           pnpm build
           pnpm exec wrangler pages deploy --branch main
+
+      # The sixth front end. Pure static, like web and calendar: the public
+      # browse page is IN the bundle rather than a Function, because it is
+      # noindex by design (invariant 33) and so gains nothing from server
+      # rendering. Named on the command line for that reason.
+      #
+      # The Pages project (`school-lostandfound`) and the
+      # lostandfound.eisenhower.school custom domain are created by hand once —
+      # CI deploys to them, it does not provision them.
+      - name: Build & deploy lost & found (Pages)
+        if: steps.guard.outputs.enabled == 'true'
+        working-directory: apps/lostandfound
+        env:
+          VITE_API_URL: https://api-directory.eisenhower.school
+          # The school's zone — must match SCHOOL_TIMEZONE in apps/api/wrangler.toml.
+          VITE_SCHOOL_TIMEZONE: America/Chicago
+          VITE_DIRECTORY_URL: https://directory.eisenhower.school
+          VITE_CALENDAR_URL: https://calendar.eisenhower.school
+          VITE_NEWSLETTER_URL: https://newsletter.eisenhower.school
+          VITE_PTO_URL: https://pto.eisenhower.school
+        run: |
+          pnpm build
+          pnpm exec wrangler pages deploy dist --project-name school-lostandfound --branch main
