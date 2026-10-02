@@ -775,6 +775,8 @@ export interface Strings {
   lfClaimError: string;
   lfClaimPrivacy: string;
   lfStaffSignIn: string;
+  /** On the public item page, for signed-in staff only: straight to the editor. */
+  lfStaffEdit: string;
   lfNoAccessTitle: string;
   lfNoAccessBody: string;
   lfNoAccessNote: string;
@@ -1566,6 +1568,7 @@ const en: Strings = {
   lfClaimThanksBody: "The office has your note and will be in touch. You can also pick it up from the lost and found.",
   lfClaimError: "That didn't send. Check your name and contact, then try again.",
   lfClaimPrivacy: "Only school staff see your name and contact.",
+  lfStaffEdit: "Edit this item",
   lfStaffSignIn: "Staff sign-in",
   lfNoAccessTitle: "This part is for school staff",
   lfNoAccessBody: "Adding found items and handling claims is for the staff who run the lost and found. Browsing is open to everyone.",
@@ -2302,6 +2305,7 @@ const es: Strings = {
   lfClaimThanksBody: "La oficina recibió tu mensaje y se pondrá en contacto contigo. También puedes recogerlo en objetos perdidos.",
   lfClaimError: "No se pudo enviar. Revisa tu nombre y tu contacto e inténtalo de nuevo.",
   lfClaimPrivacy: "Solo el personal de la escuela ve tu nombre y tu contacto.",
+  lfStaffEdit: "Editar este objeto",
   lfStaffSignIn: "Acceso para el personal",
   lfNoAccessTitle: "Esta parte es para el personal de la escuela",
   lfNoAccessBody: "Agregar objetos encontrados y atender reclamos le corresponde al personal que administra objetos perdidos. Cualquiera puede explorar.",
@@ -3002,6 +3006,7 @@ const zh: Strings = {
   lfClaimThanksBody: "办公室已收到你的留言，会与你联系。你也可以直接到失物招领处领取。",
   lfClaimError: "发送失败。请检查姓名和联系方式后重试。",
   lfClaimPrivacy: "只有学校工作人员能看到你的姓名和联系方式。",
+  lfStaffEdit: "编辑此物品",
   lfStaffSignIn: "工作人员登录",
   lfNoAccessTitle: "这部分仅供学校工作人员使用",
   lfNoAccessBody: "添加招领物品和处理认领由负责失物招领的工作人员进行。任何人都可以浏览。",
@@ -3796,6 +3801,7 @@ const so: Strings = {
   lfClaimThanksBody: "Xafiisku wuu helay fariintaada, wayna kula soo xiriiri doonaan. Sidoo kale waxaad ka qaadan kartaa meesha alaabta lumay.",
   lfClaimError: "Lama dirin. Hubi magacaaga iyo xiriirkaaga, kadibna mar kale isku day.",
   lfClaimPrivacy: "Shaqaalaha dugsiga oo keliya ayaa arka magacaaga iyo xiriirkaaga.",
+  lfStaffEdit: "Wax ka beddel shaygan",
   lfStaffSignIn: "Gelitaanka shaqaalaha",
   lfNoAccessTitle: "Qaybtan waxaa iska leh shaqaalaha dugsiga",
   lfNoAccessBody: "Ku darista alaabta la helay iyo maaraynta codsiyada waxaa qabta shaqaalaha maamula alaabta lumay. Qof kasta wuu daawan karaa.",
