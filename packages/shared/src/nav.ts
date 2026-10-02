@@ -15,13 +15,13 @@
 import type { Strings } from "./i18n.js";
 import type { Locale } from "./types.js";
 
-export type PlatformAppKey = "directory" | "calendar" | "newsletter" | "pto";
+export type PlatformAppKey = "directory" | "calendar" | "newsletter" | "lostandfound" | "pto";
 
 /** The icon each app is drawn with — the same one its own sidebar brand mark
  *  uses, so the switcher and the mark agree. Named here as strings because the
- *  `IconName` union lives in each app's copied `Icon.tsx`; all four exist in
+ *  `IconName` union lives in each app's copied `Icon.tsx`; all five exist in
  *  every copy, and `test/nav.test.ts` in apps/api checks that stays true. */
-export type PlatformAppIcon = "school" | "calendar" | "mail" | "table";
+export type PlatformAppIcon = "school" | "calendar" | "mail" | "box" | "table";
 
 export interface PlatformApp {
   key: PlatformAppKey;
@@ -40,13 +40,16 @@ export interface PlatformApp {
 }
 
 /** In this order everywhere: the directory is the identity core the others grew
- *  on, and the PTO — the one that needs no account — closes the list. The store
+ *  on, and the PTO — the one that needs no account — closes the list. Lost &
+ *  found sits just before it: it needs no account to browse either, and it is
+ *  a school service rather than the PTO's own. The store
  *  is deliberately absent while the shop is unannounced; see the comment in
  *  apps/home's `page.ts`, and restore it in ONE place when the time comes. */
 export const PLATFORM_APPS: readonly PlatformApp[] = [
   { key: "directory", icon: "school", label: "navDir", path: "/", publicPath: "/" },
   { key: "calendar", icon: "calendar", label: "navCalendar", path: "/", publicPath: "/" },
   { key: "newsletter", icon: "mail", label: "navNewsletter", path: "/app", publicPath: "/" },
+  { key: "lostandfound", icon: "box", label: "navLostFound", path: "/", publicPath: "/" },
   { key: "pto", icon: "table", label: "navPto", path: "/", publicPath: "/" },
 ];
 

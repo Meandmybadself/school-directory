@@ -522,6 +522,14 @@ export interface Strings {
   privacyServiceStore: string;
   privacyServiceTranslate: string;
   privacyServiceAdmin: string;
+  privacyServiceAi: string;
+  privacyLostFoundTitle: string;
+  privacyLostFoundBody: string;
+  /** The front door's lost & found tile (title is `navLostFound`). */
+  landingLfBody: string;
+  landingLfMore: string;
+  faqLostFoundTitle: string;
+  faqLostFoundBody: string;
   privacyNeverTitle: string;
   privacyNeverBody: string;
   privacyContactTitle: string;
@@ -718,6 +726,89 @@ export interface Strings {
   /** The PTO's tile on the front door (apps/home). */
   landingPtoBody: string;
   landingPtoMore: string;
+  /** Lost & found (apps/lostandfound): the public browse and claim screens,
+   *  the platform switcher's label and the staff no-access card. The staff
+   *  screens themselves are English-only authoring chrome, like the PTO
+   *  boards'. `lfCat*` / `lfColor*` are display names for the fixed
+   *  LF_CATEGORIES / LF_COLORS values. */
+  navLostFound: string;
+  brandSubLostFound: string;
+  lfNavBrowse: string;
+  lfNavStaff: string;
+  lfBrowseTitle: string;
+  lfBrowseLead: string;
+  lfSearchPlaceholder: string;
+  lfSearchLabel: string;
+  lfAllCategories: string;
+  lfCategoryLabel: string;
+  lfColorLabel: string;
+  lfBestMatches: string;
+  lfNoMatches: string;
+  lfEmpty: string;
+  lfShowMore: string;
+  lfDescribing: string;
+  lfFoundToday: string;
+  lfFoundYesterday: string;
+  lfFoundDaysAgo: string;
+  lfLoadError: string;
+  lfItemGone: string;
+  lfBackToAll: string;
+  lfFactCategory: string;
+  lfFactColors: string;
+  lfFactBrand: string;
+  lfFactMaterial: string;
+  lfFactWhere: string;
+  lfFactFound: string;
+  lfAutoDescribed: string;
+  lfPendingNote: string;
+  lfClaimTitle: string;
+  lfClaimLead: string;
+  lfClaimCta: string;
+  lfClaimName: string;
+  lfClaimContact: string;
+  lfClaimMessage: string;
+  lfClaimMessageHint: string;
+  lfClaimSend: string;
+  lfClaimSending: string;
+  lfClaimThanksTitle: string;
+  lfClaimThanksBody: string;
+  lfClaimError: string;
+  lfClaimPrivacy: string;
+  lfStaffSignIn: string;
+  lfNoAccessTitle: string;
+  lfNoAccessBody: string;
+  lfNoAccessNote: string;
+  lfCatWaterBottle: string;
+  lfCatLunchBox: string;
+  lfCatJacket: string;
+  lfCatSweatshirt: string;
+  lfCatClothing: string;
+  lfCatWinterWear: string;
+  lfCatShoes: string;
+  lfCatBag: string;
+  lfCatElectronics: string;
+  lfCatGlasses: string;
+  lfCatJewelry: string;
+  lfCatToy: string;
+  lfCatSchoolSupplies: string;
+  lfCatSports: string;
+  lfCatOther: string;
+  lfColorBlack: string;
+  lfColorWhite: string;
+  lfColorGray: string;
+  lfColorSilver: string;
+  lfColorRed: string;
+  lfColorPink: string;
+  lfColorOrange: string;
+  lfColorYellow: string;
+  lfColorGold: string;
+  lfColorGreen: string;
+  lfColorBlue: string;
+  lfColorNavy: string;
+  lfColorPurple: string;
+  lfColorBrown: string;
+  lfColorTan: string;
+  lfColorMulticolor: string;
 }
 
 const en: Strings = {
@@ -1216,6 +1307,20 @@ const en: Strings = {
     "Google Translate — offered on newsletter pages that are already public. Nothing members-only is ever sent to it.",
   privacyServiceAdmin:
     "Slack — a private channel the site's administrator uses receives a notice, including the email address, when someone new signs up.",
+  privacyServiceAi:
+    "Cloudflare Workers AI — describes lost & found photos so they can be searched. Only those photos are sent to it, never anything from the directory.",
+  privacyLostFoundTitle:
+    "Lost & found",
+  privacyLostFoundBody:
+    "The lost & found is the one part of this site that is public by design: staff photograph items turned in at school, and anyone can browse them. Writing on an item — often a child's name — is shown only to staff, never on the public page or in its search, and an item with writing on it stays hidden until a staff member has checked the photo. If you say an item is yours, the name, contact and note you type are seen only by staff, and are deleted 60 days after your request is settled. A returned item and its photo are deleted after 30 days.",
+  landingLfBody:
+    "Everything turned in at school, with a photo. Search for what's missing and tell the office it's yours.",
+  landingLfMore:
+    "No account needed.",
+  faqLostFoundTitle:
+    "Lost something at school?",
+  faqLostFoundBody:
+    "Staff photograph what's turned in and post it on the lost & found site. Anyone can look, and you can tell the office an item is yours without an account. Names written on items are never shown publicly.",
   privacyNeverTitle: "What we don't do",
   privacyNeverBody:
     "We do not sell or share this information, we run no advertising, and there are no tracking or analytics scripts on any page of this site. Nobody is profiled and nothing is sent to a data broker.",
@@ -1415,6 +1520,87 @@ const en: Strings = {
     "Who the PTO is, what it runs across the year, and how to lend an hour or give.",
   landingPtoMore:
     "Every family is already a member. Nothing to join, no account needed.",
+  // Lost & found (apps/lostandfound). Category and colour names translate the
+  // fixed vocabularies LF_CATEGORIES / LF_COLORS for display only — the stored
+  // value stays English, since it is what the model and the filters speak.
+  navLostFound: "Lost & Found",
+  brandSubLostFound: "Lost & Found",
+  lfNavBrowse: "Browse",
+  lfNavStaff: "Staff",
+  lfBrowseTitle: "Lost something?",
+  lfBrowseLead: "Everything turned in at school, with a photo. Found yours? Open it and tap “That's mine!”",
+  lfSearchPlaceholder: "Try “blue water bottle” or “dinosaur hoodie”",
+  lfSearchLabel: "Search found items",
+  lfAllCategories: "All categories",
+  lfCategoryLabel: "Category",
+  lfColorLabel: "Color",
+  lfBestMatches: "Best matches for “{q}”",
+  lfNoMatches: "No matches. Try fewer words, or clear a filter.",
+  lfEmpty: "Nothing here right now.",
+  lfShowMore: "Show more",
+  lfDescribing: "Being described…",
+  lfFoundToday: "Found today",
+  lfFoundYesterday: "Found yesterday",
+  lfFoundDaysAgo: "Found {n} days ago",
+  lfLoadError: "Couldn't load items. Check your connection and try again.",
+  lfItemGone: "This item isn't listed any more. It may already be back with its owner.",
+  lfBackToAll: "All items",
+  lfFactCategory: "Category",
+  lfFactColors: "Colors",
+  lfFactBrand: "Brand",
+  lfFactMaterial: "Material",
+  lfFactWhere: "Where it was found",
+  lfFactFound: "Found on",
+  lfAutoDescribed: "Described automatically from the photo.",
+  lfPendingNote: "We're still writing a description for this item.",
+  lfClaimTitle: "Is this yours?",
+  lfClaimLead: "Tell the office and they'll set it aside for you.",
+  lfClaimCta: "That's mine!",
+  lfClaimName: "Your name",
+  lfClaimContact: "Email or phone",
+  lfClaimMessage: "How do you know it's yours? (optional)",
+  lfClaimMessageHint: "For example: a dent on the bottom, or a sticker",
+  lfClaimSend: "Send to the office",
+  lfClaimSending: "Sending…",
+  lfClaimThanksTitle: "Thank you!",
+  lfClaimThanksBody: "The office has your note and will be in touch. You can also pick it up from the lost and found.",
+  lfClaimError: "That didn't send. Check your name and contact, then try again.",
+  lfClaimPrivacy: "Only school staff see your name and contact.",
+  lfStaffSignIn: "Staff sign-in",
+  lfNoAccessTitle: "This part is for school staff",
+  lfNoAccessBody: "Adding found items and handling claims is for the staff who run the lost and found. Browsing is open to everyone.",
+  lfNoAccessNote: "If you help with the lost and found and can't get in, ask the school office.",
+  lfCatWaterBottle: "Water bottle",
+  lfCatLunchBox: "Lunch box",
+  lfCatJacket: "Jacket or coat",
+  lfCatSweatshirt: "Sweatshirt or hoodie",
+  lfCatClothing: "Clothing (other)",
+  lfCatWinterWear: "Hat, gloves, or scarf",
+  lfCatShoes: "Shoes or boots",
+  lfCatBag: "Backpack or bag",
+  lfCatElectronics: "Electronics",
+  lfCatGlasses: "Glasses",
+  lfCatJewelry: "Jewelry or accessory",
+  lfCatToy: "Toy",
+  lfCatSchoolSupplies: "Book or school supplies",
+  lfCatSports: "Sports equipment",
+  lfCatOther: "Other",
+  lfColorBlack: "black",
+  lfColorWhite: "white",
+  lfColorGray: "gray",
+  lfColorSilver: "silver",
+  lfColorRed: "red",
+  lfColorPink: "pink",
+  lfColorOrange: "orange",
+  lfColorYellow: "yellow",
+  lfColorGold: "gold",
+  lfColorGreen: "green",
+  lfColorBlue: "blue",
+  lfColorNavy: "navy",
+  lfColorPurple: "purple",
+  lfColorBrown: "brown",
+  lfColorTan: "tan",
+  lfColorMulticolor: "multicolor",
 };
 
 const es: Strings = {
@@ -1857,6 +2043,20 @@ const es: Strings = {
     "Google Traductor: se ofrece en páginas del boletín que ya son públicas. Nunca se le envía nada que sea solo para miembros.",
   privacyServiceAdmin:
     "Slack: un canal privado que usa el administrador del sitio recibe un aviso, con la dirección de correo, cuando alguien nuevo se registra.",
+  privacyServiceAi:
+    "Cloudflare Workers AI: describe las fotos de objetos perdidos para que se puedan buscar. Solo recibe esas fotos, nunca nada del directorio.",
+  privacyLostFoundTitle:
+    "Objetos perdidos",
+  privacyLostFoundBody:
+    "Objetos perdidos es la única parte de este sitio que es pública a propósito: el personal fotografía los objetos que se entregan en la escuela y cualquiera puede verlos. Lo que esté escrito en un objeto —a menudo el nombre de un niño o una niña— solo lo ve el personal; nunca aparece en la página pública ni en su búsqueda, y un objeto con algo escrito queda oculto hasta que alguien del personal revisa la foto. Si dice que un objeto es suyo, el nombre, el contacto y la nota que escriba solo los ve el personal, y se borran 60 días después de resolverse su solicitud. Un objeto devuelto y su foto se borran a los 30 días.",
+  landingLfBody:
+    "Todo lo que se entrega en la escuela, con foto. Busque lo que le falta y avise a la oficina de que es suyo.",
+  landingLfMore:
+    "No hace falta cuenta.",
+  faqLostFoundTitle:
+    "¿Perdió algo en la escuela?",
+  faqLostFoundBody:
+    "El personal fotografía lo que se entrega y lo publica en el sitio de objetos perdidos. Cualquiera puede mirar, y puede avisar a la oficina de que un objeto es suyo sin tener cuenta. Los nombres escritos en los objetos nunca se muestran en público.",
   privacyNeverTitle: "Lo que no hacemos",
   privacyNeverBody:
     "No vendemos ni compartimos esta información, no mostramos publicidad y no hay scripts de rastreo ni de analítica en ninguna página de este sitio. No se crean perfiles de nadie y no se envía nada a intermediarios de datos.",
@@ -2056,6 +2256,87 @@ const es: Strings = {
     "Quién es la PTO, qué organiza a lo largo del año, y cómo prestar una hora o donar.",
   landingPtoMore:
     "Cada familia ya es miembro. Nada que firmar, no hace falta cuenta.",
+  // Lost & found (apps/lostandfound). Category and colour names translate the
+  // fixed vocabularies LF_CATEGORIES / LF_COLORS for display only — the stored
+  // value stays English, since it is what the model and the filters speak.
+  navLostFound: "Objetos perdidos",
+  brandSubLostFound: "Objetos perdidos",
+  lfNavBrowse: "Explorar",
+  lfNavStaff: "Personal",
+  lfBrowseTitle: "¿Perdiste algo?",
+  lfBrowseLead: "Todo lo que se ha entregado en la escuela, con foto. ¿Encontraste lo tuyo? Ábrelo y toca «¡Es mío!».",
+  lfSearchPlaceholder: "Prueba «botella de agua azul» o «sudadera de dinosaurio»",
+  lfSearchLabel: "Buscar objetos encontrados",
+  lfAllCategories: "Todas las categorías",
+  lfCategoryLabel: "Categoría",
+  lfColorLabel: "Color",
+  lfBestMatches: "Mejores resultados para «{q}»",
+  lfNoMatches: "Sin resultados. Prueba con menos palabras o quita un filtro.",
+  lfEmpty: "No hay nada por ahora.",
+  lfShowMore: "Ver más",
+  lfDescribing: "Describiendo…",
+  lfFoundToday: "Encontrado hoy",
+  lfFoundYesterday: "Encontrado ayer",
+  lfFoundDaysAgo: "Encontrado hace {n} días",
+  lfLoadError: "No se pudieron cargar los objetos. Revisa tu conexión e inténtalo de nuevo.",
+  lfItemGone: "Este objeto ya no está en la lista. Puede que ya haya vuelto con su dueño.",
+  lfBackToAll: "Todos los objetos",
+  lfFactCategory: "Categoría",
+  lfFactColors: "Colores",
+  lfFactBrand: "Marca",
+  lfFactMaterial: "Material",
+  lfFactWhere: "Dónde se encontró",
+  lfFactFound: "Fecha",
+  lfAutoDescribed: "Descripción generada automáticamente a partir de la foto (en inglés).",
+  lfPendingNote: "Todavía estamos escribiendo la descripción de este objeto.",
+  lfClaimTitle: "¿Es tuyo?",
+  lfClaimLead: "Avísale a la oficina y te lo guardarán.",
+  lfClaimCta: "¡Es mío!",
+  lfClaimName: "Tu nombre",
+  lfClaimContact: "Correo electrónico o teléfono",
+  lfClaimMessage: "¿Cómo sabes que es tuyo? (opcional)",
+  lfClaimMessageHint: "Por ejemplo: una abolladura abajo o una calcomanía",
+  lfClaimSend: "Enviar a la oficina",
+  lfClaimSending: "Enviando…",
+  lfClaimThanksTitle: "¡Gracias!",
+  lfClaimThanksBody: "La oficina recibió tu mensaje y se pondrá en contacto contigo. También puedes recogerlo en objetos perdidos.",
+  lfClaimError: "No se pudo enviar. Revisa tu nombre y tu contacto e inténtalo de nuevo.",
+  lfClaimPrivacy: "Solo el personal de la escuela ve tu nombre y tu contacto.",
+  lfStaffSignIn: "Acceso para el personal",
+  lfNoAccessTitle: "Esta parte es para el personal de la escuela",
+  lfNoAccessBody: "Agregar objetos encontrados y atender reclamos le corresponde al personal que administra objetos perdidos. Cualquiera puede explorar.",
+  lfNoAccessNote: "Si ayudas con objetos perdidos y no puedes entrar, pregunta en la oficina de la escuela.",
+  lfCatWaterBottle: "Botella de agua",
+  lfCatLunchBox: "Lonchera",
+  lfCatJacket: "Chaqueta o abrigo",
+  lfCatSweatshirt: "Sudadera",
+  lfCatClothing: "Ropa (otra)",
+  lfCatWinterWear: "Gorro, guantes o bufanda",
+  lfCatShoes: "Zapatos o botas",
+  lfCatBag: "Mochila o bolsa",
+  lfCatElectronics: "Electrónicos",
+  lfCatGlasses: "Lentes",
+  lfCatJewelry: "Joyería o accesorio",
+  lfCatToy: "Juguete",
+  lfCatSchoolSupplies: "Libro o útiles escolares",
+  lfCatSports: "Equipo deportivo",
+  lfCatOther: "Otro",
+  lfColorBlack: "negro",
+  lfColorWhite: "blanco",
+  lfColorGray: "gris",
+  lfColorSilver: "plateado",
+  lfColorRed: "rojo",
+  lfColorPink: "rosado",
+  lfColorOrange: "anaranjado",
+  lfColorYellow: "amarillo",
+  lfColorGold: "dorado",
+  lfColorGreen: "verde",
+  lfColorBlue: "azul",
+  lfColorNavy: "azul marino",
+  lfColorPurple: "morado",
+  lfColorBrown: "café",
+  lfColorTan: "beige",
+  lfColorMulticolor: "multicolor",
 };
 
 const zh: Strings = {
@@ -2472,6 +2753,20 @@ const zh: Strings = {
     "Stripe 与 Printful——仅当您在商店购物时，且仅限您结账时填写的姓名和收货地址。订单绝不会与通讯录档案关联。",
   privacyServiceTranslate: "Google 翻译——仅在本已公开的通讯页面上提供。仅限成员的内容绝不会发送给它。",
   privacyServiceAdmin: "Slack——网站管理员使用的一个私人频道，会在有新用户注册时收到通知，其中包含其邮箱地址。",
+  privacyServiceAi:
+    "Cloudflare Workers AI——为失物招领的照片生成描述，以便搜索。只会发送这些照片，绝不会发送目录中的任何内容。",
+  privacyLostFoundTitle:
+    "失物招领",
+  privacyLostFoundBody:
+    "失物招领是本网站唯一有意公开的部分：工作人员会为学校收到的物品拍照，任何人都可以浏览。物品上写的字（通常是孩子的名字）只有工作人员能看到，绝不会出现在公开页面或其搜索中；写有文字的物品在工作人员检查照片之前不会公开。如果您认领某件物品，您填写的姓名、联系方式和留言只有工作人员能看到，并会在您的申请处理完毕 60 天后删除。已归还的物品及其照片会在 30 天后删除。",
+  landingLfBody:
+    "学校收到的所有失物，都附有照片。搜索您丢失的东西，并告诉办公室那是您的。",
+  landingLfMore:
+    "无需账户。",
+  faqLostFoundTitle:
+    "在学校丢了东西？",
+  faqLostFoundBody:
+    "工作人员会为收到的物品拍照，并发布在失物招领网站上。任何人都可以查看，无需账户即可告诉办公室某件物品是您的。物品上写的名字绝不会公开显示。",
   privacyNeverTitle: "我们不做的事",
   privacyNeverBody:
     "我们不出售也不共享这些信息，不投放广告，本站任何页面上都没有追踪或分析脚本。我们不对任何人建立画像，也不向数据经纪商发送任何内容。",
@@ -2661,6 +2956,87 @@ const zh: Strings = {
     "如果您认为自己应该有权限，请找一位理事——或者来参加下一次例会，大多数人其实就是这样来的。",
   landingPtoBody: "家长会是谁、全年举办哪些活动，以及如何出一小时力或捐款。",
   landingPtoMore: "每个家庭都已经是会员。无需报名，也不需要账户。",
+  // Lost & found (apps/lostandfound). Category and colour names translate the
+  // fixed vocabularies LF_CATEGORIES / LF_COLORS for display only — the stored
+  // value stays English, since it is what the model and the filters speak.
+  navLostFound: "失物招领",
+  brandSubLostFound: "失物招领",
+  lfNavBrowse: "浏览",
+  lfNavStaff: "工作人员",
+  lfBrowseTitle: "丢了东西？",
+  lfBrowseLead: "学校里交上来的所有物品，都附有照片。找到你的了吗？打开它，点击“这是我的！”",
+  lfSearchPlaceholder: "试试“蓝色水壶”或“恐龙卫衣”",
+  lfSearchLabel: "搜索招领物品",
+  lfAllCategories: "所有类别",
+  lfCategoryLabel: "类别",
+  lfColorLabel: "颜色",
+  lfBestMatches: "与“{q}”最匹配的结果",
+  lfNoMatches: "没有找到。试试少用几个词，或清除筛选条件。",
+  lfEmpty: "目前没有物品。",
+  lfShowMore: "显示更多",
+  lfDescribing: "正在生成描述…",
+  lfFoundToday: "今天捡到",
+  lfFoundYesterday: "昨天捡到",
+  lfFoundDaysAgo: "{n} 天前捡到",
+  lfLoadError: "无法加载物品。请检查网络连接后重试。",
+  lfItemGone: "此物品已不在列表中，可能已经归还给失主。",
+  lfBackToAll: "所有物品",
+  lfFactCategory: "类别",
+  lfFactColors: "颜色",
+  lfFactBrand: "品牌",
+  lfFactMaterial: "材质",
+  lfFactWhere: "捡到地点",
+  lfFactFound: "捡到日期",
+  lfAutoDescribed: "描述由系统根据照片自动生成（英文）。",
+  lfPendingNote: "我们还在为这件物品撰写描述。",
+  lfClaimTitle: "这是你的吗？",
+  lfClaimLead: "告诉学校办公室，他们会为你留着。",
+  lfClaimCta: "这是我的！",
+  lfClaimName: "你的姓名",
+  lfClaimContact: "电子邮箱或电话",
+  lfClaimMessage: "你怎么知道这是你的？（选填）",
+  lfClaimMessageHint: "例如：底部有凹痕，或贴着贴纸",
+  lfClaimSend: "发送给办公室",
+  lfClaimSending: "正在发送…",
+  lfClaimThanksTitle: "谢谢！",
+  lfClaimThanksBody: "办公室已收到你的留言，会与你联系。你也可以直接到失物招领处领取。",
+  lfClaimError: "发送失败。请检查姓名和联系方式后重试。",
+  lfClaimPrivacy: "只有学校工作人员能看到你的姓名和联系方式。",
+  lfStaffSignIn: "工作人员登录",
+  lfNoAccessTitle: "这部分仅供学校工作人员使用",
+  lfNoAccessBody: "添加招领物品和处理认领由负责失物招领的工作人员进行。任何人都可以浏览。",
+  lfNoAccessNote: "如果你在协助失物招领工作却无法进入，请联系学校办公室。",
+  lfCatWaterBottle: "水壶",
+  lfCatLunchBox: "午餐盒",
+  lfCatJacket: "夹克或外套",
+  lfCatSweatshirt: "卫衣或连帽衫",
+  lfCatClothing: "其他衣物",
+  lfCatWinterWear: "帽子、手套或围巾",
+  lfCatShoes: "鞋子或靴子",
+  lfCatBag: "背包或包",
+  lfCatElectronics: "电子产品",
+  lfCatGlasses: "眼镜",
+  lfCatJewelry: "首饰或配饰",
+  lfCatToy: "玩具",
+  lfCatSchoolSupplies: "书本或文具",
+  lfCatSports: "运动器材",
+  lfCatOther: "其他",
+  lfColorBlack: "黑色",
+  lfColorWhite: "白色",
+  lfColorGray: "灰色",
+  lfColorSilver: "银色",
+  lfColorRed: "红色",
+  lfColorPink: "粉色",
+  lfColorOrange: "橙色",
+  lfColorYellow: "黄色",
+  lfColorGold: "金色",
+  lfColorGreen: "绿色",
+  lfColorBlue: "蓝色",
+  lfColorNavy: "藏青色",
+  lfColorPurple: "紫色",
+  lfColorBrown: "棕色",
+  lfColorTan: "米色",
+  lfColorMulticolor: "多色",
 };
 
 const so: Strings = {
@@ -3160,6 +3536,20 @@ const so: Strings = {
     "Google Translate — waxaa lagu bixiyaa bogagga warsidaha ee horeba u ahaa dadweyne. Wax xubnaha u gaar ah weligood looma diro.",
   privacyServiceAdmin:
     "Slack — kanaal gaar ah oo maamulaha boggu isticmaalo ayaa hela ogeysiis, oo ay ku jirto cinwaanka iimaylka, marka qof cusub isdiiwaangeliyo.",
+  privacyServiceAi:
+    "Cloudflare Workers AI — wuxuu sharxaa sawirrada alaabta lumay si loo raadin karo. Sawirradaas oo kaliya ayaa loo diraa, weligeedna wax ka mid ah hagaha looma diro.",
+  privacyLostFoundTitle:
+    "Alaabta lumay",
+  privacyLostFoundBody:
+    "Alaabta lumay waa qaybta kaliya ee boggan oo si ula kac ah u furan: shaqaaluhu waxay sawiraan alaabta dugsiga lagu soo celiyo, qof kastana wuu eegi karaa. Qoraalka ku yaal shay — inta badan magaca ilmo — waxaa arka shaqaalaha oo kaliya; weligiis kama muuqdo bogga guud ama raadintiisa, shayga qoraal leh waa la qariyaa ilaa xubin shaqaale ah ay hubiso sawirka. Haddii aad sheegto in shay adiga kuu leeyahay, magaca, xiriirka iyo qoraalka aad qorto waxaa arka shaqaalaha oo kaliya, waxaana la tirtiraa 60 maalmood kadib marka codsigaaga la xalliyo. Shay la celiyay iyo sawirkiisa waxaa la tirtiraa 30 maalmood kadib.",
+  landingLfBody:
+    "Wax kasta oo dugsiga lagu soo celiyay, sawir leh. Raadi waxa kaa maqan oo u sheeg xafiiska inuu adiga kuu leeyahay.",
+  landingLfMore:
+    "Xisaab looma baahna.",
+  faqLostFoundTitle:
+    "Ma wax baad ku lumisay dugsiga?",
+  faqLostFoundBody:
+    "Shaqaaluhu waxay sawiraan waxa la soo celiyo oo ku dhejiyaan bogga alaabta lumay. Qof kastaa wuu eegi karaa, waxaadna xafiiska u sheegi kartaa in shay adiga kuu leeyahay adigoon xisaab lahayn. Magacyada ku qoran alaabta weligood si guud looma muujiyo.",
   privacyNeverTitle: "Waxa aanan samayn",
   privacyNeverBody:
     "Ma iibinno oo ma wadaagno macluumaadkan, xayaysiin ma wadno, bog kasta oo boggan ka mid ah kuma jiraan script raadraac ama falanqayn ah. Cidna lagama sameeyo profile waxbana looma diro dallaal xog.",
@@ -3360,6 +3750,87 @@ const so: Strings = {
     "Cidda PTO-du tahay, waxa ay sannadka oo dhan qabato, iyo sida aad saacad ugu deeqi karto ama lacag u bixin karto.",
   landingPtoMore:
     "Qoys kastaa horeyba xubin buu u yahay. Waxba lama saxiixo, xisaabna looma baahna.",
+  // Lost & found (apps/lostandfound). Category and colour names translate the
+  // fixed vocabularies LF_CATEGORIES / LF_COLORS for display only — the stored
+  // value stays English, since it is what the model and the filters speak.
+  navLostFound: "Alaabta Lumay",
+  brandSubLostFound: "Alaabta Lumay",
+  lfNavBrowse: "Daawo",
+  lfNavStaff: "Shaqaalaha",
+  lfBrowseTitle: "Wax ma kaa lumay?",
+  lfBrowseLead: "Wax kasta oo dugsiga lagu soo celiyay, sawir leh. Ma heshay kaaga? Fur oo taabo “Waa kayga!”",
+  lfSearchPlaceholder: "Isku day “dhalo biyo buluug ah” ama “funaanad dinosaur”",
+  lfSearchLabel: "Raadi alaabta la helay",
+  lfAllCategories: "Dhammaan noocyada",
+  lfCategoryLabel: "Nooca",
+  lfColorLabel: "Midabka",
+  lfBestMatches: "Natiijooyinka ugu fiican ee “{q}”",
+  lfNoMatches: "Wax la helay ma jiraan. Isku day erayo yar, ama ka saar shaandhada.",
+  lfEmpty: "Hadda waxba ma jiraan.",
+  lfShowMore: "Tus wax badan",
+  lfDescribing: "Waa la sharraxayaa…",
+  lfFoundToday: "Maanta la helay",
+  lfFoundYesterday: "Shalay la helay",
+  lfFoundDaysAgo: "La helay {n} maalmood ka hor",
+  lfLoadError: "Alaabta lama soo dejin karin. Hubi xiriirkaaga oo mar kale isku day.",
+  lfItemGone: "Alaabtan hadda kuma jirto liiska. Waxaa laga yaabaa in loo celiyay qofkii lahaa.",
+  lfBackToAll: "Dhammaan alaabta",
+  lfFactCategory: "Nooca",
+  lfFactColors: "Midabada",
+  lfFactBrand: "Summadda",
+  lfFactMaterial: "Walaxda",
+  lfFactWhere: "Halka laga helay",
+  lfFactFound: "Taariikhda la helay",
+  lfAutoDescribed: "Sharaxaadda si toos ah ayaa looga sameeyay sawirka (Ingiriisi).",
+  lfPendingNote: "Weli waxaan qoraynaa sharaxaadda alaabtan.",
+  lfClaimTitle: "Ma adigaa leh?",
+  lfClaimLead: "U sheeg xafiiska, waana kuu kaydin doonaan.",
+  lfClaimCta: "Waa kayga!",
+  lfClaimName: "Magacaaga",
+  lfClaimContact: "Iimayl ama telefoon",
+  lfClaimMessage: "Sideed ku ogtahay inuu kaaga yahay? (ikhtiyaari)",
+  lfClaimMessageHint: "Tusaale: hoosta ayuu ka godan yahay, ama stiikar ayuu leeyahay",
+  lfClaimSend: "U dir xafiiska",
+  lfClaimSending: "Waa la dirayaa…",
+  lfClaimThanksTitle: "Mahadsanid!",
+  lfClaimThanksBody: "Xafiisku wuu helay fariintaada, wayna kula soo xiriiri doonaan. Sidoo kale waxaad ka qaadan kartaa meesha alaabta lumay.",
+  lfClaimError: "Lama dirin. Hubi magacaaga iyo xiriirkaaga, kadibna mar kale isku day.",
+  lfClaimPrivacy: "Shaqaalaha dugsiga oo keliya ayaa arka magacaaga iyo xiriirkaaga.",
+  lfStaffSignIn: "Gelitaanka shaqaalaha",
+  lfNoAccessTitle: "Qaybtan waxaa iska leh shaqaalaha dugsiga",
+  lfNoAccessBody: "Ku darista alaabta la helay iyo maaraynta codsiyada waxaa qabta shaqaalaha maamula alaabta lumay. Qof kasta wuu daawan karaa.",
+  lfNoAccessNote: "Haddii aad caawiso alaabta lumay oo aadan geli karin, weydii xafiiska dugsiga.",
+  lfCatWaterBottle: "Dhalo biyo",
+  lfCatLunchBox: "Sanduuqa qadada",
+  lfCatJacket: "Jaakad ama koor",
+  lfCatSweatshirt: "Funaanad",
+  lfCatClothing: "Dhar kale",
+  lfCatWinterWear: "Koofiyad, gacmo-gashi ama masar",
+  lfCatShoes: "Kabo ama buudh",
+  lfCatBag: "Boorso dhabarka ama bac",
+  lfCatElectronics: "Qalab elektaroonig ah",
+  lfCatGlasses: "Muraayadaha indhaha",
+  lfCatJewelry: "Dahab ama qurxin",
+  lfCatToy: "Alaab ciyaareed",
+  lfCatSchoolSupplies: "Buug ama qalabka dugsiga",
+  lfCatSports: "Qalabka isboortiga",
+  lfCatOther: "Kale",
+  lfColorBlack: "madow",
+  lfColorWhite: "caddaan",
+  lfColorGray: "cawl",
+  lfColorSilver: "lacageed",
+  lfColorRed: "casaan",
+  lfColorPink: "casaan khafiif ah",
+  lfColorOrange: "oranji",
+  lfColorYellow: "jaalle",
+  lfColorGold: "dahabi",
+  lfColorGreen: "cagaar",
+  lfColorBlue: "buluug",
+  lfColorNavy: "buluug madow",
+  lfColorPurple: "buluug-casaan",
+  lfColorBrown: "bunni",
+  lfColorTan: "bunni khafiif ah",
+  lfColorMulticolor: "midabbo badan",
 };
 
 export const dictionaries: Record<Locale, Strings> = { en, es, zh, so };
