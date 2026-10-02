@@ -11,6 +11,7 @@ import { describe, expect, it } from "vitest";
 import {
   LOCALES,
   newsletterLanguageLinks,
+  PROXY_LANGUAGE_SWITCH_JS,
   renderNewsletterEmailHtml,
   renderNewsletterEmailText,
   renderNewsletterIssuePageHtml,
@@ -204,5 +205,107 @@ describe("the bar as rendered", () => {
     const tokenUrl = "https://newsletter.eisenhower.school/preview/abc123";
     expect(translateProxyUrl(tokenUrl, "es")).toContain("abc123");
     expect(page({ issueUrl: tokenUrl })).toContain("abc123");
+  });
+});
+
+describe("switching language from inside the proxy", () => {
+  // Google rewrites every href on a proxied page server-side, pinned to the
+  // language on screen: our `translate.goog` links arrived as
+  // `translate.google.com/website?tl=so&u=https://…translate.goog/…`, which the
+  // proxy refuses ("Can't translate this page"). The script is what makes the
+  // bar work there, so it is run here against a fake page rather than scanned.
+
+  interface FakeAnchor {
+    attrs: Map<string, string>;
+    onClick?: (e: { preventDefault(): void }) => void;
+    getAttribute(n: string): string | null;
+    setAttribute(n: string, v: string): void;
+    removeAttribute(n: string): void;
+    addEventListener(t: string, fn: (e: { preventDefault(): void }) => void): void;
+  }
+
+  /** The bar exactly as the page renders it, parsed out of the real html. */
+  function barAnchors(): FakeAnchor[] {
+    const bar = /<div class="nl-lang[^"]*"[^>]*>(.*?)<\/div>/s.exec(page())?.[1] ?? "";
+    return [...bar.matchAll(/<a ([^>]*)>/g)].map((m) => {
+      const attrs = new Map<string, string>();
+      for (const a of (m[1] ?? "").matchAll(/([\w-]+)="([^"]*)"/g)) {
+        attrs.set(a[1]!, (a[2] ?? "").replace(/&amp;/g, "&"));
+      }
+      const el: FakeAnchor = {
+        attrs,
+        getAttribute: (n) => attrs.get(n) ?? null,
+        setAttribute: (n, v) => void attrs.set(n, v),
+        removeAttribute: (n) => void attrs.delete(n),
+        addEventListener: (_t, fn) => void (el.onClick = fn),
+      };
+      return el;
+    });
+  }
+
+  function run(href: string) {
+    const url = new URL(href);
+    const assigned: string[] = [];
+    const location = {
+      hostname: url.hostname,
+      pathname: url.pathname,
+      search: url.search,
+      assign: (u: string) => void assigned.push(u),
+    };
+    const anchors = barAnchors();
+    const document = { querySelectorAll: () => anchors };
+    new Function("location", "document", PROXY_LANGUAGE_SWITCH_JS)(location, document);
+    const byLang = (lang: string) => anchors.find((a) => a.attrs.get("lang") === lang)!;
+    return { byLang, assigned };
+  }
+
+  // Absolute, never relative: the proxy resolves a relative url against the
+  // ORIGINAL site, so `?_x_tr_tl=es` alone lands on our origin untranslated.
+  const PROXIED = "https://newsletter-eisenhower-school.translate.goog/n/back-to-school";
+  const SOMALI = `${PROXIED}?_x_tr_sl=en&_x_tr_tl=so&_x_tr_hl=so`;
+
+  it("points every other language at the same proxied page in that language", () => {
+    const { byLang } = run(SOMALI);
+    expect(byLang("es").attrs.get("href")).toBe(
+      `${PROXIED}?_x_tr_sl=en&_x_tr_tl=es&_x_tr_hl=es`,
+    );
+    expect(byLang("zh").attrs.get("href")).toBe(
+      `${PROXIED}?_x_tr_sl=en&_x_tr_tl=zh-CN&_x_tr_hl=zh-CN`,
+    );
+  });
+
+  it("navigates on click too, in case Google's own script rewrites the href", () => {
+    const { byLang, assigned } = run(SOMALI);
+    let prevented = false;
+    byLang("es").onClick!({ preventDefault: () => void (prevented = true) });
+    expect(prevented).toBe(true);
+    expect(assigned).toEqual([`${PROXIED}?_x_tr_sl=en&_x_tr_tl=es&_x_tr_hl=es`]);
+  });
+
+  it("turns the source language into the way back to the original page", () => {
+    const { byLang } = run(`${SOMALI}&ref=sms`);
+    expect(byLang("en").attrs.get("href")).toBe(`${ISSUE_URL}?ref=sms`);
+    expect(byLang("en").attrs.has("aria-current")).toBe(false);
+  });
+
+  it("marks the language on screen as current, and not a link", () => {
+    const { byLang } = run(SOMALI);
+    expect(byLang("so").attrs.get("aria-current")).toBe("true");
+    expect(byLang("so").attrs.has("href")).toBe(false);
+  });
+
+  it("recovers a hyphenated host, undoing the proxy's dash doubling", () => {
+    const { byLang } = run(
+      "https://news--letter-example-school.translate.goog/n/x?_x_tr_sl=en&_x_tr_tl=es&_x_tr_hl=es",
+    );
+    expect(byLang("en").attrs.get("href")).toBe("https://news-letter.example.school/n/x");
+  });
+
+  it("does nothing on our own origin, where the rendered hrefs already work", () => {
+    const { byLang, assigned } = run(ISSUE_URL);
+    expect(byLang("es").attrs.get("href")).toContain("translate.goog");
+    expect(byLang("en").attrs.has("href")).toBe(false);
+    expect(byLang("es").onClick).toBeUndefined();
+    expect(assigned).toEqual([]);
   });
 });

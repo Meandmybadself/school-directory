@@ -1148,9 +1148,18 @@ All five SPAs are separate Cloudflare Pages projects talking to the single
    verbatim** (measured against a request echo, not assumed — it strips only its
    own `_x_tr_*`), so a `?lang=` link clicked from INSIDE the proxy would ask the
    proxy to fetch a url that redirects back into the proxy. Same reason the
-   redirect's target carries no `lang` of its own. Google rewrites same-site
-   hrefs to keep a reader inside it but leaves external ones alone, so a
-   `translate.goog` href is what makes switching languages work in-proxy.
+   redirect's target carries no `lang` of its own. **Inside the proxy no href
+   we write survives**: Google rewrites every link on the page server-side,
+   pinned to the language on screen, and wraps external ones — a
+   `translate.goog` href included — in `translate.google.com/website?tl=…&u=…`,
+   which refuses to proxy itself ("Can't translate this page"). This file used
+   to say external hrefs were left alone, and the bar shipped broken on it. So
+   the page's `translate.goog` hrefs serve readers on OUR origin, and in-proxy
+   switching is `PROXY_LANGUAGE_SWITCH_JS`, an inline script that re-derives
+   each link from `location` (swap `_x_tr_tl`, or reverse the proxy host for the
+   way back to the original) — ABSOLUTE urls only, because the proxy resolves a
+   relative one against the original site. Off `*.translate.goog` it does
+   nothing.
    The bar emits **no copy at all** — its links are the language names from
    `localeNames`, each in its own language. That is not a style choice: an
    English label like "Read this in another language" is legible only to the

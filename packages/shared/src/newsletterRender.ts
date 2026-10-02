@@ -44,6 +44,8 @@ import { htmlToText } from "./text.js";
 import { publishedIssueQrSvg } from "./newsletterQr.js";
 import {
   newsletterLanguageLinks,
+  PROXY_LANG,
+  PROXY_LANGUAGE_SWITCH_JS,
   type NewsletterLanguageLink,
 } from "./newsletterTranslate.js";
 
@@ -1195,15 +1197,20 @@ export function renderNewsletterIssuePageHtml(input: NewsletterIssuePageInput): 
   const langBar =
     languages.length === 0
       ? ""
-      : `<div class="nl-lang">${languages
+      : // Every item is an <a>, the source one with no href (so it renders as
+        // text here): inside the proxy the script turns it into the way back
+        // to the original. `notranslate` keeps Google from "translating" the
+        // language names, each of which is already in its own language.
+        `<div class="nl-lang notranslate" translate="no">${languages
           .map((l) =>
             l.isSource
-              ? `<span lang="${l.locale}" aria-current="true">${escapeHtml(l.label)}</span>`
-              : `<a lang="${l.locale}" hreflang="${l.locale}" rel="nofollow noopener" href="${escapeHtml(
+              ? `<a lang="${l.locale}" hreflang="${l.locale}" data-tr="${PROXY_LANG[l.locale]}" aria-current="true">${escapeHtml(l.label)}</a>`
+              : `<a lang="${l.locale}" hreflang="${l.locale}" data-tr="${PROXY_LANG[l.locale]}" rel="nofollow noopener" href="${escapeHtml(
                   l.href,
                 )}">${escapeHtml(l.label)}</a>`,
           )
-          .join(" · ")}</div>`;
+          .join(" · ")}</div>
+      <script>(function(){${PROXY_LANGUAGE_SWITCH_JS}})()</script>`;
 
   return `    <div class="nl-wrap">
       ${banner}
@@ -1291,8 +1298,8 @@ a{color:var(--nl-accent,${DEFAULT_ACCENT})}
 .nl-print-link{margin:8px 0 0}
 .nl-lang{text-align:center;margin:-10px 0 16px;font-size:13px;color:${MUTED}}
 .nl-lang a{text-decoration:none}
-.nl-lang a:hover{text-decoration:underline}
-.nl-lang span{color:${MUTED}}
+.nl-lang a[href]:hover{text-decoration:underline}
+.nl-lang a:not([href]){color:${MUTED}}
 .nl-draft-banner{
   margin:0 0 16px;padding:10px 14px;border-radius:9px;
   background:#fff4d6;border-left:3px solid ${DEFAULT_ORANGE};
@@ -1319,7 +1326,7 @@ a{color:var(--nl-accent,${DEFAULT_ACCENT})}
   /* Only background and text: the CTA's left border is the instance's accent,
      which is the one colour on this page we were handed rather than chose. */
   .nl-subscribe-cta{background:#19222c;color:#e8eef4}
-  .nl-subscribe-cta span,.nl-site-foot,.nl-site-foot a,.nl-lang,.nl-lang span{color:#8494a1}
+  .nl-subscribe-cta span,.nl-site-foot,.nl-site-foot a,.nl-lang,.nl-lang a:not([href]){color:#8494a1}
   .nl-card{box-shadow:0 1px 3px rgba(0,0,0,.5)}
 }
 
@@ -1340,7 +1347,7 @@ a{color:var(--nl-accent,${DEFAULT_ACCENT})}
      and printing IS the PDF export (invariant 16), so it cannot be left to
      whichever theme the reader happens to be in. */
   body{background:#fff;color:${INK}}
-  .nl-subscribe-cta span,.nl-site-foot,.nl-site-foot a,.nl-lang,.nl-lang span{color:${MUTED}}
+  .nl-subscribe-cta span,.nl-site-foot,.nl-site-foot a,.nl-lang,.nl-lang a:not([href]){color:${MUTED}}
   .nl-site-foot,.nl-subscribe-cta,.nl-print-link,.nl-events-more,.nl-lang{display:none}
   .nl-wrap{max-width:none;padding:0}
   .nl-card{box-shadow:none;border-radius:0;padding:0}

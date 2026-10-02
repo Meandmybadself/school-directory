@@ -38,7 +38,7 @@ import { localeNames, LOCALE_PARAM } from "./i18n.js";
 
 /** Our locale codes → the ones Google's proxy wants. Only `zh` differs: the
  *  proxy names the script, where our locale set names the language. */
-const PROXY_LANG: Record<Locale, string> = {
+export const PROXY_LANG: Record<Locale, string> = {
   en: "en",
   es: "es",
   zh: "zh-CN",
@@ -145,11 +145,17 @@ export interface NewsletterLanguageLink {
 /** The bar, for one issue, in one of the two link forms.
  *
  *  `form: "param"` for the email (our origin, re-pointable — see above);
- *  `form: "proxy"` for the archive page, whose links must name the proxy
- *  directly. Google's proxy rewrites SAME-SITE hrefs to keep a reader inside it
- *  but leaves external ones alone, so a `translate.goog` href clicked from
- *  within the proxy goes straight to the other language instead of asking the
- *  proxy to re-proxy us.
+ *  `form: "proxy"` for the archive page, whose links name the proxy directly so
+ *  that a reader on OUR origin goes straight to a translation. They only work
+ *  from our origin, though: inside the proxy, Google rewrites every href on the
+ *  page server-side, pinned to the language being shown — same-site ones to
+ *  `translate.goog` in that language, every other one wrapped in
+ *  `translate.google.com/website?tl=<that language>&u=…`, a `translate.goog`
+ *  href included, which asks the proxy to proxy itself and fails with "Can't
+ *  translate this page". (Measured: an earlier version of this comment said
+ *  external hrefs were left alone, and the bar shipped broken on that belief.)
+ *  No href we write survives that, so switching language from inside the proxy
+ *  is `PROXY_LANGUAGE_SWITCH_JS`'s job, below.
  *
  *  Returns [] when no link can be built at all, which collapses the bar rather
  *  than rendering a row of dead text — local dev and the composer's preview both
@@ -190,3 +196,40 @@ export function newsletterLanguageLinks(
 
   return translatable > 0 ? links : [];
 }
+
+/** The language bar's behaviour INSIDE the proxy, as the body of a function.
+ *
+ *  Google rewrites every href on a proxied page on its own servers (see
+ *  `newsletterLanguageLinks`), so the bar's links arrive in the browser all
+ *  pointing at the language already on screen, wrapped in a url the proxy
+ *  cannot serve. Script is the one thing it passes through untouched, so this
+ *  re-derives each link from where the reader actually IS: the same proxied url
+ *  with `_x_tr_tl`/`_x_tr_hl` swapped, or — for the source language, which on
+ *  our origin is plain text because the reader is holding it — the original
+ *  page, recovered by reversing `proxyHost` and dropping the `_x_tr_*` params.
+ *  It also moves `aria-current` to the language being shown. Every href it
+ *  writes is ABSOLUTE: the proxy resolves a relative url against the ORIGINAL
+ *  site, not the proxied one (measured — a relative `?_x_tr_tl=es` landed on
+ *  our own origin, untranslated).
+ *
+ *  It reads `data-tr` (the proxy's code, `PROXY_LANG`) rather than `lang`, and
+ *  navigates from a click handler as well as setting `href`, so that if Google's
+ *  own script rewrites anchors after load the click still goes where it should.
+ *  On our own origin it returns at the first line and the page's hrefs stand.
+ *  Without JavaScript, the proxy's own toolbar still offers every language. */
+export const PROXY_LANGUAGE_SWITCH_JS = `var S=".translate.goog",h=location.hostname;
+if(h.slice(-S.length)!==S)return;
+var q=new URLSearchParams(location.search),sl=q.get("_x_tr_sl")||"en",tl=q.get("_x_tr_tl")||sl;
+var rest=new URLSearchParams();
+q.forEach(function(v,k){if(k.indexOf("_x_tr_")!==0)rest.append(k,v)});
+var src="https://"+h.slice(0,-S.length).replace(/--/g,"~").replace(/-/g,".").replace(/~/g,"-")+location.pathname+(rest.toString()?"?"+rest:"");
+var els=document.querySelectorAll(".nl-lang [data-tr]");
+for(var i=0;i<els.length;i++)(function(el){
+var code=el.getAttribute("data-tr");
+if(code===tl){el.removeAttribute("href");el.setAttribute("aria-current","true");return}
+el.removeAttribute("aria-current");
+var href=src;
+if(code!==sl){var p=new URLSearchParams(q);p.set("_x_tr_tl",code);p.set("_x_tr_hl",code);href="https://"+h+location.pathname+"?"+p}
+el.setAttribute("href",href);
+el.addEventListener("click",function(e){e.preventDefault();location.assign(href)});
+})(els[i]);`;
