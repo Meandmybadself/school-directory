@@ -1,22 +1,32 @@
-// Snap and upload found items, one per photo.
+// Rapid add: stage a batch of photos, then add them all at once.
 //
-// Each photo is resized in the browser (lib/lf.ts — which also strips EXIF,
-// GPS included) and sent in two requests: the full-size photo creates the item,
-// then the thumbnail lands and starts the vision model. Two requests because
-// both are raw JPEG bodies, not multipart — see lib/api.ts — and one body can
-// carry one image.
+// Choosing or snapping photos only STAGES them — each is resized right away
+// (lib/lf.ts, which also strips EXIF, GPS included) and shown in a tray where a
+// mis-shot can be removed. "Add N items" then uploads the tray, a few at a
+// time, and each item's description starts the moment its thumbnail lands.
 //
-// Uploads run one at a time. A phone on school Wi-Fi does better with a queue
-// than with ten parallel uploads, and the model's per-minute limit does too.
-import { useRef, useState } from "react";
+// Each photo is still two requests: the full-size photo creates the item, then
+// the thumbnail starts the vision model. Both are raw JPEG bodies, not
+// multipart — see lib/api.ts — and one body carries one image.
+//
+// UPLOAD_CONCURRENCY is small on purpose: a phone on school Wi-Fi does better
+// with a short queue than with thirty parallel uploads. Progress is one
+// `?ids=` read for the whole batch every few seconds, not a poll per photo.
+import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import type { LfStaffItemDTO } from "@sd/shared";
 import { Screen } from "../../components/Screen.js";
 import { Icon } from "../../components/Icon.js";
+import { Btn } from "../../components/atoms.js";
 import { api, errorMessage } from "../../lib/api.js";
 import { resizePhoto } from "../../lib/lf.js";
 
 const LOCATION_KEY = "lf_last_location";
+const UPLOAD_CONCURRENCY = 3;
+const POLL_MS = 3000;
+/** Stop checking after this long; anything still describing shows on the dashboard. */
+const POLL_FOR_MS = 3 * 60 * 1000;
+const IDS_PER_READ = 50;
 
 function readLocation(): string {
   try {
@@ -34,86 +44,190 @@ function saveLocation(value: string): void {
   }
 }
 
+/** A photo in the tray, resized and waiting for "Add". */
+interface Staged {
+  key: string;
+  name: string;
+  preview: string;
+  photo: Blob;
+  thumb: Blob;
+}
+
+type Phase = "waiting" | "uploading" | "describing" | "live" | "held" | "failed" | "error" | "slow";
+
+/** A photo that has been submitted. */
 interface Row {
   key: string;
   name: string;
-  preview: string | null;
-  status: string;
-  tone: "" | "warn" | "ok";
+  preview: string;
+  phase: Phase;
+  title: string;
+  error: string;
   itemId: string | null;
 }
 
-const POLL_MS = 3000;
-const POLL_TRIES = 20;
+const PHASE_TEXT: Record<Phase, (r: Row) => string> = {
+  waiting: () => "Waiting to upload…",
+  uploading: () => "Uploading…",
+  describing: () => "The AI is describing it…",
+  live: (r) => `✓ Live: ${r.title}`,
+  held: () => "Held for review: writing detected",
+  failed: () => "Held for review: the AI couldn't describe it. Open it to check and fill it in.",
+  error: (r) => r.error,
+  slow: () => "Still describing — check the dashboard in a minute.",
+};
+const WARN: Phase[] = ["held", "failed", "error"];
+
+let nextKey = 0;
 
 export function Upload() {
   const [location, setLocation] = useState(readLocation);
+  const [staged, setStaged] = useState<Staged[]>([]);
+  const [preparing, setPreparing] = useState(0);
+  const [prepError, setPrepError] = useState("");
   const [rows, setRows] = useState<Row[]>([]);
   const input = useRef<HTMLInputElement>(null);
 
   const update = (key: string, patch: Partial<Row>) =>
     setRows((rs) => rs.map((r) => (r.key === key ? { ...r, ...patch } : r)));
 
-  const watch = async (key: string, id: string) => {
-    for (let i = 0; i < POLL_TRIES; i++) {
-      await new Promise((r) => setTimeout(r, POLL_MS));
-      let item: LfStaffItemDTO;
-      try {
-        item = await api.staffItem(id);
-      } catch {
-        continue;
-      }
-      if (item.tagStatus === "tagged") {
-        return item.heldAt
-          ? update(key, { status: "Held for review: writing detected", tone: "warn" })
-          : update(key, { status: `✓ Live: ${item.title}`, tone: "ok" });
-      }
-      if (item.tagStatus === "failed") {
-        return update(key, {
-          status: "Held for review: the AI couldn't describe it. Open it to check and fill it in.",
-          tone: "warn",
-        });
-      }
-    }
-    update(key, { status: "Still describing — check the dashboard in a minute." });
-  };
+  const uploading = rows.some((r) => r.phase === "waiting" || r.phase === "uploading");
 
-  const uploadOne = async (file: File, where: string) => {
-    const key = `${file.name}-${file.size}-${Math.random()}`;
-    setRows((rs) => [{ key, name: file.name, preview: null, status: "Preparing…", tone: "", itemId: null }, ...rs]);
-    try {
-      const { photo, thumb } = await resizePhoto(file);
-      update(key, { preview: URL.createObjectURL(thumb), status: "Uploading…" });
-      const item = await api.uploadPhoto(photo, where);
-      update(key, { itemId: item.id });
-      await api.uploadThumb(item.id, thumb);
-      update(key, { status: "The AI is describing it…" });
-      void watch(key, item.id);
-    } catch (err) {
-      const unreadable = err instanceof DOMException || (err instanceof Error && /decode|encode|canvas/.test(err.message));
-      update(key, {
-        status: unreadable
-          ? "This browser can't read that photo. Try taking it with the camera instead."
-          : errorMessage(err, "Upload failed. Check the connection and try again."),
-        tone: "warn",
-      });
-    }
-  };
+  // Leaving mid-upload loses whatever hasn't been sent yet, so say so.
+  useEffect(() => {
+    if (!uploading) return;
+    const warn = (e: BeforeUnloadEvent) => e.preventDefault();
+    window.addEventListener("beforeunload", warn);
+    return () => window.removeEventListener("beforeunload", warn);
+  }, [uploading]);
 
+  // One status read for every item still being described.
+  const describing = rows.filter((r) => r.phase === "describing" && r.itemId).map((r) => r.itemId!);
+  const describingKey = describing.join(",");
+  const pollStart = useRef(0);
+  useEffect(() => {
+    if (!describing.length) {
+      pollStart.current = 0;
+      return;
+    }
+    if (!pollStart.current) pollStart.current = Date.now();
+    const timer = setTimeout(async () => {
+      if (Date.now() - pollStart.current > POLL_FOR_MS) {
+        setRows((rs) => rs.map((r) => (r.phase === "describing" ? { ...r, phase: "slow" } : r)));
+        return;
+      }
+      const found: LfStaffItemDTO[] = [];
+      for (let i = 0; i < describing.length; i += IDS_PER_READ) {
+        try {
+          found.push(...(await api.staffItemsByIds(describing.slice(i, i + IDS_PER_READ))).items);
+        } catch {
+          /* a missed read is retried on the next tick */
+        }
+      }
+      const byId = new Map(found.map((it) => [it.id, it]));
+      setRows((rs) =>
+        rs.map((r) => {
+          const it = r.itemId ? byId.get(r.itemId) : undefined;
+          if (r.phase !== "describing" || !it || it.tagStatus === "pending") return r;
+          if (it.tagStatus === "failed") return { ...r, phase: "failed" };
+          return { ...r, phase: it.heldAt ? "held" : "live", title: it.title };
+        }),
+      );
+    }, POLL_MS);
+    return () => clearTimeout(timer);
+    // Re-armed after every change to the rows, which is what makes it a loop:
+    // each read updates the rows, which schedules the next read.
+  }, [describingKey, rows]);
+
+  /** Resize each chosen photo into the tray, one at a time to spare the phone. */
   const onFiles = async (files: FileList | null) => {
     if (!files?.length) return;
     const list = [...files];
     if (input.current) input.current.value = "";
-    const where = location.trim();
-    for (const file of list) await uploadOne(file, where);
+    setPrepError("");
+    setPreparing((n) => n + list.length);
+    for (const file of list) {
+      try {
+        const { photo, thumb } = await resizePhoto(file);
+        setStaged((s) => [
+          ...s,
+          { key: `s${nextKey++}`, name: file.name, preview: URL.createObjectURL(thumb), photo, thumb },
+        ]);
+      } catch {
+        setPrepError(`This browser can't read “${file.name}”. Try taking it with the camera instead.`);
+      } finally {
+        setPreparing((n) => n - 1);
+      }
+    }
   };
+
+  const unstage = (key: string) =>
+    setStaged((s) => {
+      const gone = s.find((x) => x.key === key);
+      if (gone) URL.revokeObjectURL(gone.preview);
+      return s.filter((x) => x.key !== key);
+    });
+
+  const uploadOne = async (item: Staged, where: string) => {
+    update(item.key, { phase: "uploading" });
+    try {
+      const created = await api.uploadPhoto(item.photo, where);
+      update(item.key, { itemId: created.id });
+      // The thumbnail landing is what starts the vision model (routes/lostFound.ts).
+      await api.uploadThumb(created.id, item.thumb);
+      update(item.key, { phase: "describing" });
+    } catch (err) {
+      update(item.key, {
+        phase: "error",
+        error: errorMessage(err, "Upload failed. Check the connection and try again."),
+      });
+    }
+  };
+
+  /** "Add N items": every staged photo, UPLOAD_CONCURRENCY at a time. */
+  const submit = async () => {
+    const batch = staged;
+    if (!batch.length) return;
+    const where = location.trim();
+    saveLocation(where);
+    setStaged([]);
+    setRows((rs) => [
+      ...batch.map((s) => ({
+        key: s.key,
+        name: s.name,
+        preview: s.preview,
+        phase: "waiting" as Phase,
+        title: "",
+        error: "",
+        itemId: null,
+      })),
+      ...rs,
+    ]);
+    let next = 0;
+    const worker = async () => {
+      while (next < batch.length) await uploadOne(batch[next++]!, where);
+    };
+    await Promise.all(Array.from({ length: Math.min(UPLOAD_CONCURRENCY, batch.length) }, worker));
+  };
+
+  const count = (phases: Phase[]) => rows.filter((r) => phases.includes(r.phase)).length;
+  const summary = rows.length
+    ? [
+        `${count(["live"])} live`,
+        `${count(["held", "failed"])} held for review`,
+        count(["waiting", "uploading", "describing"]) && `${count(["waiting", "uploading", "describing"])} in progress`,
+        count(["error"]) && `${count(["error"])} failed to upload`,
+      ]
+        .filter(Boolean)
+        .join(" · ")
+    : "";
 
   return (
     <Screen active="staff" title="Add found items" back="/staff">
       <div className="lf-page lf-narrow">
         <p className="sd-lead" style={{ margin: 0 }}>
-          One item per photo, on a plain background if you can, and with no children in the frame. The AI writes the
-          description and tags; you can fix anything afterwards.
+          One item per photo, on a plain background if you can, and with no children in the frame. Snap or choose as
+          many as you like, then add them all at once — the AI describes each one as it lands.
         </p>
 
         <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
@@ -127,7 +241,7 @@ export function Upload() {
             onChange={(e) => setLocation(e.target.value)}
             onBlur={() => saveLocation(location.trim())}
           />
-          <span className="sd-meta">Applies to every photo you add now.</span>
+          <span className="sd-meta">Applies to every photo in this batch.</span>
         </div>
 
         <label className="lf-drop">
@@ -140,18 +254,54 @@ export function Upload() {
             onChange={(e) => void onFiles(e.target.files)}
           />
           <Icon name="upload" size={28} />
-          <strong style={{ fontSize: 17 }}>Take or choose photos</strong>
-          <span className="sd-meta">You can pick several at once.</span>
+          <strong style={{ fontSize: 17 }}>{staged.length ? "Add more photos" : "Take or choose photos"}</strong>
+          <span className="sd-meta">Pick several at once, or snap one after another.</span>
         </label>
         <div className="lf-notice">
           Turn names and labels away from the camera — items with writing are held for review before they appear
           publicly.
         </div>
+        {prepError && <div className="lf-notice warn" role="alert">{prepError}</div>}
 
-        <div className="lf-queue" aria-live="polite">
+        {(staged.length > 0 || preparing > 0) && (
+          <section className="sd-card sd-card-pad" style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+            <div className="lf-tray" aria-label="Photos ready to add">
+              {staged.map((s) => (
+                <div key={s.key} className="lf-tray-item">
+                  <img src={s.preview} alt={`Photo ${s.name}`} />
+                  <button type="button" aria-label={`Remove ${s.name}`} onClick={() => unstage(s.key)}>
+                    ×
+                  </button>
+                </div>
+              ))}
+              {Array.from({ length: preparing }, (_, i) => (
+                <div key={`p${i}`} className="lf-tray-item lf-tray-pending" aria-label="Preparing a photo">
+                  <div className="sd-spinner" />
+                </div>
+              ))}
+            </div>
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+              <Btn disabled={!staged.length || preparing > 0} onClick={() => void submit()}>
+                {staged.length === 1 ? "Add 1 item" : `Add ${staged.length} items`}
+              </Btn>
+              <Btn kind="ghost" disabled={!staged.length} onClick={() => staged.forEach((s) => unstage(s.key))}>
+                Clear
+              </Btn>
+              {preparing > 0 && <span className="sd-meta">Preparing {preparing}…</span>}
+            </div>
+          </section>
+        )}
+
+        {summary && (
+          <p className="sd-meta" aria-live="polite" style={{ margin: 0, fontWeight: 600 }}>
+            {summary}
+          </p>
+        )}
+
+        <div className="lf-queue">
           {rows.map((r) => (
             <div key={r.key} className="lf-queue-row">
-              {r.preview ? <img src={r.preview} alt="" /> : <div style={{ width: 56, height: 56 }} />}
+              <img src={r.preview} alt="" />
               <div style={{ minWidth: 0 }}>
                 <div className="sd-meta" style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                   {r.name}
@@ -160,15 +310,15 @@ export function Upload() {
                   style={{
                     fontSize: 14,
                     fontWeight: 600,
-                    color: r.tone === "warn" ? "var(--orange-ink)" : r.tone === "ok" ? "var(--ok)" : "var(--ink)",
+                    color: WARN.includes(r.phase) ? "var(--orange-ink)" : r.phase === "live" ? "var(--ok)" : "var(--ink)",
                   }}
                 >
-                  {r.status}
+                  {PHASE_TEXT[r.phase](r)}
                 </div>
               </div>
               {r.itemId && (
                 <Link className="sd-btn sd-btn-ghost sd-btn-sm" to={`/staff/item/${r.itemId}`}>
-                  {r.tone === "warn" ? "Review" : "Edit"}
+                  {WARN.includes(r.phase) ? "Review" : "Edit"}
                 </Link>
               )}
             </div>

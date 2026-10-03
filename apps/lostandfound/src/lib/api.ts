@@ -128,6 +128,9 @@ export const api = {
     const params = new URLSearchParams(filter as Record<string, string>);
     return request<{ items: LfStaffItemDTO[] }>(`/lostfound/items?${params}`);
   },
+  /** Several items by id, whatever their state — up to 50 per call. */
+  staffItemsByIds: (ids: string[]) =>
+    request<{ items: LfStaffItemDTO[] }>(`/lostfound/items?ids=${ids.map(encodeURIComponent).join(",")}`),
   staffItem: (id: string) => request<LfStaffItemDetailDTO>(`/lostfound/items/${encodeURIComponent(id)}`),
   uploadPhoto: (photo: Blob, location: string) =>
     request<LfStaffItemDTO>(`/lostfound/items?location=${encodeURIComponent(location)}`, jpeg("POST", photo)),

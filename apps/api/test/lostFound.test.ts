@@ -121,6 +121,7 @@ const JPEG = new Uint8Array([0xff, 0xd8, 0xff, 0xe0, 0, 0]);
 const STAFF_ROUTES: Array<[string, string, unknown?]> = [
   ["GET", "/lostfound/items"],
   ["GET", "/lostfound/items?view=attention"],
+  ["GET", "/lostfound/items?ids=01ITEM,01OTHER"],
   ["GET", "/lostfound/items/01ITEM"],
   ["POST", "/lostfound/items?location=Gym", JPEG],
   ["PUT", "/lostfound/items/01ITEM/thumb", JPEG],

@@ -48,6 +48,9 @@ import { DAYS, nowIso } from "../lib/time.js";
 import { LF_DONATE_AFTER_DAYS } from "@sd/shared";
 
 const JPEG = "image/jpeg";
+/** Most items one `?ids=` read returns. A batch bigger than this simply polls
+ *  in slices; D1's 100-parameter ceiling is the hard limit behind it. */
+const LF_IDS_MAX = 50;
 import { requireAuth } from "../middleware/session.js";
 
 export const lostFound = new Hono<HonoEnv>();
@@ -154,6 +157,8 @@ lostFound.get(
 // ── Items ───────────────────────────────────────────────────────────────────
 
 /** GET /lostfound/items?status=found|returned  or  ?view=review|attention|hidden
+ *  or  ?ids=a,b,c (up to LF_IDS_MAX, any state — the rapid-add screen's one
+ *  status check for a whole batch, instead of a poll per photo).
  *  "found" is what the public sees; "review" is what's held back from it. */
 lostFound.get(
   "/items",
@@ -166,7 +171,11 @@ lostFound.get(
     else if (view === "review") where = "i.status = 'found' AND i.hidden_at IS NULL AND i.held_at IS NOT NULL";
     else if (view === "hidden") where = "i.status = 'found' AND i.hidden_at IS NOT NULL";
     const binds: string[] = [];
-    if (view === "attention") {
+    const ids = (c.req.query("ids") ?? "").split(",").filter(Boolean).slice(0, LF_IDS_MAX);
+    if (ids.length) {
+      where = `i.id IN (${ids.map(() => "?").join(",")})`;
+      binds.push(...ids);
+    } else if (view === "attention") {
       // Failed descriptions, and anything unclaimed long enough to donate —
       // in SQL, so the oldest items (the ones due) can't fall off the LIMIT.
       where = "i.status = 'found' AND (i.tag_status = 'failed' OR i.found_at < ?)";

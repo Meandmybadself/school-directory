@@ -68,6 +68,18 @@
 }
 .lf-drop:hover, .lf-drop:focus-within { border-color: var(--blue); }
 
+/* The rapid-add tray: staged photos waiting for "Add N items". */
+.lf-tray { display: grid; grid-template-columns: repeat(auto-fill, minmax(76px, 1fr)); gap: 8px; }
+.lf-tray-item { position: relative; aspect-ratio: 1; border-radius: 10px; overflow: hidden; background: var(--bg-2); }
+.lf-tray-item img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.lf-tray-item button {
+  position: absolute; top: 4px; right: 4px; width: 26px; height: 26px; border-radius: 13px; border: 0;
+  background: var(--paper); color: var(--ink); font-size: 18px; line-height: 1; cursor: pointer;
+  box-shadow: 0 1px 3px rgb(0 0 0 / 0.25);
+}
+.lf-tray-item button:focus-visible { outline: 2px solid var(--blue); outline-offset: 1px; }
+.lf-tray-pending { display: flex; align-items: center; justify-content: center; }
+
 .lf-claim { display: grid; grid-template-columns: 64px 1fr; gap: 12px; align-items: start; }
 .lf-claim img { width: 64px; height: 64px; object-fit: cover; border-radius: 10px; background: var(--bg-2); }
 
