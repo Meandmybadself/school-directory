@@ -6,7 +6,9 @@
 
 import { describe, expect, it } from "vitest";
 import {
+  dictionaries,
   isPublishedIssueUrl,
+  LOCALES,
   linkQrSvg,
   NEWSLETTER_WEB_CSS,
   publishedIssueQrSvg,
@@ -95,6 +97,15 @@ describe("the issue page's printed QR code", () => {
     expect(page(URL_OK)).toContain('class="nl-qr"');
     expect(page(URL_OK)).toContain("Scan to read online");
     expect(page("")).not.toContain("nl-qr");
+  });
+
+  it("captions the code in every other locale, in LOCALES order, after the English", () => {
+    const qr = page(URL_OK).match(/<div class="nl-qr">[^]*?<\/div>/)![0];
+    const langs = [...qr.matchAll(/<p lang="(\w+)"/g)].map((m) => m[1]);
+    expect(langs).toEqual(LOCALES);
+    for (const l of LOCALES.filter((l) => l !== "en")) {
+      expect(qr).toContain(dictionaries[l].newsletterQrScan);
+    }
   });
 
   it("refuses a token url even when a caller passes one", () => {
