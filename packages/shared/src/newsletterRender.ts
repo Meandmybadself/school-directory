@@ -42,7 +42,7 @@ import { visibleEvents } from "./newsletterEvents.js";
 import { eventPath, type EventPathInput } from "./eventPath.js";
 import { htmlToText } from "./text.js";
 import { linkQrSvg, publishedIssueQrSvg } from "./newsletterQr.js";
-import { dictionaries } from "./i18n.js";
+import { localeNames } from "./i18n.js";
 import {
   newsletterLanguageLinks,
   PROXY_LANG,
@@ -1245,15 +1245,15 @@ export function renderNewsletterIssuePageHtml(input: NewsletterIssuePageInput): 
   // title: the first thing a reader of a printed copy sees is the way back to
   // the live one, where every link on the page still works.
   const qr = publishedIssueQrSvg(input.publishedUrl);
-  // The English caption, then one line per other locale in its own language —
-  // a family that doesn't read English is exactly who a paper copy most needs
-  // to tell that the live page can be read in theirs. `translate="no"` because
-  // a proxied page that gets printed would otherwise "translate" all of them.
-  const qrCaptions = LOCALES.map(
-    (l) =>
-      `<p lang="${l}"${l === "en" ? "" : ` class="nl-qr-alt notranslate" translate="no"`}>${escapeHtml(dictionaries[l].newsletterQrScan)}</p>`,
-  ).join("");
-  const qrBlock = qr ? `<div class="nl-qr">${qr}${qrCaptions}</div>` : "";
+  // Beneath it, the name of every language the live page can be read in
+  // other than English, each in its own language — the page's language bar is
+  // one tap from each. `translate="no"` so a printed proxy page leaves them be.
+  const qrLanguages = LOCALES.filter((l) => l !== "en")
+    .map((l) => `<p lang="${l}">${escapeHtml(localeNames[l].native)}</p>`)
+    .join("");
+  const qrBlock = qr
+    ? `<div class="nl-qr notranslate" translate="no">${qr}${qrLanguages}</div>`
+    : "";
 
   const languages = newsletterLanguageLinks(input.issueUrl, "proxy");
   const langBar =
@@ -1429,8 +1429,7 @@ a{color:var(--nl-accent,${DEFAULT_ACCENT})}
      starting below a square of white space. */
   .nl-qr{display:block;float:right;width:1.25in;margin:0 0 10px 18px;text-align:center}
   .nl-qr svg{display:block;width:1.1in;height:1.1in;margin:0 auto}
-  .nl-qr p{margin:4px 0 0;font-size:8.5pt;line-height:1.35;color:${INK}}
-  .nl-qr p.nl-qr-alt{margin-top:3px;font-size:7.5pt;line-height:1.3}
+  .nl-qr p{margin:2px 0 0;font-size:8.5pt;line-height:1.35;color:${INK}}
   /* One small code per link in the body, in a column pinned to the top-right
      of the block holding the link (see qrBlock). The block keeps its text out
      of that column with right padding, grows tall enough to hold every code it

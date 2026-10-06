@@ -107,11 +107,6 @@ export interface Strings {
   brandSubNewsletter: string;
   navNewsletter: string;
   newsletterArchive: string;
-  /** The caption under the QR code a printed issue carries back to its live
-   *  page. Every locale's line is printed under the code at once, in LOCALES
-   *  order, so a non-English line names its own language: the live page's
-   *  language bar is one tap from that. */
-  newsletterQrScan: string;
   newsletterPrefsTitle: string;
   newsletterPrefsLead: string;
   newsletterSubscribeLabel: string;
@@ -911,7 +906,6 @@ const en: Strings = {
   brandSubNewsletter: "PTO Newsletter",
   navNewsletter: "Newsletters",
   newsletterArchive: "Past issues",
-  newsletterQrScan: "Scan to read online",
   newsletterPrefsTitle: "Newsletter",
   newsletterPrefsLead: "Choose whether the school newsletter is sent to your email address.",
   newsletterSubscribeLabel: "Email me the newsletter",
@@ -1714,7 +1708,6 @@ const es: Strings = {
   brandSubNewsletter: "Boletín de la PTO",
   navNewsletter: "Boletines",
   newsletterArchive: "Números anteriores",
-  newsletterQrScan: "Escanee para leer en línea en español",
   newsletterPrefsTitle: "Boletín",
   newsletterPrefsLead: "Elija si desea recibir el boletín escolar en su correo electrónico.",
   newsletterSubscribeLabel: "Enviarme el boletín por correo",
@@ -2444,7 +2437,6 @@ const zh: Strings = {
   brandSubNewsletter: "PTO 通讯",
   navNewsletter: "通讯",
   newsletterArchive: "往期通讯",
-  newsletterQrScan: "扫码在线阅读中文版",
   newsletterPrefsTitle: "通讯",
   newsletterPrefsLead: "选择是否将学校通讯发送到您的电子邮箱。",
   newsletterSubscribeLabel: "通过电子邮件接收通讯",
@@ -3146,7 +3138,6 @@ const so: Strings = {
   brandSubNewsletter: "Warsidaha PTO",
   navNewsletter: "Warsidayaasha",
   newsletterArchive: "Daabacaadihii hore",
-  newsletterQrScan: "Sawir koodhka si aad onlayn ugu akhrido af-Soomaali",
   newsletterPrefsTitle: "Warsidaha",
   newsletterPrefsLead: "Dooro in warsidaha dugsiga loo diro iimaylkaaga iyo in kale.",
   newsletterSubscribeLabel: "Warsidaha iimayl iigu soo dir",
