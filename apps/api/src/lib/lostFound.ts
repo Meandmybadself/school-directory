@@ -93,8 +93,16 @@ export function staffMediaUrl(origin: string, key: string): string {
 /** The item a photo key belongs to. Keys are `<id>.jpg` and `<id>-thumb.jpg`,
  *  and nothing else is ever written to the bucket. */
 export function itemIdOfKey(key: string): string | null {
-  const m = /^([0-9A-HJKMNP-TV-Z]{26})(?:-thumb)?\.jpg$/.exec(key);
+  const m = /^([0-9A-HJKMNP-TV-Z]{26})(?:-[0-9a-z]{1,12})?(?:-thumb)?\.jpg$/.exec(key);
   return m ? m[1]! : null;
+}
+
+/** A fresh key for an item's photo or thumbnail. Replacing an image (staff
+ *  rotating it) writes a NEW object rather than overwriting the old one, since
+ *  both media routes are cached for an hour and an overwritten key would keep
+ *  serving the image sideways. `itemIdOfKey` still maps it to its item. */
+export function versionedKey(id: string, thumb: boolean): string {
+  return `${id}-${Date.now().toString(36)}${thumb ? "-thumb" : ""}.jpg`;
 }
 
 function jsonList(raw: string): string[] {

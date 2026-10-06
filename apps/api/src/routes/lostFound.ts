@@ -38,6 +38,7 @@ import {
   retagStuck,
   saveFields,
   staffItemOf,
+  versionedKey,
   syncVector,
   tagItem,
   type LfClaimRow,
@@ -259,7 +260,8 @@ lostFound.post(
   }),
 );
 
-/** PUT /lostfound/items/:id/thumb — raw JPEG thumbnail; starts the description. */
+/** PUT /lostfound/items/:id/thumb — raw JPEG thumbnail; starts the description
+ *  the first time. Sent again after a rotation, under a fresh key. */
 lostFound.put(
   "/items/:id/thumb",
   guarded(async (c) => {
@@ -269,15 +271,46 @@ lostFound.put(
     const thumb = await readJpeg(c, MAX_THUMB_BYTES);
     if (thumb instanceof Response) return thumb;
 
-    const thumbKey = `${row.id}-thumb.jpg`;
+    const thumbKey = versionedKey(row.id, true);
     await c.env.LOSTFOUND_MEDIA.put(thumbKey, thumb, { httpMetadata: { contentType: JPEG } });
     await c.env.DB.prepare("UPDATE lf_item SET thumb_key = ?, updated_at = ? WHERE id = ?")
       .bind(thumbKey, nowIso(), row.id)
       .run();
+    if (row.thumb_key && row.thumb_key !== thumbKey) await c.env.LOSTFOUND_MEDIA.delete(row.thumb_key);
     // Described after responding, so staff can keep photographing. A Worker
     // that dies mid-call leaves the item pending; the daily sweep retries it.
     if (row.tag_status === "pending") c.executionCtx.waitUntil(tagItem(c.env, row.id, thumb));
     return c.json({ ok: true });
+  }),
+);
+
+/** PUT /lostfound/items/:id/photo — raw JPEG; replaces the full-size photo.
+ *  The staff app sends it only to ROTATE a photo (then the thumbnail, via the
+ *  route above). It moves no state: the hold stays where it was, because a
+ *  staff member who could swap the picture here could equally press Publish —
+ *  the roster is what's trusted with the photo, not this route. */
+lostFound.put(
+  "/items/:id/photo",
+  guarded(async (c) => {
+    await requireStaff(c);
+    const row = await getStaffItem(c.env, param(c, "id"));
+    if (!row) return c.json({ error: "not_found" }, 404);
+    const photo = await readJpeg(c, MAX_PHOTO_BYTES);
+    if (photo instanceof Response) return photo;
+
+    const photoKey = versionedKey(row.id, false);
+    await c.env.LOSTFOUND_MEDIA.put(photoKey, photo, { httpMetadata: { contentType: JPEG } });
+    await c.env.DB.prepare("UPDATE lf_item SET photo_key = ?, updated_at = ? WHERE id = ?")
+      .bind(photoKey, nowIso(), row.id)
+      .run();
+    await c.env.LOSTFOUND_MEDIA.delete(row.photo_key);
+    c.var.audit.push({
+      action: "lostfound.item.updated",
+      entityKind: "lf_item",
+      entityId: row.id,
+      detail: { photo: "replaced" },
+    });
+    return itemResponse(c, row.id);
   }),
 );
 

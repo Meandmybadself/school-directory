@@ -19,7 +19,7 @@ import { Screen } from "../../components/Screen.js";
 import { Icon } from "../../components/Icon.js";
 import { Btn } from "../../components/atoms.js";
 import { api, errorMessage } from "../../lib/api.js";
-import { resizePhoto } from "../../lib/lf.js";
+import { resizePhoto, rotatePhoto, type Turn } from "../../lib/lf.js";
 
 const LOCATION_KEY = "lf_last_location";
 const UPLOAD_CONCURRENCY = 3;
@@ -85,6 +85,7 @@ export function Upload() {
   const [staged, setStaged] = useState<Staged[]>([]);
   const [preparing, setPreparing] = useState(0);
   const [prepError, setPrepError] = useState("");
+  const [rotating, setRotating] = useState<string[]>([]);
   const [rows, setRows] = useState<Row[]>([]);
   const input = useRef<HTMLInputElement>(null);
 
@@ -167,6 +168,24 @@ export function Upload() {
       if (gone) URL.revokeObjectURL(gone.preview);
       return s.filter((x) => x.key !== key);
     });
+
+  /** Turn a staged photo a quarter. Both images are re-made from the full-size
+   *  one, so the thumbnail the AI reads turns with it. */
+  const rotate = async (key: string, turn: Turn) => {
+    const item = staged.find((x) => x.key === key);
+    if (!item || rotating.includes(key)) return;
+    setRotating((r) => [...r, key]);
+    try {
+      const { photo, thumb } = await rotatePhoto(item.photo, turn);
+      const preview = URL.createObjectURL(thumb);
+      setStaged((s) => s.map((x) => (x.key === key ? { ...x, photo, thumb, preview } : x)));
+      URL.revokeObjectURL(item.preview);
+    } catch {
+      setPrepError(`Couldn't rotate “${item.name}”.`);
+    } finally {
+      setRotating((r) => r.filter((k) => k !== key));
+    }
+  };
 
   const uploadOne = async (item: Staged, where: string) => {
     update(item.key, { phase: "uploading" });
@@ -255,7 +274,7 @@ export function Upload() {
           />
           <Icon name="upload" size={28} />
           <strong style={{ fontSize: 17 }}>{staged.length ? "Add more photos" : "Take or choose photos"}</strong>
-          <span className="sd-meta">Pick several at once, or snap one after another.</span>
+          <span className="sd-meta">Pick several at once, or snap one after another. Tap ↻ on any that came out sideways.</span>
         </label>
         <div className="lf-notice">
           Turn names and labels away from the camera — items with writing are held for review before they appear
@@ -272,6 +291,16 @@ export function Upload() {
                   <button type="button" aria-label={`Remove ${s.name}`} onClick={() => unstage(s.key)}>
                     ×
                   </button>
+                  <button
+                    type="button"
+                    className="lf-tray-rotate"
+                    aria-label={`Rotate ${s.name}`}
+                    title="Rotate"
+                    disabled={rotating.includes(s.key)}
+                    onClick={() => void rotate(s.key, "cw")}
+                  >
+                    ↻
+                  </button>
                 </div>
               ))}
               {Array.from({ length: preparing }, (_, i) => (
@@ -281,7 +310,7 @@ export function Upload() {
               ))}
             </div>
             <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
-              <Btn disabled={!staged.length || preparing > 0} onClick={() => void submit()}>
+              <Btn disabled={!staged.length || preparing > 0 || rotating.length > 0} onClick={() => void submit()}>
                 {staged.length === 1 ? "Add 1 item" : `Add ${staged.length} items`}
               </Btn>
               <Btn kind="ghost" disabled={!staged.length} onClick={() => staged.forEach((s) => unstage(s.key))}>

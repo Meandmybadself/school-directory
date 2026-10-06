@@ -125,6 +125,7 @@ const STAFF_ROUTES: Array<[string, string, unknown?]> = [
   ["GET", "/lostfound/items/01ITEM"],
   ["POST", "/lostfound/items?location=Gym", JPEG],
   ["PUT", "/lostfound/items/01ITEM/thumb", JPEG],
+  ["PUT", "/lostfound/items/01ITEM/photo", JPEG],
   ["PATCH", "/lostfound/items/01ITEM", { title: "x" }],
   ["POST", "/lostfound/items/01ITEM/publish", {}],
   ["POST", "/lostfound/items/01ITEM/hide", {}],
@@ -492,6 +493,9 @@ describe("itemIdOfKey (the public photo route's gate)", () => {
     const id = "01M3Z5G57Q0DGBMRZVE1FSSSMS";
     expect(itemIdOfKey(`${id}.jpg`)).toBe(id);
     expect(itemIdOfKey(`${id}-thumb.jpg`)).toBe(id);
+    expect(itemIdOfKey(`${id}-mfx1k2a.jpg`)).toBe(id);
+    expect(itemIdOfKey(`${id}-mfx1k2a-thumb.jpg`)).toBe(id);
+    expect(itemIdOfKey(`${id}-../x.jpg`)).toBeNull();
     expect(itemIdOfKey("../secret.jpg")).toBeNull();
     expect(itemIdOfKey(`${id}.png`)).toBeNull();
   });

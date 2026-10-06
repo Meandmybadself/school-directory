@@ -136,6 +136,10 @@ export const api = {
     request<LfStaffItemDTO>(`/lostfound/items?location=${encodeURIComponent(location)}`, jpeg("POST", photo)),
   uploadThumb: (id: string, thumb: Blob) =>
     request<{ ok: true }>(`/lostfound/items/${encodeURIComponent(id)}/thumb`, jpeg("PUT", thumb)),
+  /** Replace an item's full-size photo — the app sends it only to rotate one,
+   *  followed by `uploadThumb` with the matching thumbnail. */
+  replacePhoto: (id: string, photo: Blob) =>
+    request<LfStaffItemDTO>(`/lostfound/items/${encodeURIComponent(id)}/photo`, jpeg("PUT", photo)),
   saveItem: (id: string, body: LfItemPatch) =>
     request<LfStaffItemDTO>(`/lostfound/items/${encodeURIComponent(id)}`, patch(body)),
   itemAction: (id: string, act: LfItemAction) =>

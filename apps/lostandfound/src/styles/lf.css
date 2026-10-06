@@ -77,6 +77,9 @@
   background: var(--paper); color: var(--ink); font-size: 18px; line-height: 1; cursor: pointer;
   box-shadow: 0 1px 3px rgb(0 0 0 / 0.25);
 }
+.lf-tray-item .lf-tray-rotate { top: auto; right: auto; bottom: 4px; left: 4px; font-size: 16px; }
+.lf-tray-item button:disabled { opacity: 0.5; cursor: default; }
+.lf-photo-tools { display: flex; gap: 8px; flex-wrap: wrap; }
 .lf-tray-item button:focus-visible { outline: 2px solid var(--blue); outline-offset: 1px; }
 .lf-tray-pending { display: flex; align-items: center; justify-content: center; }
 

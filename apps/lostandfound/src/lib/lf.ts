@@ -200,3 +200,28 @@ export async function resizePhoto(file: File): Promise<{ photo: Blob; thumb: Blo
     bitmap.close();
   }
 }
+
+/** Which way a staff member turned a photo: a quarter turn clockwise or back. */
+export type Turn = "cw" | "ccw";
+
+/** A rotation as an EXIF orientation, so `orientTransform` does the geometry:
+ *  6 is "turn 90° clockwise to display", 8 is "turn 90° anticlockwise". */
+const TURN_ORIENTATION: Record<Turn, number> = { cw: 6, ccw: 8 };
+
+/** A photo this app already made (EXIF-free, upright as far as anyone knew),
+ *  turned a quarter and re-encoded as a full-size photo and a thumbnail. Used
+ *  when the phone's own orientation was wrong — a photo taken flat on a table
+ *  has no "up" for the phone to record. Plain decode on purpose: the input
+ *  carries no tag, so there is nothing for the browser to apply. */
+export async function rotatePhoto(source: Blob, turn: Turn): Promise<{ photo: Blob; thumb: Blob }> {
+  const bitmap = await createImageBitmap(source);
+  try {
+    const [photo, thumb] = await Promise.all([
+      toJpeg(bitmap, TURN_ORIENTATION[turn], PHOTO_MAX, 0.9),
+      toJpeg(bitmap, TURN_ORIENTATION[turn], THUMB_MAX, 0.8),
+    ]);
+    return { photo, thumb };
+  } finally {
+    bitmap.close();
+  }
+}

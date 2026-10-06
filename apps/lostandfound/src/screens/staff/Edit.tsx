@@ -17,7 +17,7 @@ import { Swatch } from "../../components/items.js";
 import { Btn } from "../../components/atoms.js";
 import { useI18n } from "../../i18n/index.js";
 import { api, errorMessage, type LfItemAction } from "../../lib/api.js";
-import { formatDay, formatDayTime } from "../../lib/lf.js";
+import { formatDay, formatDayTime, rotatePhoto, type Turn } from "../../lib/lf.js";
 
 function patchOf(item: LfStaffItemDetailDTO): LfItemPatch {
   return {
@@ -119,6 +119,29 @@ export function Edit() {
     }
   };
 
+  /** Turn the photo a quarter: fetched back from the staff media route,
+   *  turned in the browser (the Worker has no canvas), then sent as a new photo
+   *  and thumbnail. The description is left alone — the item didn't change. */
+  const rotate = async (turn: Turn) => {
+    if (!item) return;
+    setBusy(true);
+    setNote(null);
+    try {
+      const res = await fetch(item.photoUrl, { credentials: "include", cache: "no-store" });
+      if (!res.ok) throw new Error(`photo ${res.status}`);
+      const { photo, thumb } = await rotatePhoto(await res.blob(), turn);
+      await api.replacePhoto(id, photo);
+      await api.uploadThumb(id, thumb);
+      // Keep any unsaved typing: take the new photo URLs, not the whole item.
+      const fresh = await api.staffItem(id);
+      setItem((prev) => (prev ? { ...prev, photoUrl: fresh.photoUrl, thumbUrl: fresh.thumbUrl } : fresh));
+    } catch (err) {
+      setNote({ text: errorMessage(err, "Couldn't rotate the photo. Try again."), warn: true });
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const remove = async () => {
     if (!window.confirm("Delete this item and its photo for good?")) return;
     setBusy(true);
@@ -142,6 +165,14 @@ export function Edit() {
           <div className="lf-detail">
             <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
               <img className="lf-photo" src={item.photoUrl} alt={item.title || "Found item"} />
+              <div className="lf-photo-tools">
+                <Btn kind="ghost" sm disabled={busy} onClick={() => void rotate("ccw")}>
+                  ↺ Rotate left
+                </Btn>
+                <Btn kind="ghost" sm disabled={busy} onClick={() => void rotate("cw")}>
+                  ↻ Rotate right
+                </Btn>
+              </div>
               <p className="sd-meta" style={{ margin: 0 }}>
                 Found {formatDay(item.foundAt, locale)}
                 {item.createdByEmail && ` · added by ${item.createdByEmail}`}
