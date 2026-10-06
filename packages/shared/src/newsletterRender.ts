@@ -565,12 +565,15 @@ interface Ctx {
   resolve: EventsResolver;
   /** Public calendar site, or "" to omit the "See all" link. */
   calendarUrl: string;
-  /** Hrefs already given a print-only QR code in this render, or null when no
-   *  codes are drawn at all. Web mode only: an email client neither honours
-   *  `@media print` reliably nor renders inline SVG (Gmail strips it), so the
-   *  email stays exactly as it was. One code per DESTINATION, because a link
-   *  whose text is partly bold arrives as several text nodes with one href. */
-  linkQrs: Set<string> | null;
+  /** Hrefs already given a print-only QR code in this render, each mapped to
+   *  the number printed beside the code and as a superscript after its link,
+   *  or null when no codes are drawn at all. Web mode only: an email client
+   *  neither honours `@media print` reliably nor renders inline SVG (Gmail
+   *  strips it), so the email stays exactly as it was. One code per
+   *  DESTINATION, because a link whose text is partly bold arrives as several
+   *  text nodes with one href. Numbers run through the whole issue, so a link
+   *  repeated further down carries the number of the code already printed. */
+  linkQrs: Map<string, number> | null;
   /** Codes drawn while rendering the current block (paragraph, heading, list
    *  item), handed back to that block to place in its own right-hand column.
    *  Null outside such a block, where a link gets no code. */
@@ -633,8 +636,24 @@ function linkQr(href: string, ctx: Ctx): void {
   if (!ctx.linkQrs || !ctx.qrSink || ctx.linkQrs.has(href)) return;
   const svg = linkQrSvg(href);
   if (!svg) return;
-  ctx.linkQrs.add(href);
-  ctx.qrSink.push(svg);
+  const n = ctx.linkQrs.size + 1;
+  ctx.linkQrs.set(href, n);
+  ctx.qrSink.push(`<span class="nl-qr-item"><span class="nl-qr-num">${n}</span>${svg}</span>`);
+}
+
+/** The safe href of a text node's link mark, or null. */
+function linkHrefOf(node: NewsletterNode | undefined): string | null {
+  if (node?.type !== "text") return null;
+  const link = (node.marks ?? []).find((m) => m.type === "link");
+  return link ? safeLinkHref(link.attrs?.href) : null;
+}
+
+/** The print-only superscript after a link, pairing it with its numbered code
+ *  in the block's column. Placed once after the whole link, not after each of
+ *  the text nodes a partly-bold link is split into. */
+function linkQrRef(href: string | null, ctx: Ctx): string {
+  const n = href && ctx.linkQrs?.get(href);
+  return n ? `<sup class="nl-qr-ref">${n}</sup>` : "";
 }
 
 /** Renders one block's inline content and collects the codes its links drew.
@@ -665,7 +684,16 @@ function qrBlock(ctx: Ctx, render: () => string): { inner: string; cls: string; 
 }
 
 function renderChildren(nodes: NewsletterNode[] | undefined, ctx: Ctx): string {
-  return (nodes ?? []).map((n) => renderNode(n, ctx)).join("");
+  const list = nodes ?? [];
+  return list
+    .map((n, i) => {
+      const html = renderNode(n, ctx);
+      const href = linkHrefOf(n);
+      // Rendered first so the code (and its number) exists before the ref.
+      if (!href || linkHrefOf(list[i + 1]) === href) return html;
+      return html + linkQrRef(href, ctx);
+    })
+    .join("");
 }
 
 function renderEventsBlock(node: NewsletterNode, ctx: Ctx): string {
@@ -878,7 +906,7 @@ export function renderNewsletterBodyHtml(
     locale: opts.locale || DEFAULT_LOCALE,
     resolve: resolveEvents,
     calendarUrl: opts.calendarUrl ?? "",
-    linkQrs: opts.mode === "web" ? new Set() : null,
+    linkQrs: opts.mode === "web" ? new Map() : null,
     qrSink: null,
   });
 }
@@ -1336,6 +1364,7 @@ a{color:var(--nl-accent,${DEFAULT_ACCENT})}
 .nl-event-volunteer-link:hover{text-decoration:underline}
 .nl-qr{display:none}
 .nl-qr-col{display:none}
+.nl-qr-ref{display:none}
 .nl-foot{margin-top:22px;padding-top:18px;border-top:1px solid ${RULE};font-size:13px;line-height:1.6;color:${MUTED}}
 .nl-archive-item{display:block;background:${PAPER};border-radius:12px;padding:18px 20px;margin-bottom:12px;text-decoration:none;color:${INK};box-shadow:0 1px 3px rgba(16,24,40,.06)}
 .nl-archive-item h2{margin:0;font-size:19px;line-height:1.3}
@@ -1435,12 +1464,16 @@ a{color:var(--nl-accent,${DEFAULT_ACCENT})}
      of that column with right padding, grows tall enough to hold every code it
      carries, and is not split across pages, so a code never prints on a
      different sheet from its link. */
-  .nl-has-qr{position:relative;padding-right:1in;break-inside:avoid;page-break-inside:avoid}
+  .nl-has-qr{position:relative;padding-right:1.2in;break-inside:avoid;page-break-inside:avoid}
   .nl-qr-1{min-height:.8in}
   .nl-qr-2{min-height:1.65in}
   .nl-qr-3{min-height:2.5in}
   .nl-qr-4{min-height:3.35in}
-  .nl-qr-col{display:flex;flex-direction:column;gap:.1in;position:absolute;top:2px;right:0;width:.75in}
-  .nl-qr-col svg{display:block;width:.75in;height:.75in}
+  .nl-qr-col{display:flex;flex-direction:column;gap:.1in;position:absolute;top:2px;right:0;width:.95in}
+  .nl-qr-item{display:flex;align-items:flex-start;justify-content:flex-end;gap:.05in}
+  .nl-qr-num{font-size:9pt;font-weight:700;line-height:1;color:${INK}}
+  .nl-qr-col svg{display:block;width:.75in;height:.75in;flex:none}
+  /* The number after a link that matches the one beside its code. */
+  .nl-qr-ref{display:inline;font-size:.7em;font-weight:700;line-height:0;margin-left:1px;vertical-align:super;color:${INK}}
 }
 `.trim();

@@ -136,8 +136,32 @@ describe("a printed QR code beside each link in the body", () => {
   it("puts the code in a column at the top of the paragraph holding the link", () => {
     const html = body("web", { type: "text", text: "Sign up " }, link("here", "https://www.signupgenius.com/go/abc"));
     expect(html).toMatch(
-      /^<p class="nl-p nl-has-qr nl-qr-1"><span class="nl-qr-col" aria-hidden="true"><svg [^]*<\/svg><\/span>Sign up <a href="https:\/\/www\.signupgenius\.com\/go\/abc"/,
+      /^<p class="nl-p nl-has-qr nl-qr-1"><span class="nl-qr-col" aria-hidden="true"><span class="nl-qr-item"><span class="nl-qr-num">1<\/span><svg [^]*<\/svg><\/span><\/span>Sign up <a href="https:\/\/www\.signupgenius\.com\/go\/abc"/,
     );
+  });
+
+  it("marks each link with a superscript number matching the one beside its code", () => {
+    const html = body("web", link("a", "https://example.org/a"), { type: "text", text: " and " }, link("b", "https://example.org/b"));
+    expect(html).toContain('<span class="nl-qr-num">1</span>');
+    expect(html).toContain('<span class="nl-qr-num">2</span>');
+    expect(html).toContain('>a</a><sup class="nl-qr-ref">1</sup> and ');
+    expect(html).toMatch(/>b<\/a><sup class="nl-qr-ref">2<\/sup><\/p>$/);
+  });
+
+  it("puts one superscript after a split link, and reuses the number when the link repeats", () => {
+    const html = render("web", [
+      { type: "paragraph", content: [link("Book ", "https://example.org/fair"), link("fair", "https://example.org/fair", [{ type: "bold" }])] },
+      { type: "paragraph", content: [link("again", "https://example.org/fair")] },
+    ]);
+    expect((html.match(/nl-qr-ref/g) ?? []).length).toBe(2);
+    expect(html).toContain('>Book </a><a href="https://example.org/fair"');
+    expect(html).toContain('<strong>fair</strong></a><sup class="nl-qr-ref">1</sup>');
+    expect(html).toContain('>again</a><sup class="nl-qr-ref">1</sup>');
+  });
+
+  it("puts no superscript on a link that gets no code", () => {
+    expect(body("web", link("Call", "tel:+16125550100"))).not.toContain("<sup");
+    expect(body("email", link("here", "https://example.org/x"))).not.toContain("<sup");
   });
 
   it("carries no caption, only the code", () => {
@@ -194,6 +218,7 @@ describe("a printed QR code beside each link in the body", () => {
     const screen = NEWSLETTER_WEB_CSS.slice(0, printAt);
     const print = NEWSLETTER_WEB_CSS.slice(printAt);
     expect(screen).toContain(".nl-qr-col{display:none}");
+    expect(screen).toContain(".nl-qr-ref{display:none}");
     expect(screen).not.toContain(".nl-has-qr");
     expect(print).toMatch(/\.nl-has-qr\{[^}]*padding-right:[^}]*break-inside:avoid/);
     expect(print).toMatch(/\.nl-qr-col\{display:flex/);

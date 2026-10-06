@@ -639,6 +639,12 @@ All six SPAs are separate Cloudflare Pages projects talking to the single
    per destination; `http(s)` and `mailto:` only (a phone opens the latter as a
    new message), so `tel:` and the events block's generated links get none. It encodes only the href the archive page already publishes, so it
    needs none of the masthead code's refusal.
+   Each code is NUMBERED, and the same number prints as a superscript after
+   the link it belongs to (`.nl-qr-ref`, print-only like the column), so a
+   block with several links says which code is which. Numbers run through the
+   whole issue: a link repeated further down gets no second code but carries
+   the first one's number, and a partly-bold link split into several text
+   nodes gets one superscript after the whole link (`renderChildren`).
 
 17. **Removing a User is `disabled_at`, and deleting one has rules it does not
    yet execute.** `POST /admin/users/:id/disabled` is reversible and touches the
