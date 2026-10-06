@@ -136,7 +136,7 @@ describe("a printed QR code beside each link in the body", () => {
   it("puts the code in a column at the top of the paragraph holding the link", () => {
     const html = body("web", { type: "text", text: "Sign up " }, link("here", "https://www.signupgenius.com/go/abc"));
     expect(html).toMatch(
-      /^<p class="nl-p nl-has-qr nl-qr-1"><span class="nl-qr-col" aria-hidden="true"><span class="nl-qr-item"><span class="nl-qr-num">1<\/span><svg [^]*<\/svg><\/span><\/span>Sign up <a href="https:\/\/www\.signupgenius\.com\/go\/abc"/,
+      /^<p class="nl-p"><span class="nl-qr-col" aria-hidden="true"><span class="nl-qr-item"><span class="nl-qr-num">1<\/span><svg [^]*<\/svg><\/span><\/span>Sign up <a href="https:\/\/www\.signupgenius\.com\/go\/abc"/,
     );
   });
 
@@ -169,9 +169,9 @@ describe("a printed QR code beside each link in the body", () => {
     expect(html).not.toContain("signupgenius.com</span>");
   });
 
-  it("sizes the paragraph for every code it holds", () => {
+  it("gives a block holding codes no class of its own, so it is laid out like any other", () => {
     const html = body("web", link("a", "https://example.org/a"), link("b", "https://example.org/b"));
-    expect(html).toContain('class="nl-p nl-has-qr nl-qr-2"');
+    expect(html).toMatch(/^<p class="nl-p"><span class="nl-qr-col"/);
     expect(codes(html)).toBe(2);
   });
 
@@ -182,7 +182,7 @@ describe("a printed QR code beside each link in the body", () => {
         { type: "listItem", content: [{ type: "paragraph", content: [{ type: "text", text: "plain" }] }] },
       ] },
     ]);
-    expect(html).toMatch(/<li class="nl-li nl-has-qr nl-qr-1"><span class="nl-qr-col"/);
+    expect(html).toMatch(/<li class="nl-li"><span class="nl-qr-col"/);
     expect(html).toContain('<li class="nl-li">plain</li>');
   });
 
@@ -199,11 +199,11 @@ describe("a printed QR code beside each link in the body", () => {
       { type: "paragraph", content: [link("again", "https://example.org/fair"), link("menu", "https://example.org/menu")] },
     ]);
     expect(codes(html)).toBe(2);
-    expect(html).toContain('class="nl-p nl-has-qr nl-qr-1"><span class="nl-qr-col"');
+    expect((html.match(/class="nl-qr-col"/g) ?? []).length).toBe(2);
   });
 
   it("draws one for a mailto link, which a phone opens as a new message", () => {
-    expect(body("web", link("Email us", "mailto:pto@example.org"))).toContain("nl-has-qr nl-qr-1");
+    expect(body("web", link("Email us", "mailto:pto@example.org"))).toContain('class="nl-qr-col"');
     expect(linkQrSvg("mailto:pto@example.org?subject=Book%20fair")).toMatch(/^<svg /);
   });
 
@@ -213,16 +213,40 @@ describe("a printed QR code beside each link in the body", () => {
     expect(linkQrSvg("mailto:nobody")).toBe("");
   });
 
-  it("is hidden on screen, and on paper keeps the block whole with room for the code", () => {
+  it("is hidden on screen, and on paper floats into a rail the body reserves", () => {
     const printAt = NEWSLETTER_WEB_CSS.indexOf("@media print");
     const screen = NEWSLETTER_WEB_CSS.slice(0, printAt);
     const print = NEWSLETTER_WEB_CSS.slice(printAt);
     expect(screen).toContain(".nl-qr-col{display:none}");
     expect(screen).toContain(".nl-qr-ref{display:none}");
-    expect(screen).not.toContain(".nl-has-qr");
-    expect(print).toMatch(/\.nl-has-qr\{[^}]*padding-right:[^}]*break-inside:avoid/);
-    expect(print).toMatch(/\.nl-qr-col\{display:flex/);
-    // A float is what printed on the wrong sheet; it must not come back.
-    expect(print).not.toMatch(/\.nl-qr-col\{[^}]*float/);
+    expect(screen).not.toContain(".nl-body-rail");
+    const rail = print.match(/\.nl-body-rail\{padding-right:([\d.]+)in\}/);
+    expect(rail).not.toBeNull();
+    // The column's negative margin must equal the rail, or it intrudes on the
+    // text (smaller) or hangs off the page (larger).
+    expect(print).toMatch(new RegExp(`\\.nl-qr-col\\{[^}]*float:right;clear:right;[^}]*margin:[^;}]* -${rail![1]}in `));
+    // Nothing may size a block by its codes again: that is what made blocks
+    // with links taller and narrower than the ones without.
+    expect(print).not.toMatch(/min-height/);
+  });
+
+  it("reserves the rail on the page only when the issue has a code to put in it", () => {
+    const page = (content: unknown[]) =>
+      renderNewsletterIssuePageHtml({
+        branding: BRANDING,
+        title: "T",
+        subtitle: null,
+        doc: { type: "doc", content } as NewsletterNode,
+        resolveEvents: () => [],
+        dateLabel: "September 1, 2099",
+        isDraft: false,
+        archiveHref: "",
+        printHref: "",
+        issueUrl: "",
+        publishedUrl: "",
+      });
+    expect(page([{ type: "paragraph", content: [link("a", "https://example.org/a")] }])).toContain('class="nl-body nl-body-rail"');
+    expect(page([{ type: "paragraph", content: [{ type: "text", text: "plain" }] }])).toContain('class="nl-body"');
+    expect(page([{ type: "paragraph", content: [link("Call", "tel:+16125550100")] }])).not.toContain("nl-body-rail");
   });
 });

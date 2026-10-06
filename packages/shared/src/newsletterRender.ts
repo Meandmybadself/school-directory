@@ -658,29 +658,25 @@ function linkQrRef(href: string | null, ctx: Ctx): string {
 
 /** Renders one block's inline content and collects the codes its links drew.
  *
- *  The codes go in a column pinned to the block's top-right corner rather than
- *  floating beside the link's own line. A float is placed independently of the
- *  text it sits beside, so at a page boundary the browser would push it onto
- *  the NEXT sheet while its link stayed on this one. A block that holds codes
- *  reserves the column's width as right padding on paper and declines to break
- *  across pages, so its text never runs under a code and the code always
- *  prints on the same sheet as its link. */
-function qrBlock(ctx: Ctx, render: () => string): { inner: string; cls: string; col: string } {
-  if (!ctx.linkQrs) return { inner: render(), cls: "", col: "" };
+ *  The codes go in a column at the start of the block, which the print
+ *  stylesheet floats out into a RAIL: a strip of right-hand margin the whole
+ *  body reserves on paper once any block carries a code (`nl-body-rail`, set
+ *  by `renderNewsletterIssuePageHtml`). The float sits entirely inside that
+ *  margin, so it never narrows a line of text or stretches a block, and every
+ *  block keeps the same width and spacing whether or not it holds a link. A
+ *  column taller than its block simply runs on beside the next one, and the
+ *  next column clears it rather than overlapping. That can leave a code lower
+ *  than its link, at worst on the following sheet, which the numbers on code
+ *  and link (`linkQrRef`) are there to absorb. */
+function qrBlock(ctx: Ctx, render: () => string): { inner: string; col: string } {
+  if (!ctx.linkQrs) return { inner: render(), col: "" };
   const outer = ctx.qrSink;
   const sink: string[] = [];
   ctx.qrSink = sink;
   const inner = render();
   ctx.qrSink = outer;
-  if (sink.length === 0) return { inner, cls: "", col: "" };
-  // The count sets the block's minimum height, so a one-line paragraph with
-  // two codes is still tall enough to hold both. Capped at the classes the
-  // stylesheet defines; a fifth code in one paragraph just overhangs.
-  return {
-    inner,
-    cls: ` nl-has-qr nl-qr-${Math.min(sink.length, 4)}`,
-    col: `<span class="nl-qr-col" aria-hidden="true">${sink.join("")}</span>`,
-  };
+  if (sink.length === 0) return { inner, col: "" };
+  return { inner, col: `<span class="nl-qr-col" aria-hidden="true">${sink.join("")}</span>` };
 }
 
 function renderChildren(nodes: NewsletterNode[] | undefined, ctx: Ctx): string {
@@ -846,17 +842,17 @@ function renderNode(node: NewsletterNode, ctx: Ctx): string {
     case "text":
       return renderText(node, ctx);
     case "paragraph": {
-      const { inner, cls, col } = qrBlock(ctx, () => renderChildren(node.content, ctx));
+      const { inner, col } = qrBlock(ctx, () => renderChildren(node.content, ctx));
       // An empty paragraph is deliberate vertical space in the editor; keep it.
       if (!inner) return `<p${attr(ctx, "nl-p", "margin:0 0 16px;height:8px")}></p>`;
-      return `<p${attr(ctx, `nl-p${cls}`, `margin:0 0 16px;font-size:16px;line-height:1.65;color:${INK};font-family:${FONT}`)}>${col}${inner}</p>`;
+      return `<p${attr(ctx, "nl-p", `margin:0 0 16px;font-size:16px;line-height:1.65;color:${INK};font-family:${FONT}`)}>${col}${inner}</p>`;
     }
     case "heading": {
       const level = (node.attrs as { level?: number } | undefined)?.level ?? 2;
       const size = level === 1 ? 26 : level === 2 ? 21 : 17;
       const top = level === 1 ? 0 : 28;
-      const { inner, cls, col } = qrBlock(ctx, () => renderChildren(node.content, ctx));
-      return `<h${level}${attr(ctx, `nl-h${level}${cls}`, `margin:${top}px 0 12px;font-size:${size}px;line-height:1.3;font-weight:700;color:${INK};font-family:${FONT}`)}>${col}${inner}</h${level}>`;
+      const { inner, col } = qrBlock(ctx, () => renderChildren(node.content, ctx));
+      return `<h${level}${attr(ctx, `nl-h${level}`, `margin:${top}px 0 12px;font-size:${size}px;line-height:1.3;font-weight:700;color:${INK};font-family:${FONT}`)}>${col}${inner}</h${level}>`;
     }
     case "bulletList":
       return `<ul${attr(ctx, "nl-ul", `margin:0 0 16px;padding-left:22px;font-size:16px;line-height:1.65;color:${INK};font-family:${FONT}`)}>${renderChildren(node.content, ctx)}</ul>`;
@@ -868,8 +864,8 @@ function renderNode(node: NewsletterNode, ctx: Ctx): string {
       // A multi-block item leaves its codes to its own paragraphs.
       const kids = node.content ?? [];
       if (kids.length === 1 && kids[0]?.type === "paragraph") {
-        const { inner, cls, col } = qrBlock(ctx, () => renderChildren(kids[0]!.content, ctx));
-        return `<li${attr(ctx, `nl-li${cls}`, "margin:0 0 6px")}>${col}${inner}</li>`;
+        const { inner, col } = qrBlock(ctx, () => renderChildren(kids[0]!.content, ctx));
+        return `<li${attr(ctx, "nl-li", "margin:0 0 6px")}>${col}${inner}</li>`;
       }
       return `<li${attr(ctx, "nl-li", "margin:0 0 6px")}>${renderChildren(kids, ctx)}</li>`;
     }
@@ -1311,7 +1307,7 @@ export function renderNewsletterIssuePageHtml(input: NewsletterIssuePageInput): 
         <h1 class="nl-title">${escapeHtml(input.title)}</h1>
         ${input.subtitle ? `<p class="nl-subtitle">${escapeHtml(input.subtitle)}</p>` : ""}
         <p class="nl-date">${escapeHtml(input.dateLabel)}</p>
-        <div class="nl-body">
+        <div class="nl-body${body.includes('class="nl-qr-col"') ? " nl-body-rail" : ""}">
 ${body}
         </div>
         <div class="nl-foot">
@@ -1459,17 +1455,14 @@ a{color:var(--nl-accent,${DEFAULT_ACCENT})}
   .nl-qr{display:block;float:right;width:1.25in;margin:0 0 10px 18px;text-align:center}
   .nl-qr svg{display:block;width:1.1in;height:1.1in;margin:0 auto}
   .nl-qr p{margin:2px 0 0;font-size:8.5pt;line-height:1.35;color:${INK}}
-  /* One small code per link in the body, in a column pinned to the top-right
-     of the block holding the link (see qrBlock). The block keeps its text out
-     of that column with right padding, grows tall enough to hold every code it
-     carries, and is not split across pages, so a code never prints on a
-     different sheet from its link. */
-  .nl-has-qr{position:relative;padding-right:1.2in;break-inside:avoid;page-break-inside:avoid}
-  .nl-qr-1{min-height:.8in}
-  .nl-qr-2{min-height:1.65in}
-  .nl-qr-3{min-height:2.5in}
-  .nl-qr-4{min-height:3.35in}
-  .nl-qr-col{display:flex;flex-direction:column;gap:.1in;position:absolute;top:2px;right:0;width:.95in}
+  /* One small code per link in the body, in a rail down the right margin (see
+     qrBlock). The body reserves the rail once, so every block has the same
+     measure; each block's codes float into it with a negative margin as wide
+     as the rail, which keeps them out of the text entirely, and clear the
+     previous block's codes rather than overlap them. */
+  .nl-body-rail{padding-right:1.2in}
+  .nl-body-rail::after{content:"";display:block;clear:both}
+  .nl-qr-col{display:flex;flex-direction:column;gap:.1in;float:right;clear:right;width:.95in;margin:2px -1.2in .1in 0;break-inside:avoid;page-break-inside:avoid}
   .nl-qr-item{display:flex;align-items:flex-start;justify-content:flex-end;gap:.05in}
   .nl-qr-num{font-size:9pt;font-weight:700;line-height:1;color:${INK}}
   .nl-qr-col svg{display:block;width:.75in;height:.75in;flex:none}

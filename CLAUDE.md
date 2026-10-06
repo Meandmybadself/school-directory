@@ -630,11 +630,20 @@ All six SPAs are separate Cloudflare Pages projects talking to the single
    copies get printed ahead of a send — a code that 404s until the send is the
    admin's call there. `test/newsletterQr.test.ts` pins the refusal.
    **Every http(s) link an author puts in the body gets a small code of its
-   own on paper too**, in a column pinned to the top-right of the paragraph,
-   heading or list item holding it (`qrBlock` in `newsletterRender.ts`); on
-   paper that block reserves the column as right padding and is not split
-   across pages. It is deliberately NOT a float: a float is placed apart from
-   its text and printed on the next sheet while its link stayed on this one.
+   own on paper too**, in a RAIL down the right margin (`qrBlock` in
+   `newsletterRender.ts`). The body reserves the rail once, as right padding
+   (`nl-body-rail`, added by `renderNewsletterIssuePageHtml` only when some
+   block holds a code), and each block's codes FLOAT into it with a negative
+   margin exactly as wide as the rail, clearing the previous block's codes.
+   That keeps them out of the text entirely: every block has the same measure
+   and spacing whether or not it holds a link. The first version pinned the
+   column inside its block and sized the block to fit (padding plus a
+   `min-height` per code), which made a paragraph with a link narrower and
+   taller than its neighbours — the uneven spacing this replaced. The price is
+   that a float can drift: a run of short linked blocks pushes later codes down
+   the rail, at worst onto the next sheet. The numbers below are what make that
+   acceptable, and the test pins both that the margin matches the rail and that
+   no `min-height` comes back.
    `linkQrSvg` draws it in WEB mode only, so the email never carries one; one
    per destination; `http(s)` and `mailto:` only (a phone opens the latter as a
    new message), so `tel:` and the events block's generated links get none. It encodes only the href the archive page already publishes, so it
