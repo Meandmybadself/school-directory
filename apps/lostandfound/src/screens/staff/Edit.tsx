@@ -17,7 +17,7 @@ import { Swatch } from "../../components/items.js";
 import { Btn } from "../../components/atoms.js";
 import { useI18n } from "../../i18n/index.js";
 import { api, errorMessage, type LfItemAction } from "../../lib/api.js";
-import { formatDay, formatDayTime, rotatePhoto, type Turn } from "../../lib/lf.js";
+import { formatDay, formatDayTime, rotatePhoto, turnFor, turnWord, type Turn } from "../../lib/lf.js";
 
 function patchOf(item: LfStaffItemDetailDTO): LfItemPatch {
   return {
@@ -67,6 +67,7 @@ export function Edit() {
 
   // While the AI works, poll; take its answer only if the form is untouched.
   const pending = item?.tagStatus === "pending";
+  const suggested = item ? turnFor(item.suggestedRotation) : null;
   useEffect(() => {
     if (!pending) return;
     const timer = setInterval(async () => {
@@ -134,7 +135,11 @@ export function Edit() {
       await api.uploadThumb(id, thumb);
       // Keep any unsaved typing: take the new photo URLs, not the whole item.
       const fresh = await api.staffItem(id);
-      setItem((prev) => (prev ? { ...prev, photoUrl: fresh.photoUrl, thumbUrl: fresh.thumbUrl } : fresh));
+      setItem((prev) =>
+        prev
+          ? { ...prev, photoUrl: fresh.photoUrl, thumbUrl: fresh.thumbUrl, suggestedRotation: fresh.suggestedRotation }
+          : fresh,
+      );
     } catch (err) {
       setNote({ text: errorMessage(err, "Couldn't rotate the photo. Try again."), warn: true });
     } finally {
@@ -165,6 +170,14 @@ export function Edit() {
           <div className="lf-detail">
             <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
               <img className="lf-photo" src={item.photoUrl} alt={item.title || "Found item"} />
+              {suggested && (
+                <div className="lf-notice" role="status" style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
+                  <span style={{ flex: 1, minWidth: 180 }}>The AI thinks this photo is {turnWord(suggested)}.</span>
+                  <Btn sm disabled={busy} onClick={() => void rotate(suggested)}>
+                    {suggested === "ccw" ? "↺" : "↻"} Turn it upright
+                  </Btn>
+                </div>
+              )}
               <div className="lf-photo-tools">
                 <Btn kind="ghost" sm disabled={busy} onClick={() => void rotate("ccw")}>
                   ↺ Rotate left

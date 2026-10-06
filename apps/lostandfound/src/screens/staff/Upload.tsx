@@ -19,7 +19,7 @@ import { Screen } from "../../components/Screen.js";
 import { Icon } from "../../components/Icon.js";
 import { Btn } from "../../components/atoms.js";
 import { api, errorMessage } from "../../lib/api.js";
-import { resizePhoto, rotatePhoto, type Turn } from "../../lib/lf.js";
+import { resizePhoto, rotatePhoto, turnFor, turnWord, type Turn } from "../../lib/lf.js";
 
 const LOCATION_KEY = "lf_last_location";
 const UPLOAD_CONCURRENCY = 3;
@@ -64,6 +64,11 @@ interface Row {
   title: string;
   error: string;
   itemId: string | null;
+  /** Kept so the AI's rotation suggestion can be applied without a download. */
+  photo: Blob;
+  /** The AI's suggested turn, once it has looked; null when it thinks it's upright. */
+  turn: Turn | null;
+  turning: boolean;
 }
 
 const PHASE_TEXT: Record<Phase, (r: Row) => string> = {
@@ -131,7 +136,7 @@ export function Upload() {
           const it = r.itemId ? byId.get(r.itemId) : undefined;
           if (r.phase !== "describing" || !it || it.tagStatus === "pending") return r;
           if (it.tagStatus === "failed") return { ...r, phase: "failed" };
-          return { ...r, phase: it.heldAt ? "held" : "live", title: it.title };
+          return { ...r, phase: it.heldAt ? "held" : "live", title: it.title, turn: turnFor(it.suggestedRotation) };
         }),
       );
     }, POLL_MS);
@@ -203,6 +208,22 @@ export function Upload() {
     }
   };
 
+  /** Apply the AI's suggested turn to an uploaded item: re-made from the photo
+   *  still in memory and sent back. The description stands — it's the same item. */
+  const applyTurn = async (r: Row) => {
+    if (!r.itemId || !r.turn || r.turning) return;
+    update(r.key, { turning: true });
+    try {
+      const { photo, thumb } = await rotatePhoto(r.photo, r.turn);
+      await api.replacePhoto(r.itemId, photo);
+      await api.uploadThumb(r.itemId, thumb);
+      URL.revokeObjectURL(r.preview);
+      update(r.key, { photo, preview: URL.createObjectURL(thumb), turn: null, turning: false });
+    } catch {
+      update(r.key, { turning: false });
+    }
+  };
+
   /** "Add N items": every staged photo, UPLOAD_CONCURRENCY at a time. */
   const submit = async () => {
     const batch = staged;
@@ -219,6 +240,9 @@ export function Upload() {
         title: "",
         error: "",
         itemId: null,
+        photo: s.photo,
+        turn: null,
+        turning: false,
       })),
       ...rs,
     ]);
@@ -346,9 +370,22 @@ export function Upload() {
                 </div>
               </div>
               {r.itemId && (
-                <Link className="sd-btn sd-btn-ghost sd-btn-sm" to={`/staff/item/${r.itemId}`}>
-                  {WARN.includes(r.phase) ? "Review" : "Edit"}
-                </Link>
+                <div className="lf-queue-actions">
+                  {r.turn && (
+                    <button
+                      type="button"
+                      className="sd-btn sd-btn-secondary sd-btn-sm"
+                      title={`The AI thinks this photo is ${turnWord(r.turn)}`}
+                      disabled={r.turning}
+                      onClick={() => void applyTurn(r)}
+                    >
+                      {r.turning ? "Turning…" : `${r.turn === "ccw" ? "↺" : "↻"} Looks ${turnWord(r.turn)} — fix`}
+                    </button>
+                  )}
+                  <Link className="sd-btn sd-btn-ghost sd-btn-sm" to={`/staff/item/${r.itemId}`}>
+                    {WARN.includes(r.phase) ? "Review" : "Edit"}
+                  </Link>
+                </div>
               )}
             </div>
           ))}

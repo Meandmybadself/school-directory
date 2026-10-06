@@ -12,12 +12,14 @@ import type { AuditDraft } from "../src/lib/audit.js";
 import {
   LISTED,
   cleanFields,
+  cleanRotation,
   extractJson,
   isListed,
   itemIdOfKey,
   normalizeContact,
   publicItemOf,
   saveFields,
+  staffItemOf,
   scrubNames,
   searchTextOf,
   searchWords,
@@ -63,6 +65,7 @@ function row(over: Partial<LfItemRow> = {}): LfItemRow {
     search_text: "blue water bottle",
     photo_key: "01ITEM.jpg",
     thumb_key: "01ITEM-thumb.jpg",
+    suggested_rotation: 0,
     found_at: "2026-10-01T15:00:00.000Z",
     returned_at: null,
     created_by: "01U_STAFF",
@@ -485,6 +488,64 @@ describe("the hold (a name can be in the PHOTO)", () => {
     expect(isListed(row({ held_at: "2026-10-01T00:00:00Z" }))).toBe(false);
     expect(isListed(row({ hidden_at: "2026-10-01T00:00:00Z" }))).toBe(false);
     expect(isListed(row({ status: "returned" }))).toBe(false);
+  });
+});
+
+describe("the suggested rotation", () => {
+  async function aiWrite(response: Record<string, unknown>) {
+    const writes: { sql: string; args: unknown[] }[] = [];
+    const env = {
+      AI: { run: async () => ({ response }) },
+      DB: {
+        prepare(sql: string) {
+          return {
+            bind: (...args: unknown[]) => ({
+              first: async () => null,
+              run: async () => {
+                writes.push({ sql, args });
+                return { meta: { changes: 1 } };
+              },
+            }),
+          };
+        },
+      },
+    } as unknown as HonoEnv["Bindings"];
+    await tagItem(env, "01ITEM", new Uint8Array([0xff, 0xd8, 0xff]).buffer);
+    return writes[0]!;
+  }
+
+  it("is snapped to a quarter turn, and anything else means leave it", () => {
+    expect([0, 90, 180, 270].map(cleanRotation)).toEqual([0, 90, 180, 270]);
+    expect(cleanRotation("90")).toBe(90);
+    for (const v of [45, -90, 360, "sideways", null, undefined]) expect(cleanRotation(v)).toBe(0);
+  });
+
+  it("rides the model's guarded write, so staff edits made first still win", async () => {
+    const w = await aiWrite({ title: "Red mitten", rotation: 270 });
+    expect(w.sql).toMatch(/suggested_rotation = \?.*AND tag_status = 'pending'/s);
+    // The id is last; the rotation is the bind just before it.
+    expect(w.args.slice(-2)).toEqual([270, "01ITEM"]);
+  });
+
+  it("is never written by a staff save", async () => {
+    let sql = "";
+    const env = {
+      DB: {
+        prepare(s: string) {
+          sql = s;
+          return { bind: () => ({ run: async () => ({ meta: { changes: 1 } }) }) };
+        },
+      },
+    } as unknown as HonoEnv["Bindings"];
+    await saveFields(env, "01ITEM", cleanFields({ title: "Mitten" }), { location: "Gym" });
+    expect(sql).not.toContain("suggested_rotation");
+  });
+
+  it("is staff-only", () => {
+    const ORIGIN = "https://api-directory.eisenhower.school";
+    const r = row({ suggested_rotation: 90 });
+    expect(staffItemOf({ ...r, open_claims: 0, created_by_email: null }, ORIGIN).suggestedRotation).toBe(90);
+    expect(publicItemOf(r, ORIGIN)).not.toHaveProperty("suggestedRotation");
   });
 });
 

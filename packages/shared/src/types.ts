@@ -1983,6 +1983,11 @@ export interface LfClaimInput {
 export type LfItemStatus = "found" | "returned";
 export type LfTagStatus = "pending" | "tagged" | "failed";
 
+/** Degrees CLOCKWISE that would stand a photo upright — the vision model's
+ *  suggestion (migration 0035). 0 is "upright, or it couldn't tell". */
+export const LF_ROTATIONS = [0, 90, 180, 270] as const;
+export type LfRotation = (typeof LF_ROTATIONS)[number];
+
 /** A found item as STAFF see it. */
 export interface LfStaffItemDTO extends Omit<LfPublicItemDTO, "pending"> {
   status: LfItemStatus;
@@ -1998,6 +2003,9 @@ export interface LfStaffItemDTO extends Omit<LfPublicItemDTO, "pending"> {
    *  after it read something, or after it failed. */
   heldAt: string | null;
   returnedAt: string | null;
+  /** How far the model thinks the photo needs turning, clockwise. Cleared when
+   *  staff rotate it. A suggestion only — staff apply it with one tap. */
+  suggestedRotation: LfRotation;
   /** Unclaimed long enough that it's time to donate it (LF_DONATE_AFTER_DAYS). */
   donateDue: boolean;
   openClaims: number;

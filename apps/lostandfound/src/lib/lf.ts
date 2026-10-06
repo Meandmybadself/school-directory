@@ -7,6 +7,7 @@ import {
   formatClock,
   isoToZonedDate,
   resolveTimeZone,
+  type LfRotation,
   type Locale,
   type Strings,
 } from "@sd/shared";
@@ -201,12 +202,23 @@ export async function resizePhoto(file: File): Promise<{ photo: Blob; thumb: Blo
   }
 }
 
-/** Which way a staff member turned a photo: a quarter turn clockwise or back. */
-export type Turn = "cw" | "ccw";
+/** Which way to turn a photo: a quarter clockwise or back, or half way round. */
+export type Turn = "cw" | "ccw" | "half";
 
 /** A rotation as an EXIF orientation, so `orientTransform` does the geometry:
- *  6 is "turn 90° clockwise to display", 8 is "turn 90° anticlockwise". */
-const TURN_ORIENTATION: Record<Turn, number> = { cw: 6, ccw: 8 };
+ *  6 is "turn 90° clockwise to display", 8 anticlockwise, 3 is 180°. */
+const TURN_ORIENTATION: Record<Turn, number> = { cw: 6, ccw: 8, half: 3 };
+
+/** The turn that applies the model's suggestion (degrees clockwise), or null
+ *  when it thinks the photo is already upright. */
+export function turnFor(rotation: LfRotation): Turn | null {
+  return rotation === 90 ? "cw" : rotation === 270 ? "ccw" : rotation === 180 ? "half" : null;
+}
+
+/** "sideways" or "upside down", for the prompt that offers the fix. */
+export function turnWord(turn: Turn): string {
+  return turn === "half" ? "upside down" : "sideways";
+}
 
 /** A photo this app already made (EXIF-free, upright as far as anyone knew),
  *  turned a quarter and re-encoded as a full-size photo and a thumbnail. Used

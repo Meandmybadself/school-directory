@@ -1827,6 +1827,12 @@ All six SPAs are separate Cloudflare Pages projects talking to the single
    shadow tables don't round-trip; a LIKE over `search_text` plus Vectorize is
    plenty at a school's scale. AI and Vectorize are optional bindings in the
    absent-means-off sense: without them items stay held and search is keyword-only.
+   The model also SUGGESTS which way is up (`suggested_rotation`, migration
+   0035) and never applies it: a Worker has no canvas, and a wrong guess would
+   turn a good photo sideways. Staff apply it with one tap; the browser
+   re-encodes and sends the photo back under a FRESH R2 key (both media routes
+   cache for an hour, so overwriting a key would keep serving the old
+   orientation).
    **`/privacy` changed first** (its own rule): the lost & found block and the
    Workers AI line, in all four languages.
 

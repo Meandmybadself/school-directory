@@ -23,8 +23,8 @@
 // The model is told to keep names out of everything but `visible_text`, and
 // `scrubNames` enforces it afterwards: telling a model is not a guarantee.
 
-import { LF_CATEGORIES, LF_COLORS, LF_DONATE_AFTER_DAYS } from "@sd/shared";
-import type { LfClaimDTO, LfPublicItemDTO, LfStaffItemDTO } from "@sd/shared";
+import { LF_CATEGORIES, LF_COLORS, LF_DONATE_AFTER_DAYS, LF_ROTATIONS } from "@sd/shared";
+import type { LfClaimDTO, LfPublicItemDTO, LfRotation, LfStaffItemDTO } from "@sd/shared";
 import type { AuthContext, Env } from "../env.js";
 import { rosterAccess, type RosterAccess } from "./rosterGate.js";
 import { DAYS, nowIso } from "./time.js";
@@ -63,6 +63,7 @@ export interface LfItemRow {
   search_text: string;
   photo_key: string;
   thumb_key: string | null;
+  suggested_rotation: number;
   found_at: string;
   returned_at: string | null;
   created_by: string | null;
@@ -166,6 +167,7 @@ export function staffItemOf(row: LfStaffRow, origin: string): LfStaffItemDTO {
     hiddenAt: row.hidden_at,
     heldAt: row.held_at,
     returnedAt: row.returned_at,
+    suggestedRotation: cleanRotation(row.suggested_rotation),
     donateDue: donateDue(row),
     openClaims: row.open_claims,
     createdByEmail: row.created_by_email,
@@ -249,6 +251,13 @@ export function cleanFields(o: Record<string, unknown>): LfFields {
   };
 }
 
+/** A rotation the model suggested, snapped to the four it may say; anything
+ *  else (a string, 45, a missing key) is 0 — "leave it", the safe guess. */
+export function cleanRotation(v: unknown): LfRotation {
+  const n = typeof v === "string" ? Number(v.trim()) : v;
+  return (LF_ROTATIONS as readonly unknown[]).includes(n) ? (n as LfRotation) : 0;
+}
+
 /**
  * Remove the words the model read off the item from everything public.
  *
@@ -299,7 +308,11 @@ export async function saveFields(
   env: Env,
   id: string,
   raw: LfFields,
-  { location, onlyIfPending = false }: { location?: string; onlyIfPending?: boolean } = {},
+  {
+    location,
+    onlyIfPending = false,
+    rotation,
+  }: { location?: string; onlyIfPending?: boolean; rotation?: LfRotation } = {},
 ): Promise<boolean> {
   const f = scrubNames(raw);
   const current = location ?? (await env.DB.prepare("SELECT location FROM lf_item WHERE id = ?").bind(id).first<string>("location")) ?? "";
@@ -315,10 +328,13 @@ export async function saveFields(
     ? `, held_at = ${f.visibleText ? "COALESCE(held_at, ?)" : "CASE WHEN visible_text = '' THEN NULL ELSE held_at END"}`
     : "";
   const holdBinds = onlyIfPending && f.visibleText ? [now] : [];
+  // Only the model suggests a rotation; a staff save leaves the last one alone.
+  const turn = rotation === undefined ? "" : ", suggested_rotation = ?";
+  const turnBinds = rotation === undefined ? [] : [rotation];
   const { meta } = await env.DB.prepare(
     `UPDATE lf_item
         SET tag_status = 'tagged', tag_error = NULL, title = ?, description = ?, category = ?, colors = ?,
-            brand = ?, material = ?, visible_text = ?, tags = ?, location = ?, search_text = ?, updated_at = ?${hold}
+            brand = ?, material = ?, visible_text = ?, tags = ?, location = ?, search_text = ?, updated_at = ?${hold}${turn}
       WHERE id = ?${onlyIfPending ? " AND tag_status = 'pending'" : ""}`,
   )
     .bind(
@@ -334,6 +350,7 @@ export async function saveFields(
       searchTextOf(f, current),
       now,
       ...holdBinds,
+      ...turnBinds,
       id,
     )
     .run();
@@ -359,6 +376,7 @@ Reply with only a JSON object with exactly these keys:
 - "material": main material (e.g. metal, plastic, fleece, cotton, leather), or ""
 - "visible_text": any readable writing on the item, especially names, exactly as written, otherwise ""
 - "tags": array of 5-12 lowercase search keywords a parent might type, including synonyms (e.g. "bottle", "flask", "tumbler") and notable features
+- "rotation": how many degrees the photo must be turned CLOCKWISE so the item stands the way it is normally used or worn (a bottle cap up, a jacket collar up, text reading left to right): exactly one of 0, 90, 180, 270. Use 0 if it is already upright or if you can't tell
 
 Names of people must appear ONLY in "visible_text" — never in the title, description, or tags.
 Never guess a brand or name you can't actually read.`;
@@ -366,7 +384,7 @@ Never guess a brand or name you can't actually read.`;
 /** Ask the model once. Plain JSON mode: strict `json_schema` decoding with
  *  long enums made Gemma loop on whitespace until max_tokens on about half the
  *  photos tried, where JSON mode plus `cleanFields` went 10 for 10. */
-async function describeOnce(ai: Ai, model: string, dataUrl: string): Promise<LfFields> {
+async function describeOnce(ai: Ai, model: string, dataUrl: string): Promise<Described> {
   // The model id is configurable, so it can't be checked against the typed catalog.
   const run = ai.run.bind(ai) as (model: string, input: unknown) => Promise<unknown>;
   const result = await run(model, {
@@ -387,9 +405,16 @@ async function describeOnce(ai: Ai, model: string, dataUrl: string): Promise<LfF
     // Thinking is on by default for Gemma 4 and its tokens are billed.
     chat_template_kwargs: { enable_thinking: false },
   });
-  const fields = cleanFields(extractJson(result));
+  const json = extractJson(result);
+  const fields = cleanFields(json);
   if (!fields.title) throw new Error("model returned no title");
-  return fields;
+  return { fields, rotation: cleanRotation(json.rotation) };
+}
+
+/** What one look at a photo yields: the description, and which way is up. */
+export interface Described {
+  fields: LfFields;
+  rotation: LfRotation;
 }
 
 /** Workers AI answers `{ response }` or OpenAI-style `{ choices }`, as a string
@@ -416,7 +441,7 @@ function toDataUrl(jpeg: ArrayBuffer): string {
 
 /** Describe a photo, with one retry: sampling is random, and a derailed answer
  *  almost never derails twice. */
-export async function describePhoto(env: Env, jpeg: ArrayBuffer): Promise<LfFields> {
+export async function describePhoto(env: Env, jpeg: ArrayBuffer): Promise<Described> {
   if (!env.AI) throw new Error("Workers AI is not bound");
   const model = env.LOSTFOUND_VISION_MODEL || LF_VISION_MODEL;
   const dataUrl = toDataUrl(jpeg);
@@ -459,8 +484,8 @@ export async function tagItem(env: Env, id: string, jpeg?: ArrayBuffer): Promise
       if (!obj) throw new Error("photo missing from storage");
       jpeg = await obj.arrayBuffer();
     }
-    const fields = await describePhoto(env, jpeg);
-    if (await saveFields(env, id, fields, { onlyIfPending: true })) await syncVector(env, id);
+    const { fields, rotation } = await describePhoto(env, jpeg);
+    if (await saveFields(env, id, fields, { onlyIfPending: true, rotation })) await syncVector(env, id);
   } catch (err) {
     // Never the model's output in a log line: it may hold a child's name.
     const message = err instanceof Error ? err.message : String(err);
