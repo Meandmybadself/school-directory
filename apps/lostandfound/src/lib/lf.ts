@@ -11,6 +11,7 @@ import {
   type Strings,
 } from "@sd/shared";
 import type { I18nT } from "../i18n/index.js";
+import { jpegOrientation, orientTransform, withOrientation } from "./orient.js";
 
 /** The school's zone. "Found today" means today AT SCHOOL, not wherever the
  *  reader's phone thinks it is — the school-timezone rule CLAUDE.md's
@@ -121,30 +122,79 @@ export function formatDayTime(iso: string, locale: Locale): string {
 // Done in the browser, before upload: it keeps uploads quick on school Wi-Fi,
 // keeps the API Worker's CPU inside the free plan, and re-encoding through a
 // canvas drops the EXIF block — GPS position included — which a phone photo
-// otherwise carries straight onto a public page.
+// otherwise carries straight onto a public page. Dropping EXIF drops the
+// Orientation tag too, so the turn it describes is baked into the pixels first
+// (lib/orient.ts).
 
 export const PHOTO_MAX = 1600;
 /** Also the image the vision model looks at. */
 export const THUMB_MAX = 640;
 
-function toJpeg(bitmap: ImageBitmap, maxSide: number, quality: number): Promise<Blob> {
+function toJpeg(bitmap: ImageBitmap, orientation: number, maxSide: number, quality: number): Promise<Blob> {
   const scale = Math.min(1, maxSide / Math.max(bitmap.width, bitmap.height));
+  const w = Math.round(bitmap.width * scale);
+  const h = Math.round(bitmap.height * scale);
+  const { width, height, m } = orientTransform(orientation, w, h);
   const canvas = document.createElement("canvas");
-  canvas.width = Math.round(bitmap.width * scale);
-  canvas.height = Math.round(bitmap.height * scale);
+  canvas.width = width;
+  canvas.height = height;
   const ctx = canvas.getContext("2d");
   if (!ctx) return Promise.reject(new Error("canvas unavailable"));
-  ctx.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+  ctx.setTransform(...m);
+  ctx.drawImage(bitmap, 0, 0, w, h);
   return new Promise((resolve, reject) =>
     canvas.toBlob((b) => (b ? resolve(b) : reject(new Error("encode failed"))), "image/jpeg", quality),
   );
 }
 
-/** The full-size photo and the thumbnail, both JPEG, both EXIF-free. */
-export async function resizePhoto(file: File): Promise<{ photo: Blob; thumb: Blob }> {
-  const bitmap = await createImageBitmap(file, { imageOrientation: "from-image" });
+/** Decode, asking the browser to apply EXIF orientation. Engines that predate
+ *  the "from-image" value reject it, and get the plain decode instead. */
+async function decode(blob: Blob): Promise<ImageBitmap> {
   try {
-    const [photo, thumb] = await Promise.all([toJpeg(bitmap, PHOTO_MAX, 0.85), toJpeg(bitmap, THUMB_MAX, 0.8)]);
+    return await createImageBitmap(blob, { imageOrientation: "from-image" });
+  } catch {
+    return createImageBitmap(blob);
+  }
+}
+
+let probe: Promise<boolean> | null = null;
+
+/** Whether `decode` already turns a photo upright, measured rather than
+ *  assumed (lib/orient.ts says why): a 2×1 JPEG tagged "rotate 90°" comes back
+ *  1×2 from a browser that applied the tag. If the probe itself fails, assume
+ *  it did — every current engine does, and turning twice is worse than not at
+ *  all. */
+function decoderApplies(): Promise<boolean> {
+  probe ??= (async () => {
+    const canvas = document.createElement("canvas");
+    canvas.width = 2;
+    canvas.height = 1;
+    const plain = await new Promise<Blob | null>((r) => canvas.toBlob(r, "image/jpeg"));
+    if (!plain) return true;
+    const tagged = withOrientation(new Uint8Array(await plain.arrayBuffer()), 6);
+    const bitmap = await decode(new Blob([tagged], { type: "image/jpeg" }));
+    const applied = bitmap.width === 1 && bitmap.height === 2;
+    bitmap.close();
+    return applied;
+  })().catch(() => true);
+  return probe;
+}
+
+/** The full-size photo and the thumbnail, both JPEG, both EXIF-free, both
+ *  upright — the Orientation tag is spent turning the pixels, since the
+ *  re-encode is about to drop it. */
+export async function resizePhoto(file: File): Promise<{ photo: Blob; thumb: Blob }> {
+  const [bitmap, tagged, applied] = await Promise.all([
+    decode(file),
+    file.slice(0, 256 * 1024).arrayBuffer().then((b) => jpegOrientation(new Uint8Array(b))),
+    decoderApplies(),
+  ]);
+  const orientation = applied ? 1 : tagged;
+  try {
+    const [photo, thumb] = await Promise.all([
+      toJpeg(bitmap, orientation, PHOTO_MAX, 0.85),
+      toJpeg(bitmap, orientation, THUMB_MAX, 0.8),
+    ]);
     return { photo, thumb };
   } finally {
     bitmap.close();
