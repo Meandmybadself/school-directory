@@ -14,6 +14,7 @@ import { useCallback, useRef, useState } from "react";
 import { EditorContent, useEditor, type Editor as TipTapEditor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import Link from "@tiptap/extension-link";
+import { LINK_SHORTCUT_LABEL, LinkShortcut, linkSelection } from "./linking.js";
 import Image from "@tiptap/extension-image";
 import Placeholder from "@tiptap/extension-placeholder";
 import { NodeSelection } from "@tiptap/pm/state";
@@ -76,19 +77,7 @@ function ToolButton({
 function Toolbar({ editor }: { editor: TipTapEditor }) {
   const fileInput = useRef<HTMLInputElement>(null);
 
-  const setLink = useCallback(() => {
-    const previous = (editor.getAttributes("link").href as string | undefined) ?? "";
-    const url = window.prompt("Link URL", previous);
-    if (url === null) return;
-    if (url === "") {
-      editor.chain().focus().extendMarkRange("link").unsetLink().run();
-      return;
-    }
-    // A bare domain is what people type; without a scheme the renderer would
-    // drop the mark as unsafe, so normalize here rather than silently losing it.
-    const href = /^(https?:\/\/|mailto:)/i.test(url) ? url : `https://${url}`;
-    editor.chain().focus().extendMarkRange("link").setLink({ href }).run();
-  }, [editor]);
+  const setLink = useCallback(() => linkSelection(editor), [editor]);
 
   const [imageEdit, setImageEdit] = useState<ImageEdit | null>(null);
 
@@ -172,7 +161,7 @@ function Toolbar({ editor }: { editor: TipTapEditor }) {
         ))}
       </select>
       <span className="nlx-tool-sep" />
-      <ToolButton icon="link" label="Link" active={editor.isActive("link")} onClick={setLink} />
+      <ToolButton icon="link" label={`Link (${LINK_SHORTCUT_LABEL})`} active={editor.isActive("link")} onClick={setLink} />
       <ToolButton label="• List" active={editor.isActive("bulletList")}
         onClick={() => editor.chain().focus().toggleBulletList().run()} />
       <ToolButton label="1. List" active={editor.isActive("orderedList")}
@@ -243,6 +232,7 @@ export function Editor({
           codeBlock: false,
         }),
         Link.configure({ openOnClick: false, autolink: true }),
+        LinkShortcut,
         Image,
         FontSize,
         Placeholder.configure({ placeholder: "Write the newsletter…" }),
