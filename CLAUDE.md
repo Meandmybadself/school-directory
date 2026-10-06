@@ -636,8 +636,8 @@ All six SPAs are separate Cloudflare Pages projects talking to the single
    across pages. It is deliberately NOT a float: a float is placed apart from
    its text and printed on the next sheet while its link stayed on this one.
    `linkQrSvg` draws it in WEB mode only, so the email never carries one; one
-   per destination; `mailto:`/`tel:` and the events block's generated links get
-   none. It encodes only the href the archive page already publishes, so it
+   per destination; `http(s)` and `mailto:` only (a phone opens the latter as a
+   new message), so `tel:` and the events block's generated links get none. It encodes only the href the archive page already publishes, so it
    needs none of the masthead code's refusal.
 
 17. **Removing a User is `disabled_at`, and deleting one has rules it does not

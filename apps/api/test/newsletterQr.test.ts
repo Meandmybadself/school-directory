@@ -167,10 +167,15 @@ describe("a printed QR code beside each link in the body", () => {
     expect(html).toContain('class="nl-p nl-has-qr nl-qr-1"><span class="nl-qr-col"');
   });
 
-  it("skips links a camera app would not open: mailto and tel", () => {
-    expect(body("web", link("Email us", "mailto:pto@example.org"))).not.toContain("nl-qr");
+  it("draws one for a mailto link, which a phone opens as a new message", () => {
+    expect(body("web", link("Email us", "mailto:pto@example.org"))).toContain("nl-has-qr nl-qr-1");
+    expect(linkQrSvg("mailto:pto@example.org?subject=Book%20fair")).toMatch(/^<svg /);
+  });
+
+  it("skips anything else: tel, and a mailto with no address", () => {
     expect(body("web", link("Call", "tel:+16125550100"))).not.toContain("nl-qr");
-    expect(linkQrSvg("mailto:pto@example.org")).toBe("");
+    expect(linkQrSvg("mailto:")).toBe("");
+    expect(linkQrSvg("mailto:nobody")).toBe("");
   });
 
   it("is hidden on screen, and on paper keeps the block whole with room for the code", () => {

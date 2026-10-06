@@ -36,13 +36,13 @@ export function publishedIssueQrSvg(url: string): string {
  *  copy flattens every link to ink; this puts each one back within reach of a
  *  phone.
  *
- *  It is narrower than the link mark itself on purpose: `http(s)` only, because
- *  a `mailto:` or `tel:` drawn as a code reads to most camera apps as text to
- *  copy rather than somewhere to go. What it encodes is the href the author
- *  typed and the archive page already publishes, so — unlike the masthead code
- *  — there is nothing here for `publishedIssueQrSvg`'s refusal to protect. */
+ *  `http(s)` and `mailto:` — the two kinds of link the editor makes. Phone
+ *  cameras open a `mailto:` code as a new message to that address, which is
+ *  what the link did on screen. What it encodes is the href the author typed
+ *  and the archive page already publishes, so — unlike the masthead code —
+ *  there is nothing here for `publishedIssueQrSvg`'s refusal to protect. */
 export function linkQrSvg(href: string): string {
-  if (!/^https?:\/\/[^/?#\s]+/i.test(href)) return "";
+  if (!/^(https?:\/\/[^/?#\s]+|mailto:[^\s@]+@[^\s@]+)/i.test(href)) return "";
   return qrSvg(href, "QR code for this link");
 }
 
