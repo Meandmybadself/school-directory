@@ -56,7 +56,12 @@ directory holds and deserved an answer they could read without an account. It
 makes no subrequest either, carries the transportation commitment in all four
 languages, and names every third party data actually reaches — the bar for
 appearing on that list is "data reaches them", not "we have a contract with
-them", so a new outbound call is a change to that page. `/faq` — written for a
+them", so a new outbound call is a change to that page. One such call is
+invisible in this repo: **Cloudflare Web Analytics is injected at the edge,
+zone-wide**, into every HTML page on every hostname (it reports to
+`/cdn-cgi/rum`). No code here adds it and grepping will not find it; `/privacy`
+names it as the only measurement, so switching it off — or adding anything
+beside it — is a change to that page too. `/faq` — written for a
 parent handed the URL at back-to-school night, answering what is here, how to
 get in, and who can see what. The chrome they share — `<head>`, header, footer,
 the `?lang=` helpers — lives in `shell.ts` and is IMPORTED by both. The five

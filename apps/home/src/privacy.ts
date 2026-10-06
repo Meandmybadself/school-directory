@@ -57,7 +57,7 @@ export const PRIVACY_PATH = "/privacy";
  * shape of a dark pattern. Bump it when the WORDS change, not when the Worker
  * redeploys.
  */
-const LAST_UPDATED = "2026-10-02";
+const LAST_UPDATED = "2026-10-06";
 
 function updatedLabel(locale: Locale): string {
   // The day is formatted in the reader's locale but fixed in the school's

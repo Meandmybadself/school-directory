@@ -1298,7 +1298,7 @@ const en: Strings = {
   privacyServicesBody:
     "A handful of companies handle parts of this on our behalf. Each sees only what its job needs:",
   privacyServiceHosting:
-    "Cloudflare — hosting, the database and file storage. Everything here lives on their infrastructure.",
+    "Cloudflare — hosting, the database and file storage. Everything here lives on their infrastructure. Cloudflare also counts visits to every page here — which page, the site that linked you, your browser and country — without cookies and without following you to other sites.",
   privacyServiceEmail:
     "Resend — delivers our email, so it handles the address a message is sent to and what the message says.",
   privacyServiceMaps:
@@ -1325,7 +1325,7 @@ const en: Strings = {
     "Staff photograph what's turned in and post it on the lost & found site. Anyone can look, and you can tell the office an item is yours without an account. Names written on items are never shown publicly.",
   privacyNeverTitle: "What we don't do",
   privacyNeverBody:
-    "We do not sell or share this information, we run no advertising, and there are no tracking or analytics scripts on any page of this site. Nobody is profiled and nothing is sent to a data broker.",
+    "We do not sell or share this information, we run no advertising, and nothing here tracks you: the only measurement is the cookie-free visit count described above, which records pages, not people. Nobody is profiled and nothing is sent to a data broker.",
   privacyContactTitle: "Questions",
   privacyContactBody:
     "Write to us and a person will answer. If you think something here is wrong, or you want your family removed, that is the address to use.",
@@ -2035,7 +2035,7 @@ const es: Strings = {
   privacyServicesBody:
     "Unas pocas empresas se encargan de partes de esto en nuestro nombre. Cada una ve solo lo que su función necesita:",
   privacyServiceHosting:
-    "Cloudflare: alojamiento, base de datos y almacenamiento de archivos. Todo lo de aquí vive en su infraestructura.",
+    "Cloudflare: alojamiento, base de datos y almacenamiento de archivos. Todo lo de aquí vive en su infraestructura. Cloudflare también cuenta las visitas a todas las páginas de aquí (qué página, el sitio que le trajo, su navegador y su país) sin cookies y sin seguirle a otros sitios.",
   privacyServiceEmail:
     "Resend: entrega nuestro correo, así que maneja la dirección a la que se envía un mensaje y lo que dice el mensaje.",
   privacyServiceMaps:
@@ -2062,7 +2062,7 @@ const es: Strings = {
     "El personal fotografía lo que se entrega y lo publica en el sitio de objetos perdidos. Cualquiera puede mirar, y puede avisar a la oficina de que un objeto es suyo sin tener cuenta. Los nombres escritos en los objetos nunca se muestran en público.",
   privacyNeverTitle: "Lo que no hacemos",
   privacyNeverBody:
-    "No vendemos ni compartimos esta información, no mostramos publicidad y no hay scripts de rastreo ni de analítica en ninguna página de este sitio. No se crean perfiles de nadie y no se envía nada a intermediarios de datos.",
+    "No vendemos ni compartimos esta información, no mostramos publicidad y nada aquí le rastrea: la única medición es el conteo de visitas sin cookies descrito arriba, que registra páginas, no personas. No se crean perfiles de nadie y no se envía nada a intermediarios de datos.",
   privacyContactTitle: "Preguntas",
   privacyContactBody:
     "Escríbanos y le responderá una persona. Si cree que algo de aquí está mal, o quiere que eliminemos a su familia, esa es la dirección.",
@@ -2749,7 +2749,8 @@ const zh: Strings = {
     "您可以在个人资料中删除任何由您管理的人，删除是立即且永久的——姓名、联系方式和照片都会一并消失。您也可以联系我们代为处理。我们会保留一条带日期的操作记录，因为正是这条记录让本站可被问责，但其中不含任何联系方式。",
   privacyServicesTitle: "我们依赖的服务",
   privacyServicesBody: "有几家公司代我们处理其中一部分工作。每一家只能看到其职责所需的内容：",
-  privacyServiceHosting: "Cloudflare——托管、数据库与文件存储。这里的一切都运行在他们的基础设施上。",
+  privacyServiceHosting:
+    "Cloudflare——托管、数据库与文件存储。这里的一切都运行在他们的基础设施上。Cloudflare 还会统计这里每个页面的访问量（访问了哪个页面、从哪个网站链接过来、浏览器和国家），不使用 Cookie，也不会在其他网站上追踪您。",
   privacyServiceEmail: "Resend——负责投递我们的邮件，因此会接触收件地址和邮件内容。",
   privacyServiceMaps:
     "OpenStreetMap——如果您填写地址，它会被发送一次以转换为坐标。地图图片由我们的服务器获取，按地图方格而非按地址，所以您的浏览器不会向第三方请求。",
@@ -2773,7 +2774,7 @@ const zh: Strings = {
     "工作人员会为收到的物品拍照，并发布在失物招领网站上。任何人都可以查看，无需账户即可告诉办公室某件物品是您的。物品上写的名字绝不会公开显示。",
   privacyNeverTitle: "我们不做的事",
   privacyNeverBody:
-    "我们不出售也不共享这些信息，不投放广告，本站任何页面上都没有追踪或分析脚本。我们不对任何人建立画像，也不向数据经纪商发送任何内容。",
+    "我们不出售也不共享这些信息，不投放广告，这里也没有任何东西追踪您：唯一的统计就是上面提到的不使用 Cookie 的访问计数，它记录的是页面，而不是人。我们不对任何人建立画像，也不向数据经纪商发送任何内容。",
   privacyContactTitle: "疑问",
   privacyContactBody:
     "写信给我们，会有人回复。如果您认为这里有任何错误，或希望删除您的家庭信息，请使用该邮箱。",
@@ -3530,7 +3531,7 @@ const so: Strings = {
   privacyServicesBody:
     "Dhowr shirkadood ayaa qayb ka qabta arrintan annaga oo matalaya. Mid walba wuxuu arkaa kaliya waxa shaqadiisu u baahan tahay:",
   privacyServiceHosting:
-    "Cloudflare — martigelinta, xogta iyo kaydinta faylalka. Wax kasta oo halkan ah wuxuu ku nool yahay qalabkooda.",
+    "Cloudflare — martigelinta, xogta iyo kaydinta faylalka. Wax kasta oo halkan ah wuxuu ku nool yahay qalabkooda. Cloudflare wuxuu sidoo kale tiriyaa booqashooyinka bog kasta oo halkan ah — bogga, goobta kuu soo gudbisay, browser-kaaga iyo dalka — iyadoo aan cookies la isticmaalin oo aan laguu raacin goobo kale.",
   privacyServiceEmail:
     "Resend — wuxuu gaadhsiiyaa iimaylkeenna, sidaas darteed wuxuu qabtaa cinwaanka loo diro fariinta iyo waxa fariintu sheegayso.",
   privacyServiceMaps:
@@ -3557,7 +3558,7 @@ const so: Strings = {
     "Shaqaaluhu waxay sawiraan waxa la soo celiyo oo ku dhejiyaan bogga alaabta lumay. Qof kastaa wuu eegi karaa, waxaadna xafiiska u sheegi kartaa in shay adiga kuu leeyahay adigoon xisaab lahayn. Magacyada ku qoran alaabta weligood si guud looma muujiyo.",
   privacyNeverTitle: "Waxa aanan samayn",
   privacyNeverBody:
-    "Ma iibinno oo ma wadaagno macluumaadkan, xayaysiin ma wadno, bog kasta oo boggan ka mid ah kuma jiraan script raadraac ama falanqayn ah. Cidna lagama sameeyo profile waxbana looma diro dallaal xog.",
+    "Ma iibinno oo ma wadaagno macluumaadkan, xayaysiin ma wadno, waxna halkan kuma raadraacaan: cabbirka kaliya waa tirinta booqashooyinka ee aan cookies lahayn ee kor lagu sharaxay, taas oo diiwaangelisa bogag, ee ma aha dad. Cidna lagama sameeyo profile waxbana looma diro dallaal xog.",
   privacyContactTitle: "Su\u2019aalo",
   privacyContactBody:
     "Noo soo qor, qof baana kuu jawaabi doona. Haddii aad u malaynayso in wax halkan ku qaldan yihiin, ama aad doonayso in qoyskaaga la saaro, taasi waa cinwaanka.",

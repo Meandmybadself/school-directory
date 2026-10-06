@@ -876,3 +876,17 @@ describe("/privacy", () => {
     }
   });
 });
+
+describe("/privacy names the visit count", () => {
+  it("in every language, as the only measurement", async () => {
+    // Cloudflare Web Analytics is injected at the EDGE, zone-wide, into every
+    // HTML page on every hostname — nothing in this repo adds it, so no test
+    // here can see it. This is the half that can be pinned: a notice that
+    // says "no analytics" while the edge runs a beacon is a false statement.
+    for (const l of LOCALES) {
+      const html = await body(`/privacy?lang=${l}`);
+      expect(html).toContain(escapeHtml(dictionaries[l].privacyServiceHosting));
+      expect(dictionaries[l].privacyServiceHosting).toMatch(/cookie/i);
+    }
+  });
+});
