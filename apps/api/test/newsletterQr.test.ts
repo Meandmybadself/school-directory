@@ -7,7 +7,6 @@
 import { describe, expect, it } from "vitest";
 import {
   isPublishedIssueUrl,
-  linkQrLabel,
   linkQrSvg,
   NEWSLETTER_WEB_CSS,
   publishedIssueQrSvg,
@@ -117,51 +116,72 @@ describe("a printed QR code beside each link in the body", () => {
     text,
     marks: [...extra, { type: "link", attrs: { href } }],
   });
-  const body = (mode: "web" | "email", ...content: unknown[]) =>
-    renderNewsletterBodyHtml(
-      { type: "doc", content: [{ type: "paragraph", content }] } as NewsletterNode,
-      () => [],
-      { mode },
-    );
+  const render = (mode: "web" | "email", content: unknown[]) =>
+    renderNewsletterBodyHtml({ type: "doc", content } as NewsletterNode, () => [], { mode });
+  const body = (mode: "web" | "email", ...inline: unknown[]) =>
+    render(mode, [{ type: "paragraph", content: inline }]);
+  const codes = (html: string) => (html.match(/<svg /g) ?? []).length;
 
-  it("draws one, captioned with the host, just before the link", () => {
+  it("puts the code in a column at the top of the paragraph holding the link", () => {
     const html = body("web", { type: "text", text: "Sign up " }, link("here", "https://www.signupgenius.com/go/abc"));
-    expect(html).toMatch(/<span class="nl-link-qr" aria-hidden="true"><svg [^]*<\/svg><span>signupgenius\.com<\/span><\/span><a href="https:\/\/www\.signupgenius\.com\/go\/abc"/);
+    expect(html).toMatch(
+      /^<p class="nl-p nl-has-qr nl-qr-1"><span class="nl-qr-col" aria-hidden="true"><svg [^]*<\/svg><\/span>Sign up <a href="https:\/\/www\.signupgenius\.com\/go\/abc"/,
+    );
+  });
+
+  it("carries no caption, only the code", () => {
+    const html = body("web", link("here", "https://www.signupgenius.com/go/abc"));
+    expect(html).not.toContain("signupgenius.com</span>");
+  });
+
+  it("sizes the paragraph for every code it holds", () => {
+    const html = body("web", link("a", "https://example.org/a"), link("b", "https://example.org/b"));
+    expect(html).toContain('class="nl-p nl-has-qr nl-qr-2"');
+    expect(codes(html)).toBe(2);
+  });
+
+  it("places a list item's code on the item, not the list", () => {
+    const html = render("web", [
+      { type: "bulletList", content: [
+        { type: "listItem", content: [{ type: "paragraph", content: [link("menu", "https://example.org/menu")] }] },
+        { type: "listItem", content: [{ type: "paragraph", content: [{ type: "text", text: "plain" }] }] },
+      ] },
+    ]);
+    expect(html).toMatch(/<li class="nl-li nl-has-qr nl-qr-1"><span class="nl-qr-col"/);
+    expect(html).toContain('<li class="nl-li">plain</li>');
   });
 
   it("never reaches the email, which can't hide it on screen", () => {
     const html = body("email", link("here", "https://example.org/x"));
-    expect(html).not.toContain("nl-link-qr");
+    expect(html).not.toContain("nl-qr");
     expect(html).not.toContain("<svg");
   });
 
   it("draws one code per destination, however the link text is split", () => {
     // A partly-bold link arrives as two text nodes with one href.
-    const html = body(
-      "web",
-      link("Book ", "https://example.org/fair"),
-      link("fair", "https://example.org/fair", [{ type: "bold" }]),
-      { type: "text", text: " and again " },
-      link("fair", "https://example.org/fair"),
-      link("menu", "https://example.org/menu"),
-    );
-    expect(html.match(/class="nl-link-qr"/g)).toHaveLength(2);
+    const html = render("web", [
+      { type: "paragraph", content: [link("Book ", "https://example.org/fair"), link("fair", "https://example.org/fair", [{ type: "bold" }])] },
+      { type: "paragraph", content: [link("again", "https://example.org/fair"), link("menu", "https://example.org/menu")] },
+    ]);
+    expect(codes(html)).toBe(2);
+    expect(html).toContain('class="nl-p nl-has-qr nl-qr-1"><span class="nl-qr-col"');
   });
 
   it("skips links a camera app would not open: mailto and tel", () => {
-    expect(body("web", link("Email us", "mailto:pto@example.org"))).not.toContain("nl-link-qr");
-    expect(body("web", link("Call", "tel:+16125550100"))).not.toContain("nl-link-qr");
+    expect(body("web", link("Email us", "mailto:pto@example.org"))).not.toContain("nl-qr");
+    expect(body("web", link("Call", "tel:+16125550100"))).not.toContain("nl-qr");
     expect(linkQrSvg("mailto:pto@example.org")).toBe("");
   });
 
-  it("captions with the bare host", () => {
-    expect(linkQrLabel("https://www.Example.org:8443/a?b#c")).toBe("example.org");
-    expect(linkQrLabel("https://user@calendar.eisenhower.school/e/x")).toBe("calendar.eisenhower.school");
-  });
-
-  it("is hidden on screen and floated right on paper", () => {
+  it("is hidden on screen, and on paper keeps the block whole with room for the code", () => {
     const printAt = NEWSLETTER_WEB_CSS.indexOf("@media print");
-    expect(NEWSLETTER_WEB_CSS.slice(0, printAt)).toMatch(/\.nl-link-qr\{display:none\}|,\.nl-link-qr\{display:none\}/);
-    expect(NEWSLETTER_WEB_CSS.slice(printAt)).toMatch(/\.nl-link-qr\{display:block;float:right/);
+    const screen = NEWSLETTER_WEB_CSS.slice(0, printAt);
+    const print = NEWSLETTER_WEB_CSS.slice(printAt);
+    expect(screen).toContain(".nl-qr-col{display:none}");
+    expect(screen).not.toContain(".nl-has-qr");
+    expect(print).toMatch(/\.nl-has-qr\{[^}]*padding-right:[^}]*break-inside:avoid/);
+    expect(print).toMatch(/\.nl-qr-col\{display:flex/);
+    // A float is what printed on the wrong sheet; it must not come back.
+    expect(print).not.toMatch(/\.nl-qr-col\{[^}]*float/);
   });
 });

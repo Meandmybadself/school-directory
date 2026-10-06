@@ -41,7 +41,7 @@ import { EVENTS_BLOCK_TYPE } from "./types.js";
 import { visibleEvents } from "./newsletterEvents.js";
 import { eventPath, type EventPathInput } from "./eventPath.js";
 import { htmlToText } from "./text.js";
-import { linkQrLabel, linkQrSvg, publishedIssueQrSvg } from "./newsletterQr.js";
+import { linkQrSvg, publishedIssueQrSvg } from "./newsletterQr.js";
 import {
   newsletterLanguageLinks,
   PROXY_LANG,
@@ -570,6 +570,10 @@ interface Ctx {
    *  email stays exactly as it was. One code per DESTINATION, because a link
    *  whose text is partly bold arrives as several text nodes with one href. */
   linkQrs: Set<string> | null;
+  /** Codes drawn while rendering the current block (paragraph, heading, list
+   *  item), handed back to that block to place in its own right-hand column.
+   *  Null outside such a block, where a link gets no code. */
+  qrSink: string[] | null;
 }
 
 /** Emit either an inline `style` attribute (email) or a class (web), so one set
@@ -612,26 +616,51 @@ function renderText(node: NewsletterNode, ctx: Ctx): string {
   if (link) {
     const href = safeLinkHref(link.attrs?.href);
     if (href) {
-      html = `${linkQr(href, ctx)}<a href="${escapeHtml(href)}" target="_blank" rel="noopener noreferrer">${html}</a>`;
+      linkQr(href, ctx);
+      html = `<a href="${escapeHtml(href)}" target="_blank" rel="noopener noreferrer">${html}</a>`;
     }
   }
   return html;
 }
 
-/** The print-only code for a link in the body, placed just before the anchor so
- *  its float starts on the line the link is on. A `<span>` because it sits
- *  inside a `<p>`, `<li>` or heading, none of which may hold a `<div>`.
- *  `aria-hidden` because it is `display:none` on screen and, on paper, the
- *  link text beside it already says what it is. Only links an author put in
- *  the body get one: the events block's generated links go through their own
+/** Draws the print-only code for a link in the body into the current block's
+ *  sink; the block places it (see `qrBlock`). Only links an author put in the
+ *  body get one: the events block's generated links go through their own
  *  templates, and an issue with eight events would otherwise grow a column of
  *  codes nobody asked for. */
-function linkQr(href: string, ctx: Ctx): string {
-  if (!ctx.linkQrs || ctx.linkQrs.has(href)) return "";
+function linkQr(href: string, ctx: Ctx): void {
+  if (!ctx.linkQrs || !ctx.qrSink || ctx.linkQrs.has(href)) return;
   const svg = linkQrSvg(href);
-  if (!svg) return "";
+  if (!svg) return;
   ctx.linkQrs.add(href);
-  return `<span class="nl-link-qr" aria-hidden="true">${svg}<span>${escapeHtml(linkQrLabel(href))}</span></span>`;
+  ctx.qrSink.push(svg);
+}
+
+/** Renders one block's inline content and collects the codes its links drew.
+ *
+ *  The codes go in a column pinned to the block's top-right corner rather than
+ *  floating beside the link's own line. A float is placed independently of the
+ *  text it sits beside, so at a page boundary the browser would push it onto
+ *  the NEXT sheet while its link stayed on this one. A block that holds codes
+ *  reserves the column's width as right padding on paper and declines to break
+ *  across pages, so its text never runs under a code and the code always
+ *  prints on the same sheet as its link. */
+function qrBlock(ctx: Ctx, render: () => string): { inner: string; cls: string; col: string } {
+  if (!ctx.linkQrs) return { inner: render(), cls: "", col: "" };
+  const outer = ctx.qrSink;
+  const sink: string[] = [];
+  ctx.qrSink = sink;
+  const inner = render();
+  ctx.qrSink = outer;
+  if (sink.length === 0) return { inner, cls: "", col: "" };
+  // The count sets the block's minimum height, so a one-line paragraph with
+  // two codes is still tall enough to hold both. Capped at the classes the
+  // stylesheet defines; a fifth code in one paragraph just overhangs.
+  return {
+    inner,
+    cls: ` nl-has-qr nl-qr-${Math.min(sink.length, 4)}`,
+    col: `<span class="nl-qr-col" aria-hidden="true">${sink.join("")}</span>`,
+  };
 }
 
 function renderChildren(nodes: NewsletterNode[] | undefined, ctx: Ctx): string {
@@ -788,16 +817,17 @@ function renderNode(node: NewsletterNode, ctx: Ctx): string {
     case "text":
       return renderText(node, ctx);
     case "paragraph": {
-      const inner = renderChildren(node.content, ctx);
+      const { inner, cls, col } = qrBlock(ctx, () => renderChildren(node.content, ctx));
       // An empty paragraph is deliberate vertical space in the editor; keep it.
       if (!inner) return `<p${attr(ctx, "nl-p", "margin:0 0 16px;height:8px")}></p>`;
-      return `<p${attr(ctx, "nl-p", `margin:0 0 16px;font-size:16px;line-height:1.65;color:${INK};font-family:${FONT}`)}>${inner}</p>`;
+      return `<p${attr(ctx, `nl-p${cls}`, `margin:0 0 16px;font-size:16px;line-height:1.65;color:${INK};font-family:${FONT}`)}>${col}${inner}</p>`;
     }
     case "heading": {
       const level = (node.attrs as { level?: number } | undefined)?.level ?? 2;
       const size = level === 1 ? 26 : level === 2 ? 21 : 17;
       const top = level === 1 ? 0 : 28;
-      return `<h${level}${attr(ctx, `nl-h${level}`, `margin:${top}px 0 12px;font-size:${size}px;line-height:1.3;font-weight:700;color:${INK};font-family:${FONT}`)}>${renderChildren(node.content, ctx)}</h${level}>`;
+      const { inner, cls, col } = qrBlock(ctx, () => renderChildren(node.content, ctx));
+      return `<h${level}${attr(ctx, `nl-h${level}${cls}`, `margin:${top}px 0 12px;font-size:${size}px;line-height:1.3;font-weight:700;color:${INK};font-family:${FONT}`)}>${col}${inner}</h${level}>`;
     }
     case "bulletList":
       return `<ul${attr(ctx, "nl-ul", `margin:0 0 16px;padding-left:22px;font-size:16px;line-height:1.65;color:${INK};font-family:${FONT}`)}>${renderChildren(node.content, ctx)}</ul>`;
@@ -806,12 +836,13 @@ function renderNode(node: NewsletterNode, ctx: Ctx): string {
     case "listItem": {
       // TipTap wraps each item's text in a paragraph; unwrap the single-child
       // case so list items don't inherit the paragraph's bottom margin.
+      // A multi-block item leaves its codes to its own paragraphs.
       const kids = node.content ?? [];
-      const inner =
-        kids.length === 1 && kids[0]?.type === "paragraph"
-          ? renderChildren(kids[0].content, ctx)
-          : renderChildren(kids, ctx);
-      return `<li${attr(ctx, "nl-li", "margin:0 0 6px")}>${inner}</li>`;
+      if (kids.length === 1 && kids[0]?.type === "paragraph") {
+        const { inner, cls, col } = qrBlock(ctx, () => renderChildren(kids[0]!.content, ctx));
+        return `<li${attr(ctx, `nl-li${cls}`, "margin:0 0 6px")}>${col}${inner}</li>`;
+      }
+      return `<li${attr(ctx, "nl-li", "margin:0 0 6px")}>${renderChildren(kids, ctx)}</li>`;
     }
     case "blockquote":
       return `<blockquote${attr(ctx, "nl-quote", `margin:0 0 16px;padding:2px 0 2px 14px;border-left:3px solid ${ctx.accent};color:${MUTED};font-style:italic`)}>${renderChildren(node.content, ctx)}</blockquote>`;
@@ -847,6 +878,7 @@ export function renderNewsletterBodyHtml(
     resolve: resolveEvents,
     calendarUrl: opts.calendarUrl ?? "",
     linkQrs: opts.mode === "web" ? new Set() : null,
+    qrSink: null,
   });
 }
 
@@ -1296,7 +1328,7 @@ a{color:var(--nl-accent,${DEFAULT_ACCENT})}
 .nl-event-volunteer-link{color:${VOLUNTEER};text-decoration:none}
 .nl-event-volunteer-link:hover{text-decoration:underline}
 .nl-qr{display:none}
-.nl-link-qr{display:none}
+.nl-qr-col{display:none}
 .nl-foot{margin-top:22px;padding-top:18px;border-top:1px solid ${RULE};font-size:13px;line-height:1.6;color:${MUTED}}
 .nl-archive-item{display:block;background:${PAPER};border-radius:12px;padding:18px 20px;margin-bottom:12px;text-decoration:none;color:${INK};box-shadow:0 1px 3px rgba(16,24,40,.06)}
 .nl-archive-item h2{margin:0;font-size:19px;line-height:1.3}
@@ -1391,19 +1423,17 @@ a{color:var(--nl-accent,${DEFAULT_ACCENT})}
   .nl-qr{display:block;float:right;width:1.25in;margin:0 0 10px 18px;text-align:center}
   .nl-qr svg{display:block;width:1.1in;height:1.1in;margin:0 auto}
   .nl-qr p{margin:4px 0 0;font-size:8.5pt;line-height:1.35;color:${INK}}
-  /* One small code per link in the body, floated into the right margin beside
-     the line the link is on, so the text wraps round it rather than being
-     pushed down. clear:right stacks a paragraph's second link under its first
-     instead of beside it; the headings and rules clearing keeps a code inside
-     the section its link belongs to; the footer clearing keeps the last one
-     from hanging into it. NOT flow-root on .nl-body, which reads as the tidy
-     way to contain them: a formatting context sits BESIDE the masthead's own
-     floated code and narrows the whole body column by its width, top to
-     bottom. */
-  .nl-link-qr{display:block;float:right;clear:right;width:.9in;margin:2px 0 8px 14px;text-align:center;break-inside:avoid;page-break-inside:avoid}
-  .nl-link-qr svg{display:block;width:.75in;height:.75in;margin:0 auto}
-  .nl-link-qr span{display:block;margin-top:2px;font-size:7pt;line-height:1.25;color:${MUTED};overflow-wrap:anywhere;font-style:normal;font-weight:400}
-  .nl-h1,.nl-h2,.nl-h3,.nl-hr,.nl-events-heading{clear:right}
-  .nl-foot{clear:both}
+  /* One small code per link in the body, in a column pinned to the top-right
+     of the block holding the link (see qrBlock). The block keeps its text out
+     of that column with right padding, grows tall enough to hold every code it
+     carries, and is not split across pages, so a code never prints on a
+     different sheet from its link. */
+  .nl-has-qr{position:relative;padding-right:1in;break-inside:avoid;page-break-inside:avoid}
+  .nl-qr-1{min-height:.8in}
+  .nl-qr-2{min-height:1.65in}
+  .nl-qr-3{min-height:2.5in}
+  .nl-qr-4{min-height:3.35in}
+  .nl-qr-col{display:flex;flex-direction:column;gap:.1in;position:absolute;top:2px;right:0;width:.75in}
+  .nl-qr-col svg{display:block;width:.75in;height:.75in}
 }
 `.trim();

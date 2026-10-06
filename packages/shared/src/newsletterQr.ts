@@ -46,15 +46,6 @@ export function linkQrSvg(href: string): string {
   return qrSvg(href, "QR code for this link");
 }
 
-/** The caption under a link's code: its host, so a reader holding the paper
- *  can tell which link a code belongs to and where it will take them. */
-export function linkQrLabel(href: string): string {
-  // A regex rather than `URL`: this package is also built without the DOM lib,
-  // and `linkQrSvg` has already insisted on the `scheme://host` shape.
-  const host = /^https?:\/\/(?:[^@/?#\s]*@)?([^/?#\s:]+)/i.exec(href)?.[1] ?? "";
-  return host.toLowerCase().replace(/^www\./, "");
-}
-
 /** Drawn as ONE path rather than a rect per module, so a typical code is ~2 kB
  *  instead of ~30 kB of markup. Black on white regardless of the reader's
  *  theme: it is only ever shown on paper. */
