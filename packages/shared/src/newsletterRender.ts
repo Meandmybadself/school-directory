@@ -41,7 +41,7 @@ import { EVENTS_BLOCK_TYPE } from "./types.js";
 import { visibleEvents } from "./newsletterEvents.js";
 import { eventPath, type EventPathInput } from "./eventPath.js";
 import { htmlToText } from "./text.js";
-import { publishedIssueQrSvg } from "./newsletterQr.js";
+import { linkQrLabel, linkQrSvg, publishedIssueQrSvg } from "./newsletterQr.js";
 import {
   newsletterLanguageLinks,
   PROXY_LANG,
@@ -564,6 +564,12 @@ interface Ctx {
   resolve: EventsResolver;
   /** Public calendar site, or "" to omit the "See all" link. */
   calendarUrl: string;
+  /** Hrefs already given a print-only QR code in this render, or null when no
+   *  codes are drawn at all. Web mode only: an email client neither honours
+   *  `@media print` reliably nor renders inline SVG (Gmail strips it), so the
+   *  email stays exactly as it was. One code per DESTINATION, because a link
+   *  whose text is partly bold arrives as several text nodes with one href. */
+  linkQrs: Set<string> | null;
 }
 
 /** Emit either an inline `style` attribute (email) or a class (web), so one set
@@ -606,10 +612,26 @@ function renderText(node: NewsletterNode, ctx: Ctx): string {
   if (link) {
     const href = safeLinkHref(link.attrs?.href);
     if (href) {
-      html = `<a href="${escapeHtml(href)}" target="_blank" rel="noopener noreferrer">${html}</a>`;
+      html = `${linkQr(href, ctx)}<a href="${escapeHtml(href)}" target="_blank" rel="noopener noreferrer">${html}</a>`;
     }
   }
   return html;
+}
+
+/** The print-only code for a link in the body, placed just before the anchor so
+ *  its float starts on the line the link is on. A `<span>` because it sits
+ *  inside a `<p>`, `<li>` or heading, none of which may hold a `<div>`.
+ *  `aria-hidden` because it is `display:none` on screen and, on paper, the
+ *  link text beside it already says what it is. Only links an author put in
+ *  the body get one: the events block's generated links go through their own
+ *  templates, and an issue with eight events would otherwise grow a column of
+ *  codes nobody asked for. */
+function linkQr(href: string, ctx: Ctx): string {
+  if (!ctx.linkQrs || ctx.linkQrs.has(href)) return "";
+  const svg = linkQrSvg(href);
+  if (!svg) return "";
+  ctx.linkQrs.add(href);
+  return `<span class="nl-link-qr" aria-hidden="true">${svg}<span>${escapeHtml(linkQrLabel(href))}</span></span>`;
 }
 
 function renderChildren(nodes: NewsletterNode[] | undefined, ctx: Ctx): string {
@@ -824,6 +846,7 @@ export function renderNewsletterBodyHtml(
     locale: opts.locale || DEFAULT_LOCALE,
     resolve: resolveEvents,
     calendarUrl: opts.calendarUrl ?? "",
+    linkQrs: opts.mode === "web" ? new Set() : null,
   });
 }
 
@@ -1273,6 +1296,7 @@ a{color:var(--nl-accent,${DEFAULT_ACCENT})}
 .nl-event-volunteer-link{color:${VOLUNTEER};text-decoration:none}
 .nl-event-volunteer-link:hover{text-decoration:underline}
 .nl-qr{display:none}
+.nl-link-qr{display:none}
 .nl-foot{margin-top:22px;padding-top:18px;border-top:1px solid ${RULE};font-size:13px;line-height:1.6;color:${MUTED}}
 .nl-archive-item{display:block;background:${PAPER};border-radius:12px;padding:18px 20px;margin-bottom:12px;text-decoration:none;color:${INK};box-shadow:0 1px 3px rgba(16,24,40,.06)}
 .nl-archive-item h2{margin:0;font-size:19px;line-height:1.3}
@@ -1367,5 +1391,19 @@ a{color:var(--nl-accent,${DEFAULT_ACCENT})}
   .nl-qr{display:block;float:right;width:1.25in;margin:0 0 10px 18px;text-align:center}
   .nl-qr svg{display:block;width:1.1in;height:1.1in;margin:0 auto}
   .nl-qr p{margin:4px 0 0;font-size:8.5pt;line-height:1.35;color:${INK}}
+  /* One small code per link in the body, floated into the right margin beside
+     the line the link is on, so the text wraps round it rather than being
+     pushed down. clear:right stacks a paragraph's second link under its first
+     instead of beside it; the headings and rules clearing keeps a code inside
+     the section its link belongs to; the footer clearing keeps the last one
+     from hanging into it. NOT flow-root on .nl-body, which reads as the tidy
+     way to contain them: a formatting context sits BESIDE the masthead's own
+     floated code and narrows the whole body column by its width, top to
+     bottom. */
+  .nl-link-qr{display:block;float:right;clear:right;width:.9in;margin:2px 0 8px 14px;text-align:center;break-inside:avoid;page-break-inside:avoid}
+  .nl-link-qr svg{display:block;width:.75in;height:.75in;margin:0 auto}
+  .nl-link-qr span{display:block;margin-top:2px;font-size:7pt;line-height:1.25;color:${MUTED};overflow-wrap:anywhere;font-style:normal;font-weight:400}
+  .nl-h1,.nl-h2,.nl-h3,.nl-hr,.nl-events-heading{clear:right}
+  .nl-foot{clear:both}
 }
 `.trim();

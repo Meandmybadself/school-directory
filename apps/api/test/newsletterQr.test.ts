@@ -7,8 +7,11 @@
 import { describe, expect, it } from "vitest";
 import {
   isPublishedIssueUrl,
+  linkQrLabel,
+  linkQrSvg,
   NEWSLETTER_WEB_CSS,
   publishedIssueQrSvg,
+  renderNewsletterBodyHtml,
   renderNewsletterIssuePageHtml,
 } from "@sd/shared";
 import type { NewsletterBrandingDTO, NewsletterNode } from "@sd/shared";
@@ -105,5 +108,60 @@ describe("the issue page's printed QR code", () => {
     const printAt = NEWSLETTER_WEB_CSS.indexOf("@media print");
     expect(NEWSLETTER_WEB_CSS.slice(0, printAt)).toContain(".nl-qr{display:none}");
     expect(NEWSLETTER_WEB_CSS.slice(printAt)).toMatch(/\.nl-qr\{display:block/);
+  });
+});
+
+describe("a printed QR code beside each link in the body", () => {
+  const link = (text: string, href: string, extra: { type: string }[] = []) => ({
+    type: "text",
+    text,
+    marks: [...extra, { type: "link", attrs: { href } }],
+  });
+  const body = (mode: "web" | "email", ...content: unknown[]) =>
+    renderNewsletterBodyHtml(
+      { type: "doc", content: [{ type: "paragraph", content }] } as NewsletterNode,
+      () => [],
+      { mode },
+    );
+
+  it("draws one, captioned with the host, just before the link", () => {
+    const html = body("web", { type: "text", text: "Sign up " }, link("here", "https://www.signupgenius.com/go/abc"));
+    expect(html).toMatch(/<span class="nl-link-qr" aria-hidden="true"><svg [^]*<\/svg><span>signupgenius\.com<\/span><\/span><a href="https:\/\/www\.signupgenius\.com\/go\/abc"/);
+  });
+
+  it("never reaches the email, which can't hide it on screen", () => {
+    const html = body("email", link("here", "https://example.org/x"));
+    expect(html).not.toContain("nl-link-qr");
+    expect(html).not.toContain("<svg");
+  });
+
+  it("draws one code per destination, however the link text is split", () => {
+    // A partly-bold link arrives as two text nodes with one href.
+    const html = body(
+      "web",
+      link("Book ", "https://example.org/fair"),
+      link("fair", "https://example.org/fair", [{ type: "bold" }]),
+      { type: "text", text: " and again " },
+      link("fair", "https://example.org/fair"),
+      link("menu", "https://example.org/menu"),
+    );
+    expect(html.match(/class="nl-link-qr"/g)).toHaveLength(2);
+  });
+
+  it("skips links a camera app would not open: mailto and tel", () => {
+    expect(body("web", link("Email us", "mailto:pto@example.org"))).not.toContain("nl-link-qr");
+    expect(body("web", link("Call", "tel:+16125550100"))).not.toContain("nl-link-qr");
+    expect(linkQrSvg("mailto:pto@example.org")).toBe("");
+  });
+
+  it("captions with the bare host", () => {
+    expect(linkQrLabel("https://www.Example.org:8443/a?b#c")).toBe("example.org");
+    expect(linkQrLabel("https://user@calendar.eisenhower.school/e/x")).toBe("calendar.eisenhower.school");
+  });
+
+  it("is hidden on screen and floated right on paper", () => {
+    const printAt = NEWSLETTER_WEB_CSS.indexOf("@media print");
+    expect(NEWSLETTER_WEB_CSS.slice(0, printAt)).toMatch(/\.nl-link-qr\{display:none\}|,\.nl-link-qr\{display:none\}/);
+    expect(NEWSLETTER_WEB_CSS.slice(printAt)).toMatch(/\.nl-link-qr\{display:block;float:right/);
   });
 });

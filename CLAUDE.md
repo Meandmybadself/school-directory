@@ -629,6 +629,14 @@ All six SPAs are separate Cloudflare Pages projects talking to the single
    issue; the admin's print view draws it for a draft too, since that is how
    copies get printed ahead of a send — a code that 404s until the send is the
    admin's call there. `test/newsletterQr.test.ts` pins the refusal.
+   **Every http(s) link an author puts in the body gets a small code of its
+   own on paper too** (`.nl-link-qr`, floated right beside the link's line,
+   captioned with the host). `linkQrSvg` draws it in WEB mode only, so the
+   email never carries one; one per destination; `mailto:`/`tel:` and the
+   events block's generated links get none. It encodes only the href the
+   archive page already publishes, so it needs none of the masthead code's
+   refusal. Don't contain the floats with `flow-root` on `.nl-body`: that box
+   sits beside the masthead code and narrows the whole column.
 
 17. **Removing a User is `disabled_at`, and deleting one has rules it does not
    yet execute.** `POST /admin/users/:id/disabled` is reversible and touches the

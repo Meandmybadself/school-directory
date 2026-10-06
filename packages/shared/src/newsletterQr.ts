@@ -25,11 +25,40 @@ export function isPublishedIssueUrl(url: string): boolean {
 }
 
 /** An inline SVG QR code for a sent issue's `/n/:slug` url, or "" when the url
- *  isn't one. Drawn as ONE path rather than a rect per module, so a typical
- *  code is ~2 kB instead of ~30 kB of markup. Black on white regardless of the
- *  reader's theme: it is only ever shown on paper. */
+ *  isn't one. */
 export function publishedIssueQrSvg(url: string): string {
   if (!isPublishedIssueUrl(url)) return "";
+  return qrSvg(url, "QR code linking to this issue online");
+}
+
+/** A link in the issue BODY, drawn as a small code beside it on paper — the
+ *  per-link half of what the masthead code does for the whole issue. A printed
+ *  copy flattens every link to ink; this puts each one back within reach of a
+ *  phone.
+ *
+ *  It is narrower than the link mark itself on purpose: `http(s)` only, because
+ *  a `mailto:` or `tel:` drawn as a code reads to most camera apps as text to
+ *  copy rather than somewhere to go. What it encodes is the href the author
+ *  typed and the archive page already publishes, so — unlike the masthead code
+ *  — there is nothing here for `publishedIssueQrSvg`'s refusal to protect. */
+export function linkQrSvg(href: string): string {
+  if (!/^https?:\/\/[^/?#\s]+/i.test(href)) return "";
+  return qrSvg(href, "QR code for this link");
+}
+
+/** The caption under a link's code: its host, so a reader holding the paper
+ *  can tell which link a code belongs to and where it will take them. */
+export function linkQrLabel(href: string): string {
+  // A regex rather than `URL`: this package is also built without the DOM lib,
+  // and `linkQrSvg` has already insisted on the `scheme://host` shape.
+  const host = /^https?:\/\/(?:[^@/?#\s]*@)?([^/?#\s:]+)/i.exec(href)?.[1] ?? "";
+  return host.toLowerCase().replace(/^www\./, "");
+}
+
+/** Drawn as ONE path rather than a rect per module, so a typical code is ~2 kB
+ *  instead of ~30 kB of markup. Black on white regardless of the reader's
+ *  theme: it is only ever shown on paper. */
+function qrSvg(url: string, label: string): string {
   // `M` rather than the default `L`: a printed code gets folded, smudged and
   // photographed at an angle, and these urls are short enough to afford it.
   const { size, data } = encode(url, { ecc: "M", border: 0 });
@@ -49,5 +78,5 @@ export function publishedIssueQrSvg(url: string): string {
   // drawn as viewBox padding so the white is part of the image on any paper.
   const q = 4;
   const box = size + q * 2;
-  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${-q} ${-q} ${box} ${box}" shape-rendering="crispEdges" role="img" aria-label="QR code linking to this issue online"><rect x="${-q}" y="${-q}" width="${box}" height="${box}" fill="#fff"/><path fill="#000" d="${d}"/></svg>`;
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${-q} ${-q} ${box} ${box}" shape-rendering="crispEdges" role="img" aria-label="${label}"><rect x="${-q}" y="${-q}" width="${box}" height="${box}" fill="#fff"/><path fill="#000" d="${d}"/></svg>`;
 }
