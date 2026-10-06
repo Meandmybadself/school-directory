@@ -78,6 +78,33 @@ async function newUserRecipients(env: Env, mode: "instant" | "daily", exclude?: 
   return [...all];
 }
 
+/** Whether access-request emails reach this admin. Off unless they opted in. */
+export async function getAccessRequestNotify(env: Env, userId: string): Promise<boolean> {
+  const row = await env.DB.prepare("SELECT access_request_notify FROM user WHERE id = ?")
+    .bind(userId)
+    .first<{ access_request_notify: number | null }>();
+  return row?.access_request_notify === 1;
+}
+
+export async function setAccessRequestNotify(env: Env, userId: string, on: boolean): Promise<void> {
+  await env.DB.prepare("UPDATE user SET access_request_notify = ? WHERE id = ?")
+    .bind(on ? 1 : 0, userId)
+    .run();
+}
+
+/** Who hears about a new access request: enabled system admins who opted in.
+ *  Bootstrap addresses without a row are not included — with no row there is
+ *  no choice to read, and the default is off (the same rule as new members). */
+async function accessRequestRecipients(env: Env, exclude?: string): Promise<string[]> {
+  const rows = await env.DB.prepare(
+    `SELECT email FROM user
+      WHERE is_system_admin = 1 AND disabled_at IS NULL AND access_request_notify = 1`,
+  ).all<{ email: string }>();
+  const all = new Set(rows.results.map((r) => r.email.toLowerCase()));
+  if (exclude) all.delete(exclude.toLowerCase());
+  return [...all];
+}
+
 /** Every address that should receive admin notifications, minus `exclude`. */
 async function adminRecipients(env: Env, exclude?: string): Promise<string[]> {
   const rows = await env.DB.prepare(
@@ -120,11 +147,10 @@ export async function notifyNewUser(env: Env, user: NewUserSummary): Promise<voi
 /**
  * Somebody asked to read the directory (migration 0029).
  *
- * Unlike the new-member notification above, this is NOT opt-in per admin and
- * has no digest mode: a pending application is a queue item, and a family
- * waiting on one cannot do anything about an admin who turned mail off. It
- * goes to every system admin plus the bootstrap addresses, which is the same
- * set `adminRecipients` already resolves for the things that need doing.
+ * Opt-in per admin like the new-member notification above
+ * (`access_request_notify`, migration 0034), but with no digest mode: an
+ * application is a queue item, and one that waits a day for its email has
+ * waited a day for nothing.
  *
  * The message carries the applicant's ADDRESS and nothing else about them —
  * not the child's name, not the room. Those are the reviewer's to read behind a
@@ -133,7 +159,7 @@ export async function notifyNewUser(env: Env, user: NewUserSummary): Promise<voi
  */
 export async function notifyAccessRequest(env: Env, req: { email: string }): Promise<void> {
   try {
-    const recipients = await adminRecipients(env, req.email);
+    const recipients = await accessRequestRecipients(env, req.email);
     if (recipients.length === 0) return;
     await fanOut(env, recipients, accessRequestEmail(env, req));
   } catch (err) {

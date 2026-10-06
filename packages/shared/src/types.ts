@@ -1145,6 +1145,9 @@ export const NEW_USER_NOTIFY_MODES = NOTIFY_MODES;
 /** The CALLER's own notification choices, not the instance's. */
 export interface NotificationSettingsDTO {
   newUser: NewUserNotify;
+  /** Whether "directory access requested" emails reach this admin (migration
+   *  0034). Off by default, like `newUser`. */
+  accessRequest: boolean;
 }
 
 // ── Newsletter ─────────────────────────────────────────────────────────────

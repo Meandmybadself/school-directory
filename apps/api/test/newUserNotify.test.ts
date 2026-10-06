@@ -9,7 +9,7 @@
 import { Hono } from "hono";
 import { createMiddleware } from "hono/factory";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { notifyNewUser, sendNewUserDigest } from "../src/lib/notify.js";
+import { notifyAccessRequest, notifyNewUser, sendNewUserDigest } from "../src/lib/notify.js";
 import { settings } from "../src/routes/settings.js";
 import type { AuditDraft } from "../src/lib/audit.js";
 import type { AuthContext, HonoEnv } from "../src/env.js";
@@ -20,6 +20,7 @@ interface UserRow {
   is_system_admin: number;
   disabled_at: string | null;
   new_user_notify: string;
+  access_request_notify?: number;
   joined_via: string;
   created_at: string;
 }
@@ -44,6 +45,10 @@ function testEnv(users: UserRow[], settingsRows: Map<string, string> = new Map()
         const v = settingsRows.get(this.args[0] as string);
         return v === undefined ? null : { value: v };
       }
+      if (sql.includes("SELECT access_request_notify FROM user WHERE id = ?")) {
+        const u = users.find((x) => x.id === this.args[0]);
+        return u ? { access_request_notify: u.access_request_notify ?? 0 } : null;
+      }
       if (sql.includes("SELECT new_user_notify FROM user WHERE id = ?")) {
         const u = users.find((x) => x.id === this.args[0]);
         return u ? { new_user_notify: u.new_user_notify } : null;
@@ -51,6 +56,21 @@ function testEnv(users: UserRow[], settingsRows: Map<string, string> = new Map()
       return null;
     },
     async all() {
+      if (sql.includes("access_request_notify = 1")) {
+        const results = users.filter(
+          (u) =>
+            (u.access_request_notify ?? 0) === 1 &&
+            (!sql.includes("is_system_admin = 1") || u.is_system_admin === 1) &&
+            (!sql.includes("disabled_at IS NULL") || u.disabled_at === null),
+        );
+        return { results: results.map((u) => ({ email: u.email })) };
+      }
+      if (sql.includes("lower(email) IN")) {
+        const wanted = new Set(this.args as string[]);
+        return {
+          results: users.filter((u) => wanted.has(u.email.toLowerCase())).map((u) => ({ email: u.email.toLowerCase() })),
+        };
+      }
       if (sql.includes("new_user_notify = ?")) {
         // Evaluate each term only if the statement actually carries it.
         const results = users.filter(
@@ -72,7 +92,10 @@ function testEnv(users: UserRow[], settingsRows: Map<string, string> = new Map()
       return { results: [] };
     },
     async run() {
-      if (sql.startsWith("UPDATE user SET new_user_notify")) {
+      if (sql.startsWith("UPDATE user SET access_request_notify")) {
+        const u = users.find((x) => x.id === this.args[1]);
+        if (u) u.access_request_notify = this.args[0] as number;
+      } else if (sql.startsWith("UPDATE user SET new_user_notify")) {
         const u = users.find((x) => x.id === this.args[1]);
         if (u) u.new_user_notify = this.args[0] as string;
       } else if (sql.includes("INSERT INTO setting")) {
@@ -114,6 +137,27 @@ describe("instant notice on a new member", () => {
 
   it("never tells an admin about their own arrival", async () => {
     await notifyNewUser(testEnv(fresh()), { email: "instant@x.org", via: "signup", createdAt: "2026-09-24T02:13:57.310Z" });
+    expect(sentTo).toEqual([]);
+  });
+});
+
+describe("access-request notice", () => {
+  const optedIn = (ids: string[]) =>
+    fresh().map((u) => (ids.includes(u.id) ? { ...u, access_request_notify: 1 } : u));
+
+  it("defaults off: nobody who has not opted in, bootstrap address included", async () => {
+    await notifyAccessRequest(testEnv(fresh()), { email: "new@family.org" });
+    expect(sentTo).toEqual([]);
+  });
+
+  it("mails only enabled admins who opted in", async () => {
+    // 01D is disabled and 01E demoted; both opted in and neither may be mailed.
+    await notifyAccessRequest(testEnv(optedIn(["01A", "01C", "01D", "01E"])), { email: "new@family.org" });
+    expect(sentTo.sort()).toEqual(["instant@x.org", "off@x.org"]);
+  });
+
+  it("never mails the applicant about themselves", async () => {
+    await notifyAccessRequest(testEnv(optedIn(["01C"])), { email: "off@x.org" });
     expect(sentTo).toEqual([]);
   });
 });
@@ -164,7 +208,7 @@ describe("/settings/notifications is the caller's own", () => {
     const drafts: AuditDraft[] = [];
     const { req } = appWith(as("01C"), testEnv(users), drafts);
 
-    expect(await (await req("/settings/notifications")).json()).toEqual({ newUser: "off" });
+    expect(await (await req("/settings/notifications")).json()).toEqual({ newUser: "off", accessRequest: false });
     const res = await req("/settings/notifications", {
       method: "PUT",
       headers: { "content-type": "application/json" },
@@ -179,6 +223,38 @@ describe("/settings/notifications is the caller's own", () => {
     expect(drafts).toEqual([
       expect.objectContaining({ action: "notify.toggled", entityKind: "user", entityId: "01C" }),
     ]);
+  });
+
+  it("toggles access-request mail for the caller alone", async () => {
+    const users = fresh();
+    const drafts: AuditDraft[] = [];
+    const { req } = appWith(as("01C"), testEnv(users), drafts);
+    const res = await req("/settings/notifications", {
+      method: "PUT",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ accessRequest: true }),
+    });
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ newUser: "off", accessRequest: true });
+    expect(users.find((u) => u.id === "01C")!.access_request_notify).toBe(1);
+    expect(users.filter((u) => u.id !== "01C").every((u) => u.access_request_notify === undefined)).toBe(true);
+    // The other setting was not sent, so it was not touched.
+    expect(users.find((u) => u.id === "01C")!.new_user_notify).toBe("off");
+    expect(drafts).toEqual([
+      expect.objectContaining({ action: "notify.toggled", detail: { setting: "access_request_notify", on: true } }),
+    ]);
+  });
+
+  it("rejects a non-boolean accessRequest, and an empty body", async () => {
+    const { req } = appWith(as("01C"), testEnv(fresh()), []);
+    for (const body of [{ accessRequest: "no" }, {}]) {
+      const res = await req("/settings/notifications", {
+        method: "PUT",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      expect(res.status).toBe(400);
+    }
   });
 
   it("refuses a non-admin, which includes an admin masquerading as a member", async () => {

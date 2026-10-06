@@ -328,8 +328,8 @@ export const api = {
   setRegistration: (open: boolean) =>
     request<{ open: boolean }>("/settings/registration", { method: "PUT", body: JSON.stringify({ open }) }),
   getNotifications: () => request<NotificationSettingsDTO>("/settings/notifications"),
-  setNotifications: (newUser: NewUserNotify) =>
-    request<NotificationSettingsDTO>("/settings/notifications", { method: "PUT", body: JSON.stringify({ newUser }) }),
+  setNotifications: (patch: { newUser?: NewUserNotify; accessRequest?: boolean }) =>
+    request<NotificationSettingsDTO>("/settings/notifications", { method: "PUT", body: JSON.stringify(patch) }),
 
   // Calendar. Only the read remains here — it feeds Home's upcoming-events
   // block. Feed listing and all calendar admin moved to the calendar app.

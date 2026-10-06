@@ -40,15 +40,25 @@ function fmtTime(iso: string): string {
   }
 }
 
-/** New-member notifications for the signed-in admin ONLY: a switch plus, when
- *  on, the delivery mode. Each admin opts in for themselves (migration 0026);
- *  "off" is the default, so a newly promoted admin is emailed nothing. */
+/** Notifications for the signed-in admin ONLY: new members (a switch plus,
+ *  when on, the delivery mode) and access requests (a switch). Each admin
+ *  chooses for themselves (migrations 0026, 0034); both default off. */
 function NotificationsSection() {
   const [mode, setMode] = useState<NewUserNotify | null>(null);
+  const [accessOn, setAccessOn] = useState<boolean | null>(null);
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
-    void api.getNotifications().then((r) => setMode(r.newUser)).catch(() => setMode(null));
+    void api
+      .getNotifications()
+      .then((r) => {
+        setMode(r.newUser);
+        setAccessOn(r.accessRequest);
+      })
+      .catch(() => {
+        setMode(null);
+        setAccessOn(null);
+      });
   }, []);
 
   const save = async (next: NewUserNotify) => {
@@ -56,10 +66,24 @@ function NotificationsSection() {
     setMode(next); // optimistic
     setBusy(true);
     try {
-      const r = await api.setNotifications(next);
+      const r = await api.setNotifications({ newUser: next });
       setMode(r.newUser);
     } catch {
       setMode(prev ?? null); // revert on failure
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const saveAccess = async (next: boolean) => {
+    const prev = accessOn;
+    setAccessOn(next); // optimistic
+    setBusy(true);
+    try {
+      const r = await api.setNotifications({ accessRequest: next });
+      setAccessOn(r.accessRequest);
+    } catch {
+      setAccessOn(prev); // revert on failure
     } finally {
       setBusy(false);
     }
@@ -113,6 +137,24 @@ function NotificationsSection() {
             ))}
           </div>
         )}
+
+        <div className="sd-row" style={{ gap: 12, marginTop: 12, borderTop: "1px solid var(--line)", paddingTop: 12 }}>
+          <div style={{ flex: 1 }}>
+            <div style={{ fontSize: 14.5, fontWeight: 700 }}>Email me about directory requests</div>
+            <div className="sd-meta" style={{ marginTop: 2, lineHeight: 1.4 }}>
+              {accessOn
+                ? "You get a notice each time someone asks for access to the directory."
+                : "You aren't emailed about access requests — check the Access tab for anyone waiting."}
+            </div>
+          </div>
+          <button
+            className={`sd-toggle${accessOn ? " on" : ""}`}
+            aria-pressed={!!accessOn}
+            aria-label="Toggle directory request notifications"
+            disabled={accessOn === null || busy}
+            onClick={() => void saveAccess(!accessOn)}
+          />
+        </div>
 
         <div className="sd-meta" style={{ marginTop: 10, lineHeight: 1.4 }}>
           This is just for you — each admin chooses their own, and other admins' choices
