@@ -354,7 +354,9 @@ export function Event() {
         {/* No per-event download here. Taking a COPY of one occurrence is the
             thing that silently goes stale when the school moves the date; the
             calendar-level subscribe on the agenda's filter bar is the affordance
-            that keeps up, and it is the one worth pointing people at. */}
+            that keeps up, and it is the one worth pointing people at. The one
+            exception is a volunteer's OWN shift, offered on its position card —
+            see packages/shared/src/volunteerCalendar.ts. */}
         <Btn kind="secondary" icon="link" onClick={() => void copyLink()}>
           {copied ? t("subscribeCopied") : t("subscribeCopy")}
         </Btn>

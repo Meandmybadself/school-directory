@@ -23,7 +23,14 @@
 // Writes always require a session — there is no anonymous claim path — so the
 // signed-out affordance is "sign in to volunteer".
 import { useState } from "react";
-import { formatClock } from "@sd/shared";
+import {
+  eventPath,
+  formatClock,
+  googleCalendarUrl,
+  volunteerEntryDetails,
+  volunteerEntryTitle,
+  volunteerShiftWindow,
+} from "@sd/shared";
 import { SCHOOL_TIME_ZONE } from "../lib/timezone.js";
 import type {
   ControllablePersonDTO,
@@ -94,6 +101,7 @@ function PositionCard({
   onTake,
   onWithdraw,
   onSignIn,
+  onAddToCalendar,
 }: {
   position: AnySheet["positions"][number];
   locale: string;
@@ -103,6 +111,7 @@ function PositionCard({
   onTake: () => void;
   onWithdraw: (signupId: string) => void;
   onSignIn: () => void;
+  onAddToCalendar: (signupId: string) => void;
 }) {
   const { t } = useI18n();
   const signups = signupsOf(position);
@@ -157,6 +166,15 @@ function PositionCard({
             </div>
           ))}
         </div>
+      )}
+
+      {/* Offered for as long as the spot is theirs, not only in the moment after
+          taking it — the confirmation that follows a claim is easy to dismiss,
+          and a closed sheet is still a shift they owe. */}
+      {mine && (
+        <Btn block kind="secondary" icon="calendar" onClick={() => onAddToCalendar(mine.id)}>
+          {t("volunteerAddToCalendar")}
+        </Btn>
       )}
 
       {canWrite ? (
@@ -264,6 +282,66 @@ function ClaimSheet({
   );
 }
 
+/** Where a taken spot goes next: the reader's own calendar.
+ *
+ *  Two ways in, because there is no one way that reaches everyone. Google's is a
+ *  link that opens its own pre-filled form; everything else — Apple Calendar,
+ *  Outlook, a phone's built-in app — imports a `.ics` file, which the API renders
+ *  so the date in it is read at the moment of the tap. Both describe the same
+ *  window (`volunteerShiftWindow`) and both carry the event page's link, which
+ *  is the version that keeps up if the school moves the event; see
+ *  packages/shared/src/volunteerCalendar.ts for why a shift is the one thing
+ *  this app hands out as a copy.
+ *
+ *  `justClaimed` adds the confirmation heading, so the sheet that opens straight
+ *  after a claim also says that the claim worked. */
+function AddToCalendarSheet({
+  sheet,
+  positionId,
+  signupId,
+  justClaimed,
+  onClose,
+}: {
+  sheet: AnySheet;
+  positionId: string;
+  signupId: string;
+  justClaimed: boolean;
+  onClose: () => void;
+}) {
+  const { t, locale } = useI18n();
+  const position = sheet.positions.find((p) => p.id === positionId);
+  if (!position) return null;
+
+  const eventUrl = `${window.location.origin}${eventPath(sheet.event, SCHOOL_TIME_ZONE)}`;
+  const google = googleCalendarUrl({
+    title: volunteerEntryTitle(position.title, sheet.event.title, t("volunteerEntryPrefix")),
+    window: volunteerShiftWindow(sheet.event, position),
+    location: sheet.event.location,
+    details: volunteerEntryDetails(position.description, eventUrl),
+  });
+  const shift = shiftLabel(position.startsAt, position.endsAt, locale);
+
+  return (
+    <SheetOver onClose={onClose}>
+      <h2 className="sd-h2" style={{ marginBottom: 6 }}>
+        {justClaimed ? t("volunteerSignedUpTitle") : t("volunteerAddToCalendar")}
+      </h2>
+      <div style={{ fontSize: 14, fontWeight: 600 }}>{position.title}</div>
+      {shift && <div className="sd-meta" style={{ marginTop: 2 }}>{shift}</div>}
+      <p className="sd-meta" style={{ margin: "10px 0 16px", lineHeight: 1.5 }}>{t("volunteerSignedUpBody")}</p>
+      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+        <a className="sd-btn sd-btn-primary block" href={google} target="_blank" rel="noopener noreferrer">
+          <Icon name="calendar" size={18} />{t("volunteerAddGoogle")}
+        </a>
+        <a className="sd-btn sd-btn-secondary block" href={api.volunteerSignupIcsUrl(signupId, locale)}>
+          <Icon name="download" size={18} />{t("volunteerAddIcs")}
+        </a>
+        <Btn block kind="ghost" onClick={onClose}>{t("done")}</Btn>
+      </div>
+    </SheetOver>
+  );
+}
+
 /** The positions grid plus the claim flow.
  *
  *  Both writes answer with the refreshed MEMBER sheet, which is handed back
@@ -287,6 +365,7 @@ export function VolunteerPositions({
   const [claiming, setClaiming] = useState<string | null>(null); // position id
   const [busy, setBusy] = useState(false);
   const [claimError, setClaimError] = useState<string | null>(null);
+  const [adding, setAdding] = useState<{ positionId: string; signupId: string; justClaimed: boolean } | null>(null);
 
   const canWrite = !!me && !sheet.closed;
 
@@ -297,6 +376,13 @@ export function VolunteerPositions({
       const r = await api.claimVolunteerSpot(positionId, personId, note.trim() || null);
       onSheet(r.sheet);
       setClaiming(null);
+      // Straight on to the calendar while the commitment is fresh. The new
+      // signup is found on the refreshed sheet by Person — the response names
+      // the sheet, not the row it just wrote.
+      const mine = r.sheet.positions
+        .find((p) => p.id === positionId)
+        ?.signups.find((su) => su.isYou && su.personId === personId);
+      if (mine) setAdding({ positionId, signupId: mine.id, justClaimed: true });
     } catch (err) {
       // 409 carries which of the three ways it failed, so the message can say
       // what actually happened instead of "something went wrong".
@@ -345,6 +431,7 @@ export function VolunteerPositions({
               onTake={() => { setClaimError(null); setClaiming(p.id); }}
               onWithdraw={withdraw}
               onSignIn={onSignIn}
+              onAddToCalendar={(signupId) => setAdding({ positionId: p.id, signupId, justClaimed: false })}
             />
           ))}
         </div>
@@ -360,6 +447,15 @@ export function VolunteerPositions({
           error={claimError}
           onClose={() => setClaiming(null)}
           onSubmit={(personId, note) => void claim(claiming, personId, note)}
+        />
+      )}
+      {adding && (
+        <AddToCalendarSheet
+          sheet={sheet}
+          positionId={adding.positionId}
+          signupId={adding.signupId}
+          justClaimed={adding.justClaimed}
+          onClose={() => setAdding(null)}
         />
       )}
     </>

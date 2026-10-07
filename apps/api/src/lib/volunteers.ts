@@ -27,10 +27,20 @@ import type {
   VolunteerSheetInput,
   VolunteerSignupDTO,
 } from "@sd/shared";
-import { volunteerSheetSlug } from "@sd/shared";
+import {
+  dictionaries,
+  eventPath,
+  resolveTimeZone,
+  volunteerEntryDetails,
+  volunteerEntryTitle,
+  volunteerSheetSlug,
+  volunteerShiftWindow,
+  type Locale,
+} from "@sd/shared";
 import type { Env } from "../env.js";
 import { displayName, isPersonListable } from "./privacy.js";
 import { ulid } from "./ids.js";
+import { renderCalendar } from "./icsWriter.js";
 import { nowIso } from "./time.js";
 
 /** Cap on positions per sheet. A signup sheet with 100 jobs on it is a spread-
@@ -1232,6 +1242,76 @@ export async function signupOwner(
   return row
     ? { personId: row.person_id, userId: row.user_id, slug: row.slug, positionId: row.position_id }
     : null;
+}
+
+/** One signup as a `.ics` file — the "add to calendar" a volunteer is offered
+ *  after taking a spot. See packages/shared/src/volunteerCalendar.ts for why a
+ *  shift, unlike an event, is handed out as a copy.
+ *
+ *  Read through `loadSheetForMember`, so it resolves the event the way the sheet
+ *  page does — from `managed_event`, at the sheet's CURRENT occurrence — and a
+ *  file taken after `reanchorSheets` moved the sheet carries the new date.
+ *
+ *  Returns null when the signup, its sheet or its position is gone; the route
+ *  has already checked the caller may act for the Person. */
+export async function signupIcs(
+  env: Env,
+  signupId: string,
+  viewer: Viewer,
+  locale: Locale,
+): Promise<{ body: string; filename: string } | null> {
+  const owner = await signupOwner(env, signupId);
+  if (!owner) return null;
+  const sheet = await loadSheetForMember(env, owner.slug, viewer);
+  if (!sheet) return null;
+  return signupIcsOf(sheet, owner.positionId, signupId, {
+    calendarUrl: env.CALENDAR_URL ?? null,
+    timeZone: resolveTimeZone(env.SCHOOL_TIMEZONE),
+    locale,
+    now: nowIso(),
+  });
+}
+
+/** The pure half of `signupIcs`. Built from the sheet's event and the one
+ *  position, field by field: nothing in the file names anybody — not who signed
+ *  up, not who else did — so it is the shift the public sheet already shows,
+ *  made into a file. Read `sheet.positions` for the position and NEVER its
+ *  `signups`. */
+export function signupIcsOf(
+  sheet: VolunteerSheetDTO,
+  positionId: string,
+  signupId: string,
+  opts: { calendarUrl: string | null; timeZone: string; locale: Locale; now: string },
+): { body: string; filename: string } | null {
+  const position = sheet.positions.find((p) => p.id === positionId);
+  if (!position) return null;
+
+  const eventUrl = opts.calendarUrl
+    ? `${opts.calendarUrl.replace(/\/+$/, "")}${eventPath(sheet.event, opts.timeZone)}`
+    : null;
+  const window = volunteerShiftWindow(sheet.event, position);
+  const body = renderCalendar(sheet.event.title, [
+    {
+      // The signup's id: one file per commitment, so adding it again after the
+      // school moves the event replaces the entry instead of duplicating it.
+      uid: `volunteer-${signupId}@eisenhower.school`,
+      title: volunteerEntryTitle(position.title, sheet.event.title, dictionaries[opts.locale].volunteerEntryPrefix),
+      location: sheet.event.location,
+      description: volunteerEntryDetails(position.description, eventUrl) || null,
+      url: eventUrl,
+      start: window.start,
+      end: window.end,
+      allDay: window.allDay,
+      recurrence: null,
+      // Seconds since the epoch: there is no edit counter to read for a
+      // signup, and a client that compares SEQUENCE before replacing an entry
+      // must see a later download as newer.
+      sequence: Math.floor(Date.parse(opts.now) / 1000),
+      updatedAt: opts.now,
+    },
+  ]);
+  // ASCII only — it goes in a header, and the title slug keeps any script.
+  return { body, filename: `volunteer-${window.start.slice(0, 10)}.ics` };
 }
 
 export async function releaseSpot(env: Env, signupId: string): Promise<void> {

@@ -241,6 +241,12 @@ export const api = {
     }),
   releaseVolunteerSpot: (signupId: string) =>
     request<{ sheet: VolunteerSheetDTO }>(`/volunteers/signups/${signupId}`, { method: "DELETE" }),
+  /** A signup as a `.ics` file. A URL rather than a fetch: it is opened as a
+   *  plain link, so the browser (and on a phone, the OS) hands the file to the
+   *  calendar app. The session cookie rides a top-level navigation to the API
+   *  just as it rides a credentialed fetch. */
+  volunteerSignupIcsUrl: (signupId: string, locale: string) =>
+    `${API_BASE}/volunteers/signups/${encodeURIComponent(signupId)}/ics?lang=${encodeURIComponent(locale)}`,
 
   // Volunteer sheets — authoring (admin).
   eventOccurrences: (eventId: string) =>

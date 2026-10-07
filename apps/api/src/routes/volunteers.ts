@@ -8,7 +8,7 @@
 // name on a signup sheet has to be attributable to a directory Person.
 
 import { Hono } from "hono";
-import type { VolunteerSheetDTO, VolunteerSignupInput } from "@sd/shared";
+import { localeFromTag, type VolunteerSheetDTO, type VolunteerSignupInput } from "@sd/shared";
 import type { HonoEnv } from "../env.js";
 import type { AuditDraft } from "../lib/audit.js";
 import { requireAuth } from "../middleware/session.js";
@@ -17,6 +17,7 @@ import {
   claimSpot,
   loadSheetForMember,
   releaseSpot,
+  signupIcs,
   signupOwner,
   viewerOf,
 } from "../lib/volunteers.js";
@@ -112,6 +113,38 @@ volunteers.post("/positions/:id/signups", async (c) => {
   Object.assign(draft.notify!, signupNotifyDetail(sheet, c.req.param("id")));
 
   return c.json({ sheet }, 201);
+});
+
+/** GET /volunteers/signups/:id/ics?lang= — the spot as a calendar file.
+ *
+ *  Opened as a plain link from the calendar app, which is why it can sit behind
+ *  a session at all: the API is a same-site subdomain, so a top-level navigation
+ *  carries the host-only `sd_session` cookie the way a `fetch` does. Same
+ *  authority as giving the spot back — a controller of the Person, or a system
+ *  admin — because "my calendar" is the reader's, not the whole membership's;
+ *  the file itself names nobody either way. `lang` picks the one word the title
+ *  adds ("Volunteer"); everything else in it is the school's own text.
+ *
+ *  `private, no-store`: the date in it is read live, and a cached copy is the
+ *  stale entry this route exists to avoid handing out twice. */
+volunteers.get("/signups/:id/ics", async (c) => {
+  const auth = requireAuth(c);
+  const owner = await signupOwner(c.env, c.req.param("id"));
+  if (!owner) return c.json({ error: "not_found" }, 404);
+  if (!auth.isSystemAdmin && !(await isController(c.env, auth.userId, owner.personId))) {
+    return c.json({ error: "forbidden" }, 403);
+  }
+
+  const viewer = await viewerOf(c.env, auth.userId, auth.isSystemAdmin, auth.isApproved);
+  const file = await signupIcs(c.env, c.req.param("id"), viewer, localeFromTag(c.req.query("lang")) ?? "en");
+  if (!file) return c.json({ error: "not_found" }, 404);
+  return new Response(file.body, {
+    headers: {
+      "content-type": "text/calendar; charset=utf-8",
+      "content-disposition": `attachment; filename="${file.filename}"`,
+      "cache-control": "private, no-store",
+    },
+  });
 });
 
 /** DELETE /volunteers/signups/:id — give a spot back.

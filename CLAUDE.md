@@ -222,7 +222,17 @@ All six SPAs are separate Cloudflare Pages projects talking to the single
   there is one rendering of an event rather than two that overlap. There is
   deliberately **no per-event `.ics` download** — a copy of one occurrence goes
   stale the moment the school moves the date, and the calendar-level subscribe on
-  the agenda's filter bar is the affordance that keeps up. The
+  the agenda's filter bar is the affordance that keeps up. **A volunteer's own
+  shift is the one exception**: once they hold a spot, its position card (and
+  a sheet that opens straight after the claim) offers "Add to calendar" — a
+  Google Calendar template link built in the browser and a `.ics` from
+  `GET /volunteers/signups/:id/ics` (controller or admin, `no-store`). A
+  commitment belongs in the reader's own calendar, and the agenda can't say
+  which slot is theirs. Both are built by `volunteerShiftWindow`
+  (`packages/shared/src/volunteerCalendar.ts`) so they agree on the window,
+  both carry the event page's URL back to the version that keeps up, and the
+  file's UID is the signup id so re-adding it after a move replaces the entry.
+  `signupIcsOf` reads the member sheet but names nobody; its test pins that. The
   path is a CONTENT identity — day + title slug, minted by `eventPath` in
   `@sd/shared` and matched by `findEventByPath` — because an event has no
   durable public id to put in a URL; see invariant 8 and

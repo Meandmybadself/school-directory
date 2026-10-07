@@ -140,6 +140,15 @@ export interface Strings {
   volunteerError: string;
   volunteerNotFound: string;
   volunteerNotFoundBody: string;
+  /** Leads the title of a volunteer spot added to someone's own calendar:
+   *  "Volunteer: Setup crew — Fall Carnival". */
+  volunteerEntryPrefix: string;
+  volunteerAddToCalendar: string;
+  volunteerAddGoogle: string;
+  /** The .ics download — Apple Calendar, Outlook and anything else that opens a file. */
+  volunteerAddIcs: string;
+  volunteerSignedUpTitle: string;
+  volunteerSignedUpBody: string;
 
   // home
   neighbors: string;
@@ -938,6 +947,12 @@ const en: Strings = {
   volunteerError: "That didn't work. Please try again.",
   volunteerNotFound: "Signup sheet not found",
   volunteerNotFoundBody: "This link may have expired, or signups were taken down.",
+  volunteerEntryPrefix: "Volunteer",
+  volunteerAddToCalendar: "Add to calendar",
+  volunteerAddGoogle: "Google Calendar",
+  volunteerAddIcs: "Apple, Outlook & others (.ics)",
+  volunteerSignedUpTitle: "You're signed up",
+  volunteerSignedUpBody: "Put it on your calendar so it doesn't slip. If the school moves the event, the calendar entry links back here to the latest details.",
 
   neighbors: "Neighbors",
   noNeighbors: "No neighbors nearby yet.",
@@ -1740,6 +1755,12 @@ const es: Strings = {
   volunteerError: "No se pudo completar. Inténtalo de nuevo.",
   volunteerNotFound: "No se encontró la hoja de inscripción",
   volunteerNotFoundBody: "Puede que el enlace haya caducado o que se hayan retirado las inscripciones.",
+  volunteerEntryPrefix: "Voluntariado",
+  volunteerAddToCalendar: "Añadir al calendario",
+  volunteerAddGoogle: "Google Calendar",
+  volunteerAddIcs: "Apple, Outlook y otros (.ics)",
+  volunteerSignedUpTitle: "¡Ya tienes tu lugar!",
+  volunteerSignedUpBody: "Añádelo a tu calendario para no olvidarlo. Si la escuela cambia el evento, la entrada del calendario enlaza aquí con los datos más recientes.",
 
   neighbors: "Vecinos",
   noNeighbors: "Aún no hay vecinos cerca.",
@@ -2468,6 +2489,12 @@ const zh: Strings = {
   volunteerError: "操作未成功，请重试。",
   volunteerNotFound: "未找到报名表",
   volunteerNotFoundBody: "链接可能已失效，或报名已被撤下。",
+  volunteerEntryPrefix: "志愿者",
+  volunteerAddToCalendar: "添加到日历",
+  volunteerAddGoogle: "Google 日历",
+  volunteerAddIcs: "Apple、Outlook 及其他（.ics）",
+  volunteerSignedUpTitle: "报名成功",
+  volunteerSignedUpBody: "把它加到您的日历里，以免忘记。如果学校调整了活动，日历条目会链接回这里查看最新信息。",
 
   neighbors: "邻居",
   noNeighbors: "附近暂无邻居。",
@@ -3170,6 +3197,12 @@ const so: Strings = {
   volunteerError: "Taasi ma shaqayn. Fadlan mar kale isku day.",
   volunteerNotFound: "Warqadda is-diiwaangelinta lama helin",
   volunteerNotFoundBody: "Link-gan waa laga yaabaa inuu dhacay, ama is-diiwaangelinta la qaaday.",
+  volunteerEntryPrefix: "Tabarruc",
+  volunteerAddToCalendar: "Ku dar kalandarka",
+  volunteerAddGoogle: "Google Calendar",
+  volunteerAddIcs: "Apple, Outlook iyo kuwo kale (.ics)",
+  volunteerSignedUpTitle: "Waa lagu diiwaangeliyey",
+  volunteerSignedUpBody: "Ku dar kalandarkaaga si aanad u illoobin. Haddii dugsigu dhacdada beddelo, galka kalandarku wuxuu kuu soo celinayaa halkan si aad u aragto macluumaadka ugu dambeeyay.",
 
   neighbors: "Deriska",
   noNeighbors: "Weli ma jiraan deris kuu dhow.",
