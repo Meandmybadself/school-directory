@@ -9,6 +9,7 @@ import {
   isPublishedIssueUrl,
   LOCALES,
   localeNames,
+  linkQrCode,
   linkQrSvg,
   NEWSLETTER_WEB_CSS,
   publishedIssueQrSvg,
@@ -136,7 +137,7 @@ describe("a printed QR code beside each link in the body", () => {
   it("puts the code in a column at the top of the paragraph holding the link", () => {
     const html = body("web", { type: "text", text: "Sign up " }, link("here", "https://www.signupgenius.com/go/abc"));
     expect(html).toMatch(
-      /^<p class="nl-p"><span class="nl-qr-col" aria-hidden="true"><span class="nl-qr-item"><span class="nl-qr-num">1<\/span><svg [^]*<\/svg><\/span><\/span>Sign up <a href="https:\/\/www\.signupgenius\.com\/go\/abc"/,
+      /^<p class="nl-p"><span class="nl-qr-col" aria-hidden="true"><span class="nl-qr-item" style="--qz:0\.\d{4}"><span class="nl-qr-num">1<\/span><svg [^]*<\/svg><\/span><\/span>Sign up <a href="https:\/\/www\.signupgenius\.com\/go\/abc"/,
     );
   });
 
@@ -228,6 +229,29 @@ describe("a printed QR code beside each link in the body", () => {
     // Nothing may size a block by its codes again: that is what made blocks
     // with links taller and narrower than the ones without.
     expect(print).not.toMatch(/min-height/);
+  });
+
+  it("tells each number how far the code's quiet zone drops the black modules", () => {
+    // Four modules of white around a code whose own width varies with the
+    // url, so the drop differs per code and has to travel with each one.
+    const short = linkQrCode("https://example.org/a")!;
+    const long = linkQrCode("https://www.hopkinsschools.org/departments/transportation/bus-routes-and-schedules-2026-2027?utm_source=newsletter")!;
+    const box = (svg: string) => Number(svg.match(/viewBox="-4 -4 (\d+) /)![1]);
+    expect(short.quiet).toBeCloseTo(4 / box(short.svg), 10);
+    expect(long.quiet).toBeLessThan(short.quiet);
+    expect(linkQrCode("tel:+16125550100")).toBeNull();
+    const html = body("web", link("a", "https://example.org/a"));
+    expect(html).toContain(`<span class="nl-qr-item" style="--qz:${short.quiet.toFixed(4)}">`);
+    const print = NEWSLETTER_WEB_CSS.slice(NEWSLETTER_WEB_CSS.indexOf("@media print"));
+    expect(print).toMatch(/\.nl-qr-num\{[^}]*margin-top:calc\(\.75in \* var\(--qz, 0\)/);
+  });
+
+  it("prints the issue's own code at the same size as every link's code", () => {
+    const print = NEWSLETTER_WEB_CSS.slice(NEWSLETTER_WEB_CSS.indexOf("@media print"));
+    const size = (sel: string) => print.match(new RegExp(`${sel.replace(/\./g, "\\.")} svg\\{[^}]*width:([\\d.]+in);height:([\\d.]+in)`))!.slice(1);
+    expect(size(".nl-qr")).toEqual(size(".nl-qr-col"));
+    // And the margin the number's drop is computed against is that same size.
+    expect(size(".nl-qr-col")[0]).toBe(".75in");
   });
 
   it("reserves the rail on the page only when the issue has a code to put in it", () => {

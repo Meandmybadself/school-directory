@@ -42,14 +42,26 @@ export function publishedIssueQrSvg(url: string): string {
  *  and the archive page already publishes, so — unlike the masthead code —
  *  there is nothing here for `publishedIssueQrSvg`'s refusal to protect. */
 export function linkQrSvg(href: string): string {
-  if (!/^(https?:\/\/[^/?#\s]+|mailto:[^\s@]+@[^\s@]+)/i.test(href)) return "";
-  return qrSvg(href, "QR code for this link");
+  return linkQrCode(href)?.svg ?? "";
+}
+
+/** `linkQrSvg` plus where the visible code starts: the quiet zone's share of
+ *  the image's height. The zone is a fixed four MODULES, so its share depends
+ *  on how dense the code is, and the number printed beside a code needs it to
+ *  line up with the top of the black rather than the top of the white. */
+export function linkQrCode(href: string): { svg: string; quiet: number } | null {
+  if (!/^(https?:\/\/[^/?#\s]+|mailto:[^\s@]+@[^\s@]+)/i.test(href)) return null;
+  return qrCode(href, "QR code for this link");
 }
 
 /** Drawn as ONE path rather than a rect per module, so a typical code is ~2 kB
  *  instead of ~30 kB of markup. Black on white regardless of the reader's
  *  theme: it is only ever shown on paper. */
 function qrSvg(url: string, label: string): string {
+  return qrCode(url, label).svg;
+}
+
+function qrCode(url: string, label: string): { svg: string; quiet: number } {
   // `M` rather than the default `L`: a printed code gets folded, smudged and
   // photographed at an angle, and these urls are short enough to afford it.
   const { size, data } = encode(url, { ecc: "M", border: 0 });
@@ -69,5 +81,8 @@ function qrSvg(url: string, label: string): string {
   // drawn as viewBox padding so the white is part of the image on any paper.
   const q = 4;
   const box = size + q * 2;
-  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${-q} ${-q} ${box} ${box}" shape-rendering="crispEdges" role="img" aria-label="${label}"><rect x="${-q}" y="${-q}" width="${box}" height="${box}" fill="#fff"/><path fill="#000" d="${d}"/></svg>`;
+  return {
+    svg: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${-q} ${-q} ${box} ${box}" shape-rendering="crispEdges" role="img" aria-label="${label}"><rect x="${-q}" y="${-q}" width="${box}" height="${box}" fill="#fff"/><path fill="#000" d="${d}"/></svg>`,
+    quiet: q / box,
+  };
 }

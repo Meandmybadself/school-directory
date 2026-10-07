@@ -654,6 +654,11 @@ All six SPAs are separate Cloudflare Pages projects talking to the single
    whole issue: a link repeated further down gets no second code but carries
    the first one's number, and a partly-bold link split into several text
    nodes gets one superscript after the whole link (`renderChildren`).
+   The number's TOP is level with the top of the black modules, not the
+   image: every code carries four modules of white quiet zone, whose share of
+   the height depends on how dense the code is, so `linkQrCode` reports it and
+   each item passes it to CSS as `--qz`. The issue's own code (`.nl-qr`) prints
+   at the same 0.75in as the link codes and shares their right edge.
 
 17. **Removing a User is `disabled_at`, and deleting one has rules it does not
    yet execute.** `POST /admin/users/:id/disabled` is reversible and touches the

@@ -41,7 +41,7 @@ import { EVENTS_BLOCK_TYPE, LOCALES } from "./types.js";
 import { visibleEvents } from "./newsletterEvents.js";
 import { eventPath, type EventPathInput } from "./eventPath.js";
 import { htmlToText } from "./text.js";
-import { linkQrSvg, publishedIssueQrSvg } from "./newsletterQr.js";
+import { linkQrCode, publishedIssueQrSvg } from "./newsletterQr.js";
 import { localeNames } from "./i18n.js";
 import {
   newsletterLanguageLinks,
@@ -634,11 +634,15 @@ function renderText(node: NewsletterNode, ctx: Ctx): string {
  *  codes nobody asked for. */
 function linkQr(href: string, ctx: Ctx): void {
   if (!ctx.linkQrs || !ctx.qrSink || ctx.linkQrs.has(href)) return;
-  const svg = linkQrSvg(href);
-  if (!svg) return;
+  const code = linkQrCode(href);
+  if (!code) return;
   const n = ctx.linkQrs.size + 1;
   ctx.linkQrs.set(href, n);
-  ctx.qrSink.push(`<span class="nl-qr-item"><span class="nl-qr-num">${n}</span>${svg}</span>`);
+  // `--qz` is the quiet zone's share of the code's height, which the
+  // stylesheet turns into the drop that puts the number's top level with the
+  // top of the black modules rather than the white border around them.
+  const qz = code.quiet.toFixed(4);
+  ctx.qrSink.push(`<span class="nl-qr-item" style="--qz:${qz}"><span class="nl-qr-num">${n}</span>${code.svg}</span>`);
 }
 
 /** The safe href of a text node's link mark, or null. */
@@ -1452,8 +1456,8 @@ a{color:var(--nl-accent,${DEFAULT_ACCENT})}
   .nl-foot{break-inside:avoid}
   /* Floated so the title, subtitle and date wrap beside it rather than
      starting below a square of white space. */
-  .nl-qr{display:block;float:right;width:1.25in;margin:0 0 10px 18px;text-align:center}
-  .nl-qr svg{display:block;width:1.1in;height:1.1in;margin:0 auto}
+  .nl-qr{display:block;float:right;width:.75in;margin:0 0 10px 18px;text-align:center}
+  .nl-qr svg{display:block;width:.75in;height:.75in;margin:0 auto}
   .nl-qr p{margin:2px 0 0;font-size:8.5pt;line-height:1.35;color:${INK}}
   /* One small code per link in the body, in a rail down the right margin (see
      qrBlock). The body reserves the rail once, so every block has the same
@@ -1464,7 +1468,7 @@ a{color:var(--nl-accent,${DEFAULT_ACCENT})}
   .nl-body-rail::after{content:"";display:block;clear:both}
   .nl-qr-col{display:flex;flex-direction:column;gap:.1in;float:right;clear:right;width:.95in;margin:2px -1.2in .1in 0;break-inside:avoid;page-break-inside:avoid}
   .nl-qr-item{display:flex;align-items:flex-start;justify-content:flex-end;gap:.05in}
-  .nl-qr-num{font-size:9pt;font-weight:700;line-height:1;color:${INK}}
+  .nl-qr-num{font-size:9pt;font-weight:700;line-height:1;margin-top:calc(.75in * var(--qz, 0) - .125em);color:${INK}}
   .nl-qr-col svg{display:block;width:.75in;height:.75in;flex:none}
   /* The number after a link that matches the one beside its code. */
   .nl-qr-ref{display:inline;font-size:.7em;font-weight:700;line-height:0;margin-left:1px;vertical-align:super;color:${INK}}
