@@ -16,6 +16,10 @@ import { fileURLToPath } from "node:url";
 const ZONE = "689f6323a55417c703d2b05b2c2aad31"; // eisenhower.school
 const ACCOUNT = "c3b373ae8a90a6494e520f962bdf462b";
 const DB = "school-directory";
+// Hosts left out of the report entirely. The 1d zone totals can't filter by host, so
+// the lines built from them (requests, uniques, data served, threats) still include
+// these; every per-host, per-page and security figure excludes them.
+const EXCLUDED_HOST = "demo.eisenhower.school";
 const REPO = resolve(dirname(fileURLToPath(import.meta.url)), "../../..");
 
 // ---------------------------------------------------------------- arguments
@@ -72,15 +76,15 @@ const rumQ = (body, s = S, e = E) =>
   gql(`query($a:String!,$s:Time!,$e:Time!){viewer{accounts(filter:{accountTag:$a}){${body}}}}`, {
     a: ACCOUNT, s, e,
   }).then((v) => v.accounts[0]);
-const RUM_F = `filter:{datetime_geq:$s,datetime_lt:$e,requestHost_like:"%eisenhower%"}`;
+const RUM_F = `filter:{datetime_geq:$s,datetime_lt:$e,requestHost_like:"%eisenhower%",requestHost_notlike:"${EXCLUDED_HOST}%"}`;
 
 const edge = await safe("Cloudflare edge", async () => {
   const z = await zoneQ(`
     daily:httpRequests1dGroups(limit:62,filter:{date_geq:$ds,date_lt:$de},orderBy:[date_ASC]){
       dimensions{date} sum{requests pageViews threats bytes countryMap{clientCountryName requests}} uniq{uniques}}
-    hosts:httpRequestsAdaptiveGroups(limit:500,filter:{datetime_geq:$s,datetime_lt:$e,requestSource:"eyeball"},orderBy:[count_DESC]){
+    hosts:httpRequestsAdaptiveGroups(limit:500,filter:{datetime_geq:$s,datetime_lt:$e,requestSource:"eyeball",clientRequestHTTPHost_notlike:"${EXCLUDED_HOST}%"},orderBy:[count_DESC]){
       count dimensions{clientRequestHTTPHost}}
-    status:httpRequestsAdaptiveGroups(limit:100,filter:{datetime_geq:$s,datetime_lt:$e,requestSource:"eyeball"},orderBy:[count_DESC]){
+    status:httpRequestsAdaptiveGroups(limit:100,filter:{datetime_geq:$s,datetime_lt:$e,requestSource:"eyeball",clientRequestHTTPHost_notlike:"${EXCLUDED_HOST}%"},orderBy:[count_DESC]){
       count dimensions{edgeResponseStatus}}`);
   return z;
 }, null);
@@ -89,7 +93,7 @@ const edge = await safe("Cloudflare edge", async () => {
 // request was classified as one; `securityAction` (anything but "unknown") says a rule
 // acted on it — block, challenge, … — and `securitySource` says which kind of rule.
 // The firewall-events dataset would name the rule, but the free plan can't read it.
-const SEC_F = (from, to) => `filter:{datetime_geq:${from},datetime_lt:${to},securityAction_neq:"unknown"}`;
+const SEC_F = (from, to) => `filter:{datetime_geq:${from},datetime_lt:${to},securityAction_neq:"unknown",clientRequestHTTPHost_notlike:"${EXCLUDED_HOST}%"}`;
 const security = await safe("Cloudflare security actions", async () => {
   const z = await gql(
     `query($z:String!,$p:Time!,$s:Time!,$e:Time!){viewer{zones(filter:{zoneTag:$z}){
@@ -213,7 +217,6 @@ const SITE_LABELS = {
   "lostandfound.eisenhower.school": "Lost & found",
   "api-directory.eisenhower.school": "API",
   "ptomeet.eisenhower.school": "PTO Meet redirect",
-  "demo.eisenhower.school": "Demo",
 };
 const label = (h) => SITE_LABELS[h] ?? h;
 
@@ -559,10 +562,10 @@ code { font: 12.5px var(--ff-mono) }
 <section>
   <h2>Edge</h2>
   <div class="card"><dl class="kv">
-    <dt>Requests (all hosts)</dt><dd>${fmt(tot(edgeCur, "requests"))} ${delta(tot(edgeCur, "requests"), tot(edgePrev, "requests"))}</dd>
-    <dt>Daily unique IPs (average)</dt><dd>${fmt(Math.round(tot(edgeCur, "uniques") / (edgeCur.length || 1)))}</dd>
+    <dt>Requests (whole zone)</dt><dd>${fmt(tot(edgeCur, "requests"))} ${delta(tot(edgeCur, "requests"), tot(edgePrev, "requests"))}</dd>
+    <dt>Daily unique IPs (average, whole zone)</dt><dd>${fmt(Math.round(tot(edgeCur, "uniques") / (edgeCur.length || 1)))}</dd>
     <dt>Data served</dt><dd>${(tot(edgeCur, "bytes") / 1e9).toFixed(2)} GB</dd>
-    <dt>Classified as threats</dt><dd>${fmt(threatsCur)} ${delta(threatsCur, threatsPrev, true)}</dd>
+    <dt>Classified as threats (whole zone)</dt><dd>${fmt(threatsCur)} ${delta(threatsCur, threatsPrev, true)}</dd>
     <dt>Blocked by a rule</dt><dd>${fmt(blockedCur)} ${delta(blockedCur, blockedPrev, true)}</dd>
     <dt>Challenged, logged or skipped</dt><dd>${fmt(nonBlock)}</dd>
     <dt>Scanner noise (odd ports)</dt><dd>${fmt(portNoise)}</dd>
@@ -592,6 +595,7 @@ code { font: 12.5px var(--ff-mono) }
     <li>A <b>visit</b> starts when someone arrives from outside (a link, a search, a typed address). Moving between our own sites counts as a page view, not a new visit, which is why the directory shows many views and few visits. Web Analytics samples, so figures are rounded.</li>
     <li><b>Recorded actions</b> are rows in the audit log: sign-ins and changes. Reading the directory is never recorded, so a quiet audit log does not mean a quiet site.</li>
     <li><b>Classified as threats</b> is Cloudflare's own count of suspicious requests. <b>Blocked by a rule</b> counts requests a security rule actually stopped, from sampled data, so the two differ slightly. The free plan does not say which individual rule fired; the rule source is as close as it gets.</li>
+    <li><b>${EXCLUDED_HOST}</b> is left out. Lines marked <i>whole zone</i> come from daily totals that cannot be split by site, so they still include it.</li>
     <li><b>Signed-in members</b> counts accounts with a session active since the window began.</li>
     <li>Page addresses are shortened: ids and private tokens become <code>:id</code> and <code>:token</code>. This page holds totals only, with no names, emails or IP addresses.</li>
   </ul>
