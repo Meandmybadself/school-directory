@@ -45,13 +45,6 @@ wrangler login that can read the production D1 (read-only `SELECT`s only).
    audited), accounts, access queue, persons, volunteer sign-ups, newsletter
    sends/subscribers, lost & found, store orders, `read_budget`.
 
-## Excluded hosts
-
-`EXCLUDED_HOST` in `report.mjs` (`demo.eisenhower.school`) is filtered out of every
-per-host, per-page and security query with `_notlike` (which also catches its
-`:port` variants). The daily zone totals (`httpRequests1dGroups`) cannot be split by
-host, so the lines built from them are labelled "whole zone" and still include it.
-
 ## Privacy rules for the report
 
 The report is **aggregate-only**: no emails, names, IPs, person ids or user ids.
