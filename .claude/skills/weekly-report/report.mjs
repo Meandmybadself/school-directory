@@ -213,7 +213,6 @@ const SITE_LABELS = {
   "lostandfound.eisenhower.school": "Lost & found",
   "api-directory.eisenhower.school": "API",
   "ptomeet.eisenhower.school": "PTO Meet redirect",
-  "demo.eisenhower.school": "Demo",
 };
 const label = (h) => SITE_LABELS[h] ?? h;
 
