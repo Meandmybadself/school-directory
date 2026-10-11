@@ -425,6 +425,7 @@ export function IssueEditor() {
   const [sending, setSending] = useState(false);
   const [publishing, setPublishing] = useState(false);
   const [urlCopied, setUrlCopied] = useState(false);
+  const [copying, setCopying] = useState(false);
 
   // AI assist (Workers AI, server-side). Everything below is proposal state:
   // nothing reaches the document until applyAssist feeds the editor, and the
@@ -457,6 +458,24 @@ export function IssueEditor() {
   issueRef.current = issue;
 
   useEffect(() => {
+    // "Make a copy" navigates from one issue's editor straight to another's, so
+    // this effect can fire on a LIVE editor rather than a fresh mount. Every
+    // piece of per-issue state has to reset here, or the old issue bleeds into
+    // the new one — the null issue/draft also unmounts the TipTap instance,
+    // which only reads `content` at creation and would otherwise keep showing
+    // the document it was built with. Nothing is lost: makeCopy flushes before
+    // it navigates, and a cleared pendingDraft is what stops a stale timer from
+    // PATCHing the OLD issue's text onto the NEW id.
+    setIssue(null);
+    setDraft(null);
+    setSaveState("idle");
+    setAssistNote(null);
+    setSuggestions(null);
+    setAssistReview(null);
+    setAssistUndo(null);
+    if (timer.current) clearTimeout(timer.current);
+    pendingDraft.current = null;
+    lastSaveAt.current = 0;
     Promise.all([api.issue(id), api.settings()])
       .then(([i, s]) => {
         setIssue(i.issue);
@@ -703,6 +722,41 @@ export function IssueEditor() {
     tiptap.current = editor;
   }, []);
 
+  /** Duplicate this issue as a fresh draft and open it. Goes through the
+   *  ordinary create route — one write path, so the copy is sanitized, slugged
+   *  and audited exactly like any new draft. What is deliberately NOT copied:
+   *  the frozen events snapshot (a copy's events blocks resolve live again,
+   *  invariant 10), the public page, and the review link (a capability, not
+   *  content). Works on a sent issue on purpose — "start next month's from the
+   *  last one" is the whole reason this button exists. */
+  const makeCopy = async () => {
+    if (!draft) return;
+    setCopying(true);
+    if (timer.current) clearTimeout(timer.current);
+    // Land any pending edit first: the navigation below resets pendingDraft, so
+    // an unsaved sentence would otherwise exist only in the copy.
+    if (!readOnly && !(await flush())) {
+      setCopying(false);
+      return;
+    }
+    try {
+      const { issue: copy } = await api.createIssue({
+        title: `Copy of ${draft.title.trim() || "Untitled newsletter"}`,
+        subtitle: draft.subtitle.trim() || null,
+        // Verbatim, not re-derived from the new title: "Copy of …" is a fine
+        // working title but a wrong email subject, and the old subject is the
+        // better starting point for next month's.
+        subject: draft.subject.trim() || undefined,
+        content: draft.content,
+      });
+      setCopying(false);
+      navigate(`/admin/issues/${copy.id}`);
+    } catch (err) {
+      setError(errorMessage(err, "Couldn't copy this issue."));
+      setCopying(false);
+    }
+  };
+
   const remove = async () => {
     if (!window.confirm("Delete this draft? This can't be undone.")) return;
     try {
@@ -756,6 +810,11 @@ export function IssueEditor() {
         >
           View as PDF
         </a>
+        {/* On sent issues too — a sent issue is the natural template for the
+            next one, and copying is the only way to "edit" one. */}
+        <button className="sd-btn sd-btn-ghost" onClick={() => void makeCopy()} disabled={copying}>
+          {copying ? "Copying…" : "Make a copy"}
+        </button>
         <button className="sd-btn sd-btn-ghost" onClick={() => setSheet("share")}>
           {issue.previewLink.active ? "Sharing…" : "Share for review…"}
         </button>
