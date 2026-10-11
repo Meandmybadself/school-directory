@@ -1538,9 +1538,9 @@ All six SPAs are separate Cloudflare Pages projects talking to the single
    controls are elsewhere — system admin only, never while masquerading,
    audited, and announced in Slack, since a complete copy of the school's data
    leaving the building is what that channel is for.
-   **`EXCLUDED_TABLES` is exactly `lib/sweep.ts`'s five**, and for a related
-   reason: four hold a live capability, and the fifth, `read_budget`, is a
-   rate-limit counter that a restore would only reset. `session.id` IS the cookie value in the
+   **`EXCLUDED_TABLES` is exactly `lib/sweep.ts`'s six**, and for a related
+   reason: four hold a live capability, and the other two, `read_budget` and
+   `ai_budget`, are rate-limit counters that a restore would only reset. `session.id` IS the cookie value in the
    clear, so a file containing it signs its holder in as anyone logged in when
    it was taken — nothing else in this schema is like that. `auth_token`,
    `newsletter_confirmation` and `control_invite` store hashes, so the file

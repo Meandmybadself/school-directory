@@ -21,7 +21,14 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import type { NewsletterIssueDTO, NewsletterNode, NewsletterSettingsDTO } from "@sd/shared";
+import type { Editor as TipTapEditor } from "@tiptap/react";
+import type {
+  NewsletterAssistChangeDTO,
+  NewsletterAssistMode,
+  NewsletterIssueDTO,
+  NewsletterNode,
+  NewsletterSettingsDTO,
+} from "@sd/shared";
 import { issueSlug } from "@sd/shared";
 import { AppShell } from "../components/AppShell.js";
 import { DesktopShell } from "../components/DesktopShell.js";
@@ -310,6 +317,75 @@ function TestSendSheet({
   );
 }
 
+/** What a "tighten" call came back with, held until the author decides. */
+interface AssistReview {
+  content: NewsletterNode;
+  changes: NewsletterAssistChangeDTO[];
+}
+
+/** The rewrite, block by block, before it touches the document. Applying is the
+ *  author's act, not the model's — and even then it only lands in the editor,
+ *  to be saved by the same autosave as any keystroke. */
+function AssistReviewSheet({
+  review,
+  onApply,
+  onClose,
+}: {
+  review: AssistReview;
+  onApply: () => void;
+  onClose: () => void;
+}) {
+  const n = review.changes.length;
+  return (
+    <SheetOver onClose={onClose}>
+      <h2 className="sd-h2" style={{ marginBottom: 4 }}>Tighter draft</h2>
+      <p className="sd-lead" style={{ fontSize: 14, marginBottom: 10 }}>
+        The assistant reworded {n === 1 ? "one section" : `${n} sections`}. Nothing changes
+        until you apply it, and you can undo afterwards. Check every fact — dates, times,
+        names — before you trust it. Bold, italics and links carry over; custom text sizes
+        inside a reworded section are reset.
+      </p>
+      <div style={{ maxHeight: "45vh", overflowY: "auto", display: "flex", flexDirection: "column", gap: 12, marginBottom: 14 }}>
+        {review.changes.map((ch, i) => (
+          <div key={i} className="sd-card" style={{ padding: "10px 12px" }}>
+            <p className="sd-meta" style={{ margin: 0, textDecoration: "line-through", opacity: 0.75 }}>
+              {ch.before}
+            </p>
+            <p style={{ margin: "6px 0 0", fontSize: 14 }}>{ch.after}</p>
+          </div>
+        ))}
+      </div>
+      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+        <Btn block icon="check" onClick={onApply}>Apply the rewrite</Btn>
+        <button className="sd-btn sd-btn-ghost" onClick={onClose}>Keep my wording</button>
+      </div>
+    </SheetOver>
+  );
+}
+
+/** Editorial notes — advice only, so the whole lifecycle is reading the list
+ *  and dismissing it. Nothing in the draft moved. */
+function AssistSuggestions({ items, onClose }: { items: string[]; onClose: () => void }) {
+  return (
+    <div className="sd-card" style={{ padding: "12px 14px", marginBottom: 10 }}>
+      <div className="sd-row" style={{ justifyContent: "space-between", marginBottom: 6 }}>
+        <span style={{ fontSize: 13.5, fontWeight: 700 }}>Editorial suggestions</span>
+        <button className="sd-btn sd-btn-ghost sd-btn-sm" onClick={onClose} aria-label="Dismiss suggestions">
+          <Icon name="x" size={14} />
+        </button>
+      </div>
+      <ol style={{ margin: 0, paddingLeft: 20, display: "flex", flexDirection: "column", gap: 6 }}>
+        {items.map((s, i) => (
+          <li key={i} style={{ fontSize: 14, lineHeight: 1.5 }}>{s}</li>
+        ))}
+      </ol>
+      <p className="sd-meta" style={{ margin: "8px 0 0" }}>
+        From an AI model — advice to weigh, not applied changes. Nothing in the draft moved.
+      </p>
+    </div>
+  );
+}
+
 function SendProgress({ issue }: { issue: NewsletterIssueDTO }) {
   const counts = issue.recipientCounts;
   if (!counts) return null;
@@ -350,8 +426,22 @@ export function IssueEditor() {
   const [publishing, setPublishing] = useState(false);
   const [urlCopied, setUrlCopied] = useState(false);
 
+  // AI assist (Workers AI, server-side). Everything below is proposal state:
+  // nothing reaches the document until applyAssist feeds the editor, and the
+  // save that makes it durable is the same autosave every keystroke uses.
+  const [aiAssist, setAiAssist] = useState(false);
+  const [assistBusy, setAssistBusy] = useState<NewsletterAssistMode | null>(null);
+  /** One line of outcome — "nothing to tighten", a 429, a model failure. */
+  const [assistNote, setAssistNote] = useState<string | null>(null);
+  const [suggestions, setSuggestions] = useState<string[] | null>(null);
+  const [assistReview, setAssistReview] = useState<AssistReview | null>(null);
+  /** The document as it stood when a rewrite was applied — the Undo button. */
+  const [assistUndo, setAssistUndo] = useState<NewsletterNode | null>(null);
+
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pendingDraft = useRef<Draft | null>(null);
+  /** The TipTap instance, for applying/undoing a rewrite in place. */
+  const tiptap = useRef<TipTapEditor | null>(null);
   /** When the last save was ISSUED, for the MIN_SAVE_GAP_MS floor. Starts at 0
    *  so the first edit after opening the editor is never held back. */
   const lastSaveAt = useRef(0);
@@ -371,6 +461,7 @@ export function IssueEditor() {
       .then(([i, s]) => {
         setIssue(i.issue);
         setSettings(s.settings);
+        setAiAssist(Boolean(s.aiAssist));
         setDraft({
           title: i.issue.title,
           subtitle: i.issue.subtitle ?? "",
@@ -561,6 +652,57 @@ export function IssueEditor() {
     }
   };
 
+  /** Ask the assistant. Flushes first — the server reads the SAVED draft, so an
+   *  edit still in the debounce window would be invisible to it, like Send. */
+  const runAssist = async (mode: NewsletterAssistMode) => {
+    setAssistBusy(mode);
+    setAssistNote(null);
+    if (timer.current) clearTimeout(timer.current);
+    if (!(await flush())) {
+      setAssistBusy(null);
+      return;
+    }
+    try {
+      const { result } = await api.assistIssue(id, mode);
+      if (mode === "suggestions") {
+        if (result.suggestions.length === 0) {
+          setAssistNote("The assistant had nothing to flag.");
+        } else {
+          setSuggestions(result.suggestions);
+        }
+      } else if (!result.content || result.changes.length === 0) {
+        setAssistNote("Nothing to tighten — the assistant left the draft as it is.");
+      } else {
+        setAssistReview({ content: result.content, changes: result.changes });
+      }
+    } catch (err) {
+      setAssistNote(errorMessage(err, "The assistant couldn't answer. Try again in a minute."));
+    }
+    setAssistBusy(null);
+  };
+
+  /** The author said yes: swap the rewrite into the editor. setContent emits an
+   *  update, so the ordinary autosave carries it — one write path, one audit
+   *  sitting. The document as it stood is kept for the Undo banner. */
+  const applyAssist = () => {
+    if (!assistReview) return;
+    const previous = draft?.content ?? issue?.content;
+    tiptap.current?.commands.setContent(assistReview.content, true);
+    if (previous) setAssistUndo(previous);
+    setAssistReview(null);
+  };
+
+  const undoAssist = () => {
+    if (!assistUndo) return;
+    tiptap.current?.commands.setContent(assistUndo, true);
+    setAssistUndo(null);
+  };
+
+  /** Keeps the LATEST instance — the editor rebuilds when read-only flips. */
+  const editorReady = useCallback((editor: TipTapEditor) => {
+    tiptap.current = editor;
+  }, []);
+
   const remove = async () => {
     if (!window.confirm("Delete this draft? This can't be undone.")) return;
     try {
@@ -712,6 +854,46 @@ export function IssueEditor() {
 
       <div className="nlx-layout">
         <div>
+          {aiAssist && !readOnly && (
+            <div className="sd-row" style={{ gap: 8, flexWrap: "wrap", marginBottom: 8 }}>
+              <span className="sd-eyebrow" style={{ marginRight: 2 }}>AI assistant</span>
+              <button
+                type="button"
+                className="sd-btn sd-btn-ghost sd-btn-sm"
+                onClick={() => void runAssist("succinct")}
+                disabled={assistBusy !== null}
+              >
+                <Icon name="bolt" size={14} /> {assistBusy === "succinct" ? "Tightening…" : "Make it more succinct"}
+              </button>
+              <button
+                type="button"
+                className="sd-btn sd-btn-ghost sd-btn-sm"
+                onClick={() => void runAssist("suggestions")}
+                disabled={assistBusy !== null}
+              >
+                <Icon name="eye" size={14} /> {assistBusy === "suggestions" ? "Reading…" : "Editorial suggestions"}
+              </button>
+              {assistNote && <span className="sd-meta">{assistNote}</span>}
+            </div>
+          )}
+          {assistUndo && !readOnly && (
+            <div className="nlx-warn" style={{ marginBottom: 10, alignItems: "center" }}>
+              <Icon name="bolt" size={16} stroke={2} style={{ flex: "0 0 auto" }} />
+              <span style={{ flex: 1 }}>AI rewrite applied. Re-read it before sending.</span>
+              <button type="button" className="sd-btn sd-btn-ghost sd-btn-sm" onClick={undoAssist}>
+                Undo
+              </button>
+              <button
+                type="button"
+                className="sd-btn sd-btn-ghost sd-btn-sm"
+                onClick={() => setAssistUndo(null)}
+                aria-label="Dismiss"
+              >
+                <Icon name="x" size={14} />
+              </button>
+            </div>
+          )}
+          {suggestions && <AssistSuggestions items={suggestions} onClose={() => setSuggestions(null)} />}
           <Editor
             content={issue.content}
             editable={!readOnly}
@@ -719,6 +901,7 @@ export function IssueEditor() {
             timeZone={settings.timeZone}
             calendarUrl={settings.calendarUrl}
             onChange={(content) => edit({ content })}
+            onReady={editorReady}
           />
         </div>
         <div className="nlx-preview-col">
@@ -752,6 +935,9 @@ export function IssueEditor() {
         <PublishSheet issue={issue} busy={publishing} onClose={() => setSheet(null)} onConfirm={() => void publish()} />
       )}
       {sheet === "test" && <TestSendSheet onClose={() => setSheet(null)} onSend={testSend} />}
+      {assistReview && (
+        <AssistReviewSheet review={assistReview} onApply={applyAssist} onClose={() => setAssistReview(null)} />
+      )}
       {sheet === "share" && (
         <ShareSheet
           issue={issue}

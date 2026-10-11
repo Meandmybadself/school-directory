@@ -1,6 +1,6 @@
 // Daily housekeeping: the tables that would otherwise only ever grow.
 //
-// Five tables here, and they are NOT all the same kind of problem — which is why
+// Six tables here, and they are NOT all the same kind of problem — which is why
 // they're collected in one file rather than scattered next to the features that
 // write them.
 //
@@ -11,8 +11,9 @@
 // `expires_at` alone — a magic link dies in fifteen minutes and the count needs
 // the row for a day.
 //
-// `read_budget` backs a rate limit too, but it counts in a column rather than
-// in rows, and its window is one UTC day — so it only has to outlive today.
+// `read_budget` and `ai_budget` back a rate limit too, but they count in a
+// column rather than in rows, and their window is one UTC day — so they only
+// have to outlive today.
 //
 // The other two (`session`, `control_invite`) are ordinary growth. Nothing
 // counts them, so retention there is only about keeping a month of history for
@@ -23,7 +24,7 @@
 // erases the record of what an account did.
 //
 // One other file reads this list as a list: `lib/backup.ts` excludes exactly
-// these five tables from a backup, because "holds a live capability" and "is
+// these six tables from a backup, because "holds a live capability" and "is
 // swept on a schedule" turn out to be the same rows. If another table ever
 // joins this file, decide there too whether it belongs in a backup.
 
@@ -142,6 +143,17 @@ export async function sweepReadBudget(env: Env): Promise<void> {
   await sweep(env, "old read budget row(s)", `DELETE FROM read_budget WHERE day < ?`, [weekAgo]);
 }
 
+/**
+ * Old daily AI-assist counters (migration 0036), `read_budget`'s shape one row
+ * wider — one per instance-day rather than per account-day — and swept on the
+ * same terms: only today's row does any work, and a week answers "when did we
+ * keep hitting the assist cap" after the fact.
+ */
+export async function sweepAiBudget(env: Env): Promise<void> {
+  const weekAgo = new Date(Date.now() - 7 * DAYS).toISOString().slice(0, 10);
+  await sweep(env, "old AI budget row(s)", `DELETE FROM ai_budget WHERE day < ?`, [weekAgo]);
+}
+
 /** Everything above, from the daily cron. Each is independently guarded, so one
  *  failing table doesn't stop the others. */
 export async function runDailySweeps(env: Env): Promise<void> {
@@ -150,4 +162,5 @@ export async function runDailySweeps(env: Env): Promise<void> {
   await sweepDeadSessions(env);
   await sweepSettledInvites(env);
   await sweepReadBudget(env);
+  await sweepAiBudget(env);
 }

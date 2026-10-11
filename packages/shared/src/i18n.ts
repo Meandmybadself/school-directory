@@ -1325,7 +1325,7 @@ const en: Strings = {
   privacyServiceAdmin:
     "Slack — a private channel the site's administrator uses receives a notice, including the email address, when someone new signs up.",
   privacyServiceAi:
-    "Cloudflare Workers AI — describes lost & found photos so they can be searched. Only those photos are sent to it, never anything from the directory.",
+    "Cloudflare Workers AI — describes lost & found photos so they can be searched, and, when a newsletter editor asks, suggests edits to a newsletter draft. Only those photos and drafts are sent to it, never anything from the directory.",
   privacyLostFoundTitle:
     "Lost & found",
   privacyLostFoundBody:
@@ -2068,7 +2068,7 @@ const es: Strings = {
   privacyServiceAdmin:
     "Slack: un canal privado que usa el administrador del sitio recibe un aviso, con la dirección de correo, cuando alguien nuevo se registra.",
   privacyServiceAi:
-    "Cloudflare Workers AI: describe las fotos de objetos perdidos para que se puedan buscar. Solo recibe esas fotos, nunca nada del directorio.",
+    "Cloudflare Workers AI: describe las fotos de objetos perdidos para que se puedan buscar y, cuando una editora del boletín lo pide, sugiere cambios a un borrador del boletín. Solo recibe esas fotos y borradores, nunca nada del directorio.",
   privacyLostFoundTitle:
     "Objetos perdidos",
   privacyLostFoundBody:
@@ -2786,7 +2786,7 @@ const zh: Strings = {
   privacyServiceTranslate: "Google 翻译——仅在本已公开的通讯页面上提供。仅限成员的内容绝不会发送给它。",
   privacyServiceAdmin: "Slack——网站管理员使用的一个私人频道，会在有新用户注册时收到通知，其中包含其邮箱地址。",
   privacyServiceAi:
-    "Cloudflare Workers AI——为失物招领的照片生成描述，以便搜索。只会发送这些照片，绝不会发送目录中的任何内容。",
+    "Cloudflare Workers AI——为失物招领的照片生成描述以便搜索；在通讯编辑提出请求时，也会对通讯草稿提出修改建议。只会发送这些照片和草稿，绝不会发送目录中的任何内容。",
   privacyLostFoundTitle:
     "失物招领",
   privacyLostFoundBody:
@@ -3576,7 +3576,7 @@ const so: Strings = {
   privacyServiceAdmin:
     "Slack — kanaal gaar ah oo maamulaha boggu isticmaalo ayaa hela ogeysiis, oo ay ku jirto cinwaanka iimaylka, marka qof cusub isdiiwaangeliyo.",
   privacyServiceAi:
-    "Cloudflare Workers AI — wuxuu sharxaa sawirrada alaabta lumay si loo raadin karo. Sawirradaas oo kaliya ayaa loo diraa, weligeedna wax ka mid ah hagaha looma diro.",
+    "Cloudflare Workers AI — wuxuu sharxaa sawirrada alaabta lumay si loo raadin karo, oo marka tifaftiraha wargeysku codsado, wuxuu soo jeediyaa isbeddello lagu sameeyo qoraalka wargeyska. Waxaa loo dira kaliya sawirradaas iyo qoraalladaas, weligeedna wax ka mid ah hagaha looma diro.",
   privacyLostFoundTitle:
     "Alaabta lumay",
   privacyLostFoundBody:

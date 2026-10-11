@@ -13,6 +13,7 @@
 import { describe, expect, it } from "vitest";
 import {
   runDailySweeps,
+  sweepAiBudget,
   sweepDeadSessions,
   sweepReadBudget,
   sweepSettledInvites,
@@ -127,6 +128,16 @@ describe("sweepReadBudget", () => {
   });
 });
 
+describe("sweepAiBudget", () => {
+  it("keeps today's counter — sweeping it would reset the daily assist cap", async () => {
+    const { env, sql, binds } = captureEnv();
+    await sweepAiBudget(env);
+    expect(sql[0]).toContain("DELETE FROM ai_budget WHERE day < ?");
+    const today = new Date().toISOString().slice(0, 10);
+    expect(String(binds[0]![0]) < today).toBe(true);
+  });
+});
+
 describe("runDailySweeps", () => {
   it("runs every table, and one failure doesn't stop the rest", async () => {
     let calls = 0;
@@ -145,6 +156,6 @@ describe("runDailySweeps", () => {
       },
     } as unknown as Env;
     await expect(runDailySweeps(env)).resolves.toBeUndefined();
-    expect(calls).toBe(5);
+    expect(calls).toBe(6);
   });
 });

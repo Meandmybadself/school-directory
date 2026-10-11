@@ -10,7 +10,7 @@
 // they're hard, but because each one is another thing to get right across Gmail,
 // Outlook and Apple Mail, and none of them earn that for a school newsletter.
 
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { EditorContent, useEditor, type Editor as TipTapEditor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import Link from "@tiptap/extension-link";
@@ -210,6 +210,7 @@ export function Editor({
   timeZone,
   calendarUrl,
   onChange,
+  onReady,
 }: {
   content: NewsletterNode;
   editable: boolean;
@@ -221,6 +222,10 @@ export function Editor({
   /** Public calendar site, for the events block's "See all events" link. */
   calendarUrl: string;
   onChange: (doc: NewsletterNode) => void;
+  /** Hands the caller the TipTap instance, for programmatic document swaps —
+   *  applying or undoing an AI rewrite. Fires again if the editor is rebuilt
+   *  (the deps below), so the caller should just keep the latest. */
+  onReady?: (editor: TipTapEditor) => void;
 }) {
   const editor = useEditor(
     {
@@ -246,6 +251,10 @@ export function Editor({
     // cursor on each keystroke.
     [editable, accentColor, timeZone, calendarUrl],
   );
+
+  useEffect(() => {
+    if (editor) onReady?.(editor);
+  }, [editor, onReady]);
 
   if (!editor) return <div className="nlx-editor-loading">Loading editor…</div>;
 

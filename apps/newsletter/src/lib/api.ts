@@ -9,6 +9,8 @@ import type {
   Locale,
   MeDTO,
   NewsletterAccessDTO,
+  NewsletterAssistMode,
+  NewsletterAssistResultDTO,
   NewsletterIssueDTO,
   NewsletterIssueInput,
   NewsletterIssueSummaryDTO,
@@ -142,6 +144,16 @@ export const api = {
   retryIssue: (id: string) =>
     request<{ status: string }>(`/newsletter/issues/${id}/retry`, { method: "POST" }),
 
+  /** Ask Workers AI to tighten the draft or make editorial notes. The server
+   *  reads the SAVED issue, so callers flush the autosave first, like Send.
+   *  The answer is a proposal — nothing is written until the author accepts
+   *  and the ordinary save carries it. */
+  assistIssue: (id: string, mode: NewsletterAssistMode) =>
+    request<{ result: NewsletterAssistResultDTO }>(`/newsletter/issues/${id}/assist`, {
+      method: "POST",
+      body: JSON.stringify({ mode }),
+    }),
+
   /** Events for an issue, resolved server-side — live while it is a draft, from
    *  the freeze once it has been sent. The print view reads this rather than
    *  resolving block by block in the browser: it needs ONE definite "the events
@@ -174,8 +186,11 @@ export const api = {
       body: JSON.stringify({ groupId }),
     }),
 
-  // Settings (read: editors; write: admin) + subscribers (admin).
-  settings: () => request<{ settings: NewsletterSettingsDTO }>("/newsletter/settings"),
+  // Settings (read: editors; write: admin) + subscribers (admin). The read also
+  // says whether the AI assist is available, so the composer can hide the
+  // buttons on an instance with no Workers AI binding.
+  settings: () =>
+    request<{ settings: NewsletterSettingsDTO; aiAssist?: boolean }>("/newsletter/settings"),
   saveSettings: (body: NewsletterSettingsDTO) =>
     request<{ settings: NewsletterSettingsDTO }>("/newsletter/settings", {
       method: "PUT",

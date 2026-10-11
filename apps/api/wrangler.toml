@@ -81,10 +81,13 @@ bucket_name = "school-directory-newsletter-media"
 binding = "LOSTFOUND_MEDIA"
 bucket_name = "school-directory-lostfound-media"
 
-# Workers AI: the lost & found vision model and text embeddings. ALWAYS remote,
+# Workers AI: the lost & found vision model and text embeddings, and the
+# newsletter composer's assist (lib/newsletterAssist.ts, capped per day by
+# migration 0036 so both features share the free allocation). ALWAYS remote,
 # even under `wrangler dev`, so local tagging spends the account's real daily
 # allocation (10k neurons on the free plan; a photo costs ~10-30). Optional in
-# code — with no binding, items stay held for staff to publish (env.ts).
+# code — with no binding, items stay held for staff to publish and the
+# composer hides its assist buttons (env.ts).
 [ai]
 binding = "AI"
 

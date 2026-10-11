@@ -30,6 +30,7 @@
 
 import { Hono } from "hono";
 import type {
+  NewsletterAssistResultDTO,
   NewsletterIssueDTO,
   NewsletterIssueInput,
   NewsletterIssueSummaryDTO,
@@ -65,6 +66,14 @@ import {
   setNewsletterSettings,
   uniqueSlug,
 } from "../lib/newsletter.js";
+import {
+  MAX_DOC_CHARS,
+  assistSuccinct,
+  assistSuggestions,
+  claimAssistBudget,
+  collectTextSlots,
+  slotsTextLength,
+} from "../lib/newsletterAssist.js";
 import { randomToken, sha256 } from "../lib/crypto.js";
 import {
   recipientCounts,
@@ -566,6 +575,97 @@ newsletter.get("/issues/:id/preview", async (c) => {
   return c.json({ eventsSnapshot: snapshot });
 });
 
+// ── AI assist ───────────────────────────────────────────────────────────────
+
+/** POST /newsletter/issues/:id/assist { mode } — ask Workers AI to tighten the
+ *  draft ("succinct") or to make editorial notes ("suggestions").
+ *
+ *  Read-only on the issue: the response is a PROPOSAL, and a rewrite becomes
+ *  real only when the author accepts it in the composer and the editor saves
+ *  through the ordinary PATCH — the one write path, where sanitizing and the
+ *  audit sitting already live. That is also why this pushes no audit draft of
+ *  its own: the only thing it mutates is the `ai_budget` counter, which is a
+ *  rate-limit row and not an event, exactly as `read_budget` is (invariant 32).
+ *
+ *  Everything here is bounded so the feature stays inside the free Workers AI
+ *  allocation: see lib/newsletterAssist.ts, and migration 0036 for the daily
+ *  cap. The issue is read from the database, not the request — the composer
+ *  flushes its autosave first, like Send does. */
+newsletter.post("/issues/:id/assist", async (c) => {
+  const auth = await requireEditor(c);
+  if (!auth) return c.json({ error: "forbidden" }, 403);
+
+  const row = await c.env.DB.prepare("SELECT * FROM newsletter_issue WHERE id = ?")
+    .bind(c.req.param("id"))
+    .first<IssueRow>();
+  if (!row) return c.json({ error: "not_found" }, 404);
+  if (row.status !== "draft") {
+    return c.json({ error: "not_draft", message: "A sent issue can't be edited." }, 409);
+  }
+
+  const body = await c.req.json<{ mode?: string }>().catch(() => null);
+  const mode = body?.mode;
+  if (mode !== "succinct" && mode !== "suggestions") return c.json({ error: "invalid_body" }, 400);
+
+  // Absent means off, the contract every optional binding here has. After the
+  // issue checks, so an instance without the binding still 404s/409s honestly.
+  if (!c.env.AI) {
+    return c.json(
+      { error: "unavailable", message: "The AI assistant isn't set up on this site." },
+      503,
+    );
+  }
+
+  const doc = parseContent(row.content_json);
+  const slots = collectTextSlots(doc);
+  const textLength = slotsTextLength(slots);
+  if (textLength === 0) {
+    return c.json(
+      { error: "empty", message: "Write something first — there's no text to work with yet." },
+      400,
+    );
+  }
+  if (textLength > MAX_DOC_CHARS) {
+    // Refused rather than truncated: a rewrite of half a document would
+    // silently bless the other half unread.
+    return c.json(
+      { error: "too_long", message: "This issue is too long for the assistant." },
+      400,
+    );
+  }
+
+  // Claimed after validation (a malformed request must not spend the day) and
+  // before the model call (a failed call stays spent — it cost neurons, and
+  // the cap exists to bound exactly that).
+  const now = nowIso();
+  if (!(await claimAssistBudget(c.env, now.slice(0, 10)))) {
+    const midnight = new Date(`${now.slice(0, 10)}T00:00:00Z`).getTime() + 24 * 60 * 60 * 1000;
+    c.header("Retry-After", String(Math.max(1, Math.ceil((midnight - Date.now()) / 1000))));
+    return c.json(
+      {
+        error: "budget",
+        message: "The assistant has reached its daily limit. It resets at midnight UTC.",
+      },
+      429,
+    );
+  }
+
+  try {
+    const result: NewsletterAssistResultDTO =
+      mode === "succinct"
+        ? { mode, ...(await assistSuccinct(c.env, doc)), suggestions: [] }
+        : { mode, content: null, changes: [], suggestions: await assistSuggestions(c.env, doc) };
+    return c.json({ result });
+  } catch (err) {
+    // Never the model's output in a log line, matching lostFound's rule.
+    console.error(`[newsletter] assist (${mode}) failed: ${err instanceof Error ? err.message : "error"}`);
+    return c.json(
+      { error: "ai_failed", message: "The assistant couldn't answer. Try again in a minute." },
+      502,
+    );
+  }
+});
+
 // ── Sending ─────────────────────────────────────────────────────────────────
 
 /** POST /newsletter/issues/:id/test-send — proofread copy to a few addresses.
@@ -776,7 +876,10 @@ newsletter.post("/issues/:id/retry", async (c) => {
 newsletter.get("/settings", async (c) => {
   const auth = await requireEditor(c);
   if (!auth) return c.json({ error: "forbidden" }, 403);
-  return c.json({ settings: await getNewsletterSettings(c.env) });
+  // `aiAssist` rides the read the composer already makes, so the assist buttons
+  // can hide on an instance with no AI binding instead of 503ing when pressed.
+  // A route-level fact, not a field on the settings blob: nobody edits it.
+  return c.json({ settings: await getNewsletterSettings(c.env), aiAssist: Boolean(c.env.AI) });
 });
 
 newsletter.put("/settings", async (c) => {

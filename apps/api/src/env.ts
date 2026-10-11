@@ -23,6 +23,11 @@ export interface Env {
   /** Override the vision model (any Workers AI model that accepts an image and
    *  supports JSON mode). Unset → `LF_VISION_MODEL` in lib/lostFound.ts. */
   LOSTFOUND_VISION_MODEL?: string;
+  /** Override the newsletter composer's assist model (any Workers AI chat
+   *  model with JSON mode). Unset → `ASSIST_MODEL` in lib/newsletterAssist.ts,
+   *  which is the same model the lost & found runs. Rides the same optional
+   *  `AI` binding: no binding, no assist buttons. */
+  NEWSLETTER_ASSIST_MODEL?: string;
   // vars
   SCHOOL_NAME: string;
   APP_URL: string;

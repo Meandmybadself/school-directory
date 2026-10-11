@@ -1324,6 +1324,36 @@ export interface NewsletterSendResultDTO {
   recipientTotal: number;
 }
 
+/** What POST /newsletter/issues/:id/assist can be asked for: a tighter draft,
+ *  or editorial notes. Both are advisory — the route never writes the issue,
+ *  and a rewrite only lands when the author saves it through the normal PATCH,
+ *  which is also what keeps `sanitizeNewsletterDoc` and the audit sitting on
+ *  the one write path. */
+export type NewsletterAssistMode = "succinct" | "suggestions";
+
+export const NEWSLETTER_ASSIST_MODES: readonly NewsletterAssistMode[] = ["succinct", "suggestions"];
+
+/** One block the rewrite changed, as the review sheet shows it: the block's
+ *  text before and after, in the same minimal Markdown the model was given
+ *  (**bold**, *italic*, ~~strike~~, [label](url)). */
+export interface NewsletterAssistChangeDTO {
+  before: string;
+  after: string;
+}
+
+export interface NewsletterAssistResultDTO {
+  mode: NewsletterAssistMode;
+  /** `succinct` only: the rewritten document, already run through
+   *  `sanitizeNewsletterDoc`, or null when the model changed nothing. The
+   *  client applies it to the editor only when the author accepts. */
+  content: NewsletterNode | null;
+  /** `succinct` only: what changed, block by block, for the review sheet. */
+  changes: NewsletterAssistChangeDTO[];
+  /** `suggestions` only: editorial notes, bounded in count and length
+   *  server-side. Advice, never a document edit. */
+  suggestions: string[];
+}
+
 export interface NewsletterSubscriberDTO {
   id: string;
   email: string;

@@ -38,7 +38,7 @@ import { nowIso } from "./time.js";
  *  backup is worse than a rejected one. */
 export const BACKUP_FORMAT = 1;
 
-/** Tables a backup never contains, and it is deliberately the SAME five
+/** Tables a backup never contains, and it is deliberately the SAME six
  *  `lib/sweep.ts` sweeps, for a related reason.
  *
  *  Every one of them holds a live capability or backs a rate limit, and writing
@@ -58,6 +58,8 @@ export const BACKUP_FORMAT = 1;
  *  · `read_budget` is only a counter (migration 0030), but restoring it would
  *    reset or inflate somebody's daily read budget, and it holds nothing a
  *    directory needs back.
+ *  · `ai_budget` (migration 0036) is `read_budget` instance-wide: a counter
+ *    whose restore would only reset the day's Workers AI assist cap.
  *
  *  The practical consequence, which the UI states: a restore does not bring
  *  back pending sign-in links or invitations. They get re-sent. It also leaves
@@ -69,6 +71,7 @@ export const EXCLUDED_TABLES = [
   "newsletter_confirmation",
   "control_invite",
   "read_budget",
+  "ai_budget",
 ] as const;
 
 /** Exported, never written back.
