@@ -79,6 +79,7 @@ import {
   recipientCounts,
   retryFailed,
   runFanOut,
+  ROUTE_SEND_BUDGET,
   startSend,
   type IssueRow,
 } from "../lib/newsletterSend.js";
@@ -830,7 +831,10 @@ newsletter.post("/issues/:id/send", async (c) => {
     );
   }
 
-  c.executionCtx.waitUntil(runFanOut(c.env, id));
+  // The small budget is deliberate: this waitUntil is killed ~30s after the
+  // response, and a killed run can turn a delivered-but-unrecorded row into a
+  // duplicate when the cron resumes it. The cron drains the rest at full budget.
+  c.executionCtx.waitUntil(runFanOut(c.env, id, { budget: ROUTE_SEND_BUDGET }));
   c.var.audit.push({
     action: "newsletter.issue.sent",
     entityKind: "newsletter_issue",
@@ -862,7 +866,7 @@ newsletter.post("/issues/:id/retry", async (c) => {
       409,
     );
   }
-  c.executionCtx.waitUntil(runFanOut(c.env, id));
+  c.executionCtx.waitUntil(runFanOut(c.env, id, { budget: ROUTE_SEND_BUDGET }));
   c.var.audit.push({
     action: "newsletter.issue.retried",
     entityKind: "newsletter_issue",

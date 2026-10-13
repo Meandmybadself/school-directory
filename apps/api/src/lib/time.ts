@@ -1,5 +1,8 @@
 export const nowIso = (): string => new Date().toISOString();
 
+export const sleep = (ms: number): Promise<void> =>
+  new Promise((resolve) => setTimeout(resolve, ms));
+
 export function isoPlus(ms: number): string {
   return new Date(Date.now() + ms).toISOString();
 }

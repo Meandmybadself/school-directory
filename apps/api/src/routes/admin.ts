@@ -13,28 +13,150 @@ import { runBulkImport } from "../lib/bulkImport.js";
 import { refreshSource, refreshAllSources } from "../lib/calendar.js";
 import { randomSessionId, randomToken, sha256 } from "../lib/crypto.js";
 import { ulid } from "../lib/ids.js";
-import { isoPlus, isExpired, nowIso, MAGIC_LINK_TTL, MASQUERADE_TTL, SESSION_TTL } from "../lib/time.js";
+import { isoPlus, isExpired, nowIso, sleep, MAGIC_LINK_TTL, MASQUERADE_TTL, SESSION_TTL } from "../lib/time.js";
 import { setSessionCookie, clearActivePersonCookie } from "../lib/cookies.js";
 import { findUserByEmail, normalizeEmail } from "../lib/db.js";
 import { computeUserDeletionImpact, userDeletionStmts } from "../lib/userAdmin.js";
 import { accessStateOf } from "../lib/directoryAccess.js";
-import { magicLinkEmail, directoryInviteEmail, sendEmail } from "../lib/email.js";
+import {
+  magicLinkEmail,
+  directoryInviteEmail,
+  sendEmail,
+  sendEmailResult,
+  sendEmailBatchResult,
+  isTransientSendError,
+  RESEND_PACE_MS,
+} from "../lib/email.js";
 import type { QueuedInvite } from "../lib/bulkImport.js";
 
 export const admin = new Hono<HonoEnv>();
 
-/** Email bulk-import sign-in links in small batches so a large import doesn't
- *  fire thousands of Resend calls at once. Failures are swallowed by sendEmail. */
-async function sendBulkInvites(env: Env, origin: string, invites: QueuedInvite[]): Promise<void> {
-  const CONCURRENCY = 5;
-  for (let i = 0; i < invites.length; i += CONCURRENCY) {
-    await Promise.all(
-      invites.slice(i, i + CONCURRENCY).map((inv) => {
-        const msg = directoryInviteEmail(env, `${origin}/auth/callback?t=${inv.token}`, inv.personName);
-        msg.to = inv.email;
-        return sendEmail(env, msg);
-      }),
+/** Messages per /emails/batch call. Small enough that one refused batch's
+ *  single-send fallback fits INVITE_FALLBACK_BUDGET whole, so a bad address
+ *  never costs its neighbours their mail. */
+const INVITE_BATCH = 10;
+
+/** Batch calls per invocation. Each is one subrequest and one unit against
+ *  Resend's meter, but this whole function runs in a request's waitUntil,
+ *  which the runtime kills roughly 30 seconds after the response — and the
+ *  pacing sleeps are what dominate that clock. Fifteen paced batches (~16s of
+ *  sleep) mail 150 invites and still leave room for one refused batch's
+ *  fallback. Anything past the cap is withdrawn UP FRONT (see below), while
+ *  this function is certain to still be alive. */
+const INVITE_BATCH_BUDGET = 15;
+
+/** Single-send fallback attempts per invocation — a subrequest and a paced
+ *  second each, so bounded for both of the reasons above. */
+const INVITE_FALLBACK_BUDGET = 10;
+
+/** Email bulk-import sign-in links, batched and paced.
+ *
+ *  The same two ceilings that broke the October 2026 newsletter send apply
+ *  here (lib/newsletterSend.ts has the story): Resend's per-second meter, and
+ *  the free plan's 50-subrequest cap — which the old shape, one fetch per
+ *  address with no pause, would have hit mid-list on any roster-sized import,
+ *  with every failure swallowed by sendEmail. Batching answers both at once:
+ *  one /emails/batch call carries INVITE_BATCH messages as ONE subrequest and
+ *  one unit against the meter, so a 100-family import is ten fetches.
+ *
+ *  A batch is accepted or refused as a whole. A TRANSIENT refusal (the meter,
+ *  a 5xx, a timeout) gets one more try after a pause, since a per-second 429
+ *  clears in exactly one; a refusal that persists falls back to paced single
+ *  sends for that slice only, so one bad address costs its own send, not its
+ *  nine neighbours.
+ *
+ *  Anything this function cannot mail is WITHDRAWN rather than stranded:
+ *  unlike the newsletter there is no ledger to resume from (the raw token
+ *  exists only here, in memory — it is hashed at rest), and
+ *  `hasPendingInvite` would stop a re-run of the import from ever re-queueing
+ *  an invite whose rows exist but whose mail never went. Deleting those rows
+ *  makes re-running the import the retry mechanism. Ordering matters twice:
+ *  the overflow beyond the batch budget is withdrawn BEFORE any mailing, and
+ *  a refused slice's casualties are withdrawn as soon as that slice settles —
+ *  both so that the ~30s kill can strand at most the slice in flight, never
+ *  the whole tail of the list. The withdrawal itself runs after the audit
+ *  flush and pushes no draft; its paper trail is the next import run's
+ *  bulk.import row re-queueing what it removed. */
+export async function sendBulkInvites(
+  env: Env,
+  origin: string,
+  invites: QueuedInvite[],
+  opts: { paceMs?: number } = {}, // test seam, like runFanOut's
+): Promise<void> {
+  const paceMs = opts.paceMs ?? RESEND_PACE_MS;
+
+  const mailable = invites.slice(0, INVITE_BATCH * INVITE_BATCH_BUDGET);
+  const overflow = invites.slice(mailable.length);
+  if (overflow.length > 0) {
+    await withdrawUnmailedInvites(env, overflow, "beyond this run's send budget");
+  }
+
+  let fallbackLeft = INVITE_FALLBACK_BUDGET;
+  for (let i = 0; i < mailable.length; i += INVITE_BATCH) {
+    if (i > 0 && paceMs > 0) await sleep(paceMs);
+    const slice = mailable.slice(i, i + INVITE_BATCH);
+    const msgs = slice.map((inv) => {
+      const msg = directoryInviteEmail(env, `${origin}/auth/callback?t=${inv.token}`, inv.personName);
+      msg.to = inv.email;
+      return msg;
+    });
+
+    let batch = await sendEmailBatchResult(env, msgs);
+    if (!batch.ok && isTransientSendError(batch.error ?? "")) {
+      if (paceMs > 0) await sleep(paceMs);
+      batch = await sendEmailBatchResult(env, msgs);
+    }
+    if (batch.ok) continue;
+
+    const stranded: QueuedInvite[] = [];
+    for (let j = 0; j < slice.length; j++) {
+      const inv = slice[j];
+      const msg = msgs[j];
+      if (!inv || !msg) continue;
+      if (fallbackLeft === 0) {
+        stranded.push(...slice.slice(j));
+        break;
+      }
+      // Pause before the FIRST single too — the batch that just failed may
+      // have failed on this very second's meter.
+      if (paceMs > 0) await sleep(paceMs);
+      fallbackLeft--;
+      const single = await sendEmailResult(env, msg);
+      if (!single.ok) stranded.push(inv);
+    }
+    if (stranded.length > 0) {
+      await withdrawUnmailedInvites(env, stranded, "Resend refused it");
+    }
+  }
+}
+
+/** Delete the invite rows minted for mail that never went out, so the next
+ *  import run re-queues and re-mails them (`hasPendingInvite` comes back false
+ *  once these are gone). Safe because the recipient never saw the link: the
+ *  message was never accepted, so the only copy of the token died with it.
+ *  All the deletes go in chunked batches rather than one round trip per
+ *  invite — this runs in the wall-clock-constrained waitUntil tail, where a
+ *  long serial withdrawal could itself be cut off partway. */
+async function withdrawUnmailedInvites(
+  env: Env,
+  invites: QueuedInvite[],
+  why: string,
+): Promise<void> {
+  console.error(
+    `[bulk-import] withdrawing ${invites.length} unmailed invite(s) (${why}); re-running the import re-queues and re-sends them.`,
+  );
+  const stmts: D1PreparedStatement[] = [];
+  for (const inv of invites) {
+    const tokenHash = await sha256(inv.token);
+    stmts.push(
+      env.DB.prepare("DELETE FROM control_invite WHERE token_hash = ? AND status = 'pending'").bind(tokenHash),
+      env.DB.prepare("DELETE FROM auth_token WHERE token_hash = ? AND consumed_at IS NULL").bind(tokenHash),
     );
+  }
+  for (let i = 0; i < stmts.length; i += 100) {
+    await env.DB.batch(stmts.slice(i, i + 100)).catch((err: unknown) => {
+      console.error(`[bulk-import] invite withdrawal batch failed: ${String(err)}`);
+    });
   }
 }
 
@@ -370,8 +492,12 @@ admin.post("/bulk-import", async (c) => {
     emailAsContact: body.emailAsContact === true,
   });
   if (!dryRun) {
-    const emailsSent = sendInvites ? invites.length : 0;
-    if (emailsSent > 0) {
+    // "Attempted", not "sent": the mailing runs AFTER this row is flushed, in
+    // waitUntil, and sendBulkInvites may withdraw invites it cannot deliver —
+    // a withdrawn invite's absence is re-queued (and re-audited) by the next
+    // import run, which is its paper trail.
+    const emailsAttempted = sendInvites ? invites.length : 0;
+    if (emailsAttempted > 0) {
       c.executionCtx.waitUntil(sendBulkInvites(c.env, new URL(c.req.url).origin, invites));
     }
     c.var.audit.push({
@@ -384,7 +510,7 @@ admin.post("/bulk-import", async (c) => {
         groupsCreated: result.groupsCreated,
         invitesQueued: result.invitesQueued,
         accountsCreated: result.accountsCreated,
-        emailsSent,
+        emailsAttempted,
       },
       // Counts only — the same numbers, restated deliberately rather than
       // shared with `detail`, so widening one never widens the other.
@@ -394,7 +520,7 @@ admin.post("/bulk-import", async (c) => {
         groupsCreated: result.groupsCreated,
         invitesQueued: result.invitesQueued,
         accountsCreated: result.accountsCreated,
-        emailsSent,
+        emailsAttempted,
       },
     });
   }

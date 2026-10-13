@@ -7,6 +7,7 @@ import type { Env, HonoEnv } from "./env.js";
 import { refreshAllSources } from "./lib/calendar.js";
 import { refreshStoreCatalog } from "./lib/store.js";
 import { retryStuckOrders, sweepAbandonedOrders } from "./lib/storeOrder.js";
+import { resumePendingSends } from "./lib/newsletterSend.js";
 import { allowedOrigins } from "./lib/db.js";
 import { sendNewSubscriberDigest, sendNewUserDigest } from "./lib/notify.js";
 import { runDailySweeps } from "./lib/sweep.js";
@@ -218,6 +219,10 @@ app.notFound((c) => c.json({ error: "not_found" }, 404));
 //                   normal case, and this is only the backstop for a Worker that
 //                   died mid-flight. Overlapping fires are harmless — the
 //                   submission claim is a guarded UPDATE only one caller wins.
+//                   The newsletter's send resumption rides this schedule too,
+//                   with the same guarded-claim shape: each fan-out run is
+//                   budgeted under the per-invocation subrequest cap, and this
+//                   tick is what drains the remainder of a large audience.
 //
 // Registering it took the account to its ceiling: the Workers FREE plan allows
 // five cron triggers per ACCOUNT, and these three plus bus-notify's two are all
@@ -230,6 +235,13 @@ const STORE_CRON = "*/15 * * * *";
 const scheduled: ExportedHandlerScheduledHandler<Env> = (event, env, ctx) => {
   if (event.cron === STORE_CRON) {
     ctx.waitUntil(retryStuckOrders(env));
+    // Newsletter sends are budgeted per invocation (the free plan's subrequest
+    // cap — see lib/newsletterSend.ts) and yield with recipients still pending;
+    // this is what carries a yielded or killed run forward. It rides the store's
+    // schedule because the account is at its five-trigger ceiling (above), and
+    // shares the invocation's subrequest budget with retryStuckOrders — which is
+    // why SEND_BUDGET leaves headroom.
+    ctx.waitUntil(resumePendingSends(env));
     return;
   }
   if (event.cron === DIGEST_CRON) {

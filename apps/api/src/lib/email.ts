@@ -27,6 +27,67 @@ export interface SendResult {
  *  of recipients at once and has to record per-recipient outcomes — "we tried
  *  and Resend rejected it" and "we tried and it went through" are different
  *  facts there, and collapsing them would make a partial send unrecoverable. */
+/** One Resend message as the API takes it — the single place the From fallback
+ *  chain and the reply_to spelling live, shared by the single and batch sends
+ *  so the two can't drift. */
+function resendPayload(env: Env, msg: SendArgs) {
+  return {
+    from: msg.from ?? env.EMAIL_FROM ?? `${env.SCHOOL_NAME} Directory <onboarding@resend.dev>`,
+    to: msg.to,
+    subject: msg.subject,
+    html: msg.html,
+    text: msg.text,
+    ...(msg.replyTo ? { reply_to: msg.replyTo } : {}),
+  };
+}
+
+/** A Workers fetch has no default timeout, so one hung Resend call would stall
+ *  a whole paced run — and the fan-out's resume logic reasons about how long a
+ *  live run can go quiet, which only works if a burst is BOUNDED. Ten seconds
+ *  is an eternity for this API; a send that slow is one worth failing
+ *  (`isTransientSendError` classes an abort as retryable). */
+const RESEND_TIMEOUT_MS = 10_000;
+
+/** POST one body to Resend and shape the outcome the way every caller — and
+ *  `isTransientSendError` — expects: "NNN: body" for a verdict, the bare
+ *  message for a failure that never got one. */
+async function postResend(env: Env, path: string, body: unknown): Promise<SendResult> {
+  try {
+    const res = await fetch(`https://api.resend.com${path}`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${env.RESEND_API_KEY}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(body),
+      signal: AbortSignal.timeout(RESEND_TIMEOUT_MS),
+    });
+    if (!res.ok) {
+      const text = await res.text();
+      console.error(`[email] Resend error ${res.status} on ${path}: ${text}`);
+      return { ok: false, error: `${res.status}: ${text.slice(0, 200)}` };
+    }
+    return { ok: true };
+  } catch (err) {
+    const error = err instanceof Error ? err.message : String(err);
+    console.error(`[email] send failed on ${path}: ${error}`);
+    return { ok: false, error: error.slice(0, 200) };
+  }
+}
+
+/** Whether a failed send is worth re-trying without a human. A 429, a 5xx and
+ *  a no-verdict failure (a network error, a timeout, the subrequest cap) all
+ *  pass — retrying is exactly what the per-second meter and the daily quota
+ *  expect. A 4xx other than 429 is Resend judging the REQUEST (a malformed
+ *  address, a rejected sender): re-sending the same thing would earn the same
+ *  answer forever. */
+export function isTransientSendError(error: string): boolean {
+  const m = /^(\d{3}):/.exec(error);
+  if (!m) return true;
+  const status = Number(m[1]);
+  return status === 429 || status >= 500;
+}
+
 export async function sendEmailResult(env: Env, msg: SendArgs): Promise<SendResult> {
   if (!env.RESEND_API_KEY) {
     // Local/dev fallback — surface the content (incl. magic link) in logs.
@@ -35,33 +96,45 @@ export async function sendEmailResult(env: Env, msg: SendArgs): Promise<SendResu
     );
     return { ok: true };
   }
-  try {
-    const res = await fetch("https://api.resend.com/emails", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${env.RESEND_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        from: msg.from ?? env.EMAIL_FROM ?? `${env.SCHOOL_NAME} Directory <onboarding@resend.dev>`,
-        to: msg.to,
-        subject: msg.subject,
-        html: msg.html,
-        text: msg.text,
-        ...(msg.replyTo ? { reply_to: msg.replyTo } : {}),
-      }),
-    });
-    if (!res.ok) {
-      const body = await res.text();
-      console.error(`[email] Resend error ${res.status}: ${body}`);
-      return { ok: false, error: `${res.status}: ${body.slice(0, 200)}` };
+  return postResend(env, "/emails", resendPayload(env, msg));
+}
+
+/** Pause between calls for anything that mails in bulk. Resend meters API
+ *  requests PER SECOND (this account: 10/s; new accounts: 2/s), and the
+ *  October 2026 newsletter send is the proof it matters: unpaced bursts of 5
+ *  pushed 25 emails through in 2.3 seconds and the next 24 came back 429.
+ *  One burst of at most a handful of calls per RESEND_PACE_MS stays under
+ *  this account's meter with margin. */
+export const RESEND_PACE_MS = 1100;
+
+/** Resend's batch endpoint takes up to this many messages per call. */
+export const BATCH_API_MAX = 100;
+
+/** Send several messages in ONE Resend call — one subrequest, one unit against
+ *  the per-second meter, however many messages ride in it (up to BATCH_API_MAX).
+ *
+ *  This exists for the bulk-invite path: on the Workers free plan an invocation
+ *  gets 50 subrequests, so mailing a roster-sized import one fetch per address
+ *  dies mid-list the way the October 2026 newsletter send did. Batched, a
+ *  100-family import is a single call.
+ *
+ *  The trade to know before reusing it: the batch is accepted or refused as a
+ *  WHOLE (Resend documents no partial-success mode), so the caller cannot learn
+ *  per-recipient outcomes. That is why the newsletter does NOT use it — its
+ *  ledger records a verdict per recipient — and why callers here keep batches
+ *  small and fall back to single sends when a batch is refused. */
+export async function sendEmailBatchResult(env: Env, msgs: SendArgs[]): Promise<SendResult> {
+  if (msgs.length === 0) return { ok: true };
+  if (msgs.length > BATCH_API_MAX) {
+    return { ok: false, error: `batch of ${msgs.length} exceeds the API limit of ${BATCH_API_MAX}` };
+  }
+  if (!env.RESEND_API_KEY) {
+    for (const msg of msgs) {
+      console.log(`\n[email:dev] to=${msg.to} subject="${msg.subject}"\n${msg.text}\n`);
     }
     return { ok: true };
-  } catch (err) {
-    const error = err instanceof Error ? err.message : String(err);
-    console.error(`[email] send failed: ${error}`);
-    return { ok: false, error: error.slice(0, 200) };
   }
+  return postResend(env, "/emails/batch", msgs.map((msg) => resendPayload(env, msg)));
 }
 
 export async function sendEmail(env: Env, msg: SendArgs): Promise<void> {

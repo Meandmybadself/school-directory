@@ -13,15 +13,20 @@
 //   Resumability. Every recipient gets a 'pending' newsletter_send row before
 //   any mail is attempted. A fan-out cut short — a recycled Worker, a Resend
 //   outage — therefore leaves a state that can be read and resumed rather than
-//   one nobody can interpret. Retry is just "process everything not yet 'sent'",
-//   which covers both a genuine per-address failure and a truncated run with one
-//   code path.
+//   one nobody can interpret. Since the October 2026 send (69 of 94 recipients
+//   failed in one unpaced, unbounded blast), resuming is also the NORMAL path,
+//   not only recovery: each run is budgeted under the Workers free plan's
+//   per-invocation subrequest cap and paced under Resend's per-second meter,
+//   and `resumePendingSends` (riding the store's 15-minute cron) carries a
+//   yielded or killed run forward. A run processes 'pending' rows only;
+//   'failed' means Resend gave a verdict re-sending can't change, and only the
+//   manual retry route (which resets failed -> pending) re-enters those.
 
 import type { Env } from "../env.js";
 import { ulid } from "./ids.js";
-import { nowIso } from "./time.js";
+import { nowIso, sleep } from "./time.js";
 import { randomToken } from "./crypto.js";
-import { sendEmailResult } from "./email.js";
+import { RESEND_PACE_MS, isTransientSendError, sendEmailResult } from "./email.js";
 import {
   getNewsletterSettings,
   issueEmailArgs,
@@ -30,9 +35,42 @@ import {
 } from "./newsletter.js";
 import type { NewsletterNode } from "@sd/shared";
 
-/** Parallel sends in flight. Matches sendBulkInvites in routes/admin.ts — enough
- *  to finish a school-sized list quickly without hammering Resend. */
-const CONCURRENCY = 5;
+/** Parallel sends in flight within one burst. */
+export const CONCURRENCY = 5;
+
+/** Pause between bursts — one burst of CONCURRENCY per SEND_PACE_MS. The meter
+ *  it answers to is documented at RESEND_PACE_MS (lib/email.ts); on an account
+ *  metered slower than ours the 429s are handled anyway, because a 429'd row
+ *  stays 'pending' and is re-attempted on a later pass. */
+export const SEND_PACE_MS = RESEND_PACE_MS;
+
+/** Resend attempts one invocation may make. The account runs on the Workers
+ *  FREE plan (see the cron comment in src/index.ts), which caps SUBREQUESTS per
+ *  invocation at 50 — the same October send hit it: attempt ~50 onward failed
+ *  with "Too many subrequests" before any fetch was made. 40 leaves headroom
+ *  for whatever shares the invocation (the resume path rides the 15-minute
+ *  cron beside the store's order retry). The budget counts FETCHES only, and
+ *  that rests on measurement rather than the docs: in the October run the D1
+ *  writes RECORDING the "Too many subrequests" errors succeeded after the
+ *  fetches were refused — 45 rows carry that error — so on this account D1
+ *  calls do not drain the counter the fetches hit. If a run ever starts dying
+ *  around recipient ~22 with ledger writes failing too, that assumption broke;
+ *  halve this before anything else. A run that exhausts its budget leaves the
+ *  issue in 'sending' with pending rows; `resumePendingSends` carries on from
+ *  there on the next cron tick, so a full audience drains in a few ticks
+ *  instead of failing in one. */
+export const SEND_BUDGET = 40;
+
+/** The budget for the pass a ROUTE starts. A request's waitUntil is killed
+ *  roughly 30 seconds after the response, and this run deliberately sleeps
+ *  between bursts — a full SEND_BUDGET pass can brush that wall, and a run
+ *  killed between a successful Resend call and its ledger write leaves a
+ *  delivered row 'pending', which the resumer would then MAIL AGAIN. So the
+ *  inline pass stays small enough to finish with lots of margin (three sleeps
+ *  plus twenty bounded fetches), and the cron passes — which run in a
+ *  scheduled event with a 15-minute allowance — do the bulk of a large
+ *  audience at the full budget. */
+export const ROUTE_SEND_BUDGET = 20;
 
 /** Recipient rows inserted per D1 batch. */
 const INSERT_CHUNK = 100;
@@ -174,14 +212,16 @@ async function recordOutcome(
   sendId: string,
   result: { ok: boolean; error?: string },
 ): Promise<void> {
+  // Three outcomes, not two. A transient refusal — the per-second meter, a
+  // Resend 5xx, a fetch that never got a verdict — leaves the row 'pending'
+  // with the error recorded, so a later pass re-attempts it without anyone
+  // pressing retry. Only a verdict on the REQUEST itself (a non-429 4xx)
+  // is 'failed', which the automatic passes leave alone.
+  const error = result.ok ? null : (result.error ?? "unknown");
+  const status = result.ok ? "sent" : isTransientSendError(error ?? "") ? "pending" : "failed";
   const write = () =>
     env.DB.prepare("UPDATE newsletter_send SET status = ?, error = ?, sent_at = ? WHERE id = ?")
-      .bind(
-        result.ok ? "sent" : "failed",
-        result.ok ? null : (result.error ?? "unknown"),
-        result.ok ? nowIso() : null,
-        sendId,
-      )
+      .bind(status, error, result.ok ? nowIso() : null, sendId)
       .run();
   try {
     await write();
@@ -198,10 +238,27 @@ async function recordOutcome(
   }
 }
 
-/** Mail everyone not yet marked 'sent', then close the issue out. Never throws
- *  — it runs detached in waitUntil, where a rejection would just be logged by
- *  the runtime and lose the per-recipient detail this records instead. */
-export async function runFanOut(env: Env, issueId: string): Promise<void> {
+/** Test seam only: production callers pass nothing and get the real limits. */
+export interface FanOutOptions {
+  budget?: number;
+  paceMs?: number;
+}
+
+/** Mail up to SEND_BUDGET 'pending' recipients, paced under Resend's meter,
+ *  then close the issue out IF nothing is left pending. Never throws — it runs
+ *  detached in waitUntil, where a rejection would just be logged by the runtime
+ *  and lose the per-recipient detail this records instead.
+ *
+ *  One bounded run is deliberately allowed to finish with work remaining: it
+ *  leaves the issue in 'sending' with a fresh heartbeat, and the 15-minute cron
+ *  (`resumePendingSends`) picks the remainder up. That is slower than one big
+ *  blast and is the point — the October 2026 send WAS one big blast, and 69 of
+ *  94 recipients got nothing. Only 'failed' rows are outside its reach: those
+ *  carry a verdict re-sending can't change, and only the manual retry route
+ *  (which resets them to 'pending') puts them back in. */
+export async function runFanOut(env: Env, issueId: string, opts: FanOutOptions = {}): Promise<void> {
+  const budget = opts.budget ?? SEND_BUDGET;
+  const paceMs = opts.paceMs ?? SEND_PACE_MS;
   try {
     const issue = await env.DB.prepare("SELECT * FROM newsletter_issue WHERE id = ?")
       .bind(issueId)
@@ -215,12 +272,15 @@ export async function runFanOut(env: Env, issueId: string): Promise<void> {
       : {};
 
     const pending = await env.DB.prepare(
-      "SELECT id, email, unsubscribe_token FROM newsletter_send WHERE issue_id = ? AND status != 'sent'",
+      "SELECT id, email, unsubscribe_token FROM newsletter_send WHERE issue_id = ? AND status = 'pending' LIMIT ?",
     )
-      .bind(issueId)
+      .bind(issueId, budget)
       .all<PendingRow>();
 
     for (let i = 0; i < pending.results.length; i += CONCURRENCY) {
+      // The pause goes BETWEEN bursts: Resend counts per second, so the shape
+      // that matters is "never more than CONCURRENCY in any SEND_PACE_MS".
+      if (i > 0 && paceMs > 0) await sleep(paceMs);
       const chunk = pending.results.slice(i, i + CONCURRENCY);
       await Promise.all(
         chunk.map(async (row) => {
@@ -252,13 +312,30 @@ export async function runFanOut(env: Env, issueId: string): Promise<void> {
         .catch(() => {});
     }
 
-    // 'sent' means the run completed, not that every address succeeded — the
-    // per-recipient failures stay visible in the ledger and are retryable.
-    await env.DB.prepare(
-      "UPDATE newsletter_issue SET status = 'sent', updated_at = ? WHERE id = ?",
+    // Close out only when nothing is left pending. This run was budgeted, and
+    // a 429'd row re-enters 'pending', so rows may remain; leaving the issue in
+    // 'sending' is what hands them to `resumePendingSends` — flipping to 'sent'
+    // here would strand them, because the cron only continues a 'sending'
+    // issue. 'sent' still means the run COMPLETED, not that every address
+    // succeeded: 'failed' rows stay visible in the ledger and are retryable.
+    const left = await env.DB.prepare(
+      "SELECT COUNT(*) AS n FROM newsletter_send WHERE issue_id = ? AND status = 'pending'",
     )
-      .bind(nowIso(), issueId)
-      .run();
+      .bind(issueId)
+      .first<{ n: number }>();
+    if (!left || left.n === 0) {
+      await env.DB.prepare(
+        "UPDATE newsletter_issue SET status = 'sent', updated_at = ? WHERE id = ?",
+      )
+        .bind(nowIso(), issueId)
+        .run();
+    } else {
+      // Fresh heartbeat so the cron's staleness window starts from the yield,
+      // not from the last mid-run heartbeat.
+      await env.DB.prepare("UPDATE newsletter_issue SET updated_at = ? WHERE id = ?")
+        .bind(nowIso(), issueId)
+        .run();
+    }
   } catch (err) {
     console.error(`[newsletter] fan-out failed for ${issueId}: ${String(err)}`);
   }
@@ -295,7 +372,105 @@ export async function retryFailed(env: Env, issueId: string): Promise<boolean> {
   )
     .bind(now, issueId, staleBefore)
     .run();
-  return claim.meta.changes > 0;
+  if (claim.meta.changes === 0) return false;
+
+  // Put the 'failed' rows back in reach. The fan-out scans only 'pending' —
+  // a 'failed' row carries a verdict (a bad address, a rejected sender) that
+  // the automatic passes deliberately leave alone, so an admin pressing Retry
+  // is the one way back in. The error text is kept until the next attempt
+  // overwrites it, so the ledger still says why the last one failed. Safe to
+  // run after the claim and only after it: the claim is what guarantees no
+  // other fan-out is mid-flight over these rows.
+  await env.DB.prepare(
+    "UPDATE newsletter_send SET status = 'pending' WHERE issue_id = ? AND status = 'failed'",
+  )
+    .bind(issueId)
+    .run();
+  return true;
+}
+
+/** How long the cron waits before taking over a quiet 'sending' issue. Shorter
+ *  than the manual route's STALE_SENDING_MS because it can afford to be: the
+ *  only thing a staleness window protects against is claiming a run that is
+ *  still LIVE (two runs over one ledger mail duplicates, the one unrecoverable
+ *  outcome this file has), and a live run heartbeats every burst — at most
+ *  ~RESEND_TIMEOUT_MS + SEND_PACE_MS apart, since every Resend fetch is
+ *  timeout-bounded (lib/email.ts). Five minutes is ~25x that worst gap, and it
+ *  halves the drain time of a big audience versus waiting out the manual
+ *  window: a yielded run becomes claimable before the NEXT tick rather than
+ *  the one after. */
+const RESUME_STALE_MS = 5 * 60 * 1000;
+
+/** When the automatic passes stop believing a transient error. A recipient
+ *  Resend persistently 5xx's — or an outage that outlives this — would
+ *  otherwise hold the issue in 'sending' forever: un-editable, un-deletable,
+ *  unpublish refused, re-attempted every tick with nothing telling anyone.
+ *  A day of retries every 15 minutes is ~96 attempts; after that the rows are
+ *  marked 'failed' (visible in the ledger, re-enterable by the manual retry)
+ *  and the issue closes out. */
+const GIVE_UP_AFTER_MS = 24 * 60 * 60 * 1000;
+
+/** Cron rider (the store's 15-minute schedule): continue a budgeted send.
+ *
+ *  Finds the oldest issue sitting in 'sending' whose heartbeat has gone quiet
+ *  and runs one more bounded fan-out over it. Two kinds of issue match, and
+ *  the same move is right for both: a run that YIELDED with budget spent, and
+ *  a run that DIED mid-flight (a recycled Worker, the thing resumability was
+ *  built for). One issue per tick, because each tick has the same subrequest
+ *  budget the fan-out is bounded by — two issues in flight at once (already
+ *  rare) drain alternately rather than concurrently.
+ *
+ *  The claim is a guarded UPDATE on the heartbeat (invariant 13's idiom), so
+ *  an overlapping tick — or the manual retry route — loses the race and does
+ *  nothing. */
+export async function resumePendingSends(env: Env): Promise<void> {
+  try {
+    const staleBefore = new Date(Date.now() - RESUME_STALE_MS).toISOString();
+    // No "has pending rows" filter on purpose: a run that died AFTER its last
+    // send but BEFORE the close-out leaves 'sending' with nothing pending, and
+    // handing that to runFanOut is exactly what flips it to 'sent'.
+    const row = await env.DB.prepare(
+      `SELECT id, sent_at FROM newsletter_issue
+        WHERE status = 'sending' AND updated_at < ?
+        ORDER BY updated_at ASC LIMIT 1`,
+    )
+      .bind(staleBefore)
+      .first<{ id: string; sent_at: string | null }>();
+    if (!row) return;
+
+    const claim = await env.DB.prepare(
+      "UPDATE newsletter_issue SET updated_at = ? WHERE id = ? AND status = 'sending' AND updated_at < ?",
+    )
+      .bind(nowIso(), row.id, staleBefore)
+      .run();
+    if (claim.meta.changes === 0) return;
+
+    // Stop believing "transient" after a day of it. sent_at is when the send
+    // began (startSend stamps it), so this bounds the whole automatic life of
+    // one send; the rows keep their last error, the ledger shows 'failed', and
+    // the manual retry route is the way back in — same as any other failure.
+    const giveUpBefore = new Date(Date.now() - GIVE_UP_AFTER_MS).toISOString();
+    if (row.sent_at && row.sent_at < giveUpBefore) {
+      await env.DB.prepare(
+        "UPDATE newsletter_send SET status = 'failed' WHERE issue_id = ? AND status = 'pending'",
+      )
+        .bind(row.id)
+        .run();
+      await env.DB.prepare(
+        "UPDATE newsletter_issue SET status = 'sent', updated_at = ? WHERE id = ?",
+      )
+        .bind(nowIso(), row.id)
+        .run();
+      console.error(
+        `[newsletter] gave up on issue ${row.id}: recipients still undeliverable 24h after the send began; rows marked failed for manual retry`,
+      );
+      return;
+    }
+
+    await runFanOut(env, row.id);
+  } catch (err) {
+    console.error(`[newsletter] resume failed: ${String(err)}`);
+  }
 }
 
 export interface RecipientCounts {
