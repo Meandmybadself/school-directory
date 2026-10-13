@@ -9,4 +9,5 @@ export * from "./newsletterEvents.js";
 export * from "./newsletterRender.js";
 export * from "./newsletterTranslate.js";
 export * from "./newsletterQr.js";
+export * from "./newsletterRss.js";
 export * from "./volunteerCalendar.js";
