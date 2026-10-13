@@ -1411,6 +1411,7 @@ a{color:var(--nl-accent,${DEFAULT_ACCENT})}
 .nl-subscribe-cta{display:block;background:${PAPER};border-radius:12px;padding:16px 20px;margin-bottom:18px;text-decoration:none;color:inherit;box-shadow:0 1px 3px rgba(16,24,40,.06);border-left:3px solid var(--nl-accent,${DEFAULT_ACCENT})}
 .nl-subscribe-cta strong{color:var(--nl-accent,${DEFAULT_ACCENT})}
 .nl-subscribe-cta span{display:block;margin-top:3px;font-size:14px;color:${MUTED}}
+.nl-archive-feed{margin:-8px 0 18px 2px;font-size:13px;color:${MUTED}}
 .nl-form{margin:22px 0 0}
 .nl-label{display:block;font-size:14px;font-weight:600;margin-bottom:6px}
 .nl-input{width:100%;font:inherit;font-size:16px;padding:11px 13px;border:1px solid ${RULE};border-radius:9px;background:${PAPER};color:${INK}}
@@ -1454,7 +1455,7 @@ a{color:var(--nl-accent,${DEFAULT_ACCENT})}
   /* Only background and text: the CTA's left border is the instance's accent,
      which is the one colour on this page we were handed rather than chose. */
   .nl-subscribe-cta{background:#19222c;color:#e8eef4}
-  .nl-subscribe-cta span,.nl-site-foot,.nl-site-foot a,.nl-lang,.nl-lang a:not([href]){color:#8494a1}
+  .nl-subscribe-cta span,.nl-site-foot,.nl-site-foot a,.nl-lang,.nl-lang a:not([href]),.nl-archive-feed{color:#8494a1}
   .nl-card{box-shadow:0 1px 3px rgba(0,0,0,.5)}
 }
 
@@ -1476,7 +1477,7 @@ a{color:var(--nl-accent,${DEFAULT_ACCENT})}
      whichever theme the reader happens to be in. */
   body{background:#fff;color:${INK}}
   .nl-subscribe-cta span,.nl-site-foot,.nl-site-foot a,.nl-lang,.nl-lang a:not([href]){color:${MUTED}}
-  .nl-site-foot,.nl-subscribe-cta,.nl-print-link,.nl-events-more,.nl-lang{display:none}
+  .nl-site-foot,.nl-subscribe-cta,.nl-print-link,.nl-events-more,.nl-lang,.nl-archive-feed{display:none}
   .nl-wrap{max-width:none;padding:0}
   .nl-card{box-shadow:none;border-radius:0;padding:0}
   .nl-masthead{padding:0 0 14px}

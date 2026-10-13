@@ -17,9 +17,9 @@ survive this, which makes the failure look intermittent and route-specific.)
 
 None of it is needed. Pages already does the right thing here:
 
-- `/`, `/n/:slug`, `/n/:slug/print`, `/preview/:token`, `/preview/:token/print`,
-  `/subscribe` and `/subscribe/confirm/:token` are handled by `functions/`, and
-  Functions take precedence over static assets.
+- `/`, `/rss.xml`, `/n/:slug`, `/n/:slug/print`, `/preview/:token`,
+  `/preview/:token/print`, `/subscribe` and `/subscribe/confirm/:token` are
+  handled by `functions/`, and Functions take precedence over static assets.
 - Every other path falls through to `index.html`, because this project ships no
   `404.html` — that is Pages' single-page-app behaviour.
 

@@ -45,7 +45,8 @@ export const onRequestGet: PagesFunction<PagesEnv> = async (context) => {
   const subscribe = `      <a class="nl-subscribe-cta" href="/subscribe">
         <strong>Get this by email &rarr;</strong>
         <span>Free, open to anyone, and you can unsubscribe from any issue.</span>
-      </a>`;
+      </a>
+      <p class="nl-archive-feed">Prefer a feed reader? <a href="/rss.xml">Subscribe by RSS</a>.</p>`;
 
   const body = `    <div class="nl-wrap">
       <div class="nl-masthead">${masthead}</div>

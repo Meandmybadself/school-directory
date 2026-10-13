@@ -81,6 +81,7 @@ export function shell(input: ShellInput): string {
     <title>${escapeHtml(input.title)}</title>
     <meta name="description" content="${escapeHtml(input.description)}" />
     <link rel="canonical" href="${escapeHtml(input.canonical)}" />
+    <link rel="alternate" type="application/rss+xml" title="RSS" href="/rss.xml" />
     ${input.noindex ? '<meta name="robots" content="noindex" />' : ""}
     ${og}
     <style>
