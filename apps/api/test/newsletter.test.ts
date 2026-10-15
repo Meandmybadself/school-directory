@@ -145,6 +145,32 @@ describe("newsletter renderer", () => {
     expect(bad).not.toContain("<span");
   });
 
+  it("wraps emojis for print hiding on the web, and leaves the email alone", () => {
+    const d = doc(para("Fall Festival 🎃 tickets 🇺🇸 👩‍👩‍👧 1️⃣ done ⚠️"));
+    const web = renderNewsletterBodyHtml(d, NO_EVENTS, { mode: "web" });
+    expect(web).toContain('<span class="nl-emoji">🎃</span>');
+    // Sequences stay whole — half a ZWJ family or one flag letter on paper
+    // would be worse than either showing or hiding.
+    expect(web).toContain('<span class="nl-emoji">🇺🇸</span>');
+    expect(web).toContain('<span class="nl-emoji">👩‍👩‍👧</span>');
+    expect(web).toContain('<span class="nl-emoji">1️⃣</span>');
+    expect(web).toContain('<span class="nl-emoji">⚠️</span>');
+    // The email is the artifact of record and clients don't honour @media
+    // print; it keeps its emojis and gains no markup.
+    const email = renderNewsletterBodyHtml(d, NO_EVENTS, { mode: "email" });
+    expect(email).toContain("🎃");
+    expect(email).not.toContain("nl-emoji");
+  });
+
+  it("never mistakes text-presentation characters or digits for emojis", () => {
+    // © and ™ default to TEXT presentation; a plain digit or # is a word.
+    // Hiding any of them from paper would change what the issue says.
+    const web = renderNewsletterBodyHtml(doc(para("© 2026 PTO™ — room #3, grade 5")), NO_EVENTS, {
+      mode: "web",
+    });
+    expect(web).not.toContain("nl-emoji");
+  });
+
   it("renders resolved events and says so when there are none", () => {
     const block: NewsletterNode = {
       type: EVENTS_BLOCK_TYPE,
@@ -175,6 +201,33 @@ describe("newsletter renderer", () => {
 
     const empty = renderNewsletterBodyHtml(doc(block), NO_EVENTS, { mode: "email" });
     expect(empty).toContain("No upcoming events");
+  });
+
+  it("wraps an event's emojis on the web too — titles are where they live", () => {
+    const block: NewsletterNode = {
+      type: EVENTS_BLOCK_TYPE,
+      attrs: { blockId: "b1", calendarIds: [], lookaheadDays: 14, heading: "This week 📅" },
+    };
+    const event: CalendarEventDTO = {
+      id: "e1",
+      kind: "imported",
+      title: "Fall Concert 🎶",
+      location: "Gym 🏀",
+      description: null,
+      meetingUrl: null,
+      start: "2026-09-15T23:00:00.000Z",
+      end: null,
+      allDay: false,
+      sourceIds: ["s1"],
+      source: { name: "Events", color: "#0068A8" },
+      volunteerSlug: null,
+    };
+    const web = renderNewsletterBodyHtml(doc(block), () => [event], { mode: "web" });
+    expect(web).toContain('<span class="nl-emoji">📅</span>');
+    expect(web).toContain('<span class="nl-emoji">🎶</span>');
+    expect(web).toContain('<span class="nl-emoji">🏀</span>');
+    const email = renderNewsletterBodyHtml(doc(block), () => [event], { mode: "email" });
+    expect(email).not.toContain("nl-emoji");
   });
 
   it("reads an all-day event's date in UTC, not the render zone", () => {

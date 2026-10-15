@@ -107,6 +107,33 @@ export function escapeHtml(s: string): string {
     .replace(/'/g, "&#39;");
 }
 
+/** One emoji, whole, as a reader sees one: a keycap (#️⃣), a flag (a
+ *  regional-indicator pair), or a pictographic — either default-emoji, or a
+ *  text-default character FORCED emoji by VS16 — together with any skin tone,
+ *  VS16, ZWJ continuation and tag characters that belong to it, so a family or
+ *  a flag is matched as one unit and never split in half. Characters like ©
+ *  and ™ default to TEXT presentation and are deliberately NOT matched without
+ *  a VS16: they are words, and hiding "©" from a printed footer line would
+ *  change what the issue says. A bare digit or # never matches either — the
+ *  keycap branch requires the combining keycap itself. */
+const EMOJI =
+  /[#*0-9]️?⃣|[\u{1F1E6}-\u{1F1FF}]{2}|(?:\p{Emoji_Presentation}|\p{Extended_Pictographic}️)(?:[\u{1F3FB}-\u{1F3FF}]|️)*(?:‍(?:\p{Emoji_Presentation}|\p{Extended_Pictographic})(?:[\u{1F3FB}-\u{1F3FF}]|️)*)*[\u{E0020}-\u{E007F}]*/gu;
+
+/** Wraps each emoji in ALREADY-ESCAPED text so the print stylesheet can drop
+ *  it: a black-and-white printer turns an emoji into a grey smudge or an empty
+ *  box, so paper goes without them (`.nl-emoji`, hidden under `@media print`
+ *  only — on screen the span is inert and the emoji shows as always). Safe to
+ *  run after escapeHtml because every branch of EMOJI requires a character no
+ *  entity contains. Web mode only, applied via `inlineText`: email clients
+ *  don't honour `@media print`, and the mailed issue is the artifact of record
+ *  (invariant 10). The one web surface this cannot reach is the hand-written
+ *  settings footer, which is stored HTML — wrapping inside it would mean
+ *  re-parsing the one seam `sanitizeFooterHtml` already owns, and an emoji
+ *  could sit inside an attribute value where a span would break the markup. */
+function hideEmojiOnPaper(escaped: string): string {
+  return escaped.replace(EMOJI, (m) => `<span class="nl-emoji">${m}</span>`);
+}
+
 /** Only protocols that are safe to put in front of a reader. Notably excludes
  *  `javascript:` and `data:`. */
 function safeLinkHref(raw: unknown): string | null {
@@ -586,8 +613,17 @@ function attr(ctx: Ctx, cls: string, style: string): string {
   return ctx.mode === "email" ? ` style="${style}"` : ` class="${cls}"`;
 }
 
+/** Escaped inline text; in web mode its emojis are additionally wrapped so the
+ *  print stylesheet can hide them (see hideEmojiOnPaper). For element CONTENT
+ *  only — an attribute value (alt, title) must stay escapeHtml alone, since a
+ *  span inside a quote is broken markup, and attributes don't print anyway. */
+function inlineText(ctx: Ctx, s: string): string {
+  const esc = escapeHtml(s);
+  return ctx.mode === "web" ? hideEmojiOnPaper(esc) : esc;
+}
+
 function renderText(node: NewsletterNode, ctx: Ctx): string {
-  let html = escapeHtml(node.text ?? "");
+  let html = inlineText(ctx, node.text ?? "");
   // Marks wrap outward-in; link is applied last so it ends up outermost.
   for (const m of node.marks ?? []) {
     switch (m.type) {
@@ -706,7 +742,7 @@ function renderEventsBlock(node: NewsletterNode, ctx: Ctx): string {
 
   if (attrs.heading) {
     parts.push(
-      `<h2${attr(ctx, "nl-events-heading", `margin:28px 0 10px;font-size:19px;line-height:1.3;font-weight:700;color:${INK};font-family:${FONT}`)}>${escapeHtml(attrs.heading)}</h2>`,
+      `<h2${attr(ctx, "nl-events-heading", `margin:28px 0 10px;font-size:19px;line-height:1.3;font-weight:700;color:${INK};font-family:${FONT}`)}>${inlineText(ctx, attrs.heading)}</h2>`,
     );
   }
 
@@ -735,13 +771,13 @@ function renderEventsBlock(node: NewsletterNode, ctx: Ctx): string {
       // Accent-coloured rather than ink, matching that link, because an inbox
       // gives a reader no hover to discover clickability with.
       const href = eventHref(ctx, e);
-      const title = escapeHtml(e.title);
+      const title = inlineText(ctx, e.title);
       const titleHtml = href
         ? `<a href="${escapeHtml(href)}"${attr(ctx, "nl-event-title-link", `color:${ctx.accent};text-decoration:none`)}>${title}</a>`
         : title;
       return `<tr><td${attr(ctx, "nl-event", `padding:10px 0 10px 12px;border-left:3px solid ${escapeHtml(bar)};border-bottom:1px solid ${RULE}`)}>
 <div${attr(ctx, "nl-event-title", `font-size:15px;font-weight:600;color:${INK};font-family:${FONT};line-height:1.4`)}>${titleHtml}</div>
-<div${attr(ctx, "nl-event-meta", `font-size:13px;color:${MUTED};font-family:${FONT};margin-top:2px`)}>${escapeHtml(meta)}</div>${volunteerLine(ctx, e)}
+<div${attr(ctx, "nl-event-meta", `font-size:13px;color:${MUTED};font-family:${FONT};margin-top:2px`)}>${inlineText(ctx, meta)}</div>${volunteerLine(ctx, e)}
 </td></tr>`;
     })
     .join("");
@@ -1245,7 +1281,7 @@ export function renderNewsletterIssuePageHtml(input: NewsletterIssuePageInput): 
 
   const mark = branding.logoUrl
     ? `<img src="${escapeHtml(branding.logoUrl)}" alt="${escapeHtml(branding.newsletterTitle)}" />`
-    : `<div class="nl-masthead-title">${escapeHtml(branding.newsletterTitle)}</div>`;
+    : `<div class="nl-masthead-title">${hideEmojiOnPaper(escapeHtml(branding.newsletterTitle))}</div>`;
   const masthead = input.archiveHref
     ? `<a href="${escapeHtml(input.archiveHref)}" style="text-decoration:none">${mark}</a>`
     : mark;
@@ -1308,8 +1344,8 @@ export function renderNewsletterIssuePageHtml(input: NewsletterIssuePageInput): 
       ${langBar}
       <article class="nl-card">
         ${qrBlock}
-        <h1 class="nl-title">${escapeHtml(input.title)}</h1>
-        ${input.subtitle ? `<p class="nl-subtitle">${escapeHtml(input.subtitle)}</p>` : ""}
+        <h1 class="nl-title">${hideEmojiOnPaper(escapeHtml(input.title))}</h1>
+        ${input.subtitle ? `<p class="nl-subtitle">${hideEmojiOnPaper(escapeHtml(input.subtitle))}</p>` : ""}
         <p class="nl-date">${escapeHtml(input.dateLabel)}</p>
         <div class="nl-body${body.includes('class="nl-qr-col"') ? " nl-body-rail" : ""}">
 ${body}
@@ -1446,6 +1482,10 @@ a{color:var(--nl-accent,${DEFAULT_ACCENT})}
   .nl-masthead{padding:0 0 14px}
   /* Links keep their href meaning on screen but read as noise in ink. */
   a{color:inherit;text-decoration:none}
+  /* Emojis don't survive black-and-white printing — they come out as grey
+     smudges or empty boxes — so paper goes without them. The renderer wraps
+     each one (hideEmojiOnPaper); on screen the span is inert. */
+  .nl-emoji{display:none}
   .nl-title{font-size:26px}
   .nl-p,.nl-ul,.nl-ol{font-size:12pt;line-height:1.55}
   /* Don't strand a heading or an event row at the foot of a page. */

@@ -211,6 +211,12 @@ describe("the issue page renderer", () => {
     expect(html).not.toContain("<script>alert(1)</script>");
     expect(html).toContain("&lt;script&gt;");
   });
+
+  it("wraps the title's and subtitle's emojis so paper can drop them", () => {
+    const html = render({ title: "🎉 Back to school", subtitle: "See you there 👋" });
+    expect(html).toContain('<span class="nl-emoji">🎉</span>');
+    expect(html).toContain('<span class="nl-emoji">👋</span>');
+  });
 });
 
 describe("the print stylesheet", () => {
@@ -224,6 +230,14 @@ describe("the print stylesheet", () => {
   it("keeps the draft banner in ink — that is when it matters most", () => {
     const printBlock = NEWSLETTER_WEB_CSS.slice(NEWSLETTER_WEB_CSS.indexOf("@media print"));
     expect(printBlock).not.toContain("nl-draft-banner");
+  });
+
+  it("hides emojis on paper only — black-and-white printing ruins them", () => {
+    const printAt = NEWSLETTER_WEB_CSS.indexOf("@media print");
+    const printBlock = NEWSLETTER_WEB_CSS.slice(printAt);
+    expect(printBlock).toContain(".nl-emoji{display:none}");
+    // No rule outside the print block: on screen the wrapper must stay inert.
+    expect(NEWSLETTER_WEB_CSS.slice(0, printAt)).not.toContain(".nl-emoji");
   });
 
   it("undoes dark mode rather than inheriting it", () => {
