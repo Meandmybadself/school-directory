@@ -201,10 +201,14 @@ export function markdownToInline(text: string, marks: InlineMark[] = []): Newsle
   return out;
 }
 
-/** The user message both prompts share: numbered blocks, one per line. */
-export function slotsToPrompt(slots: TextSlot[]): string {
+/** The user message both prompts share: numbered blocks, one per line. A block
+ *  in `emphasize` is annotated as the place to cut — see `pickEmphasis`. */
+export function slotsToPrompt(slots: TextSlot[], emphasize?: ReadonlySet<number>): string {
   return slots
-    .map((s, i) => `[${i}] ${s.kind}: ${inlineToMarkdown(s.node.content).replaceAll("\n", " / ")}`)
+    .map(
+      (s, i) =>
+        `[${i}] ${s.kind}${emphasize?.has(i) ? " (too long — cut this one hardest)" : ""}: ${inlineToMarkdown(s.node.content).replaceAll("\n", " / ")}`,
+    )
     .join("\n");
 }
 
@@ -215,14 +219,66 @@ export function slotsTextLength(slots: TextSlot[]): number {
 
 // ── The two assists ──────────────────────────────────────────────────────────
 
-const SUCCINCT_PROMPT = `You are an editor tightening a school newsletter written by parent volunteers for families.
+/** Bounds on the caller's shrink target, as a percentage of the draft's prose.
+ *  Below 5 the paragraph isn't worth adding; above 70 the ask is beyond what a
+ *  reword can do — the model may not merge or remove blocks, so past a point
+ *  the honest fix is deleting content, which is the author's act, not this
+ *  one's. The CLIENT owns the overshoot (models reliably undershoot a length
+ *  target, so the composer asks for more than the measurement says it needs);
+ *  this end only clamps. */
+export const REDUCE_MIN_PERCENT = 5;
+export const REDUCE_MAX_PERCENT = 70;
+
+export function clampReduce(n: number): number {
+  return Math.min(REDUCE_MAX_PERCENT, Math.max(REDUCE_MIN_PERCENT, Math.round(n)));
+}
+
+/** A block shorter than this is never emphasized — it has nothing to give. */
+const EMPHASIS_MIN_CHARS = 120;
+
+/**
+ * Which blocks to mark "(too long — cut this one hardest)": the longest first,
+ * until the marked blocks hold about twice the prose the target asks to cut —
+ * headroom, since even a hard cut leaves most of a block standing. A global
+ * percentage alone produces uniform light trimming; naming the offenders is
+ * what gets whole sentences dropped where the words actually are.
+ */
+export function pickEmphasis(slots: TextSlot[], reducePercent: number): Set<number> {
+  const lengths = slots.map((s) => inlineToMarkdown(s.node.content).length);
+  const total = lengths.reduce((a, b) => a + b, 0);
+  const need = total * (reducePercent / 100) * 2;
+  const order = lengths
+    .map((len, i) => ({ len, i }))
+    .sort((a, b) => b.len - a.len);
+  const out = new Set<number>();
+  let held = 0;
+  for (const { len, i } of order) {
+    if (len < EMPHASIS_MIN_CHARS || held >= need) break;
+    out.add(i);
+    held += len;
+  }
+  return out;
+}
+
+const SUCCINCT_INTRO = `You are an editor tightening a school newsletter written by parent volunteers for families.
 The user message lists the draft's text blocks, one per line, as:
 [index] kind: text
 Inline formatting is minimal Markdown: **bold**, *italic*, ~~strike~~, [label](url).
 
-Rewrite wordy blocks to be more succinct. Every fact must survive: names, dates, times, places, prices and amounts stay exactly as written, and every [label](url) link is kept with its url unchanged. Keep the writer's warm tone. Never merge, reorder, add or remove blocks, and never leave a block empty. Leave a block out of your answer entirely if it is already tight.
+Rewrite wordy blocks to be more succinct. Every fact must survive: names, dates, times, places, prices and amounts stay exactly as written, and every [label](url) link is kept with its url unchanged. Keep the writer's warm tone. Never merge, reorder, add or remove blocks, and never leave a block empty. Leave a block out of your answer entirely if it is already tight.`;
 
-Answer with JSON only: {"blocks":[{"i":<index>,"text":"<rewritten block>"}]}`;
+const SUCCINCT_ANSWER = `Answer with JSON only: {"blocks":[{"i":<index>,"text":"<rewritten block>"}]}`;
+
+/** The system prompt, with the shrink paragraph only when a target was asked
+ *  for — the plain button keeps the gentler instruction it has always had. */
+export function succinctPrompt(reducePercent?: number): string {
+  if (reducePercent === undefined) return `${SUCCINCT_INTRO}\n\n${SUCCINCT_ANSWER}`;
+  return `${SUCCINCT_INTRO}
+
+This draft is too long to print, so this pass must also make it SHORTER: cut the total prose by about ${reducePercent}%. Blocks marked (too long — cut this one hardest) need the deepest cuts — drop asides, repetition and build-up, and let a long block lose whole sentences. Do not pad the short blocks to compensate.
+
+${SUCCINCT_ANSWER}`;
+}
 
 const SUGGESTIONS_PROMPT = `You are an experienced copy editor reviewing a school newsletter draft written by parent volunteers for families.
 The user message lists the draft's text blocks, one per line, as:
@@ -268,14 +324,20 @@ async function runModel(
  * A replacement for an index that doesn't exist, an empty one, or one equal to
  * what is already there is ignored — the model may not empty a block or invent
  * a new one, only reword.
+ *
+ * `reducePercent` (already clamped by the route) turns the pass from "tidy the
+ * wordy bits" into "shrink the draft by about this much" — the composer sends
+ * it when its print measurement says the issue runs past two pages.
  */
 export async function assistSuccinct(
   env: Env,
   doc: NewsletterNode,
+  reducePercent?: number,
 ): Promise<{ content: NewsletterNode | null; changes: NewsletterAssistChangeDTO[] }> {
   const copy = structuredClone(doc);
   const slots = collectTextSlots(copy);
-  const json = await runModel(env, SUCCINCT_PROMPT, slotsToPrompt(slots), 3000);
+  const emphasize = reducePercent === undefined ? undefined : pickEmphasis(slots, reducePercent);
+  const json = await runModel(env, succinctPrompt(reducePercent), slotsToPrompt(slots, emphasize), 3000);
 
   const raw = Array.isArray(json.blocks) ? (json.blocks as unknown[]) : [];
   const changes: NewsletterAssistChangeDTO[] = [];

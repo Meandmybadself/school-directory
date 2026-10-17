@@ -19,7 +19,7 @@
 //   locked and the draft can't be deleted, because both would break links
 //   already shared.
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import type { Editor as TipTapEditor } from "@tiptap/react";
 import type {
@@ -29,7 +29,10 @@ import type {
   NewsletterNode,
   NewsletterSettingsDTO,
 } from "@sd/shared";
-import { issueSlug } from "@sd/shared";
+import { formatIssueDate, issueSlug, renderNewsletterIssuePageHtml } from "@sd/shared";
+import { brandingOf } from "../lib/branding.js";
+import { useDocumentEvents } from "../lib/useCalendarFeeds.js";
+import { TARGET_PRINT_PAGES, usePrintEstimate } from "../lib/printEstimate.js";
 import { AppShell } from "../components/AppShell.js";
 import { DesktopShell } from "../components/DesktopShell.js";
 import { ScreenHeader, Field, SheetOver } from "../components/parts.js";
@@ -62,6 +65,10 @@ const AUTOSAVE_MS = 1200;
 const MIN_SAVE_GAP_MS = 15_000;
 
 const POLL_MS = 2000;
+
+/** For the events hook while the issue is still loading: no blocks, so nothing
+ *  is fetched, and a stable reference so it doesn't churn the hook. */
+const EMPTY_DOC: NewsletterNode = { type: "doc", content: [] };
 
 /** The issue's public archive page. The archive is served by this app's own
  *  Pages Functions (`/n/:slug`), so it lives on the origin the editor is on. */
@@ -328,10 +335,17 @@ interface AssistReview {
  *  to be saved by the same autosave as any keystroke. */
 function AssistReviewSheet({
   review,
+  pagesBefore,
+  pagesAfter,
   onApply,
   onClose,
 }: {
   review: AssistReview;
+  /** Print estimates for the draft as it stands and as proposed, when the
+   *  composer has them — pagesAfter lags a moment while the rewrite is being
+   *  measured, and the line simply waits for it. */
+  pagesBefore: number | null;
+  pagesAfter: number | null;
   onApply: () => void;
   onClose: () => void;
 }) {
@@ -345,6 +359,12 @@ function AssistReviewSheet({
         names — before you trust it. Bold, italics and links carry over; custom text sizes
         inside a reworded section are reset.
       </p>
+      {pagesBefore !== null && pagesAfter !== null && (
+        <p className="sd-meta" style={{ marginTop: 0, marginBottom: 10 }}>
+          Estimated print length: ≈{pagesBefore.toFixed(1)} pages now, ≈{pagesAfter.toFixed(1)} with
+          the rewrite.
+        </p>
+      )}
       <div style={{ maxHeight: "45vh", overflowY: "auto", display: "flex", flexDirection: "column", gap: 12, marginBottom: 14 }}>
         {review.changes.map((ch, i) => (
           <div key={i} className="sd-card" style={{ padding: "10px 12px" }}>
@@ -456,6 +476,47 @@ export function IssueEditor() {
    *  flush — the `issue` its closure captured is from before the save landed. */
   const issueRef = useRef(issue);
   issueRef.current = issue;
+
+  // ── Printed-length estimate ────────────────────────────────────────────────
+  // The draft, rendered exactly as the print view renders it (same inputs as
+  // IssuePrint.tsx's build), measured in a hidden iframe under the print rules
+  // (lib/printEstimate.ts). `page` feeds the "≈N printed pages" chip and sizes
+  // the shrink target the succinct assist is asked for; `review` measures a
+  // proposed rewrite while the review sheet is open, so the author sees whether
+  // accepting it actually gets the issue under the goal.
+  const events = useDocumentEvents(
+    draft?.content ?? EMPTY_DOC,
+    issue?.eventsSnapshot ?? null,
+    settings?.timeZone ?? "UTC",
+  );
+  const measuredHtml = useMemo(() => {
+    if (!issue || !draft || !settings) return { page: null, review: null };
+    const build = (doc: NewsletterNode) =>
+      renderNewsletterIssuePageHtml({
+        branding: brandingOf(settings),
+        title: draft.title || "Untitled",
+        subtitle: draft.subtitle.trim() ? draft.subtitle : null,
+        doc,
+        resolveEvents: (attrs) => events[attrs.blockId] ?? [],
+        dateLabel: formatIssueDate(issue.sentAt ?? issue.publishedAt ?? issue.editedAt),
+        // Mirrors IssuePrint.tsx: no banner, no language bar, no archive or
+        // print links — and the QR block, which takes real space on paper.
+        isDraft: false,
+        issueUrl: "",
+        publishedUrl: draft.slug
+          ? `${window.location.origin}/n/${encodeURIComponent(draft.slug)}`
+          : "",
+        archiveHref: "",
+        printHref: "",
+        timeZone: settings.timeZone,
+      });
+    return {
+      page: build(draft.content),
+      review: assistReview ? build(assistReview.content) : null,
+    };
+  }, [issue, draft, settings, events, assistReview]);
+  const printEst = usePrintEstimate(measuredHtml.page);
+  const reviewEst = usePrintEstimate(measuredHtml.review);
 
   useEffect(() => {
     // "Make a copy" navigates from one issue's editor straight to another's, so
@@ -672,8 +733,16 @@ export function IssueEditor() {
   };
 
   /** Ask the assistant. Flushes first — the server reads the SAVED draft, so an
-   *  edit still in the debounce window would be invisible to it, like Send. */
+   *  edit still in the debounce window would be invisible to it, like Send.
+   *  When the print estimate says the draft runs past the page goal, a succinct
+   *  pass carries the measured shrink target, turning "tidy the wordy bits"
+   *  into "cut about this much" — the flush doesn't change the content, so the
+   *  estimate in hand still describes what the server will read. */
   const runAssist = async (mode: NewsletterAssistMode) => {
+    const reduce =
+      mode === "succinct" && printEst && !printEst.fits && printEst.suggestedReduce !== null
+        ? printEst.suggestedReduce
+        : undefined;
     setAssistBusy(mode);
     setAssistNote(null);
     if (timer.current) clearTimeout(timer.current);
@@ -682,7 +751,7 @@ export function IssueEditor() {
       return;
     }
     try {
-      const { result } = await api.assistIssue(id, mode);
+      const { result } = await api.assistIssue(id, mode, reduce !== undefined ? { reduce } : undefined);
       if (mode === "suggestions") {
         if (result.suggestions.length === 0) {
           setAssistNote("The assistant had nothing to flag.");
@@ -798,6 +867,18 @@ export function IssueEditor() {
         <WebChip publishedAt={issue.publishedAt} />
         {!readOnly && <span className="sd-meta">{saveLabel}</span>}
         <div style={{ flex: 1 }} />
+        {/* Measured, not guessed — lib/printEstimate.ts. Approximate on purpose
+            (print pagination adds slack a continuous measure can't see), hence
+            the ≈; the exact count is the print dialog's to give. */}
+        {printEst && (
+          <span
+            className="sd-meta"
+            style={printEst.fits ? undefined : { color: "var(--warn)", fontWeight: 600 }}
+            title={`Estimated length on Letter paper; the goal is ${TARGET_PRINT_PAGES} pages. Open "View as PDF" for the exact count.`}
+          >
+            ≈{printEst.pages.toFixed(1)} printed pages
+          </span>
+        )}
         {/* Available whether or not the issue has been sent — "give me a PDF of
             that newsletter" is asked about back issues at least as often as
             about drafts. Opens in a tab so the print dialog doesn't take over
@@ -922,7 +1003,15 @@ export function IssueEditor() {
                 onClick={() => void runAssist("succinct")}
                 disabled={assistBusy !== null}
               >
-                <Icon name="bolt" size={14} /> {assistBusy === "succinct" ? "Tightening…" : "Make it more succinct"}
+                {/* One button, two asks: over the page goal it carries the
+                    measured shrink target (see runAssist), and the label says
+                    so — under it, it stays the gentle tidy it has always been. */}
+                <Icon name="bolt" size={14} />{" "}
+                {assistBusy === "succinct"
+                  ? "Tightening…"
+                  : printEst && !printEst.fits
+                    ? `Tighten to fit ${TARGET_PRINT_PAGES} pages`
+                    : "Make it more succinct"}
               </button>
               <button
                 type="button"
@@ -995,7 +1084,13 @@ export function IssueEditor() {
       )}
       {sheet === "test" && <TestSendSheet onClose={() => setSheet(null)} onSend={testSend} />}
       {assistReview && (
-        <AssistReviewSheet review={assistReview} onApply={applyAssist} onClose={() => setAssistReview(null)} />
+        <AssistReviewSheet
+          review={assistReview}
+          pagesBefore={printEst?.pages ?? null}
+          pagesAfter={reviewEst?.pages ?? null}
+          onApply={applyAssist}
+          onClose={() => setAssistReview(null)}
+        />
       )}
       {sheet === "share" && (
         <ShareSheet

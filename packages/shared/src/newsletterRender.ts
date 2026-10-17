@@ -1357,6 +1357,78 @@ ${body}
     </div>`;
 }
 
+/** The paper geometry the print stylesheet pins, in inches. The `@page` rule in
+ *  NEWSLETTER_PRINT_RULES is built from this object, so the composer's page
+ *  estimate and the printed page cannot disagree about the denominator —
+ *  before the rule existed, every browser printed with its own default margins
+ *  and "how many pages is this?" had no one answer to estimate. `size:letter`
+ *  rather than A4 for the same reason every clock here is 12-hour: this is an
+ *  American elementary school. CSS resolves 1in to 96px regardless of the
+ *  actual screen, which is what lets a browser measure in these units. */
+export const NEWSLETTER_PRINT_PAGE = {
+  widthIn: 8.5,
+  heightIn: 11,
+  marginIn: 0.5,
+  /** widthIn − 2·marginIn — the measure prose is laid out against. */
+  contentWidthIn: 7.5,
+  /** heightIn − 2·marginIn — what one page holds. */
+  contentHeightIn: 10,
+} as const;
+
+/** The print rules, UNWRAPPED. NEWSLETTER_WEB_CSS interpolates them inside
+ *  `@media print{…}`; the composer's page estimator appends them to the same
+ *  stylesheet unwrapped — after it, so they win by order, exactly as printing
+ *  makes them win — inside a hidden iframe sized to the page's content width.
+ *  Keep every rule here safe under both wrappings: these selectors are applied
+ *  on screen every time the composer measures a draft. */
+export const NEWSLETTER_PRINT_RULES = `
+  /* Pins the paper and the margins (NEWSLETTER_PRINT_PAGE above). */
+  @page{size:${NEWSLETTER_PRINT_PAGE.widthIn}in ${NEWSLETTER_PRINT_PAGE.heightIn}in;margin:${NEWSLETTER_PRINT_PAGE.marginIn}in}
+  /* Restates the light values rather than assuming them. This block used to
+     inherit a light body for free; with a dark mode above it, printing from a
+     dark-themed browser would otherwise put near-white text on white paper —
+     and printing IS the PDF export (invariant 16), so it cannot be left to
+     whichever theme the reader happens to be in. */
+  body{background:#fff;color:${INK}}
+  .nl-subscribe-cta span,.nl-site-foot,.nl-site-foot a,.nl-lang,.nl-lang a:not([href]){color:${MUTED}}
+  .nl-site-foot,.nl-subscribe-cta,.nl-print-link,.nl-events-more,.nl-lang,.nl-archive-feed{display:none}
+  .nl-wrap{max-width:none;padding:0}
+  .nl-card{box-shadow:none;border-radius:0;padding:0}
+  .nl-masthead{padding:0 0 14px}
+  /* Links keep their href meaning on screen but read as noise in ink. */
+  a{color:inherit;text-decoration:none}
+  /* Emojis don't survive black-and-white printing — they come out as grey
+     smudges or empty boxes — so paper goes without them. The renderer wraps
+     each one (hideEmojiOnPaper); on screen the span is inert. */
+  .nl-emoji{display:none}
+  .nl-title{font-size:26px}
+  .nl-p,.nl-ul,.nl-ol{font-size:12pt;line-height:1.55}
+  /* Don't strand a heading or an event row at the foot of a page. */
+  .nl-h1,.nl-h2,.nl-h3,.nl-events-heading{break-after:avoid;page-break-after:avoid}
+  .nl-event,.nl-li,.nl-img,.nl-quote{break-inside:avoid;page-break-inside:avoid}
+  /* Nothing on paper is clickable, so an accent-coloured title is just noise. */
+  .nl-event-title-link{color:${INK}}
+  .nl-foot{break-inside:avoid}
+  /* Floated so the title, subtitle and date wrap beside it rather than
+     starting below a square of white space. */
+  .nl-qr{display:block;float:right;width:.75in;margin:0 0 10px 18px;text-align:center}
+  .nl-qr svg{display:block;width:.75in;height:.75in;margin:0 auto}
+  .nl-qr p{margin:2px 0 0;font-size:8.5pt;line-height:1.35;color:${INK}}
+  /* One small code per link in the body, in a rail down the right margin (see
+     qrBlock). The body reserves the rail once, so every block has the same
+     measure; each block's codes float into it with a negative margin as wide
+     as the rail, which keeps them out of the text entirely, and clear the
+     previous block's codes rather than overlap them. */
+  .nl-body-rail{padding-right:1.2in}
+  .nl-body-rail::after{content:"";display:block;clear:both}
+  .nl-qr-col{display:flex;flex-direction:column;gap:.1in;float:right;clear:right;width:.95in;margin:2px -1.2in .1in 0;break-inside:avoid;page-break-inside:avoid}
+  .nl-qr-item{display:flex;align-items:flex-start;justify-content:flex-end;gap:.05in}
+  .nl-qr-num{font-size:9pt;font-weight:700;line-height:1;margin-top:calc(.75in * var(--qz, 0) - .125em);color:${INK}}
+  .nl-qr-col svg{display:block;width:.75in;height:.75in;flex:none}
+  /* The number after a link that matches the one beside its code. */
+  .nl-qr-ref{display:inline;font-size:.7em;font-weight:700;line-height:0;margin-left:1px;vertical-align:super;color:${INK}}
+`.trimEnd();
+
 /** Stylesheet for the public archive pages. Lives here so the web target's look
  *  is defined next to the email's inline styles and the two stay in step. */
 export const NEWSLETTER_WEB_CSS = `
@@ -1468,50 +1540,15 @@ a{color:var(--nl-accent,${DEFAULT_ACCENT})}
    Everything hidden here is navigation or an affordance that means nothing on
    paper. The draft banner deliberately SURVIVES: a printed draft handed round a
    meeting table is exactly where "this went out already" is easiest to assume
-   and most expensive to get wrong. */
+   and most expensive to get wrong.
+
+   The rules themselves live in NEWSLETTER_PRINT_RULES below this constant and
+   are interpolated here, because the composer applies the SAME rules on screen
+   in a hidden iframe to estimate how many pages an issue would print as — a
+   Worker has no layout engine, so the browser that is already rendering the
+   draft is the only honest place to ask. One block, two wrappings, and the
+   measured layout cannot drift from the printed one. */
 @media print{
-  /* Restates the light values rather than assuming them. This block used to
-     inherit a light body for free; with a dark mode above it, printing from a
-     dark-themed browser would otherwise put near-white text on white paper —
-     and printing IS the PDF export (invariant 16), so it cannot be left to
-     whichever theme the reader happens to be in. */
-  body{background:#fff;color:${INK}}
-  .nl-subscribe-cta span,.nl-site-foot,.nl-site-foot a,.nl-lang,.nl-lang a:not([href]){color:${MUTED}}
-  .nl-site-foot,.nl-subscribe-cta,.nl-print-link,.nl-events-more,.nl-lang,.nl-archive-feed{display:none}
-  .nl-wrap{max-width:none;padding:0}
-  .nl-card{box-shadow:none;border-radius:0;padding:0}
-  .nl-masthead{padding:0 0 14px}
-  /* Links keep their href meaning on screen but read as noise in ink. */
-  a{color:inherit;text-decoration:none}
-  /* Emojis don't survive black-and-white printing — they come out as grey
-     smudges or empty boxes — so paper goes without them. The renderer wraps
-     each one (hideEmojiOnPaper); on screen the span is inert. */
-  .nl-emoji{display:none}
-  .nl-title{font-size:26px}
-  .nl-p,.nl-ul,.nl-ol{font-size:12pt;line-height:1.55}
-  /* Don't strand a heading or an event row at the foot of a page. */
-  .nl-h1,.nl-h2,.nl-h3,.nl-events-heading{break-after:avoid;page-break-after:avoid}
-  .nl-event,.nl-li,.nl-img,.nl-quote{break-inside:avoid;page-break-inside:avoid}
-  /* Nothing on paper is clickable, so an accent-coloured title is just noise. */
-  .nl-event-title-link{color:${INK}}
-  .nl-foot{break-inside:avoid}
-  /* Floated so the title, subtitle and date wrap beside it rather than
-     starting below a square of white space. */
-  .nl-qr{display:block;float:right;width:.75in;margin:0 0 10px 18px;text-align:center}
-  .nl-qr svg{display:block;width:.75in;height:.75in;margin:0 auto}
-  .nl-qr p{margin:2px 0 0;font-size:8.5pt;line-height:1.35;color:${INK}}
-  /* One small code per link in the body, in a rail down the right margin (see
-     qrBlock). The body reserves the rail once, so every block has the same
-     measure; each block's codes float into it with a negative margin as wide
-     as the rail, which keeps them out of the text entirely, and clear the
-     previous block's codes rather than overlap them. */
-  .nl-body-rail{padding-right:1.2in}
-  .nl-body-rail::after{content:"";display:block;clear:both}
-  .nl-qr-col{display:flex;flex-direction:column;gap:.1in;float:right;clear:right;width:.95in;margin:2px -1.2in .1in 0;break-inside:avoid;page-break-inside:avoid}
-  .nl-qr-item{display:flex;align-items:flex-start;justify-content:flex-end;gap:.05in}
-  .nl-qr-num{font-size:9pt;font-weight:700;line-height:1;margin-top:calc(.75in * var(--qz, 0) - .125em);color:${INK}}
-  .nl-qr-col svg{display:block;width:.75in;height:.75in;flex:none}
-  /* The number after a link that matches the one beside its code. */
-  .nl-qr-ref{display:inline;font-size:.7em;font-weight:700;line-height:0;margin-left:1px;vertical-align:super;color:${INK}}
+${NEWSLETTER_PRINT_RULES}
 }
 `.trim();

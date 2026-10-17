@@ -21,7 +21,12 @@
 import { Hono } from "hono";
 import { describe, expect, it } from "vitest";
 import type { CalendarEventDTO, NewsletterBrandingDTO } from "@sd/shared";
-import { NEWSLETTER_WEB_CSS, renderNewsletterIssuePageHtml } from "@sd/shared";
+import {
+  NEWSLETTER_PRINT_PAGE,
+  NEWSLETTER_PRINT_RULES,
+  NEWSLETTER_WEB_CSS,
+  renderNewsletterIssuePageHtml,
+} from "@sd/shared";
 import { issuePageOf, type IssuePageRow } from "../src/lib/newsletter.js";
 import { newsletterPublic } from "../src/routes/newsletterPublic.js";
 import type { HonoEnv } from "../src/env.js";
@@ -238,6 +243,23 @@ describe("the print stylesheet", () => {
     expect(printBlock).toContain(".nl-emoji{display:none}");
     // No rule outside the print block: on screen the wrapper must stay inert.
     expect(NEWSLETTER_WEB_CSS.slice(0, printAt)).not.toContain(".nl-emoji");
+  });
+
+  it("is NEWSLETTER_PRINT_RULES, wrapped — the composer's page estimate measures the same rules", () => {
+    // The composer applies these rules on screen in a hidden iframe to estimate
+    // printed pages (apps/newsletter/src/lib/printEstimate.ts). The estimate is
+    // only honest while what prints and what is measured are ONE constant; a
+    // print rule written into the @media block directly would print without
+    // ever being measured.
+    expect(NEWSLETTER_WEB_CSS).toContain(`@media print{\n${NEWSLETTER_PRINT_RULES}\n}`);
+  });
+
+  it("pins the paper and the margins, so a page estimate has a denominator", () => {
+    const { widthIn, heightIn, marginIn, contentWidthIn, contentHeightIn } = NEWSLETTER_PRINT_PAGE;
+    expect(NEWSLETTER_PRINT_RULES).toContain(`@page{size:${widthIn}in ${heightIn}in;margin:${marginIn}in}`);
+    // The content box the estimator lays out against really is page minus margins.
+    expect(contentWidthIn).toBeCloseTo(widthIn - 2 * marginIn);
+    expect(contentHeightIn).toBeCloseTo(heightIn - 2 * marginIn);
   });
 
   it("undoes dark mode rather than inheriting it", () => {

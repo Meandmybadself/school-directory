@@ -147,11 +147,14 @@ export const api = {
   /** Ask Workers AI to tighten the draft or make editorial notes. The server
    *  reads the SAVED issue, so callers flush the autosave first, like Send.
    *  The answer is a proposal — nothing is written until the author accepts
-   *  and the ordinary save carries it. */
-  assistIssue: (id: string, mode: NewsletterAssistMode) =>
+   *  and the ordinary save carries it. `reduce` (percent of the draft's prose
+   *  to cut, succinct mode only) turns the tighten pass into a shrink pass —
+   *  the composer sends the figure its print measurement asked for
+   *  (lib/printEstimate.ts), overshoot included; the server clamps it. */
+  assistIssue: (id: string, mode: NewsletterAssistMode, opts?: { reduce?: number }) =>
     request<{ result: NewsletterAssistResultDTO }>(`/newsletter/issues/${id}/assist`, {
       method: "POST",
-      body: JSON.stringify({ mode }),
+      body: JSON.stringify(opts?.reduce !== undefined ? { mode, reduce: opts.reduce } : { mode }),
     }),
 
   /** Events for an issue, resolved server-side — live while it is a draft, from

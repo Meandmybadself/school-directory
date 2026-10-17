@@ -22,14 +22,19 @@ import { newsletter } from "../src/routes/newsletter.js";
 import { NEWSLETTER_EDITOR_GROUP_SETTING } from "../src/lib/newsletter.js";
 import {
   DAILY_ASSIST_LIMIT,
+  REDUCE_MAX_PERCENT,
+  REDUCE_MIN_PERCENT,
   assistSuccinct,
   assistSuggestions,
   claimAssistBudget,
+  clampReduce,
   collectTextSlots,
   inlineToMarkdown,
   markdownToInline,
+  pickEmphasis,
   slotsTextLength,
   slotsToPrompt,
+  succinctPrompt,
 } from "../src/lib/newsletterAssist.js";
 
 /** A draft in ALREADY-SANITIZED shape, so "untouched means byte-identical"
@@ -131,6 +136,79 @@ describe("inline Markdown round trip", () => {
     // stays literal — and the write-time sanitizer would refuse it again anyway.
     expect(nodes.some((n) => (n.marks ?? []).some((m) => m.attrs?.href === "javascript:alert(1)"))).toBe(false);
     expect(nodes.some((n) => (n.marks ?? []).some((m) => m.attrs?.href === "https://ok.example"))).toBe(true);
+  });
+});
+
+// ── The shrink target ─────────────────────────────────────────────────────────
+//
+// The composer measures how many pages the draft would print as and, over the
+// goal, sends a percentage to cut. The server's half: clamp it, say it in the
+// system prompt, and mark the longest blocks as the place to cut.
+
+/** A draft with one long-winded paragraph among short ones, so "the longest
+ *  block" is unambiguous. */
+function longDoc(): { doc: NewsletterNode; longText: string } {
+  const longText =
+    "We are absolutely delighted and thrilled to share with each and every one of you " +
+    "that after a great deal of planning, discussion and coordination among many wonderful " +
+    "volunteers, the annual fall festival will once again be taking place this year on the " +
+    "playground behind the school, and we truly hope to see as many families there as possible.";
+  return {
+    doc: {
+      type: "doc",
+      content: [
+        { type: "heading", attrs: { level: 1 }, content: [{ type: "text", text: "Fall festival" }] },
+        { type: "paragraph", content: [{ type: "text", text: longText }] },
+        { type: "paragraph", content: [{ type: "text", text: "Doors open at 5 PM." }] },
+      ],
+    },
+    longText,
+  };
+}
+
+describe("the shrink target", () => {
+  it("clampReduce holds the bounds the prompt is willing to state", () => {
+    expect(clampReduce(0)).toBe(REDUCE_MIN_PERCENT);
+    expect(clampReduce(33.4)).toBe(33);
+    expect(clampReduce(400)).toBe(REDUCE_MAX_PERCENT);
+  });
+
+  it("succinctPrompt names the percentage only when a target was asked for", () => {
+    expect(succinctPrompt()).not.toContain("%");
+    expect(succinctPrompt(30)).toContain("about 30%");
+    // Both forms still demand the same JSON answer.
+    expect(succinctPrompt(30)).toContain('{"blocks":');
+    expect(succinctPrompt()).toContain('{"blocks":');
+  });
+
+  it("pickEmphasis marks the longest block and leaves short ones alone", () => {
+    const slots = collectTextSlots(longDoc().doc);
+    const marked = pickEmphasis(slots, 30);
+    expect(marked.has(1)).toBe(true); // the long paragraph
+    expect(marked.has(0)).toBe(false); // a short heading has nothing to give
+    expect(marked.has(2)).toBe(false);
+    // The prompt line carries the annotation, on that block only.
+    const prompt = slotsToPrompt(slots, marked);
+    const lines = prompt.split("\n");
+    expect(lines[1]).toContain("(too long — cut this one hardest)");
+    expect(lines[0]).not.toContain("too long");
+    expect(lines[2]).not.toContain("too long");
+  });
+
+  it("assistSuccinct with a target sends the shrink prompt and the annotations", async () => {
+    const { env, calls } = fakeAi({ blocks: [] });
+    await assistSuccinct(env, longDoc().doc, 30);
+    const messages = calls[0]!.input.messages as { role: string; content: string }[];
+    expect(messages[0]!.content).toContain("about 30%");
+    expect(messages[1]!.content).toContain("(too long — cut this one hardest)");
+  });
+
+  it("assistSuccinct without a target sends the prompt it always has", async () => {
+    const { env, calls } = fakeAi({ blocks: [] });
+    await assistSuccinct(env, longDoc().doc);
+    const messages = calls[0]!.input.messages as { role: string; content: string }[];
+    expect(messages[0]!.content).not.toContain("%");
+    expect(messages[1]!.content).not.toContain("too long");
   });
 });
 
@@ -362,6 +440,25 @@ describe("POST /newsletter/issues/:id/assist", () => {
   it("refuses an unknown mode before anything is spent", async () => {
     const res = await routeApp(routeEnv({ ai: suggestionsAi })).post({ mode: "rewrite-everything" });
     expect(res.status).toBe(400);
+  });
+
+  it("refuses a reduce that isn't a number before anything is spent", async () => {
+    const res = await routeApp(routeEnv({ ai: suggestionsAi })).post({ mode: "succinct", reduce: "lots" });
+    expect(res.status).toBe(400);
+  });
+
+  it("clamps an outlandish reduce and says the clamped figure to the model", async () => {
+    const calls: { input: Record<string, unknown> }[] = [];
+    const ai = {
+      run: async (_model: string, input: unknown) => {
+        calls.push({ input: input as Record<string, unknown> });
+        return { response: JSON.stringify({ blocks: [] }) };
+      },
+    };
+    const res = await routeApp(routeEnv({ ai })).post({ mode: "succinct", reduce: 400 });
+    expect(res.status).toBe(200);
+    const messages = calls[0]!.input.messages as { role: string; content: string }[];
+    expect(messages[0]!.content).toContain(`about ${REDUCE_MAX_PERCENT}%`);
   });
 
   it("is 503 with no AI binding — absent means off, like every optional binding", async () => {

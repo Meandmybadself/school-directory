@@ -71,6 +71,7 @@ import {
   assistSuccinct,
   assistSuggestions,
   claimAssistBudget,
+  clampReduce,
   collectTextSlots,
   slotsTextLength,
 } from "../lib/newsletterAssist.js";
@@ -604,9 +605,20 @@ newsletter.post("/issues/:id/assist", async (c) => {
     return c.json({ error: "not_draft", message: "A sent issue can't be edited." }, 409);
   }
 
-  const body = await c.req.json<{ mode?: string }>().catch(() => null);
+  const body = await c.req.json<{ mode?: string; reduce?: unknown }>().catch(() => null);
   const mode = body?.mode;
   if (mode !== "succinct" && mode !== "suggestions") return c.json({ error: "invalid_body" }, 400);
+  // Optional shrink target, percent of the draft's prose — sent by the composer
+  // when its print measurement says the issue runs long. Clamped rather than
+  // trusted (lib/newsletterAssist.ts says where the bounds come from); a value
+  // that isn't a number at all is a malformed request, not a preference.
+  let reduce: number | undefined;
+  if (body?.reduce !== undefined && body.reduce !== null) {
+    if (typeof body.reduce !== "number" || !Number.isFinite(body.reduce)) {
+      return c.json({ error: "invalid_body" }, 400);
+    }
+    reduce = clampReduce(body.reduce);
+  }
 
   // Absent means off, the contract every optional binding here has. After the
   // issue checks, so an instance without the binding still 404s/409s honestly.
@@ -654,7 +666,7 @@ newsletter.post("/issues/:id/assist", async (c) => {
   try {
     const result: NewsletterAssistResultDTO =
       mode === "succinct"
-        ? { mode, ...(await assistSuccinct(c.env, doc)), suggestions: [] }
+        ? { mode, ...(await assistSuccinct(c.env, doc, reduce)), suggestions: [] }
         : { mode, content: null, changes: [], suggestions: await assistSuggestions(c.env, doc) };
     return c.json({ result });
   } catch (err) {
