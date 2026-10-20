@@ -149,6 +149,10 @@ export interface Strings {
   volunteerAddIcs: string;
   volunteerSignedUpTitle: string;
   volunteerSignedUpBody: string;
+  /** The calendar's /volunteers page — an index of upcoming events that still
+   *  need help, assembled from the public sheets (counts, never names). */
+  volunteersPageLead: string;
+  volunteersPageNone: string;
 
   // home
   neighbors: string;
@@ -953,6 +957,8 @@ const en: Strings = {
   volunteerAddIcs: "Apple, Outlook & others (.ics)",
   volunteerSignedUpTitle: "You're signed up",
   volunteerSignedUpBody: "Put it on your calendar so it doesn't slip. If the school moves the event, the calendar entry links back here to the latest details.",
+  volunteersPageLead: "Upcoming events that still need a hand. Open one to see the shifts and sign up.",
+  volunteersPageNone: "Nothing needs volunteers right now — every open spot is taken. Check back soon.",
 
   neighbors: "Neighbors",
   noNeighbors: "No neighbors nearby yet.",
@@ -1761,6 +1767,8 @@ const es: Strings = {
   volunteerAddIcs: "Apple, Outlook y otros (.ics)",
   volunteerSignedUpTitle: "¡Ya tienes tu lugar!",
   volunteerSignedUpBody: "Añádelo a tu calendario para no olvidarlo. Si la escuela cambia el evento, la entrada del calendario enlaza aquí con los datos más recientes.",
+  volunteersPageLead: "Próximos eventos que todavía necesitan ayuda. Abre uno para ver los turnos y apuntarte.",
+  volunteersPageNone: "Por ahora no se necesitan voluntarios: todos los puestos están cubiertos. Vuelve a mirar pronto.",
 
   neighbors: "Vecinos",
   noNeighbors: "Aún no hay vecinos cerca.",
@@ -2495,6 +2503,8 @@ const zh: Strings = {
   volunteerAddIcs: "Apple、Outlook 及其他（.ics）",
   volunteerSignedUpTitle: "报名成功",
   volunteerSignedUpBody: "把它加到您的日历里，以免忘记。如果学校调整了活动，日历条目会链接回这里查看最新信息。",
+  volunteersPageLead: "以下活动仍需帮手。点开活动即可查看岗位并报名。",
+  volunteersPageNone: "目前不需要志愿者——所有名额都已报满。欢迎过段时间再来看看。",
 
   neighbors: "邻居",
   noNeighbors: "附近暂无邻居。",
@@ -3203,6 +3213,8 @@ const so: Strings = {
   volunteerAddIcs: "Apple, Outlook iyo kuwo kale (.ics)",
   volunteerSignedUpTitle: "Waa lagu diiwaangeliyey",
   volunteerSignedUpBody: "Ku dar kalandarkaaga si aanad u illoobin. Haddii dugsigu dhacdada beddelo, galka kalandarku wuxuu kuu soo celinayaa halkan si aad u aragto macluumaadka ugu dambeeyay.",
+  volunteersPageLead: "Dhacdooyinka soo socda ee weli caawimaad u baahan. Fur mid si aad u aragto wakhtiyada oo aad isu diiwaangeliso.",
+  volunteersPageNone: "Hadda ma jirto dhacdo mutadawaciin u baahan — boosaska oo dhan waa la buuxiyay. Mar kale soo fiiri.",
 
   neighbors: "Deriska",
   noNeighbors: "Weli ma jiraan deris kuu dhow.",
