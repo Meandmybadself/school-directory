@@ -1,43 +1,42 @@
 # CLAUDE.md — working notes for agents in this repo
 
 Read this before making changes. It captures the non-obvious rules; the product
-spec is in `docs/` and an orientation for humans is in `README.md`.
+spec is in `docs/`, an orientation for humans is in `README.md`. `PLAN.md` is
+the ORIGINAL build plan (M0–M4, identity core only) — read it as history; this
+file and the tests are the current contract.
 
-`PLAN.md` is the ORIGINAL build plan and covers M0–M4 (the identity core) only.
-Everything after it — the calendar, volunteer sheets, the newsletter, the store,
-the front door — landed without being tracked there. Read it as history; **this
-file and the tests are the current contract.**
+**Invariant numbers are referenced from source comments — never renumber them.**
 
 ## What this is
 
-Single-tenant **school directory**, live in production. Identity foundation for
-the services that grew on top of it: a calendar with volunteer sign-ups, a
-newsletter, a merch store, and the PTO's own site and planning boards.
+Single-tenant **school directory**, live in production, plus the services that
+grew on its identity: a calendar with volunteer sign-ups, a newsletter, a merch
+store, the PTO's site and planning boards, and a lost & found.
 Cloudflare-native: React/Vite (Pages) + Hono (Workers) + D1 + R2, with Resend
-email, Nominatim geocoding, and — for the store — Stripe and Printful, plus an
-optional Slack webhook for system events.
+email, Nominatim geocoding, Stripe + Printful (store), Workers AI + Vectorize
+(lost & found), and an optional Slack webhook.
 
-The directory is **members-only** and its visibility model has no public level.
-A handful of surfaces around it are deliberately open to the internet — the front
-door, the calendar agenda and event pages, volunteer COUNTS, the sent-newsletter
-archive, published ICS feeds, the storefront, an order's status page and the
-PTO's explanatory page — and each is served through a hand-written projection
-(invariants 12, 13, 15, 26) or, in the PTO page's case, through no read at all:
-it is a pure function of the URL and the request headers (invariant 28).
-Everything else, every volunteer NAME included, needs a session.
+The directory is **members-only; there is no public visibility level.** The
+deliberately-open surfaces are: the front door, the calendar agenda and event
+pages, volunteer COUNTS, the sent-newsletter archive, published ICS feeds, the
+storefront, an order's status page, the PTO's explanatory pages, and lost &
+found browse/claim. Each is served through a hand-written projection
+(invariants 12, 13, 15, 26, 33) or, for the PTO landing page, no read at all
+(invariant 28). Everything else — every volunteer NAME included — needs a
+session.
 
 ## Repository layout
 
 ```
-apps/home           One-page Worker owning the apex, eisenhower.school. Server-rendered, no bundle; one of only THREE surfaces here that want to be indexed (apps/store's storefront and apps/pto's public page are the others).
-apps/web            Directory SPA (Vite) → directory.eisenhower.school. Design system in src/components, screens in src/screens.
-apps/calendar       Calendar SPA (Vite) → calendar.eisenhower.school. Shares the API, D1 and session; design system is COPIED, not imported.
-apps/newsletter     Newsletter SPA (Vite) → newsletter.eisenhower.school. Admin authoring (TipTap) + a member preferences screen, PLUS Pages Functions serving the public archive. Design system COPIED.
-apps/store          Store SPA (Vite) → store.eisenhower.school. Cart + admin in the bundle, PLUS Pages Functions serving the PUBLIC, INDEXED storefront. Printful catalog, Stripe checkout. Design system COPIED. Vendor/DNS setup: SETUP.md.
-apps/api            Hono Worker → api-directory.eisenhower.school. Serves ALL FOUR SPAs. Routes in src/routes, logic in src/lib, middleware in src/middleware.
-apps/pto            PTO SPA (Vite) → pto.eisenhower.school. Trello-like planning boards in the bundle (members AND PTO-board only), PLUS Pages Functions serving the PUBLIC, INDEXED explanatory pages — who the PTO is, the year, how to help (`/how-to-help`: the Resource Center, volunteering, wishlists), how to donate. Design system COPIED. Routing: ROUTING.md.
-apps/lostandfound   Lost & found SPA (Vite) → lostandfound.eisenhower.school. PUBLIC browse/search/item/claim screens (open to all, NOT indexed) plus staff screens (roster-gated) in one bundle; no Pages Functions. Design system COPIED. Routing: ROUTING.md. Invariant 33.
-apps/redirect       One-file Worker owning hostnames that exist only to 301 elsewhere: the retired directory.meandmybadself.com (path-preserving, to the live host) and ptomeet.eisenhower.school (a vanity name for the PTO's Google Meet room). Host map in src/index.ts; each host is also a custom_domain route in wrangler.toml.
+apps/home           One-page Worker owning the apex, eisenhower.school. Server-rendered, no bundle. One of only FOUR indexed surfaces (with /faq beside it, the storefront, and the PTO public pages).
+apps/web            Directory SPA → directory.eisenhower.school. Design system in src/components, screens in src/screens.
+apps/calendar       Calendar SPA → calendar.eisenhower.school. Shares API/D1/session; design system COPIED, not imported.
+apps/newsletter     Newsletter SPA → newsletter.eisenhower.school. Admin authoring (TipTap) + member preferences, PLUS Pages Functions serving the public archive. Design system COPIED.
+apps/store          Store SPA → store.eisenhower.school. Cart + admin in the bundle, PLUS Pages Functions serving the PUBLIC, INDEXED storefront. Printful + Stripe. Design system COPIED. Vendor/DNS setup: SETUP.md.
+apps/api            Hono Worker → api-directory.eisenhower.school. Serves ALL the SPAs. Routes in src/routes, logic in src/lib, middleware in src/middleware.
+apps/pto            PTO SPA → pto.eisenhower.school. Planning boards (members AND PTO-board only) in the bundle, PLUS Pages Functions serving the PUBLIC, INDEXED explanatory pages (/, /how-to-help). Design system COPIED. Routing: ROUTING.md.
+apps/lostandfound   Lost & found SPA → lostandfound.eisenhower.school. Public browse/search/item/claim (open, NOT indexed) + staff screens (roster-gated) in one bundle; no Pages Functions. Design system COPIED. Invariant 33.
+apps/redirect       One-file Worker for hostnames that only 301 (retired directory.meandmybadself.com, ptomeet.eisenhower.school). Host map in src/index.ts; each host also a custom_domain route in wrangler.toml.
 apps/api/migrations Ordered D1 SQL migrations (NNNN_name.sql). Never edit an applied migration — add a new one.
 packages/shared     Domain types (types.ts) + i18n dictionaries (i18n.ts). Imported as `@sd/shared`.
 docs/               Product spec (PLAN/SRD/SDD). Source of truth for requirements.
@@ -45,1954 +44,1077 @@ docs/               Product spec (PLAN/SRD/SDD). Source of truth for requirement
 
 ## The front door
 
-`apps/home` serves `eisenhower.school` (and 301s `www`). It is not a fourth SPA:
-one HTML document per request, rendered from the shared dictionaries, no client
-bundle and no API call.
+`apps/home` serves `eisenhower.school` (301s `www`). One HTML document per
+request from the shared dictionaries; no client bundle. Three pages: `/`
+(`page.ts`), `/faq` (`faq.ts` — explains the site for a parent handed the URL),
+`/privacy` (`privacy.ts` — the formal notice). Shared chrome (`<head>`, header,
+footer, `?lang=` helpers) lives in `shell.ts`, imported by all three.
 
-It now serves **three** pages. `/` is the landing page (`page.ts`); `/faq` is
-the one that EXPLAINS the site rather than being it (`faq.ts`); `/privacy` is
-the formal notice (`privacy.ts`), written because a parent asked what the
-directory holds and deserved an answer they could read without an account. It
-makes no subrequest either, carries the transportation commitment in all four
-languages, and names every third party data actually reaches — the bar for
-appearing on that list is "data reaches them", not "we have a contract with
-them", so a new outbound call is a change to that page. One such call is
-invisible in this repo: **Cloudflare Web Analytics is injected at the edge,
-zone-wide**, into every HTML page on every hostname (it reports to
-`/cdn-cgi/rum`). No code here adds it and grepping will not find it; `/privacy`
-names it as the only measurement, so switching it off — or adding anything
-beside it — is a change to that page too. `/faq` — written for a
-parent handed the URL at back-to-school night, answering what is here, how to
-get in, and who can see what. The chrome they share — `<head>`, header, footer,
-the `?lang=` helpers — lives in `shell.ts` and is IMPORTED by both. The five
-SPAs copy their design system on purpose and are expected to drift; two routes
-inside one Worker have no such excuse, so a change to the header is a change to
-both pages by construction.
-Two things follow. `/faq` makes **no subrequest at all**, so unlike `/` it
-cannot be slowed or emptied by the API being down — the shape invariant 28
-praises in the PTO page. And it is the **fourth indexed surface** in the
-project, so `INDEXED_PATHS` in `index.ts` is what puts it in the sitemap: a page
-added to this host and not to that list is a page no search engine hears about.
-`langHref(locale, path)` takes a path precisely so `/faq`'s picker keeps the
-reader on `/faq`; a picker that loses your place is one people stop using.
-
-Three things about the landing page cannot be changed casually:
-
-- **It is one of only four surfaces in this project that ask to be indexed**,
-  the others being `/faq` beside it, the store's public storefront
-  (invariant 26) and the PTO's public page (invariant 28). The SPAs' bundles all send `noindex` because they
-  are members-only. This one ships a `robots.txt`, a sitemap and `hreflang`
-  alternates, so nothing member-private may ever appear on it — and the same
-  obligation now travels with the store and the PTO page.
-- **The hero greeting stack is the language picker**, and it is the one place
-  that reads ACROSS `dictionaries` rather than within one locale — it shows all
-  four `landingWelcome` strings at once, in `LOCALES` order, with the current
-  one marked. Adding a locale to `LOCALES` therefore adds a line to the hero for
-  free; adding one WITHOUT a `landingWelcome` breaks the type.
-- **`?lang=` stays in the URL here**, unlike in the SPAs, which apply it and
-  strip it. A stable per-language URL is what `hreflang` and a shared link both
-  need. Outbound links to the apps carry `?lang=` so the reader's language
-  travels with them.
+- **`/privacy` names every third party data actually reaches** — the bar is
+  "data reaches them", not "we have a contract" — so a new outbound call is a
+  change to that page. One call is invisible in this repo: **Cloudflare Web
+  Analytics is injected at the edge, zone-wide** (reports to `/cdn-cgi/rum`);
+  grepping won't find it. `/privacy` names it as the only measurement.
+- **`INDEXED_PATHS` in `index.ts` builds the sitemap** — a page added to this
+  host and not that list is invisible to search engines. `/faq` makes no
+  subrequest at all, so an API outage can't touch it.
+- **Nothing member-private may ever appear on an indexed surface** (this host,
+  the storefront, the PTO pages).
+- **The hero greeting stack is the language picker** — the one place that reads
+  ACROSS `dictionaries` (all four `landingWelcome` strings, `LOCALES` order).
+  Adding a locale adds a line for free; one without `landingWelcome` breaks the
+  type.
+- **`?lang=` stays in the URL here** (unlike the SPAs, which apply and strip
+  it) — `hreflang` and shared links need stable per-language URLs. Outbound
+  links to the apps carry `?lang=`; that handoff is how preference travels (the
+  SPAs don't read the cookie).
 - **Language resolves `?lang=` → `sd_lang` cookie → `Accept-Language` → `en`**
-  (`locale.ts`), the server-side twin of `detectLocale` in each SPA's
-  `src/i18n/index.tsx`, which reads `?lang=` → localStorage →
-  `navigator.language`. The order is the rule: a choice, once made, is never
-  quietly undone by detection. The cookie is written **only where an explicit
-  `?lang=` was honoured** — a detected language is never written back, so
-  detection can't promote itself into a preference the reader never stated. It
-  is the only state this page keeps; it is host-only (no `Domain`, like
-  `sd_session`), and the SPAs don't read it — the `?lang=` on every outbound
-  link is the handoff, and each app then saves the choice its own way. Because
-  the response now varies on a cookie it is `Cache-Control: private` with
-  `Vary: Accept-Language, Cookie`: a shared copy would hand the next reader the
-  previous one's language. Crawlers send no cookie, so canonical and `hreflang`
-  are unaffected.
-
-- **It makes exactly one subrequest**, and it is the upcoming-events block:
-  `events.ts` reads the ANONYMOUS `/calendar-public/events` (never the
-  members-only twin — this is the one indexed surface in the project, so
-  invariant 12's projection is what keeps it safe). It is edge-cached, times out
-  fast, and **every failure mode resolves to an empty list, which hides the
-  block** — an API outage must never take the front door down. Dates are read
-  live rather than transcribed for the obvious reason: a date copied onto this
-  page is wrong the moment the school moves it, and this page has no editor.
-  Rows link to `/e/:date/:slug` on the calendar, minted in `SCHOOL_TIMEZONE`
-  since a Worker has no reader timezone.
-- **The tile grid leads with the PTO's page**, which is the front door's answer
-  to "what is this?" — the one tile that needs no account, no subscription and
-  nothing of the reader. `/pto` and `/donate` are vanity shortcuts to the same
-  place. The store's tile is still deliberately absent while the shop is
-  unannounced; see the comment in `page.ts`.
-- **It repeats the contacts and links a family reaches for**, transcribed from
-  the district's back-to-school mailing into `apps/home/src/district.ts` — phone
-  numbers, URLs and the bell times, since the words that label them are
-  dictionary keys like everything else. The school's NAME lives there too: a
-  proper noun, configuration in the same sense `SCHOOL_CITY` is. Nothing in that
-  file expires, which is why it may be transcribed at all. Three columns —
-  Eisenhower's own numbers, the district's departments, the pages worth opening
-  — and deliberately nothing else: the other schools' offices and the "published
-  by" attribution were both cut as reprinting rather than helping, so keep
-  additions to that bar. The district is already reachable from the header and
-  from every resource row.
-
-This hostname used to be a Cloudflare redirect rule pointing at
-`eisenhower.hopkinsschools.org`; the rule was deleted when the Worker took over,
-and redirect rules run BEFORE Workers, so if the apex ever starts 301ing again,
-look for a resurrected rule in the `eisenhower.school` zone before debugging the
-Worker. People still arrive here looking for the district's site, which is why
-every rendering carries a link out to it in the header.
+  (`locale.ts`; server twin of each SPA's `detectLocale`). The cookie is
+  written ONLY where an explicit `?lang=` was honoured — detection never
+  promotes itself into a preference. Host-only cookie; response is
+  `Cache-Control: private` + `Vary: Accept-Language, Cookie`.
+- **Exactly one subrequest**: the upcoming-events block (`events.ts`) reads the
+  ANONYMOUS `/calendar-public/events`, edge-cached, fast timeout, and **every
+  failure resolves to an empty list that hides the block** — an API outage must
+  never take the front door down. Rows link to `/e/:date/:slug`, minted in
+  `SCHOOL_TIMEZONE`.
+- The tile grid leads with the PTO page; the store tile is deliberately absent
+  while the shop is unannounced (see comment in `page.ts`).
+- District contacts/bell times live in `apps/home/src/district.ts` — including
+  the school's NAME. Nothing in that file expires; keep additions to the bar
+  of "helps a family", not "reprints the mailing".
+- The apex used to be a Cloudflare redirect rule → district site. Redirect
+  rules run BEFORE Workers, so if the apex ever 301s again, look for a
+  resurrected rule in the zone before debugging the Worker.
 
 ## Six front ends, one API
 
-All six SPAs are separate Cloudflare Pages projects talking to the single
-`apps/api` Worker, and they share one session:
+All six SPAs are separate Pages projects talking to the single `apps/api`
+Worker, sharing one session:
 
-- The `sd_session` cookie has **no `Domain`** — it's host-only to the API's own
-  hostname. All six SPAs are on `eisenhower.school` subdomains, so a credentialed
-  `fetch` to the API is same-site and the cookie rides along. Don't "fix" this by
-  adding a `Domain` attribute.
-- **Every new front-end origin must be added to `ALLOWED_ORIGINS`** in
-  `apps/api/wrangler.toml` (both `[vars]` and `[env.production.vars]`). That one
-  list is also the allowlist of valid magic-link `returnTo` targets — same trust
+- **`sd_session` has no `Domain`** — host-only to the API hostname. All SPAs
+  are `eisenhower.school` subdomains, so a credentialed `fetch` is same-site
+  and the cookie rides along. Don't "fix" this with a `Domain` attribute.
+- **Every new front-end origin goes in `ALLOWED_ORIGINS`** in
+  `apps/api/wrangler.toml` (both `[vars]` and `[env.production.vars]`). That
+  list is also the allowlist of magic-link `returnTo` targets — same trust
   boundary, deliberately one variable.
-- `apps/calendar`, `apps/newsletter`, `apps/store`, `apps/pto` and
-  `apps/lostandfound` **copy**
-  `tokens.css`, `Icon.tsx`, `atoms.tsx` and the generic half of `parts.tsx` from
-  `apps/web` rather than importing them. They're expected to drift. If you change
-  a shared-looking component, decide which of the six copies need it.
-- **Navigation has two tiers, and only one of them is per-app.** An app's OWN
-  screens are its `navItems()` in `AppShell.tsx` — one list, read by both the
-  bottom bar and the desktop sidebar; labels are dictionary keys, and the admin
-  entry is always `shield` + `navAdmin`. The **platform switcher** — the four
-  sibling apps, directory first and PTO last — is `PLATFORM_APPS` in
+- The five non-web apps **copy** `tokens.css`, `Icon.tsx`, `atoms.tsx` and the
+  generic half of `parts.tsx` from `apps/web`. They're expected to drift. A
+  change to a shared-looking component is a decision about which of the six
+  copies need it.
+- **Navigation has two tiers.** An app's OWN screens are its `navItems()` in
+  `AppShell.tsx` (labels are dictionary keys; admin entry is `shield` +
+  `navAdmin`). The platform switcher is `PLATFORM_APPS` in
   `packages/shared/src/nav.ts`, rendered by each app's copied
-  `components/AppSwitcher.tsx`: the section at the foot of the desktop sidebar,
-  and the sheet behind the "Apps" tab on a phone. The store's and PTO's
-  server-rendered headers iterate the same list. The store is deliberately
-  absent from it while the shop is unannounced; when that changes, add it there
-  and nowhere else. `apps/api/test/platformNav.test.ts` checks every `Icon.tsx`
-  copy still defines the icons the list names and that no shell's nav list has a
-  hardcoded label. Each app supplies only its ORIGINS (`PLATFORM_ORIGINS` in
-  `lib/api.ts`, from `VITE_*_URL`) — the shared package is also imported by the
-  API Worker, which has no `import.meta.env`.
-- `apps/newsletter`, `apps/store` and `apps/pto` are the Pages projects with a
-  `wrangler.toml`, because they're the ones with `functions/`. Those Pages
-  Functions server-render the public surfaces — the newsletter archive (`/` and
-  `/n/:slug`), the storefront (`/`, `/p/:slug`, `/o/:token`) and the PTO pages
-  (`/`, `/how-to-help`) — so a link pasted into a text message gets a real preview and a reader
-  never downloads an authoring bundle. **Do not add a `_redirects` file there** —
-  Pages 308s `/index.html` to
-  `/`, so an SPA-fallback rewrite sends `/admin` to the public archive instead of
-  the app. Functions already take precedence over assets, and every other path
-  falls through to `index.html` on its own. See `apps/newsletter/ROUTING.md` —
-  and `apps/store/ROUTING.md` and `apps/pto/ROUTING.md`, which restate the same
-  trap for the same reason.
-- **The PTO app's landing page reads nothing at all** — a pure function of the
-  URL, `Accept-Language` and the `sd_lang` cookie. `/how-to-help` is the one
-  Function there that reads, and only the ANONYMOUS calendar projections, for
-  its live volunteer list (`functions/_lib/volunteers.ts`), degrading to a
-  hidden block on every failure. Every `pto_*` table is reached only through
-  the bundle's credentialed `fetch` to `/pto/*`; there is no `/pto-public/*`
-  router and no public projection to review. See invariant 28.
-- The calendar owns all calendar admin. `apps/web`'s Admin has no calendar tab —
-  just a link out. `apps/web` keeps only `api.calendarEvents` (for Home's
-  upcoming-events block); `/calendar` there is a redirect to the calendar site.
-- **The calendar's home screen is public.** `/` in `apps/calendar` is ungated on
-  purpose: anyone can read the agenda without signing in. It reads
-  `/calendar-public/*` (no `requireAuth`, like `ics.ts` and `newsletterPublic.ts`),
-  NOT the members-only `/calendar/*` — which still exist, still require auth, and
-  are what `apps/web` uses. Admin routes stay gated on both sides. See invariant
-  12 before adding a field to any calendar DTO.
-- **A volunteer sheet no longer has a page of its own.** It is rendered inline
-  on its event's page (below), and `/v/:slug` resolves the slug and forwards
-  there — ungated, same pattern, and it picks its endpoint by whether there's a
-  session (the anonymous one when signed out: counts, no names). The URL is kept
-  permanently: it is what circulates in text messages, and a slug is the only
-  DURABLE handle on a sheet, where an event path is a content identity a retitle
-  invalidates. It forwards the slug in `?sheet=`, which the event page honours so
-  a sheet the event itself would not name still opens — a draft, or one whose
-  occurrence no longer resolves (which is also the one case the admin's share
-  link stays a `/v/` URL). A param-sourced sheet is checked against the path's
-  own slug before it renders, since a hand-edited URL could otherwise pair one
-  event's heading with another's positions. Signing up is a write and always
-  needs an account. See invariant 13.
-- **And so is one event's own page at `/e/:date/:slug`.** Tapping a row on the
-  agenda goes there rather than opening a modal, and it is the ONE page where the
-  description, the volunteer sheet (via `components/VolunteerPositions.tsx`) and
-  the admin edit form all live — the sheet's own screen was folded into it, so
-  there is one rendering of an event rather than two that overlap. There is
-  deliberately **no per-event `.ics` download** — a copy of one occurrence goes
-  stale the moment the school moves the date, and the calendar-level subscribe on
-  the agenda's filter bar is the affordance that keeps up. **A volunteer's own
-  shift is the one exception**: once they hold a spot, its position card (and
-  a sheet that opens straight after the claim) offers "Add to calendar" — a
-  Google Calendar template link built in the browser and a `.ics` from
-  `GET /volunteers/signups/:id/ics` (controller or admin, `no-store`). A
-  commitment belongs in the reader's own calendar, and the agenda can't say
-  which slot is theirs. Both are built by `volunteerShiftWindow`
-  (`packages/shared/src/volunteerCalendar.ts`) so they agree on the window,
-  both carry the event page's URL back to the version that keeps up, and the
-  file's UID is the signup id so re-adding it after a move replaces the entry.
-  `signupIcsOf` reads the member sheet but names nobody; its test pins that. The
-  path is a CONTENT identity — day + title slug, minted by `eventPath` in
-  `@sd/shared` and matched by `findEventByPath` — because an event has no
-  durable public id to put in a URL; see invariant 8 and
-  `packages/shared/src/eventPath.ts` for the trade that makes. The app mints the
-  day in the READER'S timezone, so the lookup searches ±1 day and takes the
-  occurrence nearest the requested date; that is what makes a weekly series
-  resolve to the right week. The screen reads the public route, and re-reads the
-  members-only twin only for a system admin — the one thing that adds is
-  `seriesId`, which the edit form needs. The agenda itself no longer does that
-  re-read at all, and is now written purely against `PublicCalendarEventDTO`.
-  **The newsletter's events blocks link every event title here**, in the email,
-  the composer preview and the public archive alike (one renderer — invariant 9),
-  minting the day in the ISSUE'S `SCHOOL_TIMEZONE` rather than a reader's. Note
-  what that means for the archive, which is permanent: `calendar_event` keeps
-  only ~2 days of past events, so an archived issue's event links stop resolving
-  shortly after the event happens and land on the page's "event not found" card.
-  That is inherent to addressing an event at all, not a bug in the link.
+  `AppSwitcher.tsx` and iterated by the store's and PTO's server headers. The
+  store is deliberately absent until announced; when that changes, add it
+  there and nowhere else. Each app supplies only its ORIGINS
+  (`PLATFORM_ORIGINS` in `lib/api.ts` from `VITE_*_URL`) — the shared package
+  is also imported by the Worker, which has no `import.meta.env`.
+  `test/platformNav.test.ts` checks the icons exist and no hardcoded labels.
+- `apps/newsletter`, `apps/store`, `apps/pto` have `wrangler.toml` because they
+  have `functions/` serving their public surfaces (real link previews, no
+  authoring bundle for anonymous readers). **Never add a `_redirects` file** —
+  Pages 308s `/index.html` → `/`, so an SPA-fallback rewrite sends `/admin` to
+  the public page. Functions take precedence over assets; everything else falls
+  through to `index.html` on its own. See each app's `ROUTING.md`.
+- **The PTO landing page reads nothing** — pure function of URL,
+  `Accept-Language`, `sd_lang`. `/how-to-help` reads only the ANONYMOUS
+  calendar projections (`functions/_lib/volunteers.ts`), hiding the block on
+  any failure. `pto_*` tables are reached only via the bundle's credentialed
+  `/pto/*` fetches. See invariant 28.
+- The calendar owns all calendar admin; `apps/web`'s `/calendar` is a redirect
+  and keeps only `api.calendarEvents` for Home's block.
+- **The calendar's home screen is public** — `/` reads `/calendar-public/*`
+  (no `requireAuth`), never the members-only `/calendar/*` twins (which
+  `apps/web` uses). See invariant 12 before adding a field to any calendar DTO.
+- **A volunteer sheet has no page of its own** — it renders inline on its
+  event's page. `/v/:slug` (permanent URL, circulates in texts; a slug is the
+  only DURABLE handle on a sheet) resolves and forwards there, picking the
+  endpoint by session (anonymous = counts, no names), passing `?sheet=` so a
+  draft or orphaned sheet still opens; a param-sourced sheet is checked against
+  the path's own slug before rendering. Signing up always needs an account.
+  See invariant 13.
+- **`/e/:date/:slug` is THE event page** — description, volunteer sheet
+  (`components/VolunteerPositions.tsx`) and admin edit form all live there; one
+  rendering of an event, not two. **No per-event `.ics` download** (a copied
+  occurrence goes stale when the school moves the date; the calendar-level
+  subscribe keeps up) — with ONE exception: a volunteer's own claimed shift
+  offers "Add to calendar" (Google template link + `.ics` from
+  `GET /volunteers/signups/:id/ics`, controller-or-admin, `no-store`). Both are
+  built by `volunteerShiftWindow` (`packages/shared/src/volunteerCalendar.ts`);
+  the `.ics` UID is the signup id so re-adding after a move replaces the entry;
+  `signupIcsOf` names nobody (pinned). The path is a CONTENT identity
+  (day + title slug; `eventPath` / `findEventByPath`, see invariant 8). The app
+  mints the day in the READER'S timezone, so lookup searches ±1 day and takes
+  the nearest occurrence. The screen reads the public route; only a system
+  admin re-reads the members-only twin (for `seriesId`, which the edit form
+  needs). The agenda is written purely against `PublicCalendarEventDTO`.
+- The newsletter's events blocks link titles to `/e/:date/:slug`, minting the
+  day in the ISSUE'S `SCHOOL_TIMEZONE`. `calendar_event` keeps only ~2 days of
+  past events, so an archived issue's event links stop resolving shortly after
+  the event — inherent to addressing an event at all, not a bug.
 
 ## Non-negotiable invariants
 
 1. **Privacy is resolved server-side only.** Never send a client data it can't
    see. All filtering lives in `apps/api/src/lib/privacy.ts` + `serialize.ts`.
-2. **Geo-coordinates never leave the server.** `geo_lat`/`geo_lng` are never put
-   in any DTO. Neighbor responses carry a rounded distance string only.
-3. **New fields default to `private`** (NFR-1). Neighbor discovery is opt-in and
-   independent of address visibility.
+
+2. **Geo-coordinates never leave the server.** `geo_lat`/`geo_lng` go in no
+   DTO. Neighbor responses carry a rounded distance string only.
+
+3. **New fields default to `private`** (NFR-1). Neighbor discovery is opt-in
+   and independent of address visibility.
+
 4. **No account enumeration.** `/auth/start` and registration-closed responses
    are identical whether or not the email exists.
-5. **All mutating routes push audit drafts** to `c.var.audit`; the audit
-   middleware persists them (hash-chained). Don't write `audit_log` directly.
-   The append is a **compare-and-swap on `seq`** (migration 0016), not a
-   read-then-write: reading the tail and inserting a successor are two
-   statements with no transaction between them, and the flush runs inside
-   `waitUntil`, so concurrent requests really did both chain onto row N and fork
-   the chain into a tree. A writer claims a position, `ON CONFLICT (seq) DO
-   NOTHING` rejects the loser, and it re-reads and chains onto the winner.
-   Exhausting the retry budget DROPS an entry, which is worse than the fork —
-   that is why the budget is 25 with jittered backoff and not a token 3.
-   `verifyAuditChain` is the other half: `prev_hash`/`row_hash` were written and
-   read by nothing for a long time, which is exactly why the fork went unnoticed
-   — a hash nobody checks is not evidence. It's exposed at
-   `GET /admin/audit/verify`. Rows appended before 0016 may legitimately fail it.
-   **Noise is fixed at the push site, never by deleting rows.** The chain is
-   append-only and `lib/sweep.ts` deliberately omits `audit_log`, so a log gone
-   loud has exactly one lever: what a route decides counts as an event.
-   `newsletter.issue.updated` is the worked example — the editor autosaves 1.2s
-   after the author stops typing, which made it the largest action in this
-   instance's log (108 rows out of ~450, from ONE issue) and a transcript of a
-   debounce timer rather than a record. `claimEditSession`
-   (`routes/newsletter.ts`, migration 0020) now mints one row per editing
-   SITTING: a guarded `UPDATE … WHERE audit_session_at < ?` on the issue row,
-   batched with the save it already sends, and the draft is pushed only when
-   `meta.changes` says this request opened the session. Same idiom as the
-   volunteer overfill and last-admin guards, for the same reason — D1 has no
-   read-then-write transaction. Nothing is lost that the system doesn't already
-   hold: the row carried no `detail`, and where the sitting ended is
-   `newsletter_issue.updated_at`. The state lives on the issue row rather than
-   being derived from `audit_log` because audit rows are written in `waitUntil`
-   AFTER the response, so a lookup there would race the burst it collapses.
-   Before applying this to another action, check it is actually machine-paced:
-   invariant 22's rule holds here too — **count first**
-   (`SELECT action, COUNT(*) FROM audit_log GROUP BY action`), because
-   coalescing a human-paced action loses real events for nothing.
-6. **UI copy comes from `@sd/shared` i18n dictionaries** — never hardcode user-
-   facing English in a component. Member-entered content is never translated.
+
+5. **All mutating routes push audit drafts** to `c.var.audit`; the middleware
+   persists them hash-chained. Never write `audit_log` directly. The append is
+   a **compare-and-swap on `seq`** (migration 0016): D1 has no read-then-write
+   transaction and the flush runs in `waitUntil`, so a writer claims a
+   position, `ON CONFLICT (seq) DO NOTHING` rejects the loser, and it re-reads
+   and re-chains — retry budget 25 with jittered backoff, because exhausting it
+   DROPS an entry, which is worse than a fork. `verifyAuditChain` is exposed at
+   `GET /admin/audit/verify`; rows appended before 0016 may legitimately fail.
+   **Noise is fixed at the push site, never by deleting rows** (the chain is
+   append-only; `lib/sweep.ts` deliberately omits `audit_log`).
+   `newsletter.issue.updated` is the worked example: the editor autosaves, so
+   `claimEditSession` (`routes/newsletter.ts`, migration 0020) mints one row
+   per editing SITTING — a guarded `UPDATE … WHERE audit_session_at < ?`
+   batched with the save, draft pushed only when `meta.changes` says this
+   request opened the session. State lives on the issue row (audit rows are
+   written in `waitUntil` AFTER the response, so a lookup there would race).
+   Before coalescing another action, **count first**
+   (`SELECT action, COUNT(*) FROM audit_log GROUP BY action`) — coalescing a
+   human-paced action loses real events for nothing.
+
+6. **UI copy comes from `@sd/shared` i18n dictionaries** — never hardcode
+   user-facing English in a component. Member-entered content is never
+   translated.
+
 7. **IDs are ULIDs** (`lib/ids.ts`); timestamps are ISO-8601 UTC strings.
-8. **`calendar_event` is a derived cache, and its row ids are NOT stable.** Both
-   imported feeds and managed events delete-then-insert into it, minting fresh
-   ULIDs. Anything that needs a durable handle on an event must use a managed
-   event's `(managed_event_id, starts_at)` pair — the
-   ICS `UID` + `RECURRENCE-ID` convention, surfaced as `seriesId`/`recurrenceId`
-   on `CalendarEventDTO`. `volunteer_sheet` is what actually depends on that: it
-   stores exactly that pair (`managed_event_id` + `occurrence_start`) and
-   reads its event from `managed_event`, never from `calendar_event` — see
-   invariant 13. `eventKey`
-   (`packages/shared/src/newsletterEvents.ts`) is how a newsletter remembers that
-   an author removed one event from an events block. An imported event has no
-   durable id at all, so it falls back to the content identity `dedupeEvents`
-   already uses (kind + title + start-to-the-minute) — weaker, since retitling
-   upstream drops the exclusion, but the strongest thing an ICS feed offers.
-   Never key such a thing on `CalendarEventDTO.id`.
-   The calendar's event page URL (`/e/:date/:slug`) takes that same content
-   identity one step further: it uses it for managed and imported events alike,
-   because a URL is minted by a browser that was never given the durable pair.
-   Retitling or moving an event therefore drops links to the old one — the same
-   weakness `eventKey` accepts, taken deliberately, since the alternative is an
-   event page an imported event could never have.
-9. **One newsletter renderer.** A newsletter issue is stored as TipTap JSON and
-   turned into HTML solely by `packages/shared/src/newsletterRender.ts` — used by
-   the email, the composer's live preview, and the public archive page. It is
-   also the sanitizer: it switches over a fixed node/mark allowlist and escapes
-   all text, so it cannot emit a tag it doesn't know. Enabling a TipTap extension
-   without adding its renderer case silently drops content. `sanitizeNewsletterDoc`
-   applies the same allowlist on write.
-   The **settings footer is the one raw-HTML seam**: an admin may hand-write
-   `footerHtml`, which `sanitizeFooterHtml` (same file) reduces to a tag/attribute
-   allowlist — dropping `<script>`-class elements with their contents, refusing
-   `url()`/`expression()` CSS, and balancing tags so a footer can't swallow the
-   archive page. It runs on WRITE (`coerceNewsletterSettings`), so what's stored
-   is already safe. The footer is **HTML only** — there is no plain-text twin;
-   `footerHtmlOf` hands the stored markup to the email and the archive, and
-   `footerTextOf` flattens that same markup for the email's text part. Don't add
-   a second place that interpolates admin HTML; route it through that function.
-   `coerceNewsletterSettings` still promotes a legacy `footerText` into
-   `footerHtml` on read, for settings blobs written before the fields merged;
-   that fallback can go once every instance has saved settings again.
-10. **A sent newsletter is immutable; whether its web page is public is a
-   separate switch.** Events blocks resolve live while a draft is edited and are
-   FROZEN into `events_snapshot_json` at send, so the archive keeps matching what
-   was mailed. Issue URLs are human-readable and therefore enumerable by design —
-   nothing member-private may ever go in one.
-   **`published_at` (migration 0031) is the public gate, not `status`.** An
-   editor can publish an issue's page without mailing it (`POST
-   /newsletter/issues/:id/publish`), keep editing a published draft — its page
-   shows each save, events resolved live as on a review link — and send it
-   later; and can take any page down (`DELETE …/publish`), a sent one included,
-   because a page that went out with a mistake on it has to be removable. The
-   send still publishes (`COALESCE`, keeping an earlier date), since the email's
-   "view in browser" link is that page, and unpublishing is refused only while
-   a send is running. Two locks follow from a page being up, both because they
-   would break links already out — on paper as a QR code, in messages, in the
-   archive: its slug can't change, and a published draft can't be deleted.
-   Publish and unpublish are compare-and-swaps that write and log nothing when
-   repeated; both are Slack-curated, being the web half of what `sent` already
-   announces. `test/newsletterPublish.test.ts` pins all of it behaviourally.
-   The editors' issue list says **who last edited** a draft and when —
-   `edited_by`/`edited_at` (migration 0032), moved only by a write to the
-   document, since publish and send bump `updated_at` too. The name comes from
-   `editorNames` (`lib/newsletter.ts`): the account's oldest controlled Person,
-   read through `personListableSql`, so an unlisted editor goes unnamed rather
-   than spending a scan exemption; `userDeletionStmts` NULLs the column.
-11. **One recurrence engine.** Managed events are expanded by rendering them with
-   `lib/icsWriter.ts` and parsing that text back through `parseIcs`
+
+8. **`calendar_event` is a derived cache; its row ids are NOT stable** (both
+   imported feeds and managed events delete-then-insert, minting fresh ULIDs).
+   The durable handle on a managed event is `(managed_event_id, starts_at)` —
+   the ICS `UID` + `RECURRENCE-ID` convention, surfaced as
+   `seriesId`/`recurrenceId` on `CalendarEventDTO`. `volunteer_sheet` stores
+   exactly that pair and reads its event from `managed_event`, never
+   `calendar_event` (invariant 13). An imported event has no durable id;
+   `eventKey` (`packages/shared/src/newsletterEvents.ts`) falls back to the
+   content identity `dedupeEvents` uses (kind + title + start-to-the-minute).
+   Never key anything durable on `CalendarEventDTO.id`. The event page URL
+   (`/e/:date/:slug`) uses content identity for managed and imported events
+   alike — retitling or moving drops old links, a deliberate trade
+   (`packages/shared/src/eventPath.ts`).
+
+9. **One newsletter renderer.** Issues are TipTap JSON turned into HTML solely
+   by `packages/shared/src/newsletterRender.ts` — email, composer preview, and
+   archive alike. It is also the sanitizer: a fixed node/mark allowlist that
+   escapes all text, so enabling a TipTap extension without adding its renderer
+   case silently drops content. `sanitizeNewsletterDoc` applies the allowlist
+   on write. The **settings footer is the one raw-HTML seam**:
+   `sanitizeFooterHtml` (same file) reduces admin-written `footerHtml` to a
+   tag/attribute allowlist on WRITE (`coerceNewsletterSettings`). HTML only —
+   `footerHtmlOf` serves email and archive; `footerTextOf` flattens for the
+   email's text part. Never add a second place that interpolates admin HTML.
+   (`coerceNewsletterSettings` still promotes legacy `footerText` on read;
+   removable once every instance re-saves settings.)
+
+10. **A sent newsletter is immutable; `published_at` (migration 0031) is the
+   public gate, not `status`.** Events blocks resolve live while drafting and
+   are FROZEN into `events_snapshot_json` at send. Issue URLs are enumerable by
+   design — nothing member-private in one. An editor can publish without
+   mailing (`POST /newsletter/issues/:id/publish`), keep editing a published
+   draft, and unpublish anything (`DELETE …/publish`) — a sent page with a
+   mistake has to be removable — except while a send is running. The send
+   publishes via `COALESCE` (keeps an earlier date; the email's "view in
+   browser" link is that page). While published: slug can't change, draft
+   can't be deleted (links are already out). Publish/unpublish are CAS, write
+   and log nothing when repeated, and are Slack-curated.
+   `test/newsletterPublish.test.ts` pins it. `edited_by`/`edited_at`
+   (migration 0032) move only on document writes (publish/send bump
+   `updated_at` too); the name comes from `editorNames` (`lib/newsletter.ts`)
+   through `personListableSql`; `userDeletionStmts` NULLs the column.
+
+11. **One recurrence engine.** Managed events expand by rendering through
+   `lib/icsWriter.ts` and parsing back through `parseIcs`
    (`lib/managedCalendar.ts`). Never hand-roll a second RRULE walker — the
-   round-trip is what guarantees the published feed and the in-app agenda agree.
+   round-trip guarantees the published feed and the agenda agree.
+
 12. **The calendar's public seam is `publicEventOf` / `listPublicCalendarFeeds`**
-   (`apps/api/src/lib/calendar.ts`). The anonymous agenda is served from
-   `PublicCalendarEventDTO` / `PublicCalendarFeedDTO`, which are hand-written —
-   not `Omit<>` of the member DTOs — so **a field added to `CalendarEventDTO`
-   does NOT reach the public response until someone edits that projection on
-   purpose.** Keep it that way: build the public shape field by field, never by
-   spreading. Two withholdings are deliberate, not oversights: `seriesId`/
-   `recurrenceId` are omitted entirely (the durable handle volunteer signups
-   key on — see invariant 8, so withholding it means member signup data can
-   never be addressed from a public response), and an imported feed's upstream
-   `url` is **replaced, never passed through** — an admin may have pasted a
-   secret Google/Outlook subscribe link, and the raw feed carries
-   ORGANIZER/ATTENDEE addresses we never store. Every public feed URL is on our
-   own origin: `/ics/:id.ics` for a managed calendar, `/ics/source/:id.ics` for
-   an imported one, which `renderImportedSourceIcs` MIRRORS out of stored
-   `calendar_event` rows rather than proxying upstream. `test/
-   calendarPublic.test.ts` asserts the exact public key set and that no upstream
-   URL survives, and fails the build if either leaks.
-   **One field has been added to that public shape since**: `volunteerSlug`. It
-   is an opaque handle on a volunteer sheet's own public page (invariant 13), not
-   the durable pair — a sheet has a slug of its own precisely so the public link
-   needn't carry `(seriesId, recurrenceId)`. That is the bar for adding another
-   one — and the event page at `/e/:date/:slug` did NOT clear it, because it did
-   not have to: it addresses an event by content identity and renders the
-   `volunteerSlug` already here. Nothing new joined this projection for it.
-   **The second is `meetingUrl`** (migration 0025): an online meeting link an
-   admin types onto a managed event. It cleared the bar the way `location`
-   does — it says where the event happens, it was put on an event anyone can
-   read, and the sessionless `/ics/:id.ics` feed carries it as the RFC 5545
-   `URL` property regardless, so withholding it from the agenda would hide
-   nothing. It is never derived from a Person or a User, and it is held to
-   http(s) on WRITE (`normalizeMeetingUrl` in `lib/managedCalendar.ts`),
-   because the public event page renders it as an anchor. It takes the same
-   round trip as every other field (invariant 11): written as `URL:`, read
-   back by `parseIcs`, stored on `calendar_event.meeting_url` — but only for a
-   managed row. `refreshSource` deliberately does not bind an imported feed's
-   `URL`, since on a district feed that property names a web page, and
-   labelling it "join online" would be wrong. The count is two.
+   (`apps/api/src/lib/calendar.ts`). `PublicCalendarEventDTO` /
+   `PublicCalendarFeedDTO` are hand-written, never `Omit<>` or spread — a field
+   added to `CalendarEventDTO` does NOT reach the public response until someone
+   edits the projection on purpose. Deliberate withholdings:
+   `seriesId`/`recurrenceId` (the durable handle signups key on — invariant 8);
+   an imported feed's upstream `url` is **replaced, never passed through** (it
+   may be a secret Google/Outlook subscribe link, and raw feeds carry
+   ORGANIZER/ATTENDEE addresses). Public feed URLs are on our origin:
+   `/ics/:id.ics` (managed), `/ics/source/:id.ics` (mirrored from stored rows
+   by `renderImportedSourceIcs`, never proxied).
+   `test/calendarPublic.test.ts` asserts the exact key set and fails on leaks.
+   Two fields have cleared the bar since: `volunteerSlug` (an opaque handle on
+   a sheet's public page — precisely so public links needn't carry the durable
+   pair) and `meetingUrl` (migration 0025: admin-typed, says where the event
+   happens, already in the sessionless ICS feed as RFC 5545 `URL`; held to
+   http(s) on write by `normalizeMeetingUrl`; round-trips per invariant 11;
+   `refreshSource` deliberately does NOT bind an imported feed's `URL` — on a
+   district feed that names a web page, not a meeting).
+
 13. **Volunteer counts are public; volunteer NAMES are members-only.** A sheet
    (`volunteer_sheet` → `volunteer_position` → `volunteer_signup`, migration
-   0012) hangs off ONE occurrence of a managed event and is read by three
-   audiences through two routes: `/volunteers-public/sheets/:slug` (no auth, like
-   `calendarPublic.ts`) returns positions and a `filled` count, and
-   `/volunteers/sheets/:slug` (auth) returns the same plus who took each spot.
-   The seam is **`publicSheetOf`** in `apps/api/src/lib/volunteers.ts`, the
-   companion to `publicEventOf` and built the same way — field by field, never by
-   spreading. A sheet URL is human-readable and enumerable by design (it has to
-   open from a text message), so a name reaching that response is a member's name
-   on the open internet; `test/volunteersPublic.test.ts` asserts the exact key
-   sets at all three levels AND that no name, note or person id survives.
-   A sheet is READ on the event's page and nowhere else; `/v/:slug` forwards
-   there (see "Five front ends, one API" above), which is why the two endpoints
-   are now picked between by `screens/Event.tsx` and the redirect rather than by
-   a page of the sheet's own. Three further rules follow from the design rather
-   than from policy:
-   **only managed events can carry a sheet** (an imported ICS event has no
-   durable handle — invariant 8); **a sheet resolves its event from
-   `managed_event`, never `calendar_event`**, so it survives re-materialization
-   (an occurrence edited away is reported as `orphaned`, not deleted); and
-   **writes always require a session** — there is no anonymous claim path, and
-   claiming for a Person requires controlling them (`isController`) or being a
-   system admin. Overfill is prevented by a guarded `INSERT … SELECT … WHERE
-   (count < slots)` whose `meta.changes` is checked, because D1 has no
-   transaction around a read-then-write.
-   **Moving an event moves its sheets, and that is `reanchorSheets`**
-   (`lib/volunteers.ts`, called by `updateManagedEvent`). "Survives
-   re-materialization" is about the sheet not being deleted; for a long time it
-   also meant the sheet did not FOLLOW, and that gap is what a production
-   incident was: a one-off event was moved two weeks out, `occurrence_start`
-   stayed where it was, and because `publicEventOf`'s join is
-   `vs.occurrence_start = e.starts_at` the event's new page offered no sign-up
-   link at all while eighteen families sat claimed on a date the calendar no
-   longer produced. Nothing failed — a feature stopped existing. The admin
-   screen could only report it ("move them to a current date or delete the
-   sheet") over an app with no way to move them.
-   So the move is a CONSEQUENCE of the event edit, never an act of its own, and
-   `VolunteerSheetInput.occurrenceStart` stays create-only: its objection to
-   re-dating a sheet by hand ("would silently relocate everyone who already
-   signed up") is answered rather than overruled, because here the thing they
-   signed up for is what moved, and it is not silent — the route reports the
-   counts, the editor shows them and the audit row keeps the dates, which is the
-   only place the old one survives.
-   Three rules place a sheet, in order: one already on a SURVIVING date never
-   moves (extending a series' UNTIL must not churn the dates it didn't touch);
-   otherwise it keeps its ORDINAL, both lists being ascending, which is what
-   carries a whole series forward an hour or a week and needs no history since
-   `expandEvent` has the new list and `calendar_event` still holds the old; and
-   a ONE-DATE event is unambiguous, so a sheet in neither list still lands on it
-   — the clause that heals an already-orphaned sheet on its event's next save.
-   **The ordinal is gated on `oldStarts.length === newStarts.length`**, because
-   it only means anything when the list was TRANSLATED rather than cut: drop
-   Oct 1 from a weekly Oct 1/8/15/22 and an unguarded ordinal carries the Oct 1
-   sheet's eighteen families to Oct 8, an occurrence that existed before the
-   edit and that nothing about the edit touched. Refusing is the half that can
-   be undone; moving is not.
-   Nothing is ever moved onto a date another sheet holds, because `UNIQUE
-   (managed_event_id, occurrence_start)` would take the whole batch down with
-   it; what can't be placed stays put and keeps reporting `orphaned`, still the
-   honest answer for a series that genuinely lost a date — and is COUNTED, so
-   `sheetsStranded` tells the admin their edit left sign-ups somewhere nothing
-   links to. That is the same obligation as `sheetsMoved`, pointing the other
-   way; both are reported by every edit surface through `eventSavedNote`, and
-   the event page's own form holds its sheet open to say so rather than
-   navigating away from the sentence.
-   Everything dated off the old instant rides the same delta — `closes_at` and
-   each position's shift window are OFFSETS from the event ("the 7:30 shift",
-   "closes the night before"). Note which clock that holds, because it is the
-   opposite of the intuitive answer: `expandEvent` renders Z-suffixed values and
-   parses them back in UTC (invariant 11), so a series keeps its absolute
-   INSTANT and its LOCAL wall clock shifts across a daylight-saving boundary — a
-   7:30am CDT weekly event reads 6:30am once CST arrives. The delta is right
-   either way, because it preserves the offset in the clock the occurrences are
-   themselves kept in.
-   **Two orderings are deliberate.** `reanchorSheets` runs BEFORE `materialize`,
-   although a sheet never reads `calendar_event` and so needs no agenda: the
-   old→new mapping lives only in `oldStarts`, which `materialize` is about to
-   delete, so a failure after it would leave a retry seeing
-   `oldStarts === newStarts` and a recurring series stranded for good. The
-   mirror failure is recoverable — a `materialize` that dies leaves the sheets
-   already on the new dates, where the next save finds them surviving. And the
-   writes are grouped so each sheet's row and its positions share one `batch()`:
-   a batch is atomic, a SEQUENCE of them is not, and a boundary between the two
-   would leave a sheet moved with its shift windows on the old day and the
-   delta that would repair them gone with the request.
-   `test/managedEventMove.test.ts` is BEHAVIOURAL for invariant 22's reason: its
-   fake D1 records binds and batch boundaries, so moving the sheet and
-   forgetting the positions — the shape the incident was reported as, one group
-   of volunteers moving and the other not — fails on a value rather than passing
-   a scan.
-   **What the automatic path refuses to guess, an admin does by hand**:
-   `moveSheet` + `POST /admin/volunteer-sheets/:id/occurrence`. A stranded sheet
-   is the deliberate outcome above, and for a long time the admin screen
-   answered it with the sentence "move them to a current date or delete the
-   sheet" over an app that offered only the delete — which for Field Day's sheet
-   meant discarding eighteen families' sign-ups to fix a date. The button in the
-   orphan banner is what that sentence always promised.
-   It is NOT `updateSheet` taking an `occurrenceStart`, and
-   `VolunteerSheetInput` keeps that field create-only: the objection stands
-   (re-dating a sheet relocates everyone already signed up) and is answered by
-   NARROWNESS, not by a change of mind. The target must be a date the event
-   actually produces — read from `calendar_event`, never taken on the client's
-   word — and must not already hold a sheet; the UI offers only free dates and
-   the route re-checks both, since a hand-made request would otherwise park
-   sign-ups on a day nothing renders. `moveStatements` is ONE builder shared
-   with `reanchorSheets`, because a second copy is how the two would come to
-   disagree about what moving a sheet includes. A move that changes nothing
-   writes nothing and pushes no draft. `volunteer.sheet.moved` is its own audit
-   action — the date it LEFT is recorded nowhere else — and is Slack-curated on
-   the rare-and-consequential bar, unlike the `pto.*` and authoring actions
-   invariant 22 keeps out.
-   `test/volunteerSheetMove.test.ts` pins both guards behaviourally.
-   The same foreign key is what makes **deleting an event a cascade**, and it is
-   the one direction the "survives re-materialization" rule does NOT cover: a
-   sheet outlives an occurrence, but not its series. `deleteManagedEvent` and
-   `deleteManagedCalendar` therefore run **`sheetCascade`** (`lib/volunteers.ts`,
-   shared with `deleteSheet`) at the FRONT of their own batch — signups,
-   positions, sheets, then the event. Skip it and the outcome is either a
-   constraint failure or, worse, silence: `sheetRow` joins `managed_event`, so
-   orphaned signups stay in the table invisible to every read. Both deletes count
-   what they are about to remove BEFORE removing it — the route puts those counts
-   on the audit row, and the admin is shown them in a confirmation, because a
-   deleted signup is not recoverable and not countable afterwards.
-   `ManagedEventDTO.sheetCount`/`signupCount` are what the confirmation reads;
-   they are admin-only, and adding them touched no public projection.
-   `test/managedEventDelete.test.ts` pins the order and the pre-count.
-   **Emailing a sheet's volunteers is a `mailto:`, and the addresses are a
-   route of their own.** `GET /admin/volunteer-sheets/:id/emails` →
-   `sheetVolunteerEmails` is system-admin-only and returns one address per
-   signed-up Person plus a count of the ones it could not reach; the admin
-   screen turns that into a draft in their own mail client with everyone Bcc'd
-   (never To — a roster in a To line publishes every family's address to every
-   other family) and the EVENT's title as the subject.
-   **"Copy volunteer emails" sits beside it and is not a nicety**: a `mailto:`
-   hands the message to a NATIVE client, so for the many admins whose mail
-   lives in a browser tab it opens nothing at all, or an app they have never
-   configured. The copy button puts the same list, comma-separated, on the
-   clipboard for one paste into Gmail's or Outlook's own Bcc field — and when
-   the BROWSER refuses the clipboard it shows the list on screen instead,
-   because a silent failure there would be a silent failure of the very
-   fallback. Both buttons share one read (`gatherEmails`) and one wording for
-   "nobody to write to". Two more things are
-   deliberate. It is not a field on `VolunteerSignupDTO`: that shape is what
-   every signed-in member reads on the event page, so an address hanging off it
-   would publish the roster's contact details to the whole membership — the same
-   reason `GET /persons/:id/removal-impact` is a route rather than a field. And
-   the address is chosen so this discloses nothing a system admin cannot already
-   read: the Person's own email contact items **at `visibility = 'service'`
-   only** (already visible to any member — `canSeeItem` grants an admin no
-   exemption from `private`, and this route does not invent one), else the
-   account emails of the Users who CONTROL them, skipping disabled accounts the
-   way the newsletter audience does. "The first" is an ordering, not a guess:
-   own items by `sort_order`, then controllers by `since`. Nothing in it reads
-   `person` — the question is how to reach people the sheet already names, not
-   who exists — so it spends none of `test/personListable.test.ts`'s exemption
-   budget. `test/volunteerEmails.test.ts` is BEHAVIOURAL: its fake D1 evaluates
-   both WHERE clauses, so dropping either surfaces a private or disabled address
-   in the assertion rather than passing a scan.
-   Sending from the API instead was rejected: this project's mailer is for mail
-   the SYSTEM sends, and routing the PTO's own correspondence through it would
-   make every one of their messages something this codebase logs, retries and is
-   blamed for.
-14. **Public sign-up is double opt-in, and `POST /newsletter-public/subscribe`
-   writes no subscription.** The form at `/subscribe` is anonymous, so the
-   address it carries is an unproven claim by whoever typed it. That route only
-   mints a `newsletter_confirmation` (migration 0013) and mails the link;
-   `POST /newsletter-public/subscribe/confirm/:token` is the ONLY path that
-   touches `newsletter_subscriber` from the public side. Three rules hold it
-   together. **The GET on that token must stay read-only** — mail scanners and
-   "safe links" rewriters follow every GET in an email, so a confirming GET
-   would verify the recipient's mail server rather than the recipient; the same
-   reasoning as the unsubscribe pair, and `test/newsletterSubscribe.test.ts`
-   asserts nothing is written by the GET. **The token is not an `auth_token`**:
-   `/auth/callback` matches on `token_hash` without filtering `kind` and creates
-   a user for any non-`signin` kind, so a newsletter token in that table would
-   make a public form into an account-creation and sign-in vector. **The
-   response never varies** — malformed, brand new, already subscribed and
-   rate-limited all answer `{ ok: true }` (invariant 4), so the daily send cap
-   can't be used as an existence oracle either.
-   Admin-side adds (`/newsletter/subscribers`, bulk import) remain single
-   opt-in on purpose: an admin entering the school roster is asserting a
-   relationship the form can't. That split is also what
-   `newsletter_subscriber.confirmed_at` (migration 0014) records, and why admin
-   notifications key on it rather than on `created_at`: only the public confirm
-   route stamps it, so an address an admin added can't email them about itself.
-   `created_at` could not do the job — the upsert deliberately doesn't bump it,
-   so a re-subscription is invisible to any window query over it.
-   The notification setting itself is `newSubscriberNotify` on the newsletter
-   settings blob, edited on the newsletter's own Settings screen — NOT with the
-   new-member toggle in `apps/web`'s Admin, because each app owns its own admin.
-   `lib/notify.ts` holds both, and the daily digests share one cron.
-15. **An issue page has ONE projection and TWO gates.** Everything a reader sees
-   of a newsletter issue — the public archive page and a review link alike — is
-   built by `issuePageOf` (`apps/api/src/lib/newsletter.ts`), field by field,
-   like `publicEventOf` and `publicSheetOf`. Never spread a row or a wider DTO
-   into it: `newsletter_issue` holds `preview_token_hash`, so a spread would
-   publish a live capability on an enumerable page. The two ways in are gated
-   differently and deliberately — `/newsletter-public/issues/:slug` filters
-   `published_at IS NOT NULL` **in SQL** (a guessed draft slug reveals nothing;
-   invariant 10 says why that is no longer `status = 'sent'`), while
-   `/newsletter-public/preview/:token` has no status filter at all, because
-   holding the token IS the authorization. Sharing a draft never required
-   loosening the first gate, and must not.
-   The token (migration 0015) is hashed at rest, minted only by a system admin,
-   **revocable with no expiry**, and deliberately **survives a send** so a link
-   already circulated keeps resolving. It is not an `auth_token`, for the reason
-   migration 0013 gives. `test/newsletterIssuePage.test.ts` asserts the exact
-   key set, that a widened row can't ride through, and that both gates still
-   behave.
-   **The pages that read a token must never be cacheable.** `/preview/:token`
-   and its `/print` twin pass `cacheable: false` to `renderIssuePage`, which
-   routes them through `htmlPrivate()`; a shared cache keyed on the URL would
-   let a revoked link keep being served from the edge.
-16. **"View as PDF" is printing, not a PDF renderer.** There is no PDF library
-   or Browser Rendering binding in this project on purpose — a second renderer
-   is a second place for a newsletter's look to drift from the email
-   (invariant 9). The `@media print` block lives inside `NEWSLETTER_WEB_CSS`, so
-   an ordinary Ctrl+P on any issue page also comes out clean; the `/print`
-   routes add only the auto-firing dialog. The admin's own print view
-   (`/admin/issues/:id/print`) is an SPA route rather than a Pages Function
-   because the session cookie is host-only to the API and a Function on the
-   newsletter origin cannot see it — see `apps/newsletter/ROUTING.md`.
-   **Paper carries a QR code back to the live issue** (`.nl-qr`, top right,
-   hidden on screen), so it rides every print view and a plain Ctrl+P alike. It encodes
-   the sent issue's `/n/:slug`, built from the SLUG and never from the request
-   url — a print of a review link must not put the token on paper, which is
-   the most redistributed copy there is and the one nobody can revoke.
-   `publishedIssueQrSvg` (`packages/shared/src/newsletterQr.ts`) refuses any
-   other shape and returns "". The public print views draw it only for a SENT
-   issue; the admin's print view draws it for a draft too, since that is how
-   copies get printed ahead of a send — a code that 404s until the send is the
-   admin's call there. `test/newsletterQr.test.ts` pins the refusal.
-   **Every http(s) link an author puts in the body gets a small code of its
-   own on paper too**, in a RAIL down the right margin (`qrBlock` in
-   `newsletterRender.ts`). The body reserves the rail once, as right padding
-   (`nl-body-rail`, added by `renderNewsletterIssuePageHtml` only when some
-   block holds a code), and each block's codes FLOAT into it with a negative
-   margin exactly as wide as the rail, clearing the previous block's codes.
-   That keeps them out of the text entirely: every block has the same measure
-   and spacing whether or not it holds a link. The first version pinned the
-   column inside its block and sized the block to fit (padding plus a
-   `min-height` per code), which made a paragraph with a link narrower and
-   taller than its neighbours — the uneven spacing this replaced. The price is
-   that a float can drift: a run of short linked blocks pushes later codes down
-   the rail, at worst onto the next sheet. The numbers below are what make that
-   acceptable, and the test pins both that the margin matches the rail and that
-   no `min-height` comes back.
-   `linkQrSvg` draws it in WEB mode only, so the email never carries one; one
-   per destination; `http(s)` and `mailto:` only (a phone opens the latter as a
-   new message), so `tel:` and the events block's generated links get none. It encodes only the href the archive page already publishes, so it
-   needs none of the masthead code's refusal.
-   Each code is NUMBERED, and the same number prints as a superscript after
-   the link it belongs to (`.nl-qr-ref`, print-only like the column), so a
-   block with several links says which code is which. Numbers run through the
-   whole issue: a link repeated further down gets no second code but carries
-   the first one's number, and a partly-bold link split into several text
-   nodes gets one superscript after the whole link (`renderChildren`).
-   The number's TOP is level with the top of the black modules, not the
-   image: every code carries four modules of white quiet zone, whose share of
-   the height depends on how dense the code is, so `linkQrCode` reports it and
-   each item passes it to CSS as `--qz`. The issue's own code (`.nl-qr`) prints
-   at the same 0.75in as the link codes and shares their right edge.
+   0012) hangs off ONE occurrence of a managed event.
+   `/volunteers-public/sheets/:slug` (no auth) returns positions + `filled`
+   counts; `/volunteers/sheets/:slug` (auth) adds who. The seam is
+   **`publicSheetOf`** (`lib/volunteers.ts`), field by field like
+   `publicEventOf`; sheet URLs are enumerable by design, so a name reaching
+   that response is a member's name on the open internet —
+   `test/volunteersPublic.test.ts` asserts exact key sets and that no name,
+   note or person id survives. Structural rules: only managed events carry
+   sheets (invariant 8); a sheet resolves its event from `managed_event`, never
+   `calendar_event` (an occurrence edited away reports `orphaned`, not
+   deleted); writes always need a session, and claiming for a Person requires
+   `isController` or system admin. Overfill: guarded
+   `INSERT … SELECT … WHERE (count < slots)` checking `meta.changes` (no D1
+   transactions).
+   **Moving an event moves its sheets — `reanchorSheets`** (called by
+   `updateManagedEvent`; built after a production incident where a moved event
+   silently lost its sign-up link while eighteen families sat claimed on a dead
+   date). The move is a CONSEQUENCE of the event edit;
+   `VolunteerSheetInput.occurrenceStart` stays create-only. Placement rules, in
+   order: a sheet on a SURVIVING date never moves; otherwise it keeps its
+   ORDINAL — gated on `oldStarts.length === newStarts.length`, because the
+   ordinal only means anything when the list was translated, not cut (dropping
+   one date from a series must strand that sheet, not relocate its families);
+   a ONE-DATE event is unambiguous, so a sheet in neither list lands on it
+   (heals an orphan on next save). Nothing moves onto a date another sheet
+   holds (`UNIQUE (managed_event_id, occurrence_start)` would fail the batch);
+   the unplaceable stays `orphaned` and is COUNTED — `sheetsStranded` and
+   `sheetsMoved` are reported by every edit surface through `eventSavedNote`.
+   `closes_at` and shift windows ride the same delta as OFFSETS — and note the
+   clock: `expandEvent` works in UTC (invariant 11), so a series keeps its
+   absolute INSTANT and its local wall clock shifts across a DST boundary.
+   Two orderings are deliberate: `reanchorSheets` runs BEFORE `materialize`
+   (the old→new mapping lives only in `oldStarts`, which materialize deletes —
+   fail after it and a retry sees nothing to fix); each sheet's row and its
+   positions share ONE `batch()` (a batch is atomic, a sequence isn't).
+   `test/managedEventMove.test.ts` is behavioural — its fake D1 records binds
+   and batch boundaries.
+   **Stranded sheets are moved by hand**: `moveSheet` +
+   `POST /admin/volunteer-sheets/:id/occurrence`. Not `updateSheet` taking a
+   date — the objection (re-dating relocates everyone signed up) is answered by
+   NARROWNESS: the target must be a date the event actually produces (read from
+   `calendar_event`, never the client's word) and not already hold a sheet;
+   the route re-checks both. `moveStatements` is ONE builder shared with
+   `reanchorSheets`. A no-op move writes nothing. `volunteer.sheet.moved` is
+   its own audit action (the departed date survives nowhere else) and is
+   Slack-curated. `test/volunteerSheetMove.test.ts`.
+   **Deleting an event cascades**: `deleteManagedEvent`/`deleteManagedCalendar`
+   run `sheetCascade` (shared with `deleteSheet`) at the FRONT of their own
+   batch — signups, positions, sheets, then the event — else a constraint
+   failure or invisible orphans (`sheetRow` joins `managed_event`). Both
+   deletes COUNT what they remove BEFORE removing it; counts go on the audit
+   row and an admin confirmation. `ManagedEventDTO.sheetCount`/`signupCount`
+   are admin-only. `test/managedEventDelete.test.ts` pins order and pre-count.
+   **Emailing a sheet's volunteers**: `GET /admin/volunteer-sheets/:id/emails`
+   → `sheetVolunteerEmails`, system-admin-only. The admin screen builds a
+   `mailto:` with everyone **Bcc'd, never To** (a roster in To publishes every
+   family's address to every other family), subject = event title. "Copy
+   volunteer emails" sits beside it because `mailto:` opens nothing for
+   browser-mail admins; on clipboard refusal the list is SHOWN on screen. Both
+   share one read (`gatherEmails`). Not a field on `VolunteerSignupDTO` (that
+   shape reaches every member). The address discloses nothing an admin can't
+   already read: the Person's own email items at `visibility = 'service'` ONLY
+   (no admin exemption from `private`), else controlling Users' account emails,
+   skipping disabled accounts; ordering is `sort_order` then `since`. Reads no
+   `person` rows. `test/volunteerEmails.test.ts` is behavioural (fake D1
+   evaluates both WHERE clauses). Sending from the API was rejected: the mailer
+   is for mail the SYSTEM sends.
 
-17. **Removing a User is `disabled_at`, and deleting one has rules it does not
-   yet execute.** `POST /admin/users/:id/disabled` is reversible and touches the
-   `user` row alone — everything that matters already filters on `disabled_at`
-   (session middleware, newsletter audience, masquerade), so nothing of theirs
-   needs removing to cut off access. Two guards hold this together, and both were
-   found in review rather than by design: the session sweep matches
-   `acting_admin_id` as well as `user_id`, because a masquerade session's
-   `user_id` is the person being impersonated and a disabled admin would
-   otherwise keep browsing as them for an hour; and the disable is refused
-   unless another enabled system admin remains, enforced *inside* the `UPDATE`
-   (D1 has no read-then-write transaction) because two admins disabling each
-   other concurrently would otherwise leave an instance nobody can sign in to —
-   with no route that clears `disabled_at` without an admin session, and a
-   bootstrap-admin email re-granting the role but never un-disabling the row.
-   **Permanent deletion is now built — `DELETE /admin/users/:id` — and it
-   EXECUTES the impact report rather than re-deriving it.** `computeUserDeletionImpact`
-   (`lib/userAdmin.ts`) is that report, shared by `GET /admin/users/:id/impact`
-   (which shows it) and the delete (which runs exactly it via `userDeletionStmts`),
-   so the two can never disagree about what goes. It is guarded harder than
-   disabling: system admin only, never while masquerading, never yourself, and —
-   deliberately — only once the account is already DISABLED, so "take out of use"
-   and "erase" are never one click (and a deletable account is therefore never
-   the last enabled admin, which is why no separate last-admin guard is needed).
-   The obvious reading is wrong, and the report encodes why: `control` is
-   many-to-many (two parents, one child), so a Person any *other* User controls
-   is not this user's to take — only one left with no controller at all is, and a
-   co-controlled one is KEPT, losing only this account's control. `grp` records
-   no creator, so "groups they created" is not a thing this schema knows; a
-   household is removed only when it would be left with no members, and a
-   classroom or school group is never removed with a member, because it belongs
-   to the school. `audit_log` is never deleted for anyone: it is append-only and
-   hash-chained (invariant 5), so dropping rows both breaks tamper-evidence and
-   erases the record of what the account did — which is also why `audit_log` is
-   deliberately absent from `lib/sweep.ts`.
-   **D1 ENFORCES foreign keys** (`PRAGMA foreign_keys` is on and cannot be
-   turned off), and a `batch()` is atomic — so a reference the cascade forgets
-   does not dangle, it fails the whole delete with `FOREIGN KEY constraint
-   failed` and the account stays. An earlier version of this file said the
-   opposite, and the delete shipped on that belief: it NULLed a column that
-   did not exist (`newsletter_subscriber.user_id` — the table is
-   `newsletter_send`) and never touched `auth_token.invited_by` or
-   `share.created_by`, and every route test passed because a fake D1 has no
-   schema to disagree with. The first real delete 500'd. So the cascade cleans
-   up by hand and has to be COMPLETE: DELETING account-owned rows nothing else
-   holds (its sessions, sign-in tokens, volunteer claims, board comments, and
-   the shares it made — `created_by` is NOT NULL, so a share is the account's
-   act and goes with it, counted as `sharesWithdrawn`) and NULLing the ones
-   that merely attribute a surviving record to it (`created_by`, `assigned_by`,
-   `invited_by`, a `store_order`'s buyer link — the order is a financial record
-   and stays). The per-Person cascade for an orphaned Person is `personCascadeStmts`
-   (`lib/personDelete.ts`), shared with `DELETE /persons/:id` (invariant 25) so
-   the two deletion paths can't drift. `test/userDeletion.test.ts` pins the
-   guards, the execute-the-report cascade, `audit_log` staying untouched, and the
-   Slack `notify` bag carrying the email only (invariant 22).
+14. **Public newsletter sign-up is double opt-in; `POST
+   /newsletter-public/subscribe` writes no subscription** — it only mints a
+   `newsletter_confirmation` (migration 0013) and mails the link;
+   `POST …/subscribe/confirm/:token` is the ONLY public path touching
+   `newsletter_subscriber`. Rules: the **GET on the token stays read-only**
+   (mail scanners follow every GET, so a confirming GET verifies the mail
+   server, not the recipient — `test/newsletterSubscribe.test.ts` asserts it);
+   the token is **not an `auth_token`** (`/auth/callback` matches `token_hash`
+   without filtering `kind` and creates users for non-`signin` kinds — a
+   newsletter token there is an account-creation vector); the **response never
+   varies** — malformed, new, already-subscribed and rate-limited all answer
+   `{ ok: true }` (invariant 4; the send cap must not be an existence oracle).
+   Admin-side adds stay single opt-in on purpose (an admin asserts a
+   relationship the form can't). `confirmed_at` (migration 0014) is stamped
+   only by the public confirm route, so admin notifications key on it, not
+   `created_at` (the upsert deliberately doesn't bump `created_at`, so
+   re-subscription is invisible to window queries over it).
+   `newSubscriberNotify` lives on the newsletter settings blob (each app owns
+   its own admin); `lib/notify.ts` holds both digests on one cron.
+
+15. **An issue page has ONE projection and TWO gates.** Everything a reader
+   sees — archive page and review link alike — is built by `issuePageOf`
+   (`lib/newsletter.ts`), field by field. Never spread a row into it:
+   `newsletter_issue` holds `preview_token_hash`, so a spread publishes a live
+   capability on an enumerable page. `/newsletter-public/issues/:slug` filters
+   `published_at IS NOT NULL` **in SQL** (a guessed draft slug reveals
+   nothing); `/newsletter-public/preview/:token` has no status filter —
+   holding the token IS the authorization. The token (migration 0015) is
+   hashed at rest, minted only by a system admin, revocable, no expiry,
+   deliberately survives a send, and is not an `auth_token` (invariant 14's
+   reason). **Token pages are never cacheable** — `/preview/:token` and its
+   `/print` twin pass `cacheable: false` → `htmlPrivate()`; a shared cache
+   would serve a revoked link from the edge.
+   `test/newsletterIssuePage.test.ts` pins key set and both gates.
+
+16. **"View as PDF" is printing, not a PDF renderer.** No PDF library or
+   Browser Rendering binding, on purpose — a second renderer is a second place
+   for the look to drift from the email (invariant 9). The `@media print`
+   block lives in `NEWSLETTER_WEB_CSS`; `/print` routes add only the
+   auto-firing dialog. The admin's print view is an SPA route, not a Pages
+   Function (host-only session cookie — see `apps/newsletter/ROUTING.md`).
+   **Paper carries a QR code to the live issue** (`.nl-qr`, print-only),
+   encoding the sent issue's `/n/:slug` — built from the SLUG, never the
+   request url (a print of a review link must not put the token on paper).
+   `publishedIssueQrSvg` (`packages/shared/src/newsletterQr.ts`) refuses any
+   other shape and returns "". Public prints draw it only for SENT issues; the
+   admin print draws it for drafts too. `test/newsletterQr.test.ts`.
+   **Every http(s)/mailto link in the body gets a numbered code in a rail down
+   the right margin** (`qrBlock` in `newsletterRender.ts`): the body reserves
+   the rail once as right padding (`nl-body-rail`, added only when a code
+   exists) and codes FLOAT into it, so every block keeps the same measure.
+   `linkQrSvg` draws in WEB mode only (email never carries one); one code per
+   destination, repeats reuse the number (`.nl-qr-ref` superscripts); `tel:`
+   and generated events-block links get none; `--qz` aligns the number with the
+   quiet zone. Tests pin that the float margin matches the rail and no
+   `min-height` returns.
+
+17. **Removing a User is `disabled_at`; deleting one executes a shared impact
+   report.** Disable (`POST /admin/users/:id/disabled`) is reversible and
+   touches the `user` row alone — session middleware, newsletter audience and
+   masquerade all filter on `disabled_at`. Two guards: the session sweep
+   matches `acting_admin_id` as well as `user_id` (a disabled admin must not
+   keep masquerading); the disable is refused unless another enabled system
+   admin remains, enforced INSIDE the `UPDATE` (no transactions; two admins
+   disabling each other concurrently must not brick the instance — nothing
+   clears `disabled_at` without an admin session).
+   **`DELETE /admin/users/:id` executes the report rather than re-deriving
+   it**: `computeUserDeletionImpact` (`lib/userAdmin.ts`) is shared by
+   `GET /admin/users/:id/impact` (shows it) and the delete (runs exactly it via
+   `userDeletionStmts`). Guards: system admin only, never while masquerading,
+   never yourself, and only an already-DISABLED account — so "take out of use"
+   and "erase" are never one click, and no separate last-admin guard is needed.
+   `control` is many-to-many: only a Person with NO other controller is this
+   user's to take; co-controlled Persons are KEPT, losing only this control.
+   `grp` records no creator: a household is removed only when left memberless;
+   classroom/school groups never. **`audit_log` is never deleted for anyone**
+   (append-only, hash-chained; also absent from `lib/sweep.ts`).
+   **D1 ENFORCES foreign keys** and `batch()` is atomic — a forgotten
+   reference fails the whole delete (an earlier version of this file said the
+   opposite and the delete shipped broken on it; fake-D1 route tests have no
+   schema to disagree with). The cascade is therefore COMPLETE by hand:
+   DELETES account-owned rows (sessions, sign-in tokens, volunteer claims,
+   board comments, shares — `created_by` NOT NULL, counted `sharesWithdrawn`)
+   and NULLs attributions (`created_by`, `assigned_by`, `invited_by`, a
+   `store_order`'s buyer link — the order is a financial record and stays).
+   Per-Person cascade is `personCascadeStmts` (`lib/personDelete.ts`), shared
+   with `DELETE /persons/:id` (invariant 25). `test/userDeletion.test.ts` pins
+   guards, cascade, untouched `audit_log`, email-only Slack `notify`.
    **`test/deletionCoverage.test.ts` is the schema-shaped tripwire**: it reads
    `migrations/*.sql`, collects every column that `REFERENCES user(id)` or
-   `person(id)`, renders both cascades, and fails on a column a cascade names
-   that does not exist or a referencing column it does not cover. It is
-   `personListable.test.ts`'s kind of test — it catches the column nobody
-   remembered — and a new `REFERENCES user(id)` in a migration fails it until
-   `userDeletionStmts` says what happens to that column.
+   `person(id)`, and fails on one either cascade doesn't cover — a new
+   `REFERENCES user(id)` fails it until `userDeletionStmts` says what happens.
 
-18. **A search may not match on more than it renders.** `person.last_name` is
-   shown as an initial when `last_name_visibility = 'initial'`, and a naked
-   `lower(last_name) LIKE ?` handed that back as an oracle: type "ruiz", see
-   whether Dana R. comes back, and the hidden surname is confirmed — with
-   `COUNT(*)` over the same WHERE leaking it before a row is even built. Every
-   name search therefore goes through **`personSearchSql`**
-   (`apps/api/src/lib/privacy.ts`), which conjoins the surname term with the
-   display rule plus the controller exemption. It backs the directory listing
-   AND its total, the share-target picker and the group add-member picker; there
-   is deliberately no second copy of that predicate. Group admin is authority
-   over a roster, not over a name, so the pickers get no exemption.
-   `test/privacyRoutes.test.ts` asserts all four statements carry the guard.
-   The same rule generalises: before adding a search, ask what the response
-   withholds, and make sure the WHERE withholds it too.
-   The directory's **capability filter** (`?capability=teacher&capability=staff`,
-   OR'd into one `IN`) is the worked example of a term that clears this bar
-   rather than tripping it: every ROLE capability a Person holds is already
-   rendered as a tag on the very row the filter selects, so there is nothing for
-   matching on it to confirm. `household_admin` is the exception that proves
-   the rule — it is authority over a group, not a kind of person, so the UI
-   stopped showing it anywhere (`roleCapabilities` in `@sd/shared`) and the
-   route refuses it with the same 400 an unknown code gets.
-   It is ANDed onto `personSearchSql`, never in place of it, so
-   the enumeration gate (invariant 21) and the surname rule both still apply —
-   and onto BOTH statements, because a total that ignored the filter would page
-   past the end of the list the member can see. It is written as a trailing
-   fragment appended inside each `prepare` template rather than folded with the
-   search into one `where` local, so `${search.sql}` stays visible to
-   `test/personListable.test.ts`'s scan; a second local would read to that scan
-   as an unguarded listing. An unrecognised code is a **400**, not a dropped
-   term: dropping it answers a filtered request with the whole roster.
-   **A directory row now also NAMES the classrooms the Person is on the roster
-   of** (`PersonSummaryDTO.classrooms`), which is this rule read the other way
-   round and therefore allowed: the row renders more than the search matches on,
-   where the danger is matching on more than it renders. It discloses nothing
-   new either — `GET /groups/:id` already serves every roster to any
-   authenticated member, which is the reason migration 0023's header gives for a
-   self-asserted membership costing nothing — so this moves a readable fact to
-   the one place it is being asked, a list where first names repeat and surnames
-   may be initials. Three things about the read are deliberate. It is batched
-   over the page's ids beside the capability read, not a join, so a page of 50
-   stays two statements rather than fifty. It touches `membership` and `grp` and
-   **never `person`**, so the enumeration gate has nothing to do there and it
-   spends none of `test/personListable.test.ts`'s exemption budget — which
-   Persons are on the page was already settled by `${search.sql}`, and this only
-   labels them. And it does **not** filter `self_asserted`: that column decides
-   what a membership lets a viewer READ (invariant 27), not who is on the list,
-   and filtering on it here would hide a placement from the very parent who just
-   made it while disagreeing with the roster the row names.
-   `test/directoryClassroom.test.ts` is behavioural where it can be — its fake
-   D1 honours the statement's own terms, so a read that dropped
-   `g.kind = 'classroom'` fails with a HOUSEHOLD's name on a row rather than
-   passing a scan. The `self_asserted` case is the one that has to stay textual:
-   the guarantee there is an ABSENT clause, and an absent clause is not
-   something a fake can evaluate. If a `?classroom=` FILTER is ever wanted, it
-   now clears this invariant's bar the way `?capability=` does — but it must be
-   ANDed onto `personSearchSql`, never in place of it.
-   **The label is ELIDED, and CSS could not do it.** This instance's rooms are
-   named by the district's roster export and run four segments — `Grade 2 ·
-   Juntos · Pam Shrestha · Rm 322`. An ellipsis clips from the END, so every
-   child in a grade truncated to the same `Grade 2 · Juntos · Pam Sh…` on the
-   one list whose job is telling them apart. `shortClassroomName`
-   (`packages/shared/src/text.ts`) renders it `Gr 2 - Shrestha` — the year, and
-   the name a parent actually uses for a room — and the row carries the
-   school's full name as a `title`, so what is dropped goes from the label and
-   never from the row.
-   **The year is ABBREVIATED** — `Grade` to `Gr`, `Kindergarten` to `K` — which
-   is a real step past eliding: neither is a word the school typed, only a
-   prefix of one. Invariant 6 is still satisfied — nothing is RESTATED in
-   another language, and this abbreviates English into the same English — but
-   it is the one place the label is not purely the school's own characters.
-   Both were asked for by name; a THIRD wants the same deliberation rather than
-   being waved through on the strength of these two. The match is word-bounded
-   rather than whole-segment, so `Kindergarten AM` becomes `K AM` and keeps its
-   session; a bare `K` matches neither pattern and passes through, which is
-   right because it already IS the short form.
-   **It reads its segments by SHAPE, not position**, which is the part to
-   understand before touching it. The order is not stable even inside this
-   repo: production rooms run grade-programme-teacher-room, while the demo
-   seed's `Ms. Ruiz · Grade 4` puts the teacher FIRST and carries no room. So
-   the grade is whichever segment says "grade" or names kindergarten, the room
-   is whichever carries `Rm`/`Room` AND a digit, and the teacher is the segment
-   BEFORE the room — falling back, where there is no room, to the last segment
-   that is not the grade. One rule reads both shapes, and a programme name
-   (`Juntos`, `XinXing`) is never mistaken for a teacher because it is
-   identified by ADJACENCY to the room rather than by being left over.
-   Two refusals are load-bearing, and both turn a mislabel into no label. The
-   room test demands a digit, so a programme called "Room to Grow" cannot
-   anchor the teacher a segment early. And a teacher must contain whitespace,
-   because a person here is written "First Last" — so `Grade 2 · Juntos ·
-   Rm 322`, a room with no teacher recorded, comes back WHOLE rather than
-   labelled "Gr 2 - Juntos", a programme presented as a person. The cost is
-   a bare surname with no forename, which it refuses to read; the export has
-   never written one, and a row showing the WRONG room is worse than one
-   showing a long right one.
-   The surname is the last whitespace-separated word, so `Van Dyke` reduces to
-   `Dyke` — the known cost of a rule with no list of names to consult, pinned
-   in the tests so it is a decision rather than a surprise.
-   It splits on the middle dot ALONE: an en dash is inside "Ruiz–Lee", and the
-   other convention here (`Room 12 — Ms. Okonkwo`) has no dot at all, so it is
-   left to CSS. It is eliding, not translating — invariant 6 forbids RESTATING
-   member-entered content in another language, and every word it returns is the
-   school's own; the hyphen is the only punctuation it adds. And it
-   is a RENDERING step that must stay one: `resolveGroup` in `lib/bulkImport.ts`
-   matches an existing group by exact `WHERE name = ?`, so normalising a name on
-   write would make a re-run of the roster import mint a duplicate of every room
-   it already created. `grp.name` stays the district's string.
-   It is named for classrooms because the rule knows what its segments MEAN:
-   `Grade 4 · Chess Club · Eisenhower` would come back as `Gr 4 - Eisenhower`,
-   dropping the one segment that names the thing, so a generic group and a
-   household are deliberately left alone.
-   **That kind test is `groupLabel(name, kind)`** (same file), and it exists
-   because the directory row was never the only place this bit. The groups
-   listing renders all three kinds in ONE table whose name column is ~170px on a
-   phone, so nine rooms in a grade rendered as nine copies of
-   `Grade 1 · Commu…` — the same failure, on the screen whose entire job is
-   choosing between groups. `groupLabel` dispatches and nothing more: a
-   classroom goes through `shortClassroomName`, everything else comes back
-   untouched, and the rule that has to know what a segment means stays in the
-   function named for the kind that has them. Every caller pairs it with
-   `title={group.name}`. In `apps/web` those are the groups index (tiles and
-   table), the sub-group tiles on a group, Home's tiles, a profile's group
-   cards, the re-parent picker and the share-target picker; a new list of groups
-   is expected to use it rather than leave it to CSS.
-   Two consequences of the pairing, both of which the `title` is what answers.
-   The full name stays in the DOM, so nothing is hidden from a reader who looks.
-   And `GET /groups` matches on the whole name, so a search for a teacher
-   returns rows whose LABEL no longer shows them — which is this invariant read
-   the SAFE way round (a row rendering more than the label shows, never a search
-   matching on more than the row renders) and, unlike the surname rule, not a
-   disclosure question at all: a group name is one any member may already search
-   and read, as invariant 21's paragraph on `member_count` says outright.
-   `test/shortClassroomName.test.ts` pins the two-rooms-in-one-grade case that
-   is the whole point, that a name it cannot improve survives byte for byte, and
-   that it never emits a character the school did not type — plus, for
-   `groupLabel`, that it elides a classroom and only a classroom, that it stays
-   a dispatch rather than a second copy of the rule, and that it is total over
-   `GROUP_KINDS`.
-   **FOUR listings carry the label now**, and one reader serves all of them:
-   the directory row, a profile's household card (`householdsFor`), a
-   HOUSEHOLD's own group page and Home's neighbour cards.
-   `classroomsByPerson` (`lib/serialize.ts`) is that
-   reader, and it is one function rather than four copies of the join because
-   `kind = 'classroom'` is the whole correctness of it — a fifth call site that
-   forgot the term would label people with their HOUSEHOLD, which is the failure
-   both new tests are written against. Everything invariant 18 says about the
-   directory's read holds for the first three: batched over ids the caller has
-   already settled, reads `membership` and `grp` and **never `person`** (so it
-   spends none of `test/personListable.test.ts`'s exemption budget — which
-   Persons are in the list was decided by the caller's own gated statement), and
-   no `self_asserted` filter.
-   **The neighbour card is the one that asks the question household-first**, and
-   the one place the gate is not free. A card names a FAMILY, so the label it
-   wants is not "which rooms does this adult belong to" but "which rooms are
-   this family's children in" — a parent scans that row precisely to find the
-   household whose child shares their own child's room. `classroomsByHousehold`
-   (same file) is that hop and deliberately nothing more: it resolves a
-   household's members and hands them to `classroomsByPerson`, so the two terms
-   worth defending stay written once. `routes/home.ts` resolves BOTH kinds of
-   card to a household — a `household` card is its own roster, a `person` card
-   is the households that Person belongs to — in one batched read over
-   `membership` and `grp`, so a Person in no household simply carries nothing.
-   Rooms are deduped by id across siblings and re-sorted by name, since the
-   merge spans several children where the per-person `ORDER BY` orders only
-   within one.
-   Its co-member read is the one in this family that DOES compose
-   `personListableSql` (a guarded read, so still no exemption spent), and the
-   difference is worth stating: on the other three the caller's own gated
-   statement already settled WHICH Persons are in the list and the label only
-   names them, where here the viewer named a HOUSEHOLD and never its members —
-   so an ungated read would let a room report an unlisted child every other
-   surface withholds, which is invariant 21's rule that existence is decided
-   before any field on them is. A household whose only student is unlisted comes
-   back with no rooms, indistinguishable from one with no student in it.
-   `test/neighborClassrooms.test.ts` is BEHAVIOURAL for invariant 22's reason —
-   its fake D1 evaluates the predicate, so a guard collapsed to the literal
-   `"1"` fails it with an unlisted child's room on a card rather than passing a
-   scan — and pins the household hop, the sibling dedupe and the two-statement
-   batching. `components/parts.tsx`'s `ClassroomLine` is the
-   rendering half, for the same reason: a name elided on one screen and clipped
-   by CSS on another would answer "which room?" two ways one tap apart. It lives
-   beside `MemberRow`, in the half of that file the other four apps do not copy.
-   **`GroupMemberDTO.classrooms` is served for a household ONLY**, and the
-   optional field means what it means on `PersonSummaryDTO` — absent is "the
-   route did not look", `[]` is "on nobody's roster". A classroom's own page
-   would repeat its title on all twenty-five rows, and `GET /groups/:id` rolls
-   up a SUBTREE, so on a school group that pointless read spans the whole
-   school. `test/groupClassroomLabels.test.ts` pins both states and that the
-   read does not happen at all for a classroom;
-   `test/profileHouseholds.test.ts` gained the same coverage for the profile
-   block, its strict fake evaluating `g.kind` rather than assuming it.
-   **The reader answers for a `student` and nobody else**, and that clause is
-   as load-bearing as the kind test. A classroom roster holds the adults who
-   run the room as well as the children in it — the demo seed's own teacher
-   sits on one — so without it a household card reads `Dana Ruiz · Parent ·
-   Ms. Ruiz · Grade 4`, which says she is a pupil in the room she teaches. The
-   label only ever answered "which room is this child in"; a teacher's
-   membership is a different relationship and this is not the line for it. It
-   is the same capability `PUT /persons/:id/classroom` already requires before
-   it will place anyone (invariant 27), so the placement flow and the label
-   agree about who a roster is for. That invariant also says `student` is NOT a
-   school-conferred fact — any member can mint a Person holding it — which is
-   fine here and would not be if this gated ACCESS: choosing what to LABEL is
-   not choosing what to disclose. The cost is that `[]` now carries one more
-   meaning (not a student, a student on no roster, and a Person the caller did
-   look up all render identically), which is deliberate — every one of them is
-   a row with no room to name. All three tests were made BEHAVIOURAL for it
-   rather than textual: each fixture now puts an adult on the very roster a
-   child is on, so deleting the clause fails with that adult labelled by the
-   room they run.
+18. **A search may not match on more than it renders.** `last_name` shown as
+   an initial plus a naked `LIKE` is a surname oracle (and `COUNT(*)` over the
+   same WHERE leaks it before a row is built). Every name search goes through
+   **`personSearchSql`** (`lib/privacy.ts`) — surname term conjoined with the
+   display rule + controller exemption — backing the directory listing AND its
+   total, the share-target picker and the group add-member picker; no second
+   copy of the predicate; pickers get no group-admin exemption.
+   `test/privacyRoutes.test.ts` asserts all four statements. Before adding any
+   search: ask what the response withholds and make the WHERE withhold it too.
+   **The capability filter** (`?capability=`, OR'd into one `IN`) clears the
+   bar: every role capability is already rendered as a tag on the row it
+   selects. `household_admin` is refused (400, like unknown codes) — it's
+   authority over a group, not a kind of person, and the UI hides it
+   (`roleCapabilities`). The filter is ANDed onto `personSearchSql` (never in
+   place of it), onto BOTH statements, written as a trailing fragment inside
+   each `prepare` so `${search.sql}` stays visible to
+   `test/personListable.test.ts`'s scan. An unrecognised code is a 400, never a
+   dropped term (dropping answers a filtered request with the whole roster).
+   **`PersonSummaryDTO.classrooms`** (rooms the Person is on the roster of) is
+   the rule read the safe way round — the row renders MORE than the search
+   matches on — and discloses nothing new (`GET /groups/:id` already serves
+   every roster to any member). The read is batched over the page's ids, reads
+   `membership` + `grp` and **never `person`** (spends no exemption budget),
+   and does NOT filter `self_asserted` (that column decides what a membership
+   lets a viewer READ — invariant 27 — not who is on a list; filtering would
+   hide a placement from the parent who made it). `test/directoryClassroom.test.ts`
+   is behavioural where possible; the absent `self_asserted` clause must stay a
+   textual check. A future `?classroom=` filter would be legitimate, ANDed onto
+   `personSearchSql`.
+   **Labels are ELIDED by code, not CSS.** District room names run four
+   segments; an ellipsis clips from the end, making every room in a grade
+   identical. `shortClassroomName` (`packages/shared/src/text.ts`) renders
+   `Gr 2 - Shrestha`, with the full name as `title`. It abbreviates
+   `Grade`→`Gr`, `Kindergarten`→`K` (word-bounded, so `Kindergarten AM` →
+   `K AM`; a bare `K` passes through) — both asked for by name; a third
+   abbreviation wants the same deliberation. **It reads segments by SHAPE, not
+   position** (production is grade-programme-teacher-room; the demo seed is
+   teacher-first with no room): the grade is the segment saying "grade"/
+   kindergarten; the room needs `Rm`/`Room` AND a digit; the teacher is the
+   segment BEFORE the room (fallback: last non-grade segment) and must contain
+   whitespace — both refusals turn a mislabel into no label (a programme must
+   never be presented as a person). Surname = last whitespace-separated word
+   (`Van Dyke` → `Dyke`, pinned as a known cost). Splits on the middle dot
+   only. It is a RENDERING step and must stay one: `resolveGroup` in
+   `lib/bulkImport.ts` matches `WHERE name = ?`, so normalising on write makes
+   a re-import mint duplicates. `grp.name` stays the district's string.
+   **`groupLabel(name, kind)`** (same file) dispatches: classroom →
+   `shortClassroomName`, everything else untouched (the rule must know what
+   its segments mean; households and generic groups are left alone). Every
+   caller pairs it with `title={group.name}`; every list of groups is expected
+   to use it. `GET /groups` matches the full name AND the elided label,
+   accent-folded, in memory (`foldSearch` in `routes/groups.ts`) — typing what
+   the table shows ("Gr 2") has to find the row, and SQLite's `lower()` is
+   ASCII-only. Both directions are safe: everything matched derives from a
+   name any member may already search and read (invariant 21).
+   `test/groupsFilter.test.ts` pins label and accent matching behaviourally. `test/shortClassroomName.test.ts` pins the two-rooms-one-grade
+   case, byte-for-byte passthrough, no invented characters, and that
+   `groupLabel` stays a total dispatch over `GROUP_KINDS`.
+   **Four listings carry the label; one reader serves them** —
+   `classroomsByPerson` (`lib/serialize.ts`): directory row, profile household
+   card (`householdsFor`), a household's group page, Home's neighbour cards.
+   One function because `kind = 'classroom'` is the whole correctness (a fifth
+   call site that forgot it would label people with their HOUSEHOLD). Same
+   properties as above: batched, `membership`+`grp` only, no `self_asserted`
+   filter. **The neighbour card asks household-first**: `classroomsByHousehold`
+   resolves a household's members and hands them to `classroomsByPerson`;
+   `routes/home.ts` resolves both card kinds to a household in one batched
+   read; rooms dedupe by id across siblings, re-sorted by name. Its co-member
+   read DOES compose `personListableSql` (the viewer named a HOUSEHOLD, never
+   its members — an ungated read would let a room report an unlisted child;
+   invariant 21). A household whose only student is unlisted shows no rooms,
+   indistinguishable from one with none. `test/neighborClassrooms.test.ts` is
+   behavioural. `ClassroomLine` in `components/parts.tsx` is the one rendering
+   (in the non-copied half of that file).
+   **`GroupMemberDTO.classrooms` is served for a household ONLY** (absent =
+   route didn't look; `[]` = on nobody's roster) — a classroom's page would
+   repeat its own title 25 times and `GET /groups/:id` rolls up subtrees.
+   `test/groupClassroomLabels.test.ts` pins both states;
+   `test/profileHouseholds.test.ts` evaluates `g.kind` behaviourally.
+   **The reader answers for a `student` and nobody else** — rosters hold the
+   adults who run the room, and the label answers "which room is this child
+   in", not "what rooms touch this adult". Same capability
+   `PUT /persons/:id/classroom` requires (invariant 27). `student` is
+   self-mintable, which is fine: choosing what to LABEL is not choosing what
+   to disclose. All three tests put an adult on the child's roster, so
+   deleting the clause fails with that adult labelled by the room they run.
 
-19. **The two ways in from an email are read-only GETs.** Mail scanners and
-   "safe links" rewriters follow every GET in a message before the recipient
-   sees it, so a GET that spends a single-use token hands the use to the scanner
-   and shows the member an expired link — on those tenants, every time.
-   Invariant 14 states this for the newsletter's confirm link; **`/auth/callback`
-   has the same shape and takes the same answer.** The GET validates the token
-   and renders one small self-contained page (`signInHandoffPage`, the only HTML
-   this API serves) whose form POSTs it back; a browser auto-submits, a scanner
-   runs no script and issues no POST. `POST /auth/callback` does all the writing,
-   and claims the token INSIDE the UPDATE (`AND consumed_at IS NULL`, checking
-   `meta.changes`) for the reason invariants 13 and 17 give.
-   `/auth/start` also carries a send budget — per address and instance-wide,
-   counted the way invariant 14 counts, with the response unchanged either way
-   so the cap is no more an oracle than the rest of the route.
-   **A rate limit that counts rows drags two more things along with it**, and
-   the first version of this one shipped without either: an index for the count
-   (`auth_token (kind, created_at)`, migration 0017 — without it every sign-in
-   attempt scanned the table) and a sweep so the table doesn't grow forever.
-   Where such a sweep's retention exceeds the counting window it is a SECURITY
-   parameter, not housekeeping — see `lib/sweep.ts`, which is where all four
-   growing tables are swept from, and which spells out which two of them are
-   security parameters in that sense, and why neither may key its age test on
+19. **The two ways in from an email are read-only GETs.** Mail scanners follow
+   every GET before the recipient sees it; a GET that spends a single-use
+   token hands the use to the scanner. `/auth/callback` GET validates and
+   renders `signInHandoffPage` (the only HTML this API serves) whose form
+   POSTs the token back; browsers auto-submit, scanners run no script.
+   `POST /auth/callback` claims the token INSIDE the UPDATE
+   (`AND consumed_at IS NULL`, checking `meta.changes`). `/auth/start` carries
+   a send budget — per address and instance-wide, response unchanged either
+   way (no oracle). **A rate limit that counts rows drags two things with
+   it**: an index for the count (`auth_token (kind, created_at)`, migration
+   0017) and a sweep (`lib/sweep.ts`) so the table doesn't grow forever. Where
+   a sweep's retention exceeds the counting window it is a SECURITY parameter
+   — `sweep.ts` spells out which two, and why neither may key its age test on
    `expires_at`.
 
 20. **`/photos/:key` is members-only.** It is the only route serving `PHOTOS`,
-   the objects are photographs of children, and a ULID key is not an access rule
-   — a URL in a cache, a referrer or a screenshot would make one permanently
-   public with no way to revoke it. `sd_session` is host-only to the API and
-   every SPA is a same-site subdomain, so an ordinary `<img src>` carries the
-   cookie; `fetchPhotoForVCard` already passed `credentials: "include"`. Nothing
-   anonymous serves a photo URL — `publicEventOf`, `publicSheetOf` and
-   `issuePageOf` all omit it, and newsletter images live in a separate bucket
-   (see `NEWSLETTER_MEDIA`) precisely so the public media route can't reach one.
-
+   the objects are photographs of children, and a ULID key is not an access
+   rule (a cached/referred/screenshotted URL would be permanently public).
+   `sd_session` rides an ordinary same-site `<img src>`. Nothing anonymous
+   serves a photo URL — `publicEventOf`, `publicSheetOf`, `issuePageOf` all
+   omit it, and newsletter images live in `NEWSLETTER_MEDIA`, a separate
+   bucket, precisely so the public media route can't reach one.
 
 21. **Whether a Person exists to a viewer is decided before any field on them
-   is.** `unlisted_at` (migration 0018) takes a Person off the roster for every
-   ordinary member while leaving them visible to a system admin and to any User
-   who controls them — `control` is many-to-many, so "controls" already names
-   the right set. It is a stronger withholding than any per-item `visibility` a
-   Controller sets, which is why only a system admin may move it
-   (`POST /persons/:id/unlisted`); a Controller SEES the flag on their own
-   Person — `buildProfile` returns `unlisted` to them and the profile screen
-   shows them the card without the button — and cannot flip it. Telling them
-   matters: a family missing from the directory with no explanation is the
-   confusing outcome, not the private one.
-   The seam is **`personListableSql`** (`apps/api/src/lib/privacy.ts`), the
-   counterpart to `canSeeItem`: `canSeeItem` decides whether one contact item is
-   visible on a Person already in view, this decides whether the Person is in
-   view at all. **`personSearchSql` is built ON it, not beside it** — a call site
-   that remembered the surname rule and forgot this one is exactly the failure
-   invariants 12, 13 and 18 were each written after, so name search cannot be
-   spelled without the gate. The consequence to know: an empty query used to
-   return `"1"` and now returns the gate, because "no search term" is precisely
-   the unfiltered listing an unlisted Person must stay out of.
-   Two places do not use the SQL form, both deliberately. `buildProfile` bakes it
-   into its single-row WHERE so an unlisted Person **404s** for a member who
-   guessed the ULID — hiding someone from a listing while still serving their
-   profile is invariant 18's oracle one URL along. And `lib/volunteers.ts`'s
-   `positionsOf` lets the row survive the query and drops it in memory with
-   **`isPersonListable`**, because a position's `filled` must still count an
-   unlisted signer on the very response that hides their name; a count that
-   shrank with the name would advertise a taken shift as needing help.
-   `test/personListable.test.ts` is the tripwire, and it is a different kind of
-   test from anything else here: it SCANS `apps/api/src` for `FROM person` /
-   `JOIN person` and fails unless each one composes the guard or carries an
-   `// UNLISTED-EXEMPT: <reason>` (a file may carry `UNLISTED-EXEMPT-FILE:`).
-   Route-pinned tests only catch a listing somebody remembered to test; this
-   catches the eighth one nobody did. It is detection, not prevention — a view or
-   a dynamic table name would slip past, the same ceiling `verifyAuditChain` has.
-   **`DELETE FROM person` is excluded from the scan**, narrowly and on purpose:
-   it is the only write spelling the pattern ever matched (an UPDATE says
-   `UPDATE person`), and this rule is the wrong instrument for it.
-   `personListableSql` decides VISIBILITY — may this viewer see that a Person
-   exists — where a delete returns no rows and needs guarding by AUTHORITY, which
-   is `isController`'s job and is pinned by the route's own test. Composing it in
-   would read as a guard while restating something weaker somewhere else, and in
-   `DELETE /persons/:id` it would be actively WRONG: that statement runs in a
-   batch after the `control` rows are gone, so `id IN (SELECT person_id FROM
-   control …)` is false by then and an unlisted Person's row would survive the
-   delete meant to remove it. A guard that silently skips its own write is worse
-   than none — invariant 22's `"1"`-shaped predicate, reached from the other
-   direction. The exemption budget is unchanged at 7 of 8.
-   **Group-level hiding is deliberately not built**, and two counts are the
-   accepted price. `GET /groups` lets any member search every group's name and
-   see a raw `member_count`, and a group detail's `children[].memberCount` is
-   likewise a plain `membership` count — so a household of entirely unlisted
-   Persons is discoverable by NAME, with a roster that renders empty beside a
-   count that doesn't. (The group's OWN `memberCount` is filtered, being derived
-   from the roster rows.) Numbers, never identities. `unlisted_at` withholds a
-   Person, not a Group; extending it to `grp` is a second flag for when a real
-   case asks, not before.
-   **A profile's household roster is where that accepted price stopped being
-   free**, and the answer is a swap rather than a new rule. `householdsFor`
-   (`lib/serialize.ts`) puts a Person's household co-members on their profile —
-   the closest thing to a family this schema can render, there being no
-   Person→Person edge in it at all (see the `membership.title` note below). It is
-   a LISTING: the viewer named the profile's subject, never these Persons, so it
-   composes the gate like any other and spends none of the exemption budget.
-   The new part is that its output would otherwise sit inches from
-   `GroupSummaryDTO.memberCount`, which is the unfiltered `COUNT(*)` this
-   paragraph accepts. A count and a gated roster are fine on separate screens and
-   are an arithmetic oracle side by side, so the profile renders **one or the
-   other, never both**: faces where the gate leaves someone to show, the count
-   where it doesn't. Households only — a classroom's roster is noise on a profile
-   and its membership is the weaker kind (invariant 27). A household the gate
-   empties is omitted rather than serialized with `members: []`, which is what
-   keeps the fallback from announcing itself. `test/profileHouseholds.test.ts` is
-   BEHAVIOURAL for invariant 22's reason: its fake D1 evaluates the predicate, so
-   a guard collapsed to the literal `"1"` fails it with a real name.
+   is.** `unlisted_at` (migration 0018) hides a Person from every ordinary
+   member while staying visible to system admins and controlling Users. Only a
+   system admin may flip it (`POST /persons/:id/unlisted`); a Controller SEES
+   the flag (`buildProfile` returns `unlisted`; the profile shows the card
+   without the button) — a family missing with no explanation is the confusing
+   outcome, not the private one. The seam is **`personListableSql`**
+   (`lib/privacy.ts`); `personSearchSql` is built ON it, not beside it — an
+   empty query returns the gate, not `"1"`, because "no search term" is
+   exactly the unfiltered listing an unlisted Person must stay out of. Two
+   deliberate non-SQL uses: `buildProfile` bakes it into its single-row WHERE
+   (an unlisted Person **404s** for a guessed ULID — serving the profile while
+   hiding the listing is invariant 18's oracle one URL along), and
+   `positionsOf` drops rows in memory with **`isPersonListable`** so a
+   position's `filled` still counts an unlisted signer (a shrinking count
+   advertises a taken shift as open).
+   **`test/personListable.test.ts` is the tripwire**: it scans `apps/api/src`
+   for `FROM person` / `JOIN person` and fails unless each composes the guard
+   or carries `// UNLISTED-EXEMPT: <reason>` (file-level:
+   `UNLISTED-EXEMPT-FILE:`). It catches the call site nobody tested; it is
+   detection, not prevention (views and dynamic table names slip past).
+   `DELETE FROM person` is excluded, narrowly: deletes need AUTHORITY
+   (`isController`, pinned by route tests), not visibility — and in
+   `DELETE /persons/:id` composing the gate would be actively wrong (the batch
+   runs after `control` rows are gone, so the subquery is false and the row
+   would survive its own delete). Exemption budget: 9 (see invariant 32).
+   **Group-level hiding is deliberately not built**: `GET /groups` gives any
+   member every group's name and raw `member_count`, and `children[].memberCount`
+   is a plain count — numbers, never identities; a second flag on `grp` waits
+   for a real case. **A profile's household roster is where that price stopped
+   being free**: `householdsFor` (`lib/serialize.ts`) composes the gate (it's
+   a listing), and because its output would sit beside the unfiltered count,
+   the profile renders **faces or the count, never both** (a count next to a
+   gated roster is an arithmetic oracle). Households only; a household the
+   gate empties is omitted, not serialized empty.
+   `test/profileHouseholds.test.ts` is behavioural — a guard collapsed to
+   `"1"` fails with a real name.
 
-22. **Slack is the first OUTBOUND boundary, and what may cross it is decided by
-   a type, not by care.** Every projection above this one — `publicEventOf`,
-   `publicSheetOf`, `issuePageOf` — withholds data from a less-privileged reader
-   INSIDE this system. A Slack channel is a third party: its own retention, its
-   own search, its own export, and a membership list that grows later without
-   asking us. So a value that is safe in `audit_log`, which only a system admin
-   reads through a route we control, is not thereby safe to send there. The seam
-   is **`slackLinesOf`** (`apps/api/src/lib/slackNotify.ts`), fed from the one
-   place every system event is already known — the `waitUntil` in
-   `middleware/audit.ts`, on its own promise beside `writeAudit` so neither
-   effect can fail the other. Two mechanisms hold it, and **neither is a rule
-   anyone has to remember**:
-   `FORMATTERS` is a curated `Partial<Record<AuditAction, …>>`, so an action
-   with no entry sends nothing — the default for every action in the union,
-   **including one added to it next year** (invariant 12's property, transplanted;
-   `satisfies` still catches a misspelling); and a formatter's input type has
-   **no `detail` field at all**. That second one is the whole defence against
-   forwarding the raw blob: there is nothing to forward, because it is not in
-   scope. `calendar.source.created` is the case that forced it — it puts the
-   feed's `url` in `detail`, and invariant 12 says that may be a secret
-   Google/Outlook subscribe link.
-   What a formatter may say instead comes from **`AuditDraft.notify`**, a second
-   bag a route fills in by hand, by name, at the push site. It is deliberately
-   not `detail`: reusing that column would make "is this safe to export?" a
-   judgement every future push site must get right unaided, which is the failure
-   this whole entry is written after. `notify` is **never persisted** —
-   `chainHash` and `writeAudit` don't read it and `audit_log` has no column for
-   it — so it needed no migration, and it carries scalars only. A formatter that
-   wants a NAME must look it up through **`personLabel`**, which composes
-   `personListableSql(NO_VIEWER, false)`: the channel is nobody, so an unlisted
-   Person's row never comes back and renders as "A member" (invariant 21). It
-   reports a withheld Person and a nonexistent one identically, or the channel
-   becomes an oracle for the flag; and `filled` still counts them, for the reason
-   invariant 13 gives. Because it composes the seam, this is a GUARDED read of
-   `person`, spending none of `test/personListable.test.ts`'s exemption budget
-   (7 of 8 were already gone).
-   **Know what that scan cannot catch**: `personListableSql(x, true)`
-   short-circuits to the literal `"1"`, which reads like a guard, satisfies the
-   scan, and gates nothing. Two independent designs for this feature made exactly
-   that mistake. `test/slackNotify.test.ts` is therefore behavioural, not
-   textual — its fake D1 honours the predicate, so a guard that collapsed to
-   `"1"` fails it with a real name in the message. It also asserts that an
-   invented future action sends nothing, that the deliberately-excluded actions
-   still send nothing, and that a `detail.url` never appears in a rendered line
-   even when `notify` is absent.
-   **Wanting a richer message must never move the push.** A draft is pushed the
-   moment its write commits; anything only a later read can supply is merged
-   into `notify` afterwards, in place, on the object the array already holds
-   (`routes/volunteers.ts` is the worked example — the position's name and
-   counts come from the sheet the response reloads anyway). Pushing after that
-   read instead reads perfectly naturally and is wrong: the read can fail on its
-   own, and then a spot that really was claimed has no audit row and no
-   notification. Nor does "a throwing handler skips the flush anyway" rescue it
-   — Hono's `compose` wraps each handler in its own try/catch and, with
-   `onError` set, turns the throw into a response AT THAT FRAME, so
-   `auditMiddleware`'s `await next()` resolves and flushes whatever was already
-   pushed. Pushing early genuinely saves the record. `test/
-   volunteerSignupAudit.test.ts` fails if either route is reordered.
-   Delivery is fire-and-forget and coalesced to ONE post per request (`c.var.audit`
-   is already the batch). A dropped message is cosmetic where a dropped audit row
-   is not, which is why the two share no machinery — no outbox, no retry, no
-   cron. `SLACK_WEBHOOK_URL` is a secret, absent by default (feature off, message
-   logged, mirroring `RESEND_API_KEY`), and never logged even on failure: holding
-   it is the capability to post into the channel.
-   **The allowlist was set too narrow the first time, and the fix came from
-   counting rather than reasoning.** It originally excluded authoring CRUD on
-   the theory that it fires once per HTTP REQUEST — true, and coalescing only
-   merges drafts WITHIN a request, so a sheet with six positions really is six
-   messages. But nobody measured. Thirty days of this instance's `audit_log`
-   said `calendar.event.*` ran 3, `volunteer.sheet.*` ran 3, roster ops ran 17,
-   and the shipped list would have posted **about four messages in a month** —
-   a channel nobody would look at. Everything in that theoretical second family
-   except the newsletter autosave is now curated. Before narrowing this list on
-   a noise argument, run the count: `SELECT action, COUNT(*) FROM audit_log
-   WHERE created_at > date('now','-30 day') GROUP BY action`.
-   What stays out, and why: routine member FIELD edits (`person.updated`,
-   `contact.*`, `share.*`) — a parent fixing their own phone number is not news;
-   `auth.signin`/`auth.signout` — every visit, where `auth.registered` is the
-   one arrival; and `newsletter.issue.updated` — once the loudest action in the
-   log because it fired on every autosave, now one row per editing sitting
-   (invariant 5, migration 0020) and still out, since opening a draft is not
-   news to a channel and the send already speaks.
-   **One curated action deliberately declines most of its instances**:
-   `control.granted` returns null when `notify.self` is true, because
-   `person.created` reported the same act from the same request and 22 of 22
-   real grants are self-grants. It speaks only for a second parent gaining
-   control by invitation — rarer, and the case where "who can see this family's
-   data" actually changed.
-   **The line the first family draws is arrival, not existence**: `auth.signin`
-   fires every time somebody opens the app and stays off, while `auth.registered`
-   fires once in an account's life and is on; the same split separates
-   `person.created` from `person.updated`.
-   Those two actions are **new**, and adding them fixed a gap in this log rather
-   than only feeding Slack: a `user` row created by /auth/callback and a Person
-   created by `POST /me/persons` were both invisible here, while every later edit
-   to either was recorded. `auth.registered` has a null actor by construction
-   (nobody is signed in yet — like `newsletter.subscribed`), and is pushed at the
-   INSERT rather than beside the `auth.signin` that follows it, for the ordering
-   reason above. `person.created` is deliberately NOT pushed by `bulkImport.ts`:
-   `bulk.import` already reports the batch, and one draft per row would make a
-   200-child import 200 entries saying nothing the summary doesn't.
-   `admin.action` speaks **twelve** of its ~17 ops (the four user/admin ones,
-   `user.create`, `group.create`, the three roster `member.*` ones, `user.deleted`,
-   and the two backup ones invariant 29 adds); the rest — renames, reparents, roster
-   edits, `bootstrap_admin` — fall through its switch's default and say nothing,
-   which is what stops that one action readmitting the noise the allowlist
-   exists to exclude.
+22. **Slack is the first OUTBOUND boundary; what may cross is decided by a
+   type, not by care.** A channel is a third party (its own retention, search,
+   export, membership) — a value safe in `audit_log` is not thereby safe
+   there. The seam is **`slackLinesOf`** (`lib/slackNotify.ts`), fed from the
+   `waitUntil` in `middleware/audit.ts` on its own promise beside `writeAudit`.
+   Two mechanisms, neither a rule to remember: `FORMATTERS` is a curated
+   `Partial<Record<AuditAction, …>>` — no entry sends nothing, including for
+   actions added next year (`satisfies` catches misspellings); and a
+   formatter's input type has **no `detail` field at all** — there is nothing
+   to forward (`calendar.source.created` puts a possibly-secret feed url in
+   `detail`; invariant 12). What a formatter may say comes from
+   **`AuditDraft.notify`**, filled by hand at the push site — scalars only,
+   never persisted (`chainHash`/`writeAudit` don't read it; no column). A
+   formatter that wants a NAME uses **`personLabel`**, which composes
+   `personListableSql(NO_VIEWER, false)` — an unlisted Person renders as
+   "A member", identically to a nonexistent one (or the channel becomes an
+   oracle); `filled` still counts them (invariant 13).
+   **Know the scan's blind spot**: `personListableSql(x, true)` short-circuits
+   to the literal `"1"` — reads like a guard, gates nothing; two independent
+   designs made exactly that mistake. `test/slackNotify.test.ts` is therefore
+   behavioural (fake D1 honours the predicate), and also asserts an invented
+   future action sends nothing, excluded actions send nothing, and
+   `detail.url` never appears in a line.
+   **Wanting a richer message must never move the push.** A draft is pushed
+   the moment its write commits; anything a later read supplies is merged into
+   `notify` afterwards, in place (`routes/volunteers.ts` is the worked
+   example). Pushing after the read is wrong: the read can fail, and Hono's
+   `compose` + `onError` turns a thrown handler into a response at that frame,
+   so `auditMiddleware` still flushes whatever was pushed — pushing early
+   genuinely saves the record. `test/volunteerSignupAudit.test.ts` fails on
+   reorder. Delivery is fire-and-forget, coalesced to ONE post per request, no
+   outbox/retry/cron (a dropped message is cosmetic; a dropped audit row
+   isn't). `SLACK_WEBHOOK_URL` is a secret, absent-means-off (message logged,
+   like `RESEND_API_KEY`), never logged even on failure.
+   **Curate by counting, not reasoning** — the first allowlist excluded
+   authoring CRUD on a per-request-noise theory and would have posted ~4
+   messages a month. Before narrowing on a noise argument:
+   `SELECT action, COUNT(*) FROM audit_log WHERE created_at > date('now','-30 day') GROUP BY action`.
+   What stays out: routine member field edits (`person.updated`, `contact.*`,
+   `share.*`), `auth.signin`/`auth.signout` (arrival, not existence —
+   `auth.registered` is the one arrival and is on), `newsletter.issue.updated`
+   (invariant 5). `control.granted` returns null when `notify.self` (22 of 22
+   real grants were self-grants; it speaks only for a second parent by
+   invitation). `auth.registered` has a null actor by construction and is
+   pushed at the INSERT; `person.created` is NOT pushed by `bulkImport.ts`
+   (`bulk.import` reports the batch). `admin.action` speaks twelve of ~17 ops;
+   the rest fall through its switch's default.
 
 23. **A newsletter is translated by linking out, never by us — and only its
-   PUBLIC page may be linked.** Invariant 6 says member-entered content is never
-   translated, and an issue's body is exactly that: nobody here is going to
-   hand-write a Somali edition of every issue, so the honest offer is a free
-   machine translation the reader can clearly see is a machine's. The seam is
-   `packages/shared/src/newsletterTranslate.ts`, and it is a third-party
-   OUTBOUND boundary in invariant 22's sense with one difference that decides
-   everything: the proxy has to FETCH the url from Google's own servers, so the
-   url itself is what crosses. Invariant 10 already makes a sent issue's archive
-   page public and enumerable, so nothing crosses that wasn't on the open
-   internet — which is precisely why **a review-token url may never appear in
-   one** (invariant 15: the token IS the authorization, it is revocable, and its
-   pages are `no-store` so a cache can't outlive a revocation; posting one to a
-   caching proxy undoes that in a click). `renderNewsletterIssuePageHtml` takes
-   `issueUrl`, REQUIRED rather than defaulted so a fifth issue-page route has to
-   state its answer, and exactly one of the four surfaces passes a value:
-   `/n/:slug`. Both print views and both `/preview/:token` pages pass `""`.
-   `translateProxyUrl` is the second guard, and it refuses by construction
-   rather than by care — not-https, a port, credentials, a dotless host and a
-   relative path all return null, so local dev and the composer's preview drop
-   the bar instead of offering links a proxy could never fetch.
-   **The email and the page deliberately carry DIFFERENT link forms**, and this
-   is the part that looks like duplication and isn't. The email gets
-   `?lang=xx` on our own origin, because a sent issue is immutable and its links
-   are permanent (invariant 10): a url mailed today is clicked from an inbox in
-   two years and cannot be edited, so naming `translate.goog` in it would make
-   Google's url scheme a thing this project can never change. The redirect that
-   resolves it lives in `apps/newsletter/functions/n/[slug].ts` and is the one
-   place the service is chosen. The PAGE names the proxy outright, because it
-   must: **Google's fetcher forwards a proxied page's query string to the origin
-   verbatim** (measured against a request echo, not assumed — it strips only its
-   own `_x_tr_*`), so a `?lang=` link clicked from INSIDE the proxy would ask the
-   proxy to fetch a url that redirects back into the proxy. Same reason the
-   redirect's target carries no `lang` of its own. **Inside the proxy no href
-   we write survives**: Google rewrites every link on the page server-side,
-   pinned to the language on screen, and wraps external ones — a
-   `translate.goog` href included — in `translate.google.com/website?tl=…&u=…`,
-   which refuses to proxy itself ("Can't translate this page"). This file used
-   to say external hrefs were left alone, and the bar shipped broken on it. So
-   the page's `translate.goog` hrefs serve readers on OUR origin, and in-proxy
-   switching is `PROXY_LANGUAGE_SWITCH_JS`, an inline script that re-derives
-   each link from `location` (swap `_x_tr_tl`, or reverse the proxy host for the
-   way back to the original) — ABSOLUTE urls only, because the proxy resolves a
-   relative one against the original site. Off `*.translate.goog` it does
-   nothing.
-   The bar emits **no copy at all** — its links are the language names from
-   `localeNames`, each in its own language. That is not a style choice: an
-   English label like "Read this in another language" is legible only to the
-   readers who least need it, and it would put hardcoded English on the one
-   surface aimed at people who don't read English. Adding a locale to `LOCALES`
-   adds a link for free, the way it adds a line to the front door's hero;
-   `PROXY_LANG` is the one place a locale's code has to be restated, since the
-   proxy names the script (`zh-CN`) where we name the language.
-   `test/newsletterTranslate.test.ts` pins the exclusions, and its last case is
-   deliberately the uncomfortable one: it asserts that a token url handed to
-   `translateProxyUrl` WOULD produce a link, so the `""` at the four call sites
-   is understood as a guard rather than tidiness.
+   PUBLIC page may be linked.** The seam is
+   `packages/shared/src/newsletterTranslate.ts` — an outbound boundary in
+   invariant 22's sense, where the URL itself is what crosses (Google's proxy
+   fetches it). A sent issue's archive page is already public (invariant 10),
+   so nothing crosses that wasn't — which is why **a review-token url may
+   never appear in one** (the token is a revocable authorization; a caching
+   proxy outlives revocation). `renderNewsletterIssuePageHtml` takes
+   `issueUrl` REQUIRED (a fifth issue-page route must state its answer);
+   exactly one surface passes a value: `/n/:slug`. Prints and previews pass
+   `""`. `translateProxyUrl` refuses by construction: not-https, a port,
+   credentials, a dotless host, a relative path all return null.
+   **Email and page carry DIFFERENT link forms, deliberately.** The email gets
+   `?lang=xx` on our origin (a mailed link is permanent; naming
+   `translate.goog` in it pins us to Google's url scheme forever); the
+   redirect lives in `apps/newsletter/functions/n/[slug].ts` — the one place
+   the service is chosen. The PAGE names the proxy outright, because Google's
+   fetcher forwards a proxied page's query string verbatim (measured) — a
+   `?lang=` link clicked inside the proxy would loop. Inside the proxy no href
+   we write survives (Google rewrites all of them, and wraps external ones in
+   a redirector that refuses to proxy itself), so in-proxy switching is
+   `PROXY_LANGUAGE_SWITCH_JS`, re-deriving each link from `location` with
+   ABSOLUTE urls; off `*.translate.goog` it does nothing.
+   The bar emits **no copy** — its links are the language names from
+   `localeNames`, each in its own language (hardcoded English would be
+   legible only to the readers who least need it). Adding a locale adds a link
+   for free; `PROXY_LANG` restates each code (the proxy names the script,
+   `zh-CN`). `test/newsletterTranslate.test.ts` pins the exclusions — its last
+   case asserts a token url WOULD produce a link, so the `""` at the call
+   sites is understood as a guard.
 
-24. **A duplicate child is an onboarding bug, not a matching problem — so the
-   fix is a JOIN path, never a name lookup.** Two parents sign up; the second
-   re-creates children the first already entered. The tempting fix is a check at
-   create time ("a Milo Ruiz already exists — is this yours?") and it is
-   forbidden: it is invariant 18's oracle one URL along, lets any member probe
-   first names to enumerate the school's children, confirms a surname held at
-   `initial`, and surfaces an `unlisted_at` Person (invariant 21).
-   `personSearchSql` is the seam such a feature would have to compose, and it
-   would correctly return nothing useful. **Do not build it.**
-   What was actually broken was reachable from the CORRECT flow, which is why no
-   route test caught it. `Welcome.tsx` already invites the partner, but
-   `bindInvite` granted control of the invitee's own Person and nothing else. So
-   parent two signed in controlling one Person, a MEMBER of the household but
-   not an ADMIN of it — and `GET /me/households` filters `m.is_admin = 1`, so it
-   returned nothing, `ensureHousehold` found nothing to reuse, and their first
-   "add a child" founded a SECOND household with duplicate children in it.
-   **Migration 0021 puts `group_id` on `control_invite` AND `auth_token`** — both,
-   because neither can reach the other cheaply: one is the record a member sees,
-   the other is what `/auth/callback` resolves a click against, by `token_hash`
-   alone. When it is set, accepting grants control of every Person in that
-   household the INVITER controls, promotes the invitee's existing membership to
-   admin, and carries `household_admin` with it the way `POST /groups` does.
-   Three spellings are exact for a reason. The grant is an `INSERT … SELECT` evaluated
-   against what the inviter controls NOW, not a list frozen at send time — a
-   child added in between is one the co-parent should get. It reads
-   `membership × control` and **never `person`**: the invitee is becoming a
-   Controller, which is one of the two audiences the gate admits, so applying it
-   would be the wrong predicate and would spend a scan exemption for nothing.
-   And it is **opt-in per call site** (`householdId` in the body, a checkbox on
-   the partner form), because "help me manage this one child" — a grandparent,
-   the school nurse — must not quietly become "see my whole family".
-   The other half is UI and leaks nothing: the wizard's family step now renders
-   **who is already in the household** before the blank form. It is the same
-   roster `GET /groups/:id` gives that viewer through the same gated route — no
-   new sight, just shown at the moment it decides something.
-   `test/inviteHousehold.test.ts` pins both sides.
+24. **A duplicate child is an onboarding bug, not a matching problem — the fix
+   is a JOIN path, never a name lookup.** A create-time "a Milo Ruiz already
+   exists — yours?" check is FORBIDDEN: it is invariant 18's oracle one URL
+   along, lets any member enumerate children by first name, confirms initialed
+   surnames, and surfaces unlisted Persons. Do not build it.
+   The actual bug: `bindInvite` granted control of the invitee's own Person
+   only, so a second parent controlled a household MEMBER but not an ADMIN;
+   `GET /me/households` filters `is_admin = 1`, `ensureHousehold` found
+   nothing, and their first "add a child" founded a second household.
+   **Migration 0021 puts `group_id` on `control_invite` AND `auth_token`**
+   (neither reaches the other cheaply; callback resolves by `token_hash`
+   alone). When set, accepting grants control of every Person in that
+   household the INVITER controls — an `INSERT … SELECT` evaluated at accept
+   time, not frozen at send (a child added in between should be included);
+   reads `membership × control`, never `person` (the invitee is becoming a
+   Controller, one of the gate's two admitted audiences) — promotes the
+   invitee's membership to admin and carries `household_admin`. **Opt-in per
+   call site** (`householdId` in the body, a checkbox on the partner form):
+   "help me manage this one child" — a grandparent, the school nurse — must
+   not quietly become "see my whole family". The wizard's family step renders
+   who is already in the household (same gated `GET /groups/:id` roster, shown
+   at the moment it decides something). `test/inviteHousehold.test.ts`.
 
-25. **Removing a Person is permanent, and sole control is the test.** `DELETE
-   /persons/:id` is the one destructive act an ordinary member may perform.
-   Unlike disabling a User (invariant 17) there is no `deleted_at`: a Person
-   nobody controls and nobody sees is not worth a tombstone. So the guards, the
-   pre-count and the audit `detail` are the whole design.
-   **Sole control, not authorship.** `control` is many-to-many by design — two
-   parents, one child — so a Person another User also controls is not this
-   user's to take; invariant 17's rule, one level down. Reading it as "created"
-   would key on `control.granted_by` and be wrong in both directions: a
-   co-parent left as the only Controller could never clean up, and a Person
-   since joined by a second Controller would still look deletable.
-   The second refusal is a household the Person **solely administers that still
-   has other members** — removing them there leaves a group nobody can edit.
-   A household they alone occupy is not that case; it is deleted with them, the
-   rule `GET /admin/users/:id/impact` already states.
-   **Count before removing**, like `deleteManagedEvent` (invariant 13): none of
-   it is countable afterwards and none of it is recoverable.
-   `GET /persons/:id/removal-impact` is its own route rather than a field on
-   `PersonProfileDTO` so an ordinary profile view doesn't pay for six counts
-   nobody reads; the DELETE re-runs the same helper rather than trusting what
-   the client saw, since a second Controller may have appeared in between.
-   The cascade is children-first and includes the row nobody thinks of: an
-   unconsumed **`auth_token`** aimed at the deleted Person is a live capability
-   pointing at nothing, and `/auth/callback` creates a user for any non-`signin`
-   kind (invariant 14's reasoning). Groups are the school's and stay.
-   **`audit_log` is never touched** — append-only and hash-chained (invariant 5),
-   and it is deliberately absent from `lib/sweep.ts` for the same reason.
-   The audit row carries the NAME, in `detail`, because in a second nothing else
-   in the system will hold it. That is also why `person.deleted` has **no Slack
-   formatter**: invariant 22 requires a formatter to resolve a name through
-   `personLabel`, and the row that gated lookup needs is gone by the time the
-   `waitUntil` flush runs — so the only way to name them in a channel would be to
-   forward the ungated one from the draft. Silence is the correct default here,
-   and it is the default `FORMATTERS` already gives an action with no entry.
-   `test/personRemoval.test.ts` pins the guards, the cascade order and both.
+25. **Removing a Person is permanent; sole control is the test.**
+   `DELETE /persons/:id` is the one destructive act an ordinary member may
+   perform; no tombstone. **Sole control, not authorship** — `control` is
+   many-to-many; keying on `granted_by` would be wrong in both directions.
+   Second refusal: a household the Person solely administers that still has
+   other members (removing them leaves a group nobody can edit); a household
+   they alone occupy is deleted with them. **Count before removing**:
+   `GET /persons/:id/removal-impact` is its own route (a profile view
+   shouldn't pay for six counts), and the DELETE re-runs the helper rather
+   than trusting the client (a second Controller may have appeared). The
+   cascade is children-first and includes an unconsumed **`auth_token`** aimed
+   at the Person (a live capability pointing at nothing; `/auth/callback`
+   creates users for non-`signin` kinds). Groups are the school's and stay.
+   **`audit_log` is never touched.** The audit row carries the NAME in
+   `detail` — in a second, nothing else will hold it — and that is why
+   `person.deleted` has **no Slack formatter**: `personLabel`'s gated row is
+   gone by flush time, so the only way to name them would be forwarding the
+   ungated draft. Silence is the default `FORMATTERS` already gives.
+   `test/personRemoval.test.ts` pins guards, cascade order, and both.
 
-26. **A store order names a BUYER, not a Person — and nothing in the store's
-   schema may join `person`.** `store_order` captures a shipping name, address
-   and email typed fresh at checkout, even for a signed-in member; it links to
-   `user` by a nullable `user_id`, for "my orders", and to `person` not at all.
-   That is what makes it structurally impossible for a bug to hand Printful or
-   Stripe a member's private phone or address (invariants 1–3): the outbound
-   payloads — `PrintfulOrderRequest` (`lib/printful.ts`) and
-   `CheckoutSessionRequest` (`lib/stripe.ts`) — are hand-shaped types built only
-   from `store_order`'s own columns, with no field wide enough to carry a Person
-   row even by mistake. Same defence invariant 22 gets from a Slack formatter's
-   input type having no `detail` field, and Printful and Stripe are third parties
-   in exactly that invariant's sense: their own retention, their own breach
-   surface, so a value safe inside this system is not thereby safe to send them.
-   The Slack line for `store.order.paid` carries a total, an item count and a
-   town — never a name, a street or an email.
-   **Money correctness rests on three things, none of them a client's word.**
-   `store_product` is the only place a price is READ from, per VARIANT (Printful
-   charges more for 2XL, and one product price would mean eating that or
-   overcharging the small sizes). A **quote** freezes computed lines, a live
-   Printful shipping rate and a total, server-side, before Stripe is involved —
-   it exists because HOSTED Stripe Checkout cannot price shipping from an
-   address, which is also why the cart collects the address FIRST and why the
-   Session is created with `shipping_address_collection` off. And
-   `store_order.total_cents = subtotal_cents + shipping_cents` is a **CHECK
-   constraint**, not a convention.
-   The quote is an **HMAC-signed token, not a row** (`lib/storeQuote.ts`): it is
-   single-use, thirty minutes old, has one consumer, and nothing joins or counts
-   it — it fails every test the other domain tables pass. `sha256` would not do,
-   because here the attacker controls the plaintext. `STORE_SECRET` keys it, and
-   is the ONE optional secret in this codebase that does not degrade to "log it
-   instead": a guessable quote key is a guessable PRICE, so the dev fallback
-   exists only while `STRIPE_SECRET_KEY` is also absent. It keys the derived
-   order-status token too, under a different domain prefix — derived rather than
-   random so the confirmation email, built in a webhook long after the raw token
-   reached the browser, can rebuild the link while only the hash is stored.
-   **`checkout.session.completed` is not proof that money moved**, and treating
-   it as such is the most expensive mistake this feature offers. For a delayed
-   method — ACH, a bank transfer, a voucher — Stripe fires it the moment the
-   buyer finishes the form, with `payment_status: "unpaid"`, and settles days
-   later or never. `createCheckoutSession` does not restrict
-   `payment_method_types`, so that path is one dashboard toggle away from live
-   with no code change to notice it. `routes/storeWebhooks.ts` therefore gates
-   `completed` on `payment_status`, fulfils a delayed order only on
-   `async_payment_succeeded`, and closes one out on `async_payment_failed` —
-   which needed no new state, since such an order never left `awaiting_payment`.
-   Fulfilling on `completed` alone would print and ship, and bill the PTO to do
-   it, for a payment that may never arrive. `test/storeWebhook.test.ts` pins all
-   three, at the route, because the bug is in which event the router acts on and
-   is invisible in a card-only test account.
-   **Every state transition is a compare-and-swap on `status`**, never a read
-   then a write (D1 has no transaction), and that IS the idempotency mechanism:
-   a redelivered Stripe event finds the row already `paid` and changes nothing;
-   a redelivered Printful shipment finds it already `shipped` and mails nobody
-   twice. No ledger of processed event ids exists because there is no read to
-   race. The order row is minted BEFORE payment, which is the one place this
-   design spends a row on something that may never be bought — created from the
-   webhook instead, a webhook that never fires AND a buyer who never returns
-   would leave money taken and nothing here aware of it. `submitOrder`'s claim is
-   what stops the inline `waitUntil` and the `*/15` cron both printing the same
-   shirt. "Paid but not submitted" is therefore not a state to design around: it
-   is `status = 'paid'`, and the cron makes it self-healing.
-   **The storefront is the second indexed surface in this project**, after
-   `apps/home`, so everything that page's rules say applies: a `robots.txt`, a
-   sitemap, `hreflang` alternates honoured server-side (which is why
-   `functions/_lib/locale.ts` exists at all), and nothing member-private ever.
-   `publicProductOf` and `orderStatusOf` are the seams, built field by field like
-   `publicEventOf` — and both Printful ids stay server-side, which is what makes
-   re-pointing the catalog at the PTO's own Printful store an admin re-point
-   rather than a migration. `test/storePublicProjection.test.ts` pins the exact
-   key sets; `test/storeCheckout.test.ts` pins the quote, the webhook signature
-   and the CAS, behaviourally rather than textually.
-   **Connecting the vendors is a documented procedure, not folklore.**
-   `apps/store/SETUP.md` carries the exact Printful token scopes (two, and why
-   the other six stay off), the four Stripe webhook events, the ordering
-   constraint that `STORE_SECRET` must exist before `STRIPE_SECRET_KEY` or
-   checkout 503s, and the DNS record the Pages custom-domain API does NOT create
-   for you. It is written to be run twice — this instance starts on a personal
-   Printful and Stripe account and moves to the PTO's — and its "Changing
-   accounts" section is what keeps that a re-point rather than a migration.
+26. **A store order names a BUYER, not a Person — nothing in the store's
+   schema may join `person`.** `store_order` captures shipping name/address/
+   email typed fresh at checkout; nullable `user_id` for "my orders"; no
+   `person` link. The outbound payloads — `PrintfulOrderRequest`
+   (`lib/printful.ts`), `CheckoutSessionRequest` (`lib/stripe.ts`) — are
+   hand-shaped from `store_order` columns only, with no field wide enough to
+   carry a Person row (invariant 22's defence; Printful and Stripe are third
+   parties in exactly that sense). The `store.order.paid` Slack line: total,
+   item count, town — never a name, street or email.
+   **Money correctness rests on three things, none a client's word**:
+   `store_product` is the only place a price is read, per VARIANT; a **quote**
+   freezes computed lines, a live Printful shipping rate and a total
+   server-side before Stripe (hosted Checkout can't price shipping from an
+   address, which is why the cart collects the address FIRST and the Session
+   sets `shipping_address_collection` off); and
+   `total_cents = subtotal_cents + shipping_cents` is a CHECK constraint.
+   The quote is an **HMAC-signed token, not a row** (`lib/storeQuote.ts`):
+   single-use, 30 minutes, one consumer; `sha256` won't do because the
+   attacker controls the plaintext. `STORE_SECRET` keys it and is the ONE
+   optional secret that does not degrade to logging — a guessable quote key is
+   a guessable PRICE; the dev fallback exists only while `STRIPE_SECRET_KEY`
+   is also absent. It also keys the derived order-status token (derived, not
+   random, so the webhook-built confirmation email can rebuild the link while
+   only the hash is stored).
+   **`checkout.session.completed` is not proof money moved**: delayed methods
+   (ACH, vouchers) fire it with `payment_status: "unpaid"` and settle days
+   later or never, and `createCheckoutSession` doesn't restrict
+   `payment_method_types`, so that path is one dashboard toggle from live.
+   `routes/storeWebhooks.ts` gates `completed` on `payment_status`, fulfils
+   delayed orders only on `async_payment_succeeded`, closes on
+   `async_payment_failed` (no new state — such an order never left
+   `awaiting_payment`). `test/storeWebhook.test.ts` pins all three at the
+   route (invisible in a card-only test account).
+   **Every state transition is a CAS on `status`** — that IS the idempotency:
+   a redelivered Stripe event finds `paid` and changes nothing; a redelivered
+   shipment finds `shipped` and mails nobody twice. No processed-event ledger
+   because there is no read to race. The order row is minted BEFORE payment
+   (minting from the webhook risks money taken with nothing here aware);
+   `submitOrder`'s claim stops the inline `waitUntil` and the `*/15` cron
+   double-printing. "Paid but not submitted" is just `status = 'paid'`; the
+   cron makes it self-healing.
+   **The storefront is indexed surface #2**: robots.txt, sitemap, `hreflang`
+   honoured server-side (`functions/_lib/locale.ts`), nothing member-private.
+   `publicProductOf` / `orderStatusOf` are the seams; both Printful ids stay
+   server-side (re-pointing the catalog at the PTO's Printful is an admin
+   re-point, not a migration). `test/storePublicProjection.test.ts` pins key
+   sets; `test/storeCheckout.test.ts` pins quote, webhook signature, CAS.
+   **Vendor hookup is a documented procedure**: `apps/store/SETUP.md` (token
+   scopes, the four Stripe webhook events, `STORE_SECRET`-before-
+   `STRIPE_SECRET_KEY` ordering, the DNS record Pages doesn't create; written
+   to be run twice — personal accounts now, the PTO's later).
 
-27. **A parent may edit ONE roster without administering it, and "one classroom
-   at a time" is what makes that safe.** `POST /groups/:id/members` is unchanged
-   and still behind `requireGroupAdmin` — authority over a ROSTER. `PUT /persons/
-   :id/classroom` (and its DELETE twin) is a narrower door with a different
-   hinge: `isController` — authority over a PERSON, the gate every other write in
-   `routes/persons.ts` uses. It exists because most classrooms have **no admin at
-   all**: teachers are not Persons in this instance, so without it a parent
-   cannot place their own child and a system admin has to do all 300 of them.
-   The URL is keyed on the person, not the group, because that is where both the
-   authority and the single-valued rule live; the classroom screen is merely
-   where the button sits.
-   **The containment is `self_asserted` (migration 0023), and the first design
-   of this feature got that wrong in a way worth recording.** Joining a group
-   widens two things — `viewerIsDirectMember` in `GET /groups/:id` (the room's own
-   private contacts and exact address) and `effectiveGroupIdsForPerson` →
-   `viewerGroupIds` (items other members SHARED with that room, reachable because
-   a Controller may switch active Person to the child via
-   `POST /me/active-person`). The original answer was "require `student`, and cap
-   a child at one room", and BOTH legs were rotten. `student` is not a
-   school-conferred fact: `ASSIGNABLE_CAPABILITIES` includes it and
-   `POST /me/persons` asks nobody, so any member can mint a Person holding it. And
-   a cap on SIMULTANEOUS membership bounds nothing when reading is a repeatable
-   GET — walk that one Person through all 34 rooms one `PUT` at a time and read
-   each in turn. Capping the set never capped the sequence.
-   So the fix is a **weaker membership, not a tighter cap**: the row carries
-   `self_asserted = 1`, which puts the child on the roster — the entire point, and
-   free, since `GET /groups/:id` already serves every roster to any authenticated
-   member — while both readers above skip it. Being ON a list and being trusted BY
-   it are different things, and that column is where they part. Both surfaces were
-   empty when this shipped (0 classroom-owned contact items, 0 rows in `share`),
-   which is the only time such a door is cheap to close; do not read that
-   emptiness as licence to reopen it, because a classroom contact item is exactly
-   what would populate it. `test/groupMembers.test.ts` pins the withholding
-   BEHAVIOURALLY — it reads a private contact back through the route and asserts
-   the same row is served to a member somebody with authority added, so a guard
-   that withheld from everyone could not pass.
-   Two further rules follow. **`student` is required**, so a roster keeps meaning
-   "the children in this room" — legibility, NOT confinement, per the above; a
-   room parent is still added the old way, by whoever administers the room. And
-   **an `is_admin = 1` membership is never touched**:
-   the route refuses outright if the Person holds one AND scopes every DELETE to
-   `is_admin = 0`, the guard and the belt, so it cannot unseat whoever runs a
-   classroom however it is later reordered. `title` and `is_admin` are SQL
-   literals in the INSERT, so no request body can mint either.
-   **The delete that enforces "one room at a time" re-derives its own set inside
-   the batch** (`kind = 'classroom' AND is_admin = 0 AND group_id <> ?`) rather
-   than naming the ids read a moment earlier. D1 has no read-then-write
-   transaction, so the id-list spelling was a read-then-write with no guard: two
-   concurrent `PUT`s for one child — two parents, or one parent in two tabs —
-   each saw an empty set, each deleted nothing and each inserted. Same reasoning
-   as invariants 13, 17 and 19; the batch is the transaction.
-   **The DELETE names its room** (`?groupId=`) and removes only that one. A child
-   can legitimately hold more than one classroom membership — `lib/bulkImport.ts`
-   defaults `groupKind` to `"classroom"`, so any group a roster import invents is
-   one — and a route that dropped them all while the UI said "remove from THIS
-   class" would silently take a placement nobody mentioned. For the same reason
-   `ClassroomCandidateDTO.currentClassrooms` is a LIST: a placement moves the
-   child out of all of them, so the copy names all of them.
+27. **A parent may edit ONE roster without administering it; `self_asserted`
+   is what makes that safe.** `POST /groups/:id/members` stays behind
+   `requireGroupAdmin`. `PUT /persons/:id/classroom` (+ DELETE twin) is a
+   narrower door on `isController` — it exists because most classrooms have NO
+   admin (teachers aren't Persons here), so without it a system admin places
+   all 300 children. Keyed on the person, not the group: that's where the
+   authority and the single-valued rule live.
+   **The containment is `self_asserted` (migration 0023), not a cap.** Joining
+   a group widens `viewerIsDirectMember` (the room's private contacts/address)
+   and `effectiveGroupIdsForPerson` → `viewerGroupIds` (items shared with the
+   room). The first design — "require `student`, cap at one room" — was rotten
+   on both legs: `student` is self-mintable (`ASSIGNABLE_CAPABILITIES`,
+   `POST /me/persons` asks nobody), and a cap on simultaneous membership
+   bounds nothing when reading is a repeatable GET (walk one Person through
+   all 34 rooms one PUT at a time). So: a weaker membership — the row carries
+   `self_asserted = 1`, which puts the child ON the roster (the point, and
+   free: any member can already read every roster) while both readers above
+   SKIP it. Being on a list and being trusted by it part ways at that column.
+   Both widened surfaces were empty when this shipped; don't read that as
+   licence to reopen. `test/groupMembers.test.ts` pins the withholding
+   behaviourally (reads a private contact back through the route both ways).
+   **`student` is required** (a roster keeps meaning "the children in this
+   room" — legibility, not confinement). **An `is_admin = 1` membership is
+   never touched**: the route refuses if the Person holds one AND scopes every
+   DELETE to `is_admin = 0`. `title`/`is_admin` are SQL literals — no body can
+   mint either. **The one-room delete re-derives its set inside the batch**
+   (`kind='classroom' AND is_admin=0 AND group_id <> ?`) — naming ids read a
+   moment earlier is a read-then-write two concurrent PUTs break. **The DELETE
+   names its room** (`?groupId=`) and removes only that one — a child can
+   legitimately hold several classroom memberships (`bulkImport` defaults
+   `groupKind: "classroom"`), and the UI says "remove from THIS class";
+   `ClassroomCandidateDTO.currentClassrooms` is a LIST because a placement
+   moves the child out of all of them.
    A move is **one `classroom.enrolled` row** carrying the room left behind in
-   `detail`, not an unenroll and an enroll, because it is one act — and
-   `membership` keeps no history, so that row is the only thing that will
-   remember. Re-sending the same placement writes nothing and pushes no draft:
-   an append-only log (invariant 5) must not be paddable by a double tap. Neither
-   action is Slack-curated, for the reason invariant 22 keeps `person.updated`
-   out — a parent sorting their own child into the right room is routine, and it
-   fires about once per child per year.
-   The UI reads eligibility off **`viewerEnrollable`** on `GroupDetailDTO`, built
-   field by field for classrooms only and composing `personListableSql` even
-   though its join to `control` already restricts it to Persons the viewer
-   controls: a guarded read costs nothing there and spends none of
-   `test/personListable.test.ts`'s exemption budget, where an exemption would
-   have spent one to say "trust the join". It is TWO queries assembled in memory,
-   not correlated subqueries per field — the first draft asked for the current
-   room's id and its name as two independent unordered `LIMIT 1` subselects,
-   which nothing made agree, and derived `isHere` from that arbitrary pick. It is
-   deliberately NOT gated on `viewerCanManageMembers` — the two affordances answer
-   to different authorities, so they are separate buttons and a separate sheet.
-   `test/classroomPlacement.test.ts` pins the `self_asserted` literal, the
-   race-free delete, the room-scoped removal, both halves of the admin guard and
-   the silent no-op.
+   `detail` (`membership` keeps no history). Re-sending the same placement
+   writes nothing and pushes no draft (an append-only log must not be paddable
+   by a double tap). Neither action is Slack-curated (routine; ~once per child
+   per year). The UI reads **`viewerEnrollable`** on `GroupDetailDTO` —
+   field-by-field, classrooms only, composes `personListableSql` (a guarded
+   read costs nothing; an exemption would spend budget to say "trust the
+   join"), assembled from TWO queries in memory, and deliberately NOT gated on
+   `viewerCanManageMembers` (different authorities, separate buttons).
+   `test/classroomPlacement.test.ts` pins the literal, the race-free delete,
+   the room-scoped removal, both halves of the admin guard, the silent no-op.
 
 28. **The PTO's boards have no public half, and that absence is the design.**
-   Every other feature here was built around a public/private split — the
-   calendar has `publicEventOf`, volunteer sheets have `publicSheetOf`, the
-   newsletter has `issuePageOf`, the store has `publicProductOf`. The planning
-   boards (migration 0024) deliberately have none: there is **no
-   `/pto-public/*` router, no `publicBoardOf`, and no `Public*DTO` for any
-   `pto_*` table**, because a board carries vendor notes, money and
-   half-finished opinions about how an event went, and the cheapest way to
-   guarantee none of that is ever published is for the seam not to exist. If a
-   public surface is ever wanted it needs a hand-written projection built field
-   by field like its four siblings — the header of migration 0024 and the PTO
-   section of `packages/shared/src/types.ts` are where to start reading. Note
-   what this buys the app's own public pages: they are INDEXED (the third such
-   surface, after `apps/home` and the storefront) and the landing page reads
-   NOTHING — no subrequest, no binding, a pure function of the URL and the
-   request headers. It briefly carried an upcoming-events block against the
-   anonymous `/calendar-public/events`, the way `apps/home` still does;
-   dropping that left it stronger than this invariant asks. Adding a read back
-   was the decision this paragraph said to make on purpose, and it was made
-   once, for `/how-to-help`'s live volunteer list: the ANONYMOUS projections
-   only (`/calendar-public/events` + `/volunteers-public/sheets/:slug` —
-   counts, never names, invariants 12 and 13), every failure hiding the block
-   (`apps/pto/functions/_lib/volunteers.ts`). Board data remains unreachable
-   from any Function.
-   **The gate is `ptoAccess`** (`apps/api/src/lib/ptoBoard.ts`), called by
-   `requirePto` on every route in `routes/pto.ts` including the reads. A system
-   admin is always in; everyone else is in iff some Person they control sits on
-   the roster of the group named by the `pto_board_group_id` setting — a plain
-   `generic` group, so there is no second membership model — **with
-   `self_asserted = 0`**. That clause cannot be violated today, since only
-   classrooms can be self-asserted (invariant 27), which is exactly why it was
-   cheap to write: migration 0023 exists to separate being ON a list from being
-   TRUSTED by it, and a gate that ignored the column would go silently wrong the
-   day that door widens. With no group configured, ONLY system admins are in;
-   that is the bootstrap, not a hole.
-   `GET /pto/access` is the one route outside the gate, and must stay outside
-   it: a member who is not on the board still needs an answer, or the app has
-   nothing to render but a spinner.
-   **Names go through `ptoRosterOf`**, which composes `personListableSql`
-   (invariant 21) — so this feature spends none of
-   `test/personListable.test.ts`'s exemption budget, which was already 7 of 8.
-   An assignee the gate withholds is rendered as a generic label rather than
-   dropped, the answer `personLabel` gives a Slack channel (invariant 22) and
-   for both of its reasons: telling a withheld Person from a nonexistent one
-   would make a card an oracle for the flag, and dropping the entry would
-   advertise a claimed card as unclaimed. Note the two questions kept apart —
-   `ptoAccess` and `setAssignees` read `membership` and `control` and never
-   `person`, because "is this Person on the PTO board?" is AUTHORIZATION and
-   applying the enumeration gate there would make an unlisted board member
-   un-assignable by the people who can see them.
-   **`position` is a REAL and a move is last-write-wins**, which is the one
-   place in this codebase that is the right answer rather than a bug. A drag is
-   one `UPDATE` at the midpoint of its new neighbours, not a renumber — D1 has
-   no transaction, and a renumber is a read-then-write over N rows that two
-   simultaneous drags would scramble. Nothing is over-committed by losing a
-   drag race (contrast the guarded volunteer-overfill INSERT, invariant 13), and
-   a compare-and-swap would only snap a card back under someone's cursor.
-   Re-dropping a card where it already sits writes nothing and pushes no draft:
-   an append-only log must not be paddable by a jittery mouse — invariant 27's
-   rule for a repeated classroom placement.
-   **None of the `pto.*` actions are Slack-curated**, which is the default
-   `FORMATTERS` already gives an action with no entry, and the right one here
-   for the reason invariant 22 keeps `person.updated` out: cards move several
-   times a day while an event is being organised.
-   `test/ptoAccess.test.ts` is BEHAVIOURAL, not textual — its fake D1 evaluates
-   the guard AND its Controller exemption, so a predicate that collapsed to the
-   literal `"1"` fails it with a real name in the result, which the source scan
-   cannot see. `test/ptoRoutes.test.ts` pins that every route asks the gate.
+   No `/pto-public/*` router, no `publicBoardOf`, no `Public*DTO` for any
+   `pto_*` table — boards carry vendor notes, money and half-finished
+   opinions, and the cheapest guarantee is that the seam doesn't exist. If a
+   public surface is ever wanted, it is a hand-written projection like its
+   four siblings (start from migration 0024's header and the PTO section of
+   `types.ts`). The app's own public pages are INDEXED (surface #3); the
+   landing page reads NOTHING; `/how-to-help` reads only the anonymous
+   projections (`/calendar-public/events` + `/volunteers-public/sheets/:slug`
+   — counts, never names), every failure hiding the block
+   (`apps/pto/functions/_lib/volunteers.ts`). Board data is unreachable from
+   any Function.
+   **The gate is `ptoAccess`** (`lib/ptoBoard.ts`) via `requirePto` on every
+   route in `routes/pto.ts`, reads included. System admin always in; everyone
+   else iff a Person they control sits on the roster of the
+   `pto_board_group_id` group (plain `generic` group — no second membership
+   model) **with `self_asserted = 0`** (can't be violated today — only
+   classrooms self-assert — which is exactly why it was cheap to write before
+   the day that door widens). No group configured → admins only; that is the
+   bootstrap, not a hole. `GET /pto/access` is the one route OUTSIDE the gate
+   and must stay there (a refused member needs an answer, not a spinner).
+   **Names go through `ptoRosterOf`**, composing `personListableSql`
+   (invariant 21; no exemption spent). A withheld assignee renders as a
+   generic label, never dropped — `personLabel`'s answer, for both reasons
+   (oracle; a claimed card must not advertise as unclaimed). `ptoAccess` and
+   `setAssignees` read `membership` + `control`, never `person` — board
+   membership is AUTHORIZATION; the enumeration gate there would make an
+   unlisted board member un-assignable by people who can see them.
+   **`position` is a REAL and a move is last-write-wins** — the one place
+   that's the right answer: a drag is one `UPDATE` at the midpoint of its new
+   neighbours (a renumber is a read-then-write over N rows that two drags
+   scramble); nothing is over-committed by losing a drag race, and a CAS would
+   snap a card back under someone's cursor. Re-dropping a card where it sits
+   writes nothing and pushes no draft. **No `pto.*` action is Slack-curated**
+   (cards move several times a day; `FORMATTERS`' default).
+   `test/ptoAccess.test.ts` is behavioural (a `"1"` guard fails with a real
+   name); `test/ptoRoutes.test.ts` pins that every route asks the gate.
 
-29. **A backup is the one seam here that deliberately does NOT narrow, and the
-   restore is the one write that deliberately does not touch everything.**
-   `GET /admin/backup` dumps the whole database as JSON; `POST /admin/restore`
-   reads one back. `lib/backup.ts` is both halves and its header is the long
-   version; four things about it are load-bearing.
-   **The default is include, and the seam is an EXCLUDED list.** Every other
-   outbound shape in this file — `publicEventOf`, `publicSheetOf`,
-   `issuePageOf`, `publicProductOf`, `slackLinesOf` — is hand-built field by
-   field so a column added next year reaches nobody until someone decides it
-   should. A backup inverts that property, because there the unremembered
-   column is one silently MISSING from the file, discovered on the day somebody
-   restores. So tables are discovered from `sqlite_master` (a migration's new
-   table is backed up by construction) and the reviewable list is the short one
-   of what is left out. The file therefore holds `geo_lat`/`geo_lng`, which
-   invariant 2 keeps out of every DTO, and every `private` contact item: it is
-   the directory, not a view of it, and a file with the coordinates stripped
-   would quietly turn neighbour discovery off for every family on restore. The
-   controls are elsewhere — system admin only, never while masquerading,
-   audited, and announced in Slack, since a complete copy of the school's data
-   leaving the building is what that channel is for.
-   **`EXCLUDED_TABLES` is exactly `lib/sweep.ts`'s six**, and for a related
-   reason: four hold a live capability, and the other two, `read_budget` and
-   `ai_budget`, are rate-limit counters that a restore would only reset. `session.id` IS the cookie value in the
-   clear, so a file containing it signs its holder in as anyone logged in when
-   it was taken — nothing else in this schema is like that. `auth_token`,
-   `newsletter_confirmation` and `control_invite` store hashes, so the file
-   leaks nothing, but RESTORING one resurrects a spent capability: a magic link
-   consumed since the snapshot comes back with `consumed_at` null and works
-   again, defeating the single-use guarantee invariant 19 exists to make. Two
-   of them also back row-counting caps whose retention is a security parameter.
-   The practical consequences are worth saying: pending invitations are not
-   restored and get re-sent, and — the useful half — every current session is
-   left alone, which is why the admin performing a restore is still signed in
-   when it lands.
-   **`audit_log` is exported and never written back** (`RESTORE_SKIPPED_TABLES`).
-   It is append-only and hash-chained, which is why invariant 5 keeps it out of
-   `lib/sweep.ts` and invariant 17 keeps it out of a user deletion; a restore
-   that emptied it would break the chain AND erase the record of the restore. So
-   the chain runs continuously across a restore and the `admin.action` row this
-   operation appends is the one thing a restore cannot erase — which is also why
-   that draft is pushed BEFORE the write rather than after it, the one
-   deliberate departure from invariant 22's ordering rule: a restore that dies
-   half-way has still destroyed data, and the row is what explains the state.
-   **Three refusals, all in `planRestore`, all before the first DELETE** (a
-   restore is not atomic across D1 batches, so everything checkable is checked
-   while there is still something to lose). A table or column the live schema
-   doesn't have — which is the schema-drift check and, since identifiers cannot
-   be bound, the injection guard. A live table the FILE doesn't mention, because
-   emptying something nobody named is invariant 27's failure; the error names
-   the table and says to add `"x": []` to mean it. And a file with no enabled
-   system admin in `user`, which is invariant 17's last-admin guard reached from
-   the other direction; not being in it yourself is a warning, not a refusal,
-   since sessions survive and another admin in the file can sign back in.
-   Dry run is the default (`dryRun !== false`, like `/admin/bulk-import`) and a
-   real restore additionally needs `confirm: "RESTORE"`, which no accidentally
-   replayed dry-run body carries.
-   **The executor is shaped by D1 enforcing foreign keys** (invariant 17), and
-   the first version — "empty every table, then insert every file" — failed on
-   its first DELETE against a real database. `runRestore` now leads every batch
-   with `PRAGMA defer_foreign_keys = true`, so checks run at each batch's
-   COMMIT; orders inserts parents-first across tables (`restoreOrder`, from
-   `sqlite_master`'s own REFERENCES) and within a self-referencing one
-   (`parentFirst`, for `grp.parent_id`), because deferral ends with the batch;
-   and — the part that is not obvious — **never empties a table an EXCLUDED
-   table points at**. The sessions are left in place on purpose, and a commit
-   with `session.user_id` pointing at an emptied `user` is a violated
-   constraint however it is deferred. So `user`, `person` and `grp`
-   (`keptAliveTables`, closed under REFERENCES) are UPSERTED with
-   `INSERT OR REPLACE` and then TRIMMED by id in chunks of 100 (D1's bind
-   limit), each chunk's batch first deleting the excluded rows that point at
-   the stale ids — which is where the session of an account not in the file
-   ends, exactly as `planRestore`'s warning says. `test/backup.test.ts`'s fake
-   `sqlite_master` now carries DDL with foreign keys so those four properties
-   are pinned; the end-to-end check is `wrangler dev` against the local D1,
-   which enforces the same constraints production does.
-   Two limits to know. This is **D1 only** — `PHOTOS` and `NEWSLETTER_MEDIA` are
-   R2, so a restored `photo_object_key` points at an object that still has to be
-   there; restoring into a fresh bucket gives broken portraits, not a corrupt
-   directory. And the read is the statement the invariant-21 source scan cannot
-   see, because the table name is interpolated — the blind spot that test names
-   in its own header — so the `UNLISTED-EXEMPT` note lives at `readTable` where
-   a reader will find it: composing the gate would omit every unlisted Person
-   from the file, and the restore would then DELETE those families.
-   `test/backup.test.ts` is BEHAVIOURAL for invariant 22's reason — its fake D1
-   records statements where they EXECUTE, including inside `batch()`, so a
-   restore that deleted `audit_log` or wrote a session row fails it with a
-   statement rather than passing a scan.
+29. **A backup deliberately does NOT narrow; the restore deliberately does not
+   touch everything.** `GET /admin/backup` dumps the whole DB as JSON;
+   `POST /admin/restore` reads one back; `lib/backup.ts` is both halves and
+   its header is the long version.
+   **The default is include; the seam is an EXCLUDED list.** Every other
+   outbound shape is hand-built so an unremembered column reaches nobody; a
+   backup inverts that, because there the unremembered column is one MISSING
+   from the file, discovered on restore day. Tables are discovered from
+   `sqlite_master`; the reviewable list is what's left out. The file holds
+   `geo_lat`/`geo_lng` and every `private` contact item — it is the directory,
+   not a view of it (stripped coordinates would silently turn neighbour
+   discovery off on restore). Controls are elsewhere: system admin only, never
+   masquerading, audited, Slack-announced.
+   **`EXCLUDED_TABLES` is exactly `lib/sweep.ts`'s six**: four hold a live
+   capability (`session.id` IS the cookie value in the clear — a file holding
+   it signs its holder in as anyone; `auth_token`/`newsletter_confirmation`/
+   `control_invite` store hashes but restoring one resurrects a SPENT
+   capability, defeating single-use); `read_budget`/`ai_budget` are rate
+   counters a restore would only reset. Two also back security-parameter caps.
+   Consequences: pending invitations are re-sent, and every current session
+   survives — the restoring admin stays signed in.
+   **`audit_log` is exported and never written back**
+   (`RESTORE_SKIPPED_TABLES`): a restore that emptied it would break the chain
+   AND erase the record of the restore. The chain runs continuously across a
+   restore, and that draft is pushed BEFORE the write — the one deliberate
+   departure from invariant 22's ordering, because a restore that dies halfway
+   has still destroyed data and the row is what explains the state.
+   **Three refusals, all in `planRestore`, all before the first DELETE**: a
+   table/column the live schema lacks (schema drift; identifiers can't be
+   bound, so also the injection guard); a live table the file doesn't mention
+   (`"x": []` to mean empty on purpose); no enabled system admin in the file
+   (invariant 17's last-admin guard from the other direction — not being in it
+   yourself is a warning, since sessions survive). Dry run is the default
+   (`dryRun !== false`); a real restore needs `confirm: "RESTORE"`.
+   **The executor is shaped by D1 enforcing FKs** (the naive
+   empty-then-insert failed its first real DELETE): `runRestore` leads every
+   batch with `PRAGMA defer_foreign_keys = true`; orders inserts parents-first
+   (`restoreOrder` from `sqlite_master` REFERENCES; `parentFirst` within
+   self-referencing `grp`); and **never empties a table an EXCLUDED table
+   points at** — `user`, `person`, `grp` (`keptAliveTables`, closed under
+   REFERENCES) are UPSERTED with `INSERT OR REPLACE` then TRIMMED by id in
+   chunks of 100 (D1's bind limit), each chunk's batch first deleting the
+   excluded rows that point at stale ids (where a not-in-file account's
+   session ends). Limits: **D1 only** — R2 objects have to exist, so a fresh
+   bucket means broken portraits, not a corrupt directory; and `readTable`
+   interpolates the table name (the invariant-21 scan's blind spot), so its
+   `UNLISTED-EXEMPT` note lives there — composing the gate would omit unlisted
+   Persons from the file and the restore would DELETE those families.
+   `test/backup.test.ts` is behavioural: its fake D1 records statements where
+   they EXECUTE, batches included; the end-to-end check is `wrangler dev`
+   against local D1.
 
 30. **A bulk import's email column names an ACCOUNT, not a contact — and the
-   import can now mint that account.** By default a row whose email has no
-   account gets a pending `control_invite` (mailed only with `sendInvites`),
-   which is the right shape for a family roster: the parent's address sits on
-   each child's row, and the parent decides what their profile shows. It is the
-   wrong shape for a staff roster, and the gap was real: `/auth/callback` binds
-   an invite only from the token it consumes, so a teacher who ignored the mail
-   and used "Email me a link" got a fresh EMPTY account — or, with registration
-   closed, nothing. `createAccounts` (`BulkImportOptions` in `@sd/shared`,
-   `lib/bulkImport.ts`) writes the `user` row the way `POST /admin/users` does
-   (`joined_via 'admin'`, nothing sent) and attaches the Person to it, so the
-   sign-in screen simply finds the account. In that mode no invite exists, so
-   `sendInvites` has nothing to mail; the two are alternatives. Either mode now
+   import can mint that account.** Default: a row whose email has no account
+   gets a pending `control_invite` (mailed only with `sendInvites`) — right
+   for a family roster (the parent decides what the profile shows), wrong for
+   a staff roster (`/auth/callback` binds an invite only from its token, so a
+   teacher using "Email me a link" got an empty account or, with registration
+   closed, nothing). `createAccounts` (`BulkImportOptions`,
+   `lib/bulkImport.ts`) writes the `user` row like `POST /admin/users`
+   (`joined_via 'admin'`, nothing sent) and attaches the Person; no invite
+   exists in that mode, so the two options are alternatives. Either mode
    ADOPTS a Person left waiting by an earlier invite-mode import when the
-   address has an account (control granted, invite closed) rather than minting a
-   duplicate beside it. Two more options are deliberately separate knobs:
-   `contactVisibility` (default `private`, invariant 3 — an admin's explicit
-   choice per import, never a new default) and `emailAsContact`, off by
-   default because on a family roster that column is the parent's address and
-   must not land on a child's profile. `test/bulkImportAccounts.test.ts` is
-   behavioural: its fake D1 records writes where they execute, so a mode that
-   fell back to an invite fails on the recorded statement.
+   address now has an account. Two separate knobs: `contactVisibility`
+   (default `private`, invariant 3 — an explicit per-import choice, never a
+   new default) and `emailAsContact` (off — on a family roster that column is
+   the parent's address and must not land on a child's profile).
+   `test/bulkImportAccounts.test.ts` is behavioural.
 
-31. **Newsletter authoring is gated by a roster, not only by a role — and the
-   roster gate is ONE function.** `newsletterAccess` (`lib/newsletter.ts`) is
-   `rosterAccess` (`lib/rosterGate.ts`) keyed on the `newsletter_editor_group_id`
-   setting; `ptoAccess` is the same function keyed on `pto_board_group_id`.
-   The PTO's rule moved there rather than being copied because the clause worth
-   defending — `self_asserted = 0`, invariant 28's whole paragraph on it — is
-   exactly what a second copy forgets. A system admin is always in; anyone else
-   is in iff a Person they control sits on the named `generic` group's roster;
-   with no group named, only system admins author. Two committees, two keys:
-   a shared one would make every PTO board member an editor and vice versa.
-   **Two gates in `routes/newsletter.ts`, and which routes take which is the
-   design.** `requireEditor` covers everything about ISSUES — list, draft,
-   preview, review links, test sends, send, retry, the composer's image upload
-   — and a READ of the settings blob, which the composer needs to render and
-   which holds nothing an issue's own email doesn't print. `isSystemAdmin`
-   keeps writing the settings, the subscriber list (email addresses the
-   committee has no need to see) and `PUT /newsletter/editors` itself — the
-   lever over who gets in, audited as `newsletter.editors.configured`, the
-   shape `pto.group.configured` has, and Slack-silent for the same reason.
-   Sending is deliberately on the editor side: an editor who could write but
-   not send would need an admin summoned every issue, which is the workflow
-   this exists to end. `GET /newsletter/access` is the one route outside both
-   gates and must stay there, for `GET /pto/access`'s reason. The app mirrors
-   it: `RequireEditor` on the issue screens, `RequireAdmin` on settings and
-   subscribers, `lib/access.tsx` copied from the PTO app. `test/
-   newsletterAccess.test.ts` enumerates every route by hand and pins which
-   gate each asks — a route added to the file and not to that list is what
-   nothing else will notice.
+31. **Newsletter authoring is gated by a roster, and the roster gate is ONE
+   function.** `newsletterAccess` (`lib/newsletter.ts`) is `rosterAccess`
+   (`lib/rosterGate.ts`) keyed on `newsletter_editor_group_id`; `ptoAccess` is
+   the same function keyed on `pto_board_group_id`. Shared rather than copied
+   because the clause worth defending — `self_asserted = 0` — is exactly what
+   a second copy forgets. System admin always in; else a controlled Person on
+   the named `generic` group's roster; no group named → admins only. Two
+   committees, two keys (a shared one makes every board member an editor).
+   **Two gates in `routes/newsletter.ts`**: `requireEditor` covers everything
+   about ISSUES — list, draft, preview, review links, test sends, **send**
+   (an editor who can't send needs an admin summoned every issue, the workflow
+   this ends), retry, image upload — plus READING the settings blob (the
+   composer needs it; it holds nothing an issue's email doesn't print).
+   `isSystemAdmin` keeps settings writes, the subscriber list, and
+   `PUT /newsletter/editors` itself (audited
+   `newsletter.editors.configured`, Slack-silent). `GET /newsletter/access`
+   stays outside both, for `GET /pto/access`'s reason. The app mirrors it
+   (`RequireEditor` / `RequireAdmin`, `lib/access.tsx` copied from the PTO
+   app). `test/newsletterAccess.test.ts` enumerates every route by hand and
+   pins which gate each asks — a route added to the file and not the list is
+   what nothing else will notice.
 
 32. **Reading the directory is GRANTED, not conferred by signing up.**
-   `requireAuth` used to be the whole of it: any account that completed a magic
-   link could read every Person in the school, and with registration open that
-   meant anyone with an email address. Migration 0029 adds an application —
-   `user.access_approved_at`, non-null IS the authorization — and
-   `AuthContext.isApproved` carries it on the session join, so the gate costs no
-   round trip.
-   **An application, not an allowlist, and the difference is the design.** An
-   allowlist judges an EMAIL, which asserts nothing and can be checked against
-   nothing short of the district's family roster — and asking for that roster
-   would put education records in a system that today holds none, with the
-   FERPA obligations that follow. An application judges what the applicant
-   TYPED: their name, their child's name, and the room that child is in, picked
-   from the classroom groups this instance already carries under the district's
-   own names. A reviewer checks that in seconds; nobody can check an address.
-   Know what it is NOT: proof. A determined person can type a plausible room.
-   What it removes is the ANONYMOUS population — every reader of the directory
-   has named a child and a teacher, which is attribution. Rate limiting is the
-   other half and is a different mechanism.
-   **TWO SEAMS, and the first is the one that scales.** `personListableSql`
-   (invariant 21) takes an `approved` argument: false resolves to the caller's
-   OWN Persons — not to `"1"`, and not to the unlisted rule, which is true of
-   almost every row and would leak the roster. Because
-   `test/personListable.test.ts` already fails the build on a `FROM person` that
-   doesn't compose that function, the directory listing and its `COUNT(*)`, both
-   pickers, `buildProfile`'s 404, `householdsFor` and `classroomsByPerson` all
-   narrowed from one edit — and the eleventh call site nobody remembers is
-   caught by a test that already existed. The second seam is `requireApproved`
-   (`lib/directoryAccess.ts`), a function called at the top of a handler rather
-   than a middleware on a path, because the routes needing it are not a prefix:
-   a prefix mount would either lock a pending member out of their own family or,
-   worse, look like it covered routes it never ran on.
-   **What the predicate does not reach, four routes name explicitly**, because
-   they don't read `person`: `GET /groups` (names and raw `member_count`),
-   `GET /groups/:id` (the group's own contacts and counts), `GET /photos/:key`
-   (an R2 key lookup — and these are photographs of children, invariant 20), and
-   `GET /volunteers/sheets/:slug`, whose `positionsOf` filters in memory with
-   `isPersonListable` so `filled` still counts a name it withholds (invariant
-   13's reason, unchanged).
-   **Two routes deliberately survive the gate, and both would otherwise trap a
-   pending family in a form they cannot finish.** `GET /groups/:id` opens for a
-   group one of their own Persons is on the roster of — invariant 24's family
-   step renders their household through it — and the roster inside is still
-   narrowed by the predicate, so their child's CLASSROOM opens showing their own
-   child and not the twenty-five families in it. And `GET /me/classroom-options`
-   is a route of its own serving `kind = 'classroom'`, id and name only: you
-   cannot name your child's room without being shown the rooms, and invariant 21
-   already grants any member a search over every group's NAME, so this is
-   strictly less, for the length of one form.
-   `GET /me` is likewise outside the gate and reports the state, for the reason
-   `GET /pto/access` and `GET /newsletter/access` are outside theirs: a member
-   who is refused has to be told WHY, and a route that refused them could not do
-   the telling.
-   **Approving does TWO things**, and the second is the one to understand: it
-   promotes the applicant's classroom placements from `self_asserted = 1` to
-   `0`. A parent placing their own child writes the weak kind by construction
-   (invariant 27) — the row says where they CLAIM the child is, and nothing had
-   yet judged it. Approval is that judgement, so the placement starts counting
-   for `rosterAccess` and `viewerIsDirectMember` like any roster an authority
-   wrote, and classroom-scoped visibility becomes possible later without a
-   second pass over this data. Both effects ride ONE `batch()`: an account
-   approved with its placements left weak would read as verified while every
-   roster still treated it as hearsay. The promotion re-derives its own set
-   inside the batch rather than naming ids read a moment earlier, for invariant
-   27's race.
-   **Declining is reversible and quiet.** It sets a date; the account keeps the
-   calendar, the newsletter, volunteering and its own family, and only other
-   families are withheld. Approving later clears it, and the applicant may ask
-   again — which is the point, since the common decline is "we could not find
-   your child in that room" and the answer to that is a corrected room. A
-   wrongly declined family is a worse outcome than a slow approval, and
-   `screens/Access.tsx` says so: the word "denied" appears nowhere, the three
-   unmet conditions each link to the screen that fixes them, and every state
-   repeats what they CAN still do.
-   **One path to approval is not an admin decision**: accepting a household
-   invitation from a member who is already approved (`bindInvite`). It is
-   vouching, and **`group_id` is the whole of what makes it safe** — the clause
-   review found missing. A bare co-controller invite from
-   `POST /persons/:id/controllers` carries the same `kind = 'invite'` and the
-   same `invited_by` but NO `group_id`, so an unconditional vouch let any
-   approved member hand a stranger the entire directory by inviting them to
-   help with one child, with no review at all. That is invariant 24's own rule
-   read one level up: "help me manage this one child" must not become "see my
-   whole family", still less "see the whole school". The household invite is
-   different because the inviter ticked a box to share their family, so the
-   vouch matches something they actually chose. Enforced inside the UPDATE, it
-   only ever grants, and it leaves an already-approved invitee alone.
-   Asking twice while pending writes nothing and pushes no draft, and neither
-   does a decision that changes nothing: an append-only log (invariant 5) is not
-   paddable by a double tap, the rule invariants 27 and 28 both state.
-   **One of the three speaks to Slack and it names nobody.**
-   `access.requested` is curated (invariant 22), because it is the one event in
-   this feature that needs a human to act and because `auth.registered` beside
-   it no longer implies it: since signing up stopped granting access, a channel
-   that reported arrivals alone would be silent on the only actionable step.
-   The line carries no address, no child and no room — the applicant's claim is
-   the most sensitive thing this feature touches, and it belongs on the queue
-   screen behind a session. That is guaranteed structurally rather than by
-   care: the three drafts carry **one** `notify` value between them, the
-   boolean `resubmitted`, so a formatter has nothing identifying in scope even
-   if a later edit wanted it. `access.approved` and `access.declined` stay
-   silent — they are the ANSWER to a message the channel already has, and a
-   decision per applicant is the per-event noise the allowlist exists to keep
-   out. `test/slackNotify.test.ts` pins all three, including that a
-   `detail.resubmitted` alone cannot change the wording, which would mean
-   `detail` had leaked into a formatter's scope.
-   **The exemption budget moved 8 → 9**, once, for `accessClaimsFor` in
-   `routes/admin.ts`: the queue is system-admin-only, and `personListableSql`
-   short-circuits an admin to `"1"`, so composing it there would read as a guard
-   while gating nothing. The feature's other two reads of `person` DO compose
-   it. `test/directoryAccess.test.ts` is BEHAVIOURAL for invariant 22's reason —
-   its fake D1 evaluates the predicate, so a gate that admitted the school fails
-   with another family's child in the result rather than passing a scan — and it
-   pins the batch boundary, the promotion and both no-ops.
-   **TWO ROUTES to a complete claim, because the school is not only parents.**
-   The first version asked every applicant for a child, which a teacher, the
-   office and the nurse cannot produce — so they met a form with two conditions
-   they could never satisfy and a button that never enabled. They were not
-   locked out (an admin can approve from the "Never asked" tab) but they had no
-   way to ASK and nothing told anyone they were waiting, which is the same dead
-   end the declined screen had. So `isStaff` — a Person the applicant controls
-   holding `teacher` or `staff` — is the other way through, and
-   `complete = selfNamed && (isStaff || (hasStudent && studentPlaced))`. Both
-   are self-asserted and that is fine for invariant 27's reason: this decides
-   what a REVIEWER is shown, never what anyone may read, and "I teach in
-   Rm 110" is as checkable by a human with the staff list as "my child is in
-   Rm 110". Staff are deliberately not asked for a classroom — a teacher has a
-   room, the office and the custodian do not, and requiring one would rebuild
-   the dead end a segment further along; the note is where they say which.
-   `AccessRequestDTO.roles` carries it to the queue so a teacher does not read
-   as a parent who forgot to enter their family.
-   **The budget is the other half, and neither substitutes for the other.**
-   The gate decides WHETHER an account may read other families; `enforceReadRate`
-   (same file) bounds HOW FAST, through a `[[ratelimits]]` binding at 60 a
-   minute. Approval removes the anonymous population; the budget is what stops
-   an approved member — or a stolen session — paging the roster with a script,
-   which is the half the concern that prompted all this actually named. It is
-   keyed on the USER, not the IP, because the thing being limited is an
-   authenticated member enumerating people and a family behind one NAT address
-   must not throttle itself. A system admin is NOT exempt: theirs is the session
-   worth stealing, and nothing they legitimately do on these routes comes near a
-   request a second. Absent binding means OFF, the contract an absent
-   `RESEND_API_KEY` has, and a limiter that throws ADMITS the request — both
-   defaults chosen knowing the direction they fail, since refusing every read on
-   a config slip would take the directory down. `/photos/:key` is deliberately
-   unlimited: one directory page fires up to 50 at once, and a photo key is only
-   learnable from a listing that IS limited.
-   **The minute window slows a crawl; the DAILY one bounds it.** 60 a minute
-   is still ~86,000 a day, and the binding cannot count past 60 seconds, so
-   `read_budget` (migration 0030) counts one row per account per UTC day with
-   an upsert on every budgeted read — refused ones included, so a script
-   retrying against a 429 spends its day. Past `DAILY_READ_LIMIT` (500) reads
-   are refused until UTC midnight, with a `Retry-After` that says so. Either
-   limit also posts ONE Slack line per account per day, claimed by a guarded
-   `UPDATE … WHERE alerted_at IS NULL` (invariant 13's idiom). That line is
-   deliberately outside `slackLinesOf`: it is not an audit action, since a
-   refused GET changed nothing (invariant 5). It names the ACCOUNT by email, as
-   `auth.registered` does, and never whom they read. The sign-in cap stays
-   log-only because it trips on somebody ELSE's address; this one trips on a
-   signed-in member walking the roster, and a copy that has left cannot be
-   recalled, so the only useful time to hear about it is while it happens.
-   The counter shares the binding's switch: no `READ_LIMIT`, no rows written.
-   **The grandfathering in migration 0029 is the part to re-read before any
-   similar gate.** It approves every account that controls a Person, which on
-   this instance was 66 of 76; without it the deploy locks out the school. The
-   ten left pending control nobody, which is the shape the gate exists to catch.
-   `seed/dev-seed.sql` approves its two users for the same reason in reverse —
-   the seed runs AFTER migrations, so the grandfathering has already been and
-   gone by the time those rows exist.
+   Migration 0029 adds `user.access_approved_at` (non-null IS the
+   authorization); `AuthContext.isApproved` rides the session join.
+   **An application, not an allowlist**: an allowlist judges an EMAIL (which
+   asserts nothing, and checking it would need the district's roster — FERPA
+   obligations this system doesn't have); an application judges what the
+   applicant TYPED — their name, their child, the room (picked from the
+   classroom groups already here). It is not proof; it removes the ANONYMOUS
+   population and gives attribution. Rate limiting is the other half.
+   **Two seams.** `personListableSql` takes an `approved` argument: false
+   resolves to the caller's OWN Persons — not `"1"`, and not the unlisted rule
+   (true of almost every row; would leak the roster). Because
+   `test/personListable.test.ts` already fails un-composed reads, every call
+   site narrowed from one edit. `requireApproved` (`lib/directoryAccess.ts`)
+   is a function called at the top of a handler, not path middleware — the
+   routes aren't a prefix, and a prefix mount would lock a pending member out
+   of their own family or silently not run. Four routes that don't read
+   `person` name it explicitly: `GET /groups`, `GET /groups/:id`,
+   `GET /photos/:key`, `GET /volunteers/sheets/:slug` (whose `positionsOf`
+   still counts withheld names — invariant 13).
+   **Two routes deliberately survive the gate** (else a pending family is
+   trapped in a form they can't finish): `GET /groups/:id` opens for a group
+   one of their own Persons is on — the roster inside still narrowed by the
+   predicate, so their child's classroom shows their own child, not 25
+   families — and `GET /me/classroom-options` serves `kind='classroom'` id+name
+   only (strictly less than the group-name search invariant 21 already
+   grants). `GET /me` is outside the gate and reports the state (a refused
+   member must be told why).
+   **Approving does TWO things in ONE `batch()`**: sets the date AND promotes
+   the applicant's classroom placements `self_asserted 1 → 0` — approval is
+   the judgement the self-made placement lacked, so it starts counting for
+   `rosterAccess` and `viewerIsDirectMember`. The promotion re-derives its set
+   inside the batch (invariant 27's race). **Declining is reversible and
+   quiet**: sets a date; calendar, newsletter, volunteering and their own
+   family all keep working; approving later clears it; the common decline is
+   "couldn't find your child in that room" and the answer is a corrected
+   room. `screens/Access.tsx` never says "denied"; unmet conditions link to
+   the screens that fix them.
+   **One path to approval is vouching**: accepting a household invitation from
+   an approved member (`bindInvite`) — and **`group_id` is the whole of what
+   makes it safe**. A bare co-controller invite from
+   `POST /persons/:id/controllers` carries the same `kind`/`invited_by` but no
+   `group_id`; an unconditional vouch would let any member hand a stranger the
+   whole directory by inviting help with one child (invariant 24's rule one
+   level up). The household invite's checkbox means the vouch matches a choice
+   the inviter made. Enforced inside the UPDATE; only ever grants.
+   Asking twice while pending, and a decision that changes nothing, write
+   nothing and push no draft. **`access.requested` is the one Slack-curated
+   action** and names nobody — the claim is the most sensitive thing here and
+   belongs on the queue screen; structurally guaranteed: the three drafts
+   carry ONE `notify` value, the boolean `resubmitted`. `access.approved`/
+   `access.declined` stay silent (answers to a message the channel has;
+   per-applicant noise). `test/slackNotify.test.ts` pins all three, including
+   that `detail.resubmitted` alone can't change the wording.
+   **Exemption budget moved 8 → 9**, once, for `accessClaimsFor` in
+   `routes/admin.ts` (system-admin-only; `personListableSql` short-circuits an
+   admin to `"1"`, so composing it would read as a guard gating nothing). The
+   feature's other two `person` reads compose it.
+   `test/directoryAccess.test.ts` is behavioural and pins the batch boundary,
+   the promotion and both no-ops.
+   **Two routes to a complete claim** — the school is not only parents:
+   `complete = selfNamed && (isStaff || (hasStudent && studentPlaced))`, where
+   `isStaff` = a controlled Person holding `teacher`/`staff`. Both are
+   self-asserted and that is fine (this decides what a REVIEWER is shown,
+   never what anyone may read). Staff are not asked for a classroom (the
+   office and custodian have none; the note is where a teacher says which
+   room). `AccessRequestDTO.roles` carries it so a teacher doesn't read as a
+   parent who forgot their family.
+   **The budget is the other half; neither substitutes.** `enforceReadRate`
+   (same file): a `[[ratelimits]]` binding at 60/min, keyed on the USER (a
+   family behind one NAT must not throttle itself), admin NOT exempt (theirs
+   is the session worth stealing). Absent binding = off (the `RESEND_API_KEY`
+   contract); a throwing limiter ADMITS (refusing every read on a config slip
+   takes the directory down). `/photos/:key` unlimited (a page fires 50 at
+   once; keys are only learnable from a limited listing). **The minute window
+   slows a crawl; the daily one bounds it**: `read_budget` (migration 0030)
+   counts one row per account per UTC day — refused reads included, so
+   retrying against the 429 spends the day — refusing past `DAILY_READ_LIMIT`
+   (500) with `Retry-After`. Either limit posts ONE Slack line per account per
+   day, claimed by guarded `UPDATE … WHERE alerted_at IS NULL`; deliberately
+   outside `slackLinesOf` (a refused GET changed nothing, so it's not an audit
+   action); it names the ACCOUNT by email and never whom they read. The
+   counter shares the binding's switch.
+   **The grandfathering in 0029** approves every account controlling a Person
+   (66 of 76 here; without it the deploy locks out the school).
+   `seed/dev-seed.sql` approves its users directly (the seed runs AFTER
+   migrations).
 
-33. **Lost & found: the item is public, what is WRITTEN on it is not — and
-   neither is the photo until somebody has looked.** `lostandfound.eisenhower.school`
-   (apps/lostandfound, routes/lostFound*.ts, lib/lostFound.ts, migration 0033)
-   is the one surface here that shows a stranger something nobody signed in to
-   share: staff photograph what turns up at school, a vision model on Workers AI
-   describes it, and anyone may browse and say "that's mine". Four rules make
-   that compatible with `/privacy`'s promise that nothing about a child is public.
-   - **`visible_text` is staff-only.** It is whatever the model read off the item,
-     and on a school water bottle that is a child's name. `publicItemOf` is the
-     only builder of the public shape, field by field, and never reads it;
-     test/lostFound.test.ts pins the key set and that a widened row can't ride
-     through. `scrubNames` then cuts those words from the title, description and
-     tags — the prompt asks for names only in `visible_text`, and asking a model
-     is not a guarantee.
-   - **The public search can't confirm a name.** `search_text` and the Vectorize
-     embedding are built WITHOUT `visible_text` (invariant 18: a search may not
-     match on more than it renders). A public "does any item say Milo?" would be
-     the name oracle invariant 24 forbids.
-   - **Every item starts HELD** (`held_at` set on insert). The model releases it
-     only when it read no writing; writing, a failure, or no AI binding leaves it
-     held until staff tap Publish (`lostfound.item.published`) — after retaking
-     the photo with the label turned away, or deciding the writing is a brand.
-     The PHOTO can show a name no text field does; this is the rule that covers
-     it. The public gate is `LISTED` in lib/lostFound.ts, in SQL: found, not
-     hidden, not held. A staff save never moves the hold — publishing is its own
-     act — and the model's write is guarded on `tag_status = 'pending'`, so staff
-     edits made while it is still thinking win.
-   - **The claim form is anonymous and bounded like newsletter subscribe**
-     (invariant 14): a `website` honeypot, per-contact (3/day), per-item (10
-     open) and instance-wide (50/day) caps counted from `lf_claim` rows, and the
-     SAME `{ ok: true }` for stored, suppressed, capped and unlisted. Claimant
-     details never reach `detail` (audit rows are forever; claims aren't) or
-     Slack — `lostfound.claim.created` is the only curated action, and its line
-     names nothing.
+33. **Lost & found: the item is public; what is WRITTEN on it is not — and
+   neither is the photo until somebody has looked.**
+   `lostandfound.eisenhower.school` (apps/lostandfound, routes/lostFound*.ts,
+   lib/lostFound.ts, migration 0033): staff photograph found items, a Workers
+   AI vision model describes them, anyone may browse and claim. Four rules
+   square that with `/privacy`:
+   - **`visible_text` is staff-only** (on a school water bottle it's a child's
+     name). `publicItemOf` is the only builder of the public shape and never
+     reads it; `scrubNames` cuts those words from title/description/tags (the
+     prompt asks for names only in `visible_text`; asking a model is not a
+     guarantee). `test/lostFound.test.ts` pins the key set.
+   - **The public search can't confirm a name**: `search_text` and the
+     Vectorize embedding are built WITHOUT `visible_text` (invariant 18 —
+     "does any item say Milo?" is the oracle invariant 24 forbids).
+   - **Every item starts HELD** (`held_at` on insert). The model releases only
+     when it read NO writing; writing, a failure, or no AI binding leaves it
+     held until staff Publish (`lostfound.item.published`) — the PHOTO can
+     show a name no text field does. The public gate is `LISTED` in
+     `lib/lostFound.ts`, in SQL: found, not hidden, not held. A staff save
+     never moves the hold; the model's write is guarded on
+     `tag_status = 'pending'` so staff edits win.
+   - **The claim form is anonymous and bounded like invariant 14**: `website`
+     honeypot; 3/day per contact, 10 open per item, 50/day instance-wide,
+     counted from `lf_claim` rows; the SAME `{ ok: true }` for stored,
+     suppressed, capped and unlisted. Claimant details never reach `detail`
+     (audit rows are forever; claims aren't) or Slack —
+     `lostfound.claim.created` is the only curated action and names nothing.
    Staff are a ROSTER (`lostfound_staff_group_id`, `rosterAccess` — invariant
    31), never the self-assertable `staff` capability. Photos live in
-   `LOSTFOUND_MEDIA`, a bucket of their own behind a public route, so it can
-   never reach `PHOTOS` (invariant 20). Retention rides the daily cron (no slot
-   for its own — src/index.ts): returned items with photos, vector and claims go
-   after 30 days, settled claims after 60, and failed descriptions are retried.
-   No FTS5: lib/backup.ts discovers tables from `sqlite_master`, and FTS5's
-   shadow tables don't round-trip; a LIKE over `search_text` plus Vectorize is
-   plenty at a school's scale. AI and Vectorize are optional bindings in the
-   absent-means-off sense: without them items stay held and search is keyword-only.
-   The model also SUGGESTS which way is up (`suggested_rotation`, migration
-   0035) and never applies it: a Worker has no canvas, and a wrong guess would
-   turn a good photo sideways. Staff apply it with one tap; the browser
-   re-encodes and sends the photo back under a FRESH R2 key (both media routes
-   cache for an hour, so overwriting a key would keep serving the old
-   orientation).
+   `LOSTFOUND_MEDIA`, its own bucket behind a public route, so it can never
+   reach `PHOTOS` (invariant 20). Retention rides the daily cron: returned
+   items + photos/vector/claims after 30 days, settled claims after 60, failed
+   descriptions retried. **No FTS5**: `lib/backup.ts` discovers tables from
+   `sqlite_master` and FTS5 shadow tables don't round-trip; LIKE over
+   `search_text` + Vectorize is plenty at school scale. AI and Vectorize are
+   optional absent-means-off bindings. The model SUGGESTS orientation
+   (`suggested_rotation`, migration 0035) and never applies it (a Worker has
+   no canvas; a wrong guess turns a good photo sideways); staff apply with one
+   tap and the browser re-encodes under a FRESH R2 key (both media routes
+   cache for an hour — overwriting a key keeps serving the old orientation).
    **`/privacy` changed first** (its own rule): the lost & found block and the
-   Workers AI line, in all four languages.
+   Workers AI line, all four languages.
 
 ## Conventions
 
-- TypeScript strict everywhere. `verbatimModuleSyntax` is on — use
-  `import type { … }` for type-only imports and `.js` extensions on relative
-  imports (NodeNext/bundler ESM).
-- D1 access is raw prepared statements (ORM-agnostic per the SDD). Use `.bind()`,
-  never string-interpolate values into SQL.
-- Design tokens are CSS variables under the `.sd` scope: `--blue #0068A8`,
-  `--orange #FAAB1C`, etc. `apps/web/src/styles/tokens.css` is the source of
-  truth (the hi-fi handoff board they were ported from has been deleted), and
-  the other five apps hold copies — see "Six front ends, one API".
-- **Every clock time is 12-hour with AM/PM**, in all six apps, for every
-  reader — `CLOCK` / `formatClock` / `formatClockRange` in
-  `packages/shared/src/clock.ts`. This is a product decision about an American
-  elementary school, and it is written against `toLocaleTimeString`'s DEFAULT,
-  which follows the reader: 24-hour for most of the world's locales, and
-  24-hour on an en-US machine whose owner ticked the box. The locale still
-  picks the separator, the numerals and what the day period is called
-  ("PM", "p. m.", "GD"), so this is narrower than it looks and puts no English
-  on a Spanish page — only the hour CYCLE is pinned.
-  Two things are deliberately outside it. `toTimeInput` in the calendar's admin
-  screens serializes `<input type="time">`, whose value HTML defines as 24-hour
-  regardless of locale; pointing it at `CLOCK` would break the input rather
-  than translate it, and using it to DISPLAY a shift window is how the sheet
-  whose every other time read "1:30 PM" came to print "13:30". And the
-  zone-offset probes in `lib/calendar.ts` and `newsletterEvents.ts` set
-  `hourCycle: "h23"` / `hour12: false` to read a wall clock back out of
-  `formatToParts` as numbers — a 12-hour cycle there halves every afternoon.
-  Both carry a `// CLOCK-EXEMPT:` note, which is what
-  `test/clockFormat.test.ts` reads: it scans every app's `src` and `functions`
-  plus the shared package for an `hour:` option and fails on one that neither
-  composes `CLOCK` nor says why, because the failure here is always a NEW call
-  site and no route test will ever notice a stray `hour: "numeric"`.
+- TypeScript strict everywhere. `verbatimModuleSyntax` — `import type` for
+  type-only imports, `.js` extensions on relative imports.
+- D1 is raw prepared statements. `.bind()`, never string-interpolated values.
+- Design tokens are CSS variables under `.sd`;
+  `apps/web/src/styles/tokens.css` is the source of truth, the other five
+  apps hold copies (see "Six front ends, one API").
+- **Every clock time is 12-hour with AM/PM** — `CLOCK` / `formatClock` /
+  `formatClockRange` in `packages/shared/src/clock.ts`. Written against
+  `toLocaleTimeString`'s default, which follows the reader (24-hour for most
+  locales); only the hour CYCLE is pinned — the locale still picks separator,
+  numerals and day-period name, so no English lands on a Spanish page. Two
+  deliberate exceptions, both `// CLOCK-EXEMPT:`: `toTimeInput` serializes
+  `<input type="time">` (HTML defines the value as 24-hour; never use it for
+  DISPLAY), and the zone-offset probes in `lib/calendar.ts` /
+  `newsletterEvents.ts` set `h23` to read wall clocks as numbers.
+  `test/clockFormat.test.ts` scans every `hour:` option and fails one that
+  neither composes `CLOCK` nor says why.
 - **Every timed event is read in the SCHOOL'S timezone, never the reader's.**
-  One configured IANA zone, default `America/Chicago` (`DEFAULT_TIME_ZONE` in
-  `packages/shared/src/timezone.ts`), set in four places that must agree:
-  `SCHOOL_TIMEZONE` in `apps/api/wrangler.toml`, `apps/home/wrangler.toml` and
-  `apps/pto/wrangler.toml` (for `/how-to-help`'s event links),
-  and `VITE_SCHOOL_TIMEZONE` on the calendar build in `deploy.yml`. Always read
-  it through `resolveTimeZone`, which turns a missing or misspelled zone into
-  the default rather than a `RangeError` on every date. In `apps/calendar` the
-  resolved value is `SCHOOL_TIME_ZONE` (`lib/timezone.ts`), and the agenda's
-  day grouping, every clock time, the event paths it mints and the admin
-  event and shift forms all go through it. A parent reading the calendar from
-  another zone sees the school's 5:30 PM, and an admin typing an event while
-  travelling stores the school's 5:30 PM. That second case is why this exists:
-  the form used to read the admin's browser zone. All-day events are still
-  read in UTC (they are dates stored at UTC midnight). The other SPAs
-  (`apps/web`'s Home block, the PTO boards) still use the reader's zone.
-- Visibility chip states: `members` (blue) / `private` (slate) / `shared` (orange).
-  There is **no public state** anywhere in the UI.
-- **Dark mode is `prefers-color-scheme` only** — no toggle, nothing persisted, in
-  any app. The OS already carries the preference, and a control that can
-  disagree with it is a support question forever. It is a token
-  re-declaration and nothing else: no rule outside the `@media` block knows
-  which theme is on, so a component written with `var(--ink)` on `var(--paper)`
-  is correct in both, and anything that breaks is something that hardcoded a
-  colour. Four things to know before touching it:
-  · **`--on-brand` is why it works.** `--blue` cannot both read as text on a
-    dark card and carry white text as a button fill — lifted enough for the
-    first, white-on-it measures 2.7:1. So text/icons on a brand fill use
-    `--on-brand` (white in light, near-black in dark). Never write `#fff` on a
-    brand fill again; the exception is `.sd-avatar`, whose `avColor` palette is
-    mid-dark in both themes, which is why `Avatar` picks between them by whether
-    the caller supplied a colour.
-  · **`--blue-700` / `--blue-800` / `--orange-700` / `--orange-ink` INVERT.**
-    They are foregrounds on a tint, so "darker than the base" in light means
-    "lighter" in dark. Getting this backwards makes a chip's label vanish into
-    its own chip. The `-tint` colours likewise become deep low-chroma washes,
-    not pale ones.
-  · **Some surfaces are dark on purpose in both themes** and must be pinned to
-    literals rather than riding a token that inverts: the landing page's `.join`
-    band and the button inside it, `.banner-offline`, and the newsletter
-    composer's `.nlx-block-preview` (it previews an EMAIL, which is white
-    wherever it is read).
-  · **`@media print` now has to restate the light values it used to inherit**
-    (`NEWSLETTER_WEB_CSS`), or a reader in a dark system theme prints near-white
-    text onto white paper. Printing IS the PDF export (invariant 16), so it
-    cannot depend on the reader's theme; order is the precedence, so the print
-    block must stay BELOW the dark block. `test/newsletterIssuePage.test.ts`
-    pins both.
-  Contrast was measured rather than eyeballed; every text pair clears AA. The
-  `tokens.css` copies got the same block — they are copies, so a change to one is
-  a decision about all six (see "Six front ends, one API"). The store's copy is
-  the fourth, the PTO's the fifth and the lost & found's the sixth (it has no
-  server-rendered pages). Neither the store's nor the PTO's server-rendered
-  public page uses its copy — each carries its own small token subset in
-  `functions/_lib/styles.ts`, and each repeats the same `prefers-color-scheme`
-  block. With `apps/pto/src/styles/board.css`, which adds the six label colours
-  on the same inversion rule, that makes NINE places a colour decision lands.
-- **The mobile shell's layout has one rule you can't skip.** `.sd-app` is
-  exactly `100dvh`, so an
-  `AppShell` screen must put its scrolling content inside a `.sd-scroll` child —
-  that element carries the `min-height: 0` that lets it shrink and actually
-  scroll. Content placed directly in `AppShell` will be clipped instead, and the
-  bottom nav stays pinned only because the column can't outgrow the viewport.
-  **The corollary is that an overlay may not live inside that scroller**, which
-  is why `SheetOver` portals every bottom sheet to a `#sd-sheet-host` div on
-  `<body>` (all six copies). A `position: fixed` child of `.sd-scroll` is laid
-  out and clipped against the SCROLLER on iOS Safari rather than the viewport,
-  so the scrim stopped at the app bar and a tall sheet's last row — the button
-  that takes a volunteer spot — was cut off behind the bottom nav. Desktop
-  engines honour the `z-index` and looked fine, so this is a bug only a phone
-  shows. The host copies the app root's class list because the tokens live on
-  `.sd`: portal a sheet out of that scope without it and every `var(--…)` in it
-  computes to nothing.
+  One IANA zone, default `America/Chicago` (`DEFAULT_TIME_ZONE` in
+  `packages/shared/src/timezone.ts`), set in FOUR places that must agree:
+  `SCHOOL_TIMEZONE` in `apps/api`, `apps/home` and `apps/pto` wrangler.toml,
+  and `VITE_SCHOOL_TIMEZONE` on the calendar build in `deploy.yml`. Always
+  read through `resolveTimeZone` (a misspelled zone becomes the default, not
+  a `RangeError`). In `apps/calendar` it is `SCHOOL_TIME_ZONE`
+  (`lib/timezone.ts`) — day grouping, clock times, minted event paths, admin
+  event and shift forms (an admin typing while travelling must store the
+  school's 5:30 PM; the form used to read the browser zone). All-day events
+  stay UTC (dates at UTC midnight). `apps/web`'s Home block and the PTO
+  boards still use the reader's zone.
+- Visibility chips: `members` (blue) / `private` (slate) / `shared` (orange).
+  **No public state anywhere in the UI.**
+- **Dark mode is `prefers-color-scheme` only** — no toggle, nothing persisted,
+  in any app. It is a token re-declaration and nothing else: nothing outside
+  the `@media` block knows which theme is on, so `var(--ink)` on
+  `var(--paper)` is correct in both; anything broken hardcoded a colour. Know:
+  **`--on-brand`** is why it works — text/icons on a brand fill use it (white
+  in light, near-black in dark); never write `#fff` on a brand fill
+  (exception: `.sd-avatar`, whose `avColor` palette is mid-dark in both,
+  which is why `Avatar` picks by whether a colour was supplied).
+  **`--blue-700`/`--blue-800`/`--orange-700`/`--orange-ink` INVERT** (they're
+  foregrounds on a tint — backwards makes a chip's label vanish); `-tint`
+  colours become deep low-chroma washes. **Some surfaces are dark in both
+  themes and pinned to literals**: the landing `.join` band + its button,
+  `.banner-offline`, the composer's `.nlx-block-preview` (it previews an
+  EMAIL). **`@media print` restates the light values** (`NEWSLETTER_WEB_CSS`)
+  and must stay BELOW the dark block — printing IS the PDF export (invariant
+  16) and can't depend on the reader's theme; `test/newsletterIssuePage.test.ts`
+  pins both. Contrast was measured (AA). A colour decision lands in NINE
+  places: six `tokens.css` copies, the store's and PTO's
+  `functions/_lib/styles.ts` subsets, and `apps/pto/src/styles/board.css`.
+- **The mobile shell's one unskippable rule**: `.sd-app` is exactly `100dvh`;
+  an `AppShell` screen must put scrolling content inside a `.sd-scroll` child
+  (it carries the `min-height: 0`). Content placed directly in `AppShell` is
+  clipped. **Corollary: an overlay may not live inside that scroller** —
+  `SheetOver` portals every bottom sheet to `#sd-sheet-host` on `<body>` (all
+  six copies), because a `position: fixed` child of `.sd-scroll` is clipped
+  against the SCROLLER on iOS Safari (desktop looks fine; only a phone shows
+  it). The host copies the app root's class list because the tokens live on
+  `.sd` — portal without it and every `var(--…)` computes to nothing.
 
 ## Local dev
 
@@ -2000,41 +1122,33 @@ All six SPAs are separate Cloudflare Pages projects talking to the single
 pnpm install
 cp apps/api/.dev.vars.example apps/api/.dev.vars
 pnpm db:migrate:local && pnpm db:seed:local
-pnpm dev          # every app in apps/* that has a dev script, in parallel:
+pnpm dev          # every app in apps/* with a dev script, in parallel:
                   # web :5173, calendar :5174, newsletter :5175, home :5176,
                   # store :5177, pto :5178, lostandfound :5179, api :8787
 pnpm dev:home     # just the apex landing page (wrangler dev) on :5176
 ```
 
-`pnpm dev` is `pnpm --parallel --filter "./apps/*" dev`, so it picks up `apps/home`
-too — a second `wrangler dev` beside the API's, on its own port. `apps/redirect`
-has no `dev` script and is skipped; there is nothing to run locally there.
+`pnpm dev` is `pnpm --parallel --filter "./apps/*" dev` (picks up `apps/home`
+too; `apps/redirect` has no dev script and is skipped).
 
-Magic links print to the **API console** when `RESEND_API_KEY` is empty — which
-also means newsletter sends print there instead of mailing anyone. Demo login:
-`dana@eisenhower.edu`.
+Magic links print to the **API console** when `RESEND_API_KEY` is empty — so
+newsletter sends print there too. Demo login: `dana@eisenhower.edu`.
 
-`vite dev` serves the newsletter SPA only; the public archive at `/` and
-`/n/:slug` is Pages Functions, so it exists in `wrangler pages dev` and in
-production, not in `pnpm dev`. The store splits the same way — `/`, `/p/:slug`
-and `/o/:token` are Functions, so `pnpm dev` gives you the cart and the admin
-and a note where the shop would be. So does the PTO app: `/` is a Function, so
-`pnpm dev` gives you the boards and a note where the public page would be.
-
-To see a server-rendered public page locally, run that app's own Pages dev:
+`vite dev` serves only each SPA; the server-rendered public surfaces (the
+newsletter archive, the storefront, the PTO pages) are Pages Functions and
+exist only under `wrangler pages dev` and in production. To see one locally:
 
 ```bash
 pnpm --filter @sd/pto exec wrangler pages dev --port 5178
 ```
 
-Note that it reads `API_BASE` from `apps/pto/wrangler.toml`, which points at the
-PRODUCTION API. That is harmless — the only thing it fetches is the anonymous
-events feed — but override it if you want the page reading your local calendar.
+(It reads `API_BASE` from that app's `wrangler.toml`, which points at the
+PRODUCTION API — harmless, it only fetches the anonymous events feed; override
+it to read your local calendar.)
 
-The store's vendor calls are off by default: with no `PRINTFUL_API_KEY` or
-`STRIPE_SECRET_KEY` the calls are logged rather than made, the same contract an
-empty `RESEND_API_KEY` has. `STORE_SECRET` is the one exception — see
-invariant 26.
+Store vendor calls are off by default: no `PRINTFUL_API_KEY` /
+`STRIPE_SECRET_KEY` means logged, not made — same contract as
+`RESEND_API_KEY`. `STORE_SECRET` is the one exception — invariant 26.
 
 ## When adding a migration
 
@@ -2044,18 +1158,17 @@ Create `apps/api/migrations/NNNN_description.sql` (next number). Update
 
 ## Commit / PR
 
-- Conventional-ish messages; keep commits scoped to one concern.
+- Conventional-ish messages; one concern per commit.
 - CI must pass `pnpm typecheck` and `pnpm test`.
 - **Merging to `main` deploys to production**, and the deploy applies D1
-  migrations to the live database before it publishes anything. `deploy.yml`
-  gates on a `verify` job (typecheck + test + build) so a red build stops the
-  ship rather than racing it — but a migration that typechecks and still ruins
-  the data is not something that gate can catch. A migration is the one change
-  worth re-reading before merge.
+  migrations to the live database first. `deploy.yml` gates on a `verify` job
+  (typecheck + test + build) — but a migration that typechecks and still ruins
+  data is not something that gate catches. A migration is the one change worth
+  re-reading before merge.
 - The Worker deploys (`api`, `redirect`, `home`) and the six Pages projects
   (`school-directory`, `school-calendar`, `school-newsletter`, `school-store`,
-  `school-pto`, `school-lostandfound`) all ship from that one workflow. A new front end means a step
-  there, an origin in `ALLOWED_ORIGINS`, a line in the root `build` script (CI's
-  `verify` job runs it, so an app missing from it is never built before it
-  ships), and a Pages project plus custom domain attached BY HAND — CI deploys
-  to those, it does not create them.
+  `school-pto`, `school-lostandfound`) ship from one workflow. A new front end
+  means: a step there, an origin in `ALLOWED_ORIGINS`, a line in the root
+  `build` script (CI runs it, so an app missing from it never builds before it
+  ships), and a Pages project + custom domain attached BY HAND — CI deploys to
+  those, it does not create them.
