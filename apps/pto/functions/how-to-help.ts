@@ -18,9 +18,10 @@
 // what is open THIS week, the strip what keeps coming back every year.
 //
 // The Resource Center section has one line aimed the other way — at a family
-// that needs it rather than one that can give. It ends in the office's phone
-// number, appended as a tel: link AFTER the translated sentence so the
-// sentence reads complete without it in every language.
+// that needs it rather than one that can give. It ends in the Family
+// Assistance Request Form and the Resource Center's own phone number, appended
+// as links AFTER the translated sentence so the sentence reads complete
+// without them in every language.
 
 import {
   dictionaries,
@@ -34,7 +35,15 @@ import {
 import { CALENDAR_URL, appHref, footer, header } from "./_lib/chrome.js";
 import { langCookie, resolveLocale } from "./_lib/locale.js";
 import { escapeHtml, html, shell, translator } from "./_lib/page.js";
-import { DONATE, ORG, VOLUNTEER_EVENTS, WISHLISTS, telHref } from "./_lib/pto.js";
+import {
+  ASSISTANCE_FORM_URL,
+  DONATE,
+  FRC_PHONE,
+  PTO_EMAIL,
+  VOLUNTEER_EVENTS,
+  WISHLISTS,
+  telHref,
+} from "./_lib/pto.js";
 import { PTO_CSS } from "./_lib/styles.js";
 import { openVolunteerEvents, type OpenSheetRow, type PagesEnv } from "./_lib/volunteers.js";
 
@@ -132,12 +141,14 @@ export const onRequestGet: PagesFunction<PagesEnv> = async ({ request, env }) =>
     (e) => `          <span class="pt-tag t-${escapeHtml(e.category)}">${escapeHtml(e.name)}</span>`,
   ).join("\n");
 
-  // The two school-wide lists, paired with their copy by POSITION — WISHLISTS
-  // is ordered (staff lounge, then art room) and the landing page's help
-  // section already depends on that order the same way.
+  // The school-wide lists, paired with their copy by POSITION — WISHLISTS is
+  // ordered (staff lounge, art room, then the Resource Center) and the landing
+  // page's help section already depends on that order the same way. The
+  // Resource Center card's title reuses the section heading one fold up.
   const wishlistCards = [
     { title: "ptoHowWishlistLounge", body: "ptoHowWishlistLoungeBody", link: WISHLISTS[0]! },
     { title: "ptoHowWishlistArt", body: "ptoHowWishlistArtBody", link: WISHLISTS[1]! },
+    { title: "ptoHowResourceTitle", body: "ptoHowWishlistFrcBody", link: WISHLISTS[2]! },
   ] as const;
 
   const body = `    <div class="pt-wrap">
@@ -159,12 +170,13 @@ ${header(t, SCHOOL, locale, PATH)}
         <div class="pt-grid">
 ${card(t, "ptoHowResourceWhat", "ptoHowResourceWhatBody")}
 ${card(t, "ptoHowResourceWho", "ptoHowResourceWhoBody")}
+${linkCard(t, "ptoHowResourceVolunteer", "ptoHowResourceVolunteerBody", `mailto:${PTO_EMAIL}`, PTO_EMAIL)}
 ${linkCard(t, "ptoHowResourceGive", "ptoHowResourceGiveBody", DONATE.url, t("ptoDonateCta"))}
         </div>
         <div class="pt-note">
-          <b>${escapeHtml(t("ptoHowResourceNoteTitle"))}.</b> ${escapeHtml(
+          <b>${escapeHtml(t("ptoHowResourceNoteTitle"))}</b> ${escapeHtml(
             t("ptoHowResourceNoteBody"),
-          )} <a href="${escapeHtml(telHref(ORG.phone))}">${escapeHtml(ORG.phone)}</a>
+          )} <a href="${escapeHtml(ASSISTANCE_FORM_URL)}">${escapeHtml(t("ptoHowResourceFormCta"))} →</a> · <a href="${escapeHtml(telHref(FRC_PHONE))}">${escapeHtml(FRC_PHONE)}</a>
         </div>
       </section>
 

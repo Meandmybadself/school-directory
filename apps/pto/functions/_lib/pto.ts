@@ -239,7 +239,28 @@ export const DONATE: PtoLink = {
 export const WISHLISTS: PtoLink[] = [
   { label: "Staff lounge", url: "https://www.amazon.com/hz/wishlist/ls/3URWOKAJJQTEU" },
   { label: "Art room", url: "https://www.amazon.com/hz/wishlist/ls/1OQDDVBJE544I" },
+  // The Resource Center's own list — "Resource Center Needs on Amazon" on the
+  // FRC's flyer. Third on purpose: the landing page reads only [0] and [1].
+  { label: "Resource Center", url: "https://www.amazon.com/hz/wishlist/ls/2XFXVRYLM3DBO" },
 ];
+
+/** The Family Assistance Request Form — the Resource Center's own Google Form,
+ *  transcribed from the FRC's flyer, which links the SAME form from its English,
+ *  Spanish and Somali copy. The link's label is a dictionary key
+ *  (`ptoHowResourceFormCta`): unlike a wishlist's name, "assistance form" is a
+ *  description, and a Somali-speaking family should read it in Somali. */
+export const ASSISTANCE_FORM_URL =
+  "https://docs.google.com/forms/d/e/1FAIpQLScuNaxgbwGvQydaSRBCadqIG0gsws4YwbvxWMG2FQsy9eqIew/viewform";
+
+/** The Resource Center's own line — what both FRC flyers say to call, for an
+ *  appointment or to ask. Distinct from `ORG.phone`, the office number on the
+ *  PTO's registration, which stays what the nonprofit block prints. */
+export const FRC_PHONE = "(952) 988-4308";
+
+/** The PTO's own mailbox — where the Resource Center's volunteer card points.
+ *  Distinct from `FEEDBACK_EMAIL` in `_lib/chrome.ts`, which reaches whoever
+ *  runs this site rather than the PTO's inbox. */
+export const PTO_EMAIL = "Eisenhowerpto@hopkinsschools.org";
 
 export const SOCIAL: PtoLink[] = [
   { label: "Facebook", url: "https://www.facebook.com/groups/159524300738821" },
