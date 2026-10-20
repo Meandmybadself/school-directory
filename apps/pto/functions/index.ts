@@ -22,7 +22,7 @@
 
 import type { Locale, Strings } from "@sd/shared";
 import { CALENDAR_URL, FEEDBACK_EMAIL, appHref, footer, header } from "./_lib/chrome.js";
-import { langCookie, resolveLocale } from "./_lib/locale.js";
+import { LANG_PARAM, langCookie, resolveLocale } from "./_lib/locale.js";
 import { escapeHtml, html, jsonLd, shell, translator } from "./_lib/page.js";
 import {
   CATEGORY_LABEL,
@@ -207,6 +207,12 @@ ${helpCard(t, "ptoHelpWishlist", "ptoHelpWishlistBody", WISHLISTS[0]!.url, WISHL
         </div>
         <p class="pt-sub" style="margin-top:16px">
           <a href="${escapeHtml(WISHLISTS[1]!.url)}">${escapeHtml(WISHLISTS[1]!.label)} →</a>
+        </p>
+        <!-- The deeper page: the Resource Center, the recurring volunteer
+             work, and the wishlists. Internal, so the href keeps ?lang= the
+             way every link on this origin does. -->
+        <p class="pt-sub" style="margin-top:4px">
+          <a href="${escapeHtml(`/how-to-help?${LANG_PARAM}=${locale}`)}"><b>${escapeHtml(t("ptoHelpMoreCta"))} →</b></a>
         </p>
       </section>
 

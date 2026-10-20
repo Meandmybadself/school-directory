@@ -719,6 +719,43 @@ export interface Strings {
   ptoHelpWishlistBody: string;
   ptoHelpShop: string;
   ptoHelpShopBody: string;
+  /** The deeper "How to help" page at pto.eisenhower.school/how-to-help — the
+   *  Resource Center, the recurring volunteer work and the wishlists.
+   *  `ptoHelpMoreCta` is the landing page's link to it. */
+  ptoHelpMoreCta: string;
+  ptoHowTitle: string;
+  ptoHowLead: string;
+  ptoHowResourceTitle: string;
+  ptoHowResourceLead: string;
+  ptoHowResourceWhat: string;
+  ptoHowResourceWhatBody: string;
+  ptoHowResourceWho: string;
+  ptoHowResourceWhoBody: string;
+  ptoHowResourceGive: string;
+  ptoHowResourceGiveBody: string;
+  /** The note under the Resource Center cards, addressed to a family that
+   *  needs it rather than one that can give. The page appends the office
+   *  phone as a tel: link, so the sentence must read complete without it. */
+  ptoHowResourceNoteTitle: string;
+  ptoHowResourceNoteBody: string;
+  ptoHowVolunteerTitle: string;
+  ptoHowVolunteerLead: string;
+  /** The link on the "take a shift" card — it lands on the calendar's public
+   *  /volunteers index, the live list of open spots. */
+  ptoHowVolunteerOpen: string;
+  /** Label before the strip of events that come back every year and always
+   *  need hands; the event names beside it are data (proper nouns). */
+  ptoHowVolunteerRecurring: string;
+  ptoHowWishlistTitle: string;
+  ptoHowWishlistLead: string;
+  /** The link on each wishlist card. */
+  ptoHowWishlistOpen: string;
+  ptoHowWishlistLounge: string;
+  ptoHowWishlistLoungeBody: string;
+  ptoHowWishlistArt: string;
+  ptoHowWishlistArtBody: string;
+  ptoHowWishlistNoteTitle: string;
+  ptoHowWishlistNoteBody: string;
   ptoDonateTitle: string;
   ptoDonateLead: string;
   ptoDonateCta: string;
@@ -1521,6 +1558,43 @@ const en: Strings = {
   ptoHelpShop: "Buy the shirt",
   ptoHelpShopBody:
     "Spirit wear from the PTO store. Every order supports the school, and you don't need an account.",
+  ptoHelpMoreCta: "More ways to help",
+  ptoHowTitle: "How to help",
+  ptoHowLead:
+    "An hour at an event, one thing off a wishlist, or a few dollars toward a family having a hard month. All three land directly at the school, and none of them needs experience.",
+  ptoHowResourceTitle: "The Resource Center",
+  ptoHowResourceLead:
+    "When an Eisenhower family hits a hard stretch, the Resource Center is how the school helps — quickly, quietly, and without paperwork.",
+  ptoHowResourceWhat: "What it buys",
+  ptoHowResourceWhatBody:
+    "Groceries, winter coats and boots, and gift cards for essentials — the things a bad month suddenly needs.",
+  ptoHowResourceWho: "How it reaches a family",
+  ptoHowResourceWhoBody:
+    "School staff see the need first and handle every request personally and confidentially. No application, and no list anyone else reads. The PTO's part is keeping it funded.",
+  ptoHowResourceGive: "How to give",
+  ptoHowResourceGiveBody:
+    "Give through GiveMN and mention the Resource Center with your gift, or leave cash or a check marked “Resource Center” at the front office.",
+  ptoHowResourceNoteTitle: "If the hard stretch is yours",
+  ptoHowResourceNoteBody:
+    "Call the school office. Nobody at the PTO is told who asked, nothing is owed back, and this is exactly what it is for.",
+  ptoHowVolunteerTitle: "Volunteer opportunities",
+  ptoHowVolunteerLead:
+    "Every shift the PTO needs filled is a sign-up sheet on the calendar — what the job is, when it runs, and how many spots are left. Most are two hours, and you are never the only one there.",
+  ptoHowVolunteerOpen: "What needs help right now",
+  ptoHowVolunteerRecurring: "The ones that come back every year:",
+  ptoHowWishlistTitle: "Teacher wishlists",
+  ptoHowWishlistLead:
+    "Teachers cover more classroom costs out of pocket than anyone admits. A wishlist takes one of those purchases off their plate: order the thing, and it arrives at school.",
+  ptoHowWishlistOpen: "Open the wishlist",
+  ptoHowWishlistLounge: "The staff lounge",
+  ptoHowWishlistLoungeBody:
+    "Coffee, tea and snacks for the people who get there before your kids do. This is the list behind “Stock the Staff Lounge.”",
+  ptoHowWishlistArt: "The art room",
+  ptoHowWishlistArtBody:
+    "The supplies the art room runs through fastest, in the sizes it actually uses.",
+  ptoHowWishlistNoteTitle: "Looking for one classroom's list?",
+  ptoHowWishlistNoteBody:
+    "Individual teachers share theirs in the newsletter and at conferences. The two lists here are the school-wide ones.",
   ptoDonateTitle: "Donate",
   ptoDonateLead:
     "The PTO is entirely volunteer-run, so what is given goes back to the school almost undiminished — field trips, classroom supplies, the outdoor learning space, and the enrichment programs.",
@@ -2266,6 +2340,43 @@ const es: Strings = {
   ptoHelpShop: "Compre la camiseta",
   ptoHelpShopBody:
     "Ropa escolar de la tienda de la PTO. Cada pedido apoya a la escuela, y no necesita cuenta.",
+  ptoHelpMoreCta: "Más maneras de ayudar",
+  ptoHowTitle: "Cómo ayudar",
+  ptoHowLead:
+    "Una hora en un evento, una cosa de una lista de deseos, o unos dólares para una familia que pasa un mes difícil. Las tres cosas llegan directamente a la escuela, y ninguna requiere experiencia.",
+  ptoHowResourceTitle: "El Centro de Recursos",
+  ptoHowResourceLead:
+    "Cuando una familia de Eisenhower pasa por un momento difícil, el Centro de Recursos es la forma en que la escuela ayuda — rápido, con discreción y sin papeleo.",
+  ptoHowResourceWhat: "En qué se gasta",
+  ptoHowResourceWhatBody:
+    "Comida, abrigos y botas de invierno, y tarjetas de regalo para lo esencial — lo que un mal mes de repente necesita.",
+  ptoHowResourceWho: "Cómo llega a una familia",
+  ptoHowResourceWhoBody:
+    "El personal de la escuela ve la necesidad primero y atiende cada caso de manera personal y confidencial. Sin solicitudes, y sin ninguna lista que otros lean. La parte de la PTO es que nunca falten fondos.",
+  ptoHowResourceGive: "Cómo donar",
+  ptoHowResourceGiveBody:
+    "Done a través de GiveMN y mencione el Centro de Recursos con su donación, o deje efectivo o un cheque marcado «Resource Center» en la oficina de la escuela.",
+  ptoHowResourceNoteTitle: "Si el momento difícil es el suyo",
+  ptoHowResourceNoteBody:
+    "Llame a la oficina de la escuela. Nadie en la PTO sabrá quién pidió ayuda, no se debe nada a cambio, y esto existe exactamente para eso.",
+  ptoHowVolunteerTitle: "Oportunidades de voluntariado",
+  ptoHowVolunteerLead:
+    "Cada turno que la PTO necesita cubrir es una hoja de inscripción en el calendario — en qué consiste, cuándo es, y cuántos lugares quedan. La mayoría son de dos horas, y nunca estará solo ahí.",
+  ptoHowVolunteerOpen: "Qué necesita ayuda ahora mismo",
+  ptoHowVolunteerRecurring: "Los que vuelven cada año:",
+  ptoHowWishlistTitle: "Listas de deseos de los maestros",
+  ptoHowWishlistLead:
+    "Los maestros cubren de su bolsillo más gastos del aula de lo que cualquiera admite. Una lista de deseos les quita una de esas compras de encima: pida la cosa, y llega a la escuela.",
+  ptoHowWishlistOpen: "Abrir la lista",
+  ptoHowWishlistLounge: "La sala de personal",
+  ptoHowWishlistLoungeBody:
+    "Café, té y botanas para las personas que llegan antes que sus hijos. Esta es la lista detrás de «Stock the Staff Lounge».",
+  ptoHowWishlistArt: "El salón de arte",
+  ptoHowWishlistArtBody:
+    "Los materiales que el salón de arte gasta más rápido, en los tamaños que de verdad usa.",
+  ptoHowWishlistNoteTitle: "¿Busca la lista de un salón en particular?",
+  ptoHowWishlistNoteBody:
+    "Cada maestro comparte la suya en el boletín y en las conferencias. Las dos listas de aquí son las de toda la escuela.",
   ptoDonateTitle: "Donar",
   ptoDonateLead:
     "La PTO funciona enteramente con voluntarios, así que lo que se dona vuelve a la escuela casi intacto — excursiones, materiales para las aulas, el espacio de aprendizaje al aire libre y los programas de enriquecimiento.",
@@ -2979,6 +3090,42 @@ const zh: Strings = {
     "教职员休息室和美术教室各有一份心愿清单，下单买一样东西只要一分钟。",
   ptoHelpShop: "买一件校服衫",
   ptoHelpShopBody: "家长会商店的校园服饰。每一笔订单都支持学校，而且不需要账户。",
+  ptoHelpMoreCta: "更多帮忙的方式",
+  ptoHowTitle: "如何帮忙",
+  ptoHowLead:
+    "在活动里帮一个小时，从心愿清单上买一样东西，或者为正经历难关的家庭捐几块钱。这三样都会直接落到学校，而且都不需要任何经验。",
+  ptoHowResourceTitle: "资源中心",
+  ptoHowResourceLead:
+    "当一个 Eisenhower 家庭遇到难关时，资源中心就是学校伸出援手的方式——迅速、低调、不用填表。",
+  ptoHowResourceWhat: "钱花在哪里",
+  ptoHowResourceWhatBody:
+    "食品杂货、冬衣冬靴，以及购买生活必需品的礼品卡——一个艰难的月份突然需要的那些东西。",
+  ptoHowResourceWho: "怎样送到家庭手中",
+  ptoHowResourceWhoBody:
+    "学校教职员最先看到需要，并亲自、保密地处理每一个请求。不用申请，也没有任何别人能看到的名单。家长会的任务是让这里永远有钱可用。",
+  ptoHowResourceGive: "怎样捐助",
+  ptoHowResourceGiveBody:
+    "通过 GiveMN 捐款并注明“资源中心”，或把现金或写明“Resource Center”的支票交到学校前台。",
+  ptoHowResourceNoteTitle: "如果难关正落在您家",
+  ptoHowResourceNoteBody:
+    "请致电学校办公室。家长会里没有人会知道是谁开口，您也不欠任何人情——它存在的意义正是如此。",
+  ptoHowVolunteerTitle: "志愿者机会",
+  ptoHowVolunteerLead:
+    "家长会需要人手的每一个班次都是日历上的一张报名表——写明做什么、什么时候、还剩几个名额。大多数只要两小时，而且那里绝不会只有您一个人。",
+  ptoHowVolunteerOpen: "现在哪里需要帮手",
+  ptoHowVolunteerRecurring: "每年都会回来的活动：",
+  ptoHowWishlistTitle: "教师心愿清单",
+  ptoHowWishlistLead:
+    "老师自掏腰包补贴教室的开销，比任何人承认的都多。心愿清单能替他们分担一笔：下单买下那样东西，它就会寄到学校。",
+  ptoHowWishlistOpen: "打开清单",
+  ptoHowWishlistLounge: "教职员休息室",
+  ptoHowWishlistLoungeBody:
+    "咖啡、茶和点心，送给比您的孩子到得更早的那些人。这就是“Stock the Staff Lounge”背后的那份清单。",
+  ptoHowWishlistArt: "美术教室",
+  ptoHowWishlistArtBody: "美术教室消耗得最快的那些材料，而且是它真正用得上的规格。",
+  ptoHowWishlistNoteTitle: "想找某个班级的清单？",
+  ptoHowWishlistNoteBody:
+    "各位老师会在通讯和家长会谈上分享自己的清单。这里的两份是全校共用的。",
   ptoDonateTitle: "捐款",
   ptoDonateLead:
     "家长会完全由志愿者运作，所以捐出的钱几乎原封不动地回到学校——郊游、教室用品、户外学习空间和各项充实课程。",
@@ -3779,6 +3926,43 @@ const so: Strings = {
   ptoHelpShop: "Iibso shaadhka",
   ptoHelpShopBody:
     "Dharka dugsiga oo laga helo dukaanka PTO-da. Dalab kastaa wuxuu taageeraa dugsiga, xisaabna uma baahnid.",
+  ptoHelpMoreCta: "Siyaabo kale oo lagu caawiyo",
+  ptoHowTitle: "Sida loo caawiyo",
+  ptoHowLead:
+    "Hal saacad oo munaasabad ah, hal shay oo liis rabitaan ah laga dalbado, ama dhawr doolar oo loogu talagalay qoys bil adag soo maraya. Saddexduba si toos ah ayay dugsiga u gaaraan, midkoodna khibrad uma baahna.",
+  ptoHowResourceTitle: "Xarunta Kheyraadka",
+  ptoHowResourceLead:
+    "Marka qoys Eisenhower ah uu wakhti adag soo maro, Xarunta Kheyraadka ayaa ah sida dugsigu u caawiyo — si degdeg ah, si aamusnaan ah, warqad buuxinna la'aan.",
+  ptoHowResourceWhat: "Waxa lacagta lagu bixiyo",
+  ptoHowResourceWhatBody:
+    "Raashin, jaakado iyo kabo jiilaal, iyo kaararka hadiyadda ee waxyaabaha lagama maarmaanka ah — waxyaabaha bil adag si lama filaan ah ugu baahato.",
+  ptoHowResourceWho: "Sida ay qoys u gaarto",
+  ptoHowResourceWhoBody:
+    "Shaqaalaha dugsiga ayaa baahida marka hore arka, codsi kastana si shakhsi ah oo qarsoodi ah ayay u maareeyaan. Arji ma jiro, liis cid kale aqrisaana ma jiro. Qaybta PTO-du waa inaysan lacagtu weligeed dhammaan.",
+  ptoHowResourceGive: "Sida wax loo bixiyo",
+  ptoHowResourceGiveBody:
+    "Ku deeq GiveMN oo deeqdaada ku xus Xarunta Kheyraadka, ama xafiiska hore ku dhaaf lacag caddaan ah ama jeeg ku qoran “Resource Center”.",
+  ptoHowResourceNoteTitle: "Haddii wakhtiga adagi adiga ku haysto",
+  ptoHowResourceNoteBody:
+    "Wac xafiiska dugsiga. Qofna PTO-da kama ogaan doono cidda codsatay, waxbana laguguma lahan — tani waxay u taagan tahay sidaas oo kale.",
+  ptoHowVolunteerTitle: "Fursadaha mutadawacnimada",
+  ptoHowVolunteerLead:
+    "Wareeg kasta oo PTO-du u baahan tahay in la buuxiyo waa warqad diiwaangelin oo kalandarka ku taal — waxa shaqadu tahay, goorta ay socoto, iyo inta boos ee hadhay. Badankoodu waa laba saacadood, waligaana keligaa halkaas kuma noqon doontid.",
+  ptoHowVolunteerOpen: "Waxa hadda caawimaad u baahan",
+  ptoHowVolunteerRecurring: "Kuwa sannad kasta soo noqnoqda:",
+  ptoHowWishlistTitle: "Liisaska rabitaanka macallimiinta",
+  ptoHowWishlistLead:
+    "Macallimiintu jeebkooda ayay kaga bixiyaan kharashka fasalka in ka badan inta qofna qirto. Liis rabitaan ayaa hal shay kaga qaadaya garbahooda: dalbo shaygaas, wuxuuna yimaadaa dugsiga.",
+  ptoHowWishlistOpen: "Fur liiska",
+  ptoHowWishlistLounge: "Qolka shaqaalaha",
+  ptoHowWishlistLoungeBody:
+    "Kafee, shaah iyo cunto fudud oo loogu talagalay dadka ka hor yimaada carruurtaada. Kani waa liiska ka dambeeya “Stock the Staff Lounge”.",
+  ptoHowWishlistArt: "Qolka farshaxanka",
+  ptoHowWishlistArtBody:
+    "Qalabka uu qolka farshaxanku ugu dhaqsaha badan isticmaalo, cabbirrada uu dhab ahaan u isticmaalona.",
+  ptoHowWishlistNoteTitle: "Ma raadinaysaa liiska hal fasal?",
+  ptoHowWishlistNoteBody:
+    "Macallin kastaa liiskiisa wuxuu ku wadaagaa wargeyska iyo kulamada waalidka. Labada liis ee halkan ku yaal waa kuwa dugsiga oo dhan.",
   ptoDonateTitle: "Deeq bixi",
   ptoDonateLead:
     "PTO-da gebi ahaanba waxaa wada mutadawiciin, sidaas darteed wixii la deeqo waxay ku soo laabtaan dugsiga iyagoo ku dhawaad dhammaystiran — safarrada waxbarasho, qalabka fasalka, meesha waxbarashada bannaanka, iyo barnaamijyada dheeraadka ah.",

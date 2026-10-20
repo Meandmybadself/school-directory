@@ -11,7 +11,11 @@ bitten twice.
 
 - `/` — the public page: what the PTO does, who runs it, the year, how to help
   or give
-- `/robots.txt`, `/sitemap.xml`
+- `/how-to-help` — the deeper half of that page's "Ways to help": the Resource
+  Center, the recurring volunteer work (live openings link out to the
+  calendar's public `/volunteers`), and the teacher wishlists
+- `/robots.txt`, `/sitemap.xml` (a public page added here and not to the
+  sitemap's `PUBLIC_PATHS` is one no search engine hears about)
 
 **The SPA bundle** (everything else falls through to `index.html`):
 
@@ -26,8 +30,8 @@ session **and** on membership of the PTO board group, stateful, and useless to
 anyone else.
 
 That means this app has a property `apps/store` and `apps/home` do not: **no
-Function here makes a subrequest at all.** The public page is a pure function of
-the requested URL, the `Accept-Language` header and the `sd_lang` cookie. It
+Function here makes a subrequest at all.** Each public page is a pure function
+of the requested URL, the `Accept-Language` header and the `sd_lang` cookie. It
 briefly read the anonymous `/calendar-public/events` for an upcoming-events
 block, the way `apps/home` still does; that block was dropped, and what is left
 is a page with no read to get wrong, nothing to degrade when the API blips, and

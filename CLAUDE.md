@@ -35,7 +35,7 @@ apps/calendar       Calendar SPA (Vite) → calendar.eisenhower.school. Shares t
 apps/newsletter     Newsletter SPA (Vite) → newsletter.eisenhower.school. Admin authoring (TipTap) + a member preferences screen, PLUS Pages Functions serving the public archive. Design system COPIED.
 apps/store          Store SPA (Vite) → store.eisenhower.school. Cart + admin in the bundle, PLUS Pages Functions serving the PUBLIC, INDEXED storefront. Printful catalog, Stripe checkout. Design system COPIED. Vendor/DNS setup: SETUP.md.
 apps/api            Hono Worker → api-directory.eisenhower.school. Serves ALL FOUR SPAs. Routes in src/routes, logic in src/lib, middleware in src/middleware.
-apps/pto            PTO SPA (Vite) → pto.eisenhower.school. Trello-like planning boards in the bundle (members AND PTO-board only), PLUS Pages Functions serving the PUBLIC, INDEXED explanatory page — who the PTO is, the year, how to help, how to donate. Design system COPIED. Routing: ROUTING.md.
+apps/pto            PTO SPA (Vite) → pto.eisenhower.school. Trello-like planning boards in the bundle (members AND PTO-board only), PLUS Pages Functions serving the PUBLIC, INDEXED explanatory pages — who the PTO is, the year, how to help (`/how-to-help`: the Resource Center, volunteering, wishlists), how to donate. Design system COPIED. Routing: ROUTING.md.
 apps/lostandfound   Lost & found SPA (Vite) → lostandfound.eisenhower.school. PUBLIC browse/search/item/claim screens (open to all, NOT indexed) plus staff screens (roster-gated) in one bundle; no Pages Functions. Design system COPIED. Routing: ROUTING.md. Invariant 33.
 apps/redirect       One-file Worker owning hostnames that exist only to 301 elsewhere: the retired directory.meandmybadself.com (path-preserving, to the live host) and ptomeet.eisenhower.school (a vanity name for the PTO's Google Meet room). Host map in src/index.ts; each host is also a custom_domain route in wrangler.toml.
 apps/api/migrations Ordered D1 SQL migrations (NNNN_name.sql). Never edit an applied migration — add a new one.
@@ -178,8 +178,8 @@ All six SPAs are separate Cloudflare Pages projects talking to the single
 - `apps/newsletter`, `apps/store` and `apps/pto` are the Pages projects with a
   `wrangler.toml`, because they're the ones with `functions/`. Those Pages
   Functions server-render the public surfaces — the newsletter archive (`/` and
-  `/n/:slug`), the storefront (`/`, `/p/:slug`, `/o/:token`) and the PTO page
-  (`/`) — so a link pasted into a text message gets a real preview and a reader
+  `/n/:slug`), the storefront (`/`, `/p/:slug`, `/o/:token`) and the PTO pages
+  (`/`, `/how-to-help`) — so a link pasted into a text message gets a real preview and a reader
   never downloads an authoring bundle. **Do not add a `_redirects` file there** —
   Pages 308s `/index.html` to
   `/`, so an SPA-fallback rewrite sends `/admin` to the public archive instead of

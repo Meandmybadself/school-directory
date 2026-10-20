@@ -178,6 +178,24 @@ export const YEAR: YearMonth[] = [
   },
 ];
 
+/** The events that come back every year and run on parent shifts — the strip
+ *  on /how-to-help under "Volunteer opportunities". A curated SUBSET of `YEAR`,
+ *  held separately rather than derived from it: being on the year strip says
+ *  an event happens, being here says it needs hands, and only a person knows
+ *  which is which. Live sign-up sheets stay on the calendar (invariant 13 —
+ *  this page reads nothing, invariant 28); these are the recurring NAMES a
+ *  reader can watch for, which is why nothing here expires. */
+export const VOLUNTEER_EVENTS: Array<{ name: string; category: Category }> = [
+  { name: "Popcorn Fridays", category: "fundraiser" },
+  { name: "Scholastic Book Fair", category: "fundraiser" },
+  { name: "Field Day", category: "community" },
+  { name: "Trilingual Bingo Night", category: "cultural" },
+  { name: "Read-A-Thon", category: "fundraiser" },
+  { name: "Conference staff meals", category: "appreciation" },
+  { name: "Spring Plant Sale", category: "fundraiser" },
+  { name: "Day of Play", category: "community" },
+];
+
 /** Runs all year, underneath the month strip. Named separately because a
  *  recurring thing put in a month reads as happening only then. */
 export const YEAR_ROUND = [
