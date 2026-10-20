@@ -179,6 +179,25 @@ a.pt-month:hover .pt-vol-t { text-decoration: underline; }
 .pt-vol-when { color: var(--ink-3); font-size: 13px; align-self: center; }
 .pt-spots { color: var(--orange-ink); background: var(--orange-tint); }
 
+/* /how-to-help: the classroom wishlist table. Rows reuse .pt-month's grid the
+   way the volunteer list does, and the whole row links out. The filter box
+   ships hidden; the page's one inline script reveals it, so without JS the
+   complete list simply renders. */
+.pt-filter {
+  display: block; width: 100%; max-width: 360px; margin: 0 0 14px;
+  padding: 9px 13px; border: 1px solid var(--line); border-radius: var(--r-ctrl);
+  background: var(--paper); color: var(--ink); font: inherit; font-size: 14px;
+}
+.pt-filter::placeholder { color: var(--ink-3); }
+.pt-tw { grid-template-columns: minmax(130px, 170px) minmax(0, 1fr); }
+.pt-tw .evs { gap: 12px; }
+.pt-tw-open {
+  margin-left: auto; font-weight: 700; font-size: 13px;
+  color: var(--blue-700); white-space: nowrap;
+}
+a.pt-tw:hover .pt-tw-open { text-decoration: underline; }
+@media (max-width: 560px) { .pt-tw { grid-template-columns: 1fr; } }
+
 .pt-note {
   margin-top: 16px; padding: 14px 16px; border-left: 3px solid var(--orange);
   background: var(--orange-tint); border-radius: 0 var(--r-ctrl) var(--r-ctrl) 0;

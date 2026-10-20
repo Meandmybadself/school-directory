@@ -244,6 +244,43 @@ export const WISHLISTS: PtoLink[] = [
   { label: "Resource Center", url: "https://www.amazon.com/hz/wishlist/ls/2XFXVRYLM3DBO" },
 ];
 
+/** One teacher's own wishlist — a row of the classroom table on /how-to-help.
+ *
+ *  THE ONE LIST IN THIS FILE THAT EXPIRES. Everything else here cleared the
+ *  header's "nothing expires" bar; this is a roster of people, and people
+ *  change rooms and schools. It lives here anyway because a family looks for
+ *  these lists on the page, not in a back issue of the newsletter — the trade
+ *  is owned by whoever maintains this file: re-check it each fall, drop a row
+ *  when its teacher leaves.
+ *
+ *  Names and room labels are the teachers' own words — data, like a
+ *  classroom's name in the directory (invariant 6), never translated. Keep
+ *  rows in grade order, kindergarten first; strip the `ref_` share params
+ *  from URLs like the school-wide lists above. */
+export interface TeacherWishlist {
+  teacher: string;
+  room: string;
+  url: string;
+}
+
+export const TEACHER_WISHLISTS: TeacherWishlist[] = [
+  {
+    teacher: "Profe JuanRo",
+    room: "Kindergarten · Juntos",
+    url: "https://www.amazon.com/registries/gl/guest-view/32HK7LBIOBUF3",
+  },
+  {
+    teacher: "Sra. Shrestha",
+    room: "Second Grade · Juntos",
+    url: "https://www.amazon.com/hz/wishlist/ls/G7WPGDCLRKLU",
+  },
+  {
+    teacher: "Sra. Bea",
+    room: "Fifth Grade · Spanish Immersion",
+    url: "https://www.amazon.com/hz/wishlist/ls/2T0VSMICAY0EX",
+  },
+];
+
 /** The Family Assistance Request Form — the Resource Center's own Google Form,
  *  transcribed from the FRC's flyer, which links the SAME form from its English,
  *  Spanish and Somali copy. The link's label is a dictionary key

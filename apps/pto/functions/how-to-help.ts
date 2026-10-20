@@ -17,6 +17,11 @@
 // watch for (data that never expires, from `_lib/pto.ts`) — the live list says
 // what is open THIS week, the strip what keeps coming back every year.
 //
+// The classroom-wishlist table carries the page's ONE inline script: a few
+// lines that reveal a filter box and hide rows as you type. Without JS the box
+// never appears and the complete list simply renders — the page stays whole
+// server-side, which is the property everything else here already has.
+//
 // The Resource Center section has one line aimed the other way — at a family
 // that needs it rather than one that can give. It ends in the Family
 // Assistance Request Form and the Resource Center's own phone number, appended
@@ -40,9 +45,11 @@ import {
   DONATE,
   FRC_PHONE,
   PTO_EMAIL,
+  TEACHER_WISHLISTS,
   VOLUNTEER_EVENTS,
   WISHLISTS,
   telHref,
+  type TeacherWishlist,
 } from "./_lib/pto.js";
 import { PTO_CSS } from "./_lib/styles.js";
 import { openVolunteerEvents, type OpenSheetRow, type PagesEnv } from "./_lib/volunteers.js";
@@ -115,6 +122,45 @@ ${items}
           </div>
         </div>`;
 }
+
+/** One classroom's row: the whole row is the link out to the teacher's list,
+ *  the way a volunteer row is the link to its event. Everything a filter
+ *  should match on — teacher and room — is the row's own text. */
+function teacherRow(t: T, w: TeacherWishlist): string {
+  return `          <a class="pt-month pt-tw" href="${escapeHtml(w.url)}">
+            <div class="m">${escapeHtml(w.teacher)}</div>
+            <div class="evs">
+              <span class="pt-vol-when">${escapeHtml(w.room)}</span>
+              <span class="pt-tw-open">${escapeHtml(t("ptoHowWishlistOpen"))} →</span>
+            </div>
+          </a>`;
+}
+
+/** The page's one script. It reveals the filter box (shipped `hidden`, so a
+ *  reader without JS never sees a control that does nothing) and hides rows
+ *  as you type. Matching is diacritic-insensitive — "senora" finds "Señora" —
+ *  and display is set inline so no CSS has to know about hidden grid rows. */
+const WISHLIST_FILTER_JS = `(function () {
+  var q = document.getElementById("tw-q");
+  var list = document.getElementById("tw-list");
+  var none = document.getElementById("tw-none");
+  if (!q || !list || !none) return;
+  var norm = function (s) {
+    return s.normalize("NFD").replace(/[\\u0300-\\u036f]/g, "").toLowerCase();
+  };
+  var rows = [].slice.call(list.children);
+  q.hidden = false;
+  q.addEventListener("input", function () {
+    var v = norm(q.value.trim());
+    var shown = 0;
+    rows.forEach(function (r) {
+      var hit = !v || norm(r.textContent).indexOf(v) !== -1;
+      r.style.display = hit ? "" : "none";
+      if (hit) shown++;
+    });
+    none.hidden = shown > 0;
+  });
+})();`;
 
 export const onRequestGet: PagesFunction<PagesEnv> = async ({ request, env }) => {
   const url = new URL(request.url);
@@ -204,6 +250,18 @@ ${wishlistCards
     .map((c) => linkCard(t, c.title, c.body, c.link.url, t("ptoHowWishlistOpen")))
     .join("\n")}
         </div>
+        <h3 class="pt-live-h" style="margin-top:34px">${escapeHtml(t("ptoHowWishlistClassTitle"))}</h3>
+        <p class="pt-sub" style="margin-top:4px">${escapeHtml(t("ptoHowWishlistClassLead"))}</p>
+        <input id="tw-q" class="pt-filter" type="search" hidden placeholder="${escapeHtml(
+          t("ptoHowWishlistFilter"),
+        )}" aria-label="${escapeHtml(t("ptoHowWishlistFilter"))}" />
+        <div class="pt-year" id="tw-list">
+${TEACHER_WISHLISTS.map((w) => teacherRow(t, w)).join("\n")}
+        </div>
+        <p class="pt-sub" id="tw-none" hidden style="margin:10px 0 0">${escapeHtml(
+          t("ptoHowWishlistFilterNone"),
+        )}</p>
+        <script>${WISHLIST_FILTER_JS}</script>
         <div class="pt-note">
           <b>${escapeHtml(t("ptoHowWishlistNoteTitle"))}</b> ${escapeHtml(
             t("ptoHowWishlistNoteBody"),

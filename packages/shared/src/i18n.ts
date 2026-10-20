@@ -767,6 +767,17 @@ export interface Strings {
   /** The Resource Center's wishlist card; its TITLE reuses
    *  `ptoHowResourceTitle`, so only the body is a key of its own. */
   ptoHowWishlistFrcBody: string;
+  /** The classroom table under the school-wide cards. Teacher names, room
+   *  labels and URLs are data (`TEACHER_WISHLISTS` in apps/pto's
+   *  `_lib/pto.ts`); these are the words around them. */
+  ptoHowWishlistClassTitle: string;
+  ptoHowWishlistClassLead: string;
+  /** Placeholder and accessible name of the filter box. It ships `hidden` and
+   *  the page's one inline script reveals it, so without JS the complete list
+   *  simply renders. */
+  ptoHowWishlistFilter: string;
+  /** Shown when the filter hides every row. */
+  ptoHowWishlistFilterNone: string;
   ptoHowWishlistNoteTitle: string;
   ptoHowWishlistNoteBody: string;
   ptoDonateTitle: string;
@@ -1611,9 +1622,14 @@ const en: Strings = {
     "The supplies the art room runs through fastest, in the sizes it actually uses.",
   ptoHowWishlistFrcBody:
     "Shelf staples for the Resource Center — food, hygiene products and other everyday essentials, delivered straight to the school.",
-  ptoHowWishlistNoteTitle: "Looking for one classroom's list?",
+  ptoHowWishlistClassTitle: "Classroom lists",
+  ptoHowWishlistClassLead:
+    "Teachers keep lists of their own, too. Find your child's classroom and order a thing — it ships to the school.",
+  ptoHowWishlistFilter: "Filter by teacher or classroom",
+  ptoHowWishlistFilterNone: "Nothing matches — try fewer letters.",
+  ptoHowWishlistNoteTitle: "Don't see your teacher?",
   ptoHowWishlistNoteBody:
-    "Individual teachers share theirs in the newsletter and at conferences. The lists here are the school-wide ones.",
+    "Lists are added as teachers share them — in the newsletter, at conferences, or by emailing the PTO.",
   ptoDonateTitle: "Donate",
   ptoDonateLead:
     "The PTO is entirely volunteer-run, so what is given goes back to the school almost undiminished — field trips, classroom supplies, the outdoor learning space, and the enrichment programs.",
@@ -2399,9 +2415,14 @@ const es: Strings = {
     "Los materiales que el salón de arte gasta más rápido, en los tamaños que de verdad usa.",
   ptoHowWishlistFrcBody:
     "Lo básico para los estantes del Centro de Recursos — comida, productos de higiene y otras cosas esenciales, entregado directamente a la escuela.",
-  ptoHowWishlistNoteTitle: "¿Busca la lista de un salón en particular?",
+  ptoHowWishlistClassTitle: "Listas de los salones",
+  ptoHowWishlistClassLead:
+    "Los maestros también tienen sus propias listas. Busque el salón de su hijo y pida una cosa — llega a la escuela.",
+  ptoHowWishlistFilter: "Filtrar por maestro o salón",
+  ptoHowWishlistFilterNone: "Nada coincide — pruebe con menos letras.",
+  ptoHowWishlistNoteTitle: "¿No ve a su maestro?",
   ptoHowWishlistNoteBody:
-    "Cada maestro comparte la suya en el boletín y en las conferencias. Las listas de aquí son las de toda la escuela.",
+    "Las listas se agregan a medida que los maestros las comparten — en el boletín, en las conferencias, o escribiendo a la PTO.",
   ptoDonateTitle: "Donar",
   ptoDonateLead:
     "La PTO funciona enteramente con voluntarios, así que lo que se dona vuelve a la escuela casi intacto — excursiones, materiales para las aulas, el espacio de aprendizaje al aire libre y los programas de enriquecimiento.",
@@ -3154,9 +3175,14 @@ const zh: Strings = {
   ptoHowWishlistArtBody: "美术教室消耗得最快的那些材料，而且是它真正用得上的规格。",
   ptoHowWishlistFrcBody:
     "资源中心货架上的常备物资——食品、洗护用品和其他生活必需品，直接寄到学校。",
-  ptoHowWishlistNoteTitle: "想找某个班级的清单？",
+  ptoHowWishlistClassTitle: "班级清单",
+  ptoHowWishlistClassLead:
+    "老师们也各自有清单。找到您孩子的班级，买一样东西——会直接寄到学校。",
+  ptoHowWishlistFilter: "按老师或班级筛选",
+  ptoHowWishlistFilterNone: "没有匹配的结果——试试少输入几个字。",
+  ptoHowWishlistNoteTitle: "没找到您孩子的老师？",
   ptoHowWishlistNoteBody:
-    "各位老师会在通讯和家长会谈上分享自己的清单。这里的清单是全校共用的。",
+    "老师分享清单后就会添加到这里——通过通讯、家长会谈，或发邮件给家长会。",
   ptoDonateTitle: "捐款",
   ptoDonateLead:
     "家长会完全由志愿者运作，所以捐出的钱几乎原封不动地回到学校——郊游、教室用品、户外学习空间和各项充实课程。",
@@ -3997,9 +4023,14 @@ const so: Strings = {
     "Qalabka uu qolka farshaxanku ugu dhaqsaha badan isticmaalo, cabbirrada uu dhab ahaan u isticmaalona.",
   ptoHowWishlistFrcBody:
     "Alaabta aasaasiga ah ee khaanadaha Xarunta Kheyraadka — cunto, alaabta nadaafadda iyo waxyaabo kale oo lagama maarmaan ah, oo si toos ah dugsiga loogu keeno.",
-  ptoHowWishlistNoteTitle: "Ma raadinaysaa liiska hal fasal?",
+  ptoHowWishlistClassTitle: "Liisaska fasallada",
+  ptoHowWishlistClassLead:
+    "Macallimiintuna waxay hayaan liisas u gaar ah. Raadi fasalka ilmahaaga oo hal shay dalbo — wuxuu yimaadaa dugsiga.",
+  ptoHowWishlistFilter: "Ku kala shaandhee macallin ama fasal",
+  ptoHowWishlistFilterNone: "Waxba isma waafaqsana — isku day xarfo ka yar.",
+  ptoHowWishlistNoteTitle: "Ma arkaysid macallinkaaga?",
   ptoHowWishlistNoteBody:
-    "Macallin kastaa liiskiisa wuxuu ku wadaagaa wargeyska iyo kulamada waalidka. Liisaska halkan ku yaal waa kuwa dugsiga oo dhan.",
+    "Liisaska waxaa lagu daraa marka macallimiintu la wadaagaan — wargeyska, kulamada waalidka, ama email loogu diro PTO-da.",
   ptoDonateTitle: "Deeq bixi",
   ptoDonateLead:
     "PTO-da gebi ahaanba waxaa wada mutadawiciin, sidaas darteed wixii la deeqo waxay ku soo laabtaan dugsiga iyagoo ku dhawaad dhammaystiran — safarrada waxbarasho, qalabka fasalka, meesha waxbarashada bannaanka, iyo barnaamijyada dheeraadka ah.",
