@@ -1,9 +1,12 @@
-// GET /groups?kind=… — narrowing the groups index by type.
+// GET /groups?q=&kind=… — searching and narrowing the groups index.
 //
 // Pinned for directoryFilter.test.ts's reasons, one route along. A filtered
-// listing and an empty one look identical in a response, so the only place to
-// assert that the term reached the statement at all — bound, not interpolated,
-// and ANDed onto the name search rather than replacing it — is the SQL.
+// listing and an empty one look identical in a response, so the only places to
+// assert anything are the SQL (the kind term: bound, not interpolated) and the
+// rows that come back (the name term, which is applied in memory so it can
+// match `groupLabel`'s elision — the whole reason the screen's own label,
+// "Gr 2 - Shrestha", has to find the room whose stored name is the district's
+// four-segment string).
 //
 // The 400 is the case worth having a test for: dropping a kind nobody
 // recognises would answer a filtered request with every group in the school
@@ -32,15 +35,27 @@ interface Seen {
   args: unknown[];
 }
 
+interface Row {
+  id: string;
+  kind: string;
+  name: string;
+  member_count: number;
+}
+
+const ROWS: Row[] = [
+  // The production shape this search kept missing: the row RENDERS as
+  // "Gr 2 - Shrestha", and an accented household name folds to a plain-ASCII
+  // keyboard's spelling.
+  { id: "01C", kind: "classroom", name: "Grade 2 · Juntos · Pam Shrestha · Rm 322", member_count: 22 },
+  { id: "01H", kind: "household", name: "Familia Rentería", member_count: 4 },
+  { id: "01G", kind: "generic", name: "Book Fair Committee", member_count: 3 },
+];
+
 /** A fake D1 that HONOURS the statement's own kind term, so a filter that
  *  silently dropped it fails with a household on a classrooms-only request
- *  rather than passing a text scan. */
-function testEnv(seen: Seen[]): HonoEnv["Bindings"] {
-  const rows = [
-    { id: "01H", kind: "household", name: "Ruiz", member_count: 4 },
-    { id: "01C", kind: "classroom", name: "Grade 2 · Rm 322", member_count: 22 },
-    { id: "01G", kind: "generic", name: "Book Fair Committee", member_count: 3 },
-  ];
+ *  rather than passing a text scan. The name term never reaches SQL — it is
+ *  applied in memory by the route — so every bound arg is a kind. */
+function testEnv(seen: Seen[], rows: Row[] = ROWS): HonoEnv["Bindings"] {
   const mk = (sql: string) => ({
     args: [] as unknown[],
     bind(...args: unknown[]) {
@@ -49,8 +64,7 @@ function testEnv(seen: Seen[]): HonoEnv["Bindings"] {
     },
     async all() {
       seen.push({ sql, args: this.args });
-      // The kinds are whatever this statement bound after `q` and the LIKE.
-      const asked = this.args.slice(2);
+      const asked = this.args;
       const results = asked.length ? rows.filter((r) => asked.includes(r.kind)) : rows;
       return { results };
     },
@@ -69,11 +83,22 @@ function app(): Hono<HonoEnv> {
   return a;
 }
 
-async function listing(url: string): Promise<{ status: number; seen: Seen[]; kinds: string[] }> {
+async function listing(
+  url: string,
+  rows: Row[] = ROWS,
+): Promise<{ status: number; seen: Seen[]; ids: string[]; kinds: string[] }> {
   const seen: Seen[] = [];
-  const res = await app().request(url, {}, testEnv(seen));
-  const body = res.status === 200 ? ((await res.json()) as { groups: { kind: string }[] }) : { groups: [] };
-  return { status: res.status, seen, kinds: body.groups.map((g) => g.kind) };
+  const res = await app().request(url, {}, testEnv(seen, rows));
+  const body =
+    res.status === 200
+      ? ((await res.json()) as { groups: { id: string; kind: string }[] })
+      : { groups: [] };
+  return {
+    status: res.status,
+    seen,
+    ids: body.groups.map((g) => g.id),
+    kinds: body.groups.map((g) => g.kind),
+  };
 }
 
 /** The one statement this route runs — the listing itself. */
@@ -86,20 +111,21 @@ function only(seen: Seen[]): Seen {
 
 describe("GET /groups kind filter", () => {
   it("adds no kind term when none is asked for", async () => {
-    const { status, seen, kinds } = await listing("/groups?q=ruiz");
+    const { status, seen, kinds } = await listing("/groups?q=");
     expect(status).toBe(200);
     expect(only(seen).sql).not.toContain("g.kind IN");
-    expect(kinds).toEqual(["household", "classroom", "generic"]);
+    expect(kinds).toEqual(["classroom", "household", "generic"]);
   });
 
   it("narrows the listing to one kind, keeping the name term", async () => {
-    const { status, seen, kinds } = await listing("/groups?q=grade&kind=classroom");
+    const { status, seen, ids } = await listing("/groups?q=grade&kind=classroom");
     expect(status).toBe(200);
     expect(only(seen).sql).toContain("g.kind IN (?)");
-    // ANDed onto the name search, never in place of it.
-    expect(only(seen).sql).toContain("lower(g.name) LIKE ?");
-    expect(only(seen).args).toEqual(["grade", "%grade%", "classroom"]);
-    expect(kinds).toEqual(["classroom"]);
+    expect(only(seen).args).toEqual(["classroom"]);
+    expect(ids).toEqual(["01C"]);
+    // The name term still narrows WITHIN the kind — both terms together.
+    const miss = await listing("/groups?q=zzz&kind=classroom");
+    expect(miss.ids).toEqual([]);
   });
 
   it("reads several kinds as OR, in one IN, deduped across both spellings", async () => {
@@ -109,7 +135,7 @@ describe("GET /groups kind filter", () => {
     expect(status).toBe(200);
     expect(only(seen).sql).toContain("g.kind IN (?,?)");
     expect(only(seen).args.filter((a) => a === "household").length).toBe(1);
-    expect(kinds).toEqual(["household", "classroom"]);
+    expect(kinds.sort()).toEqual(["classroom", "household"]);
   });
 
   it("binds the kinds rather than interpolating them", async () => {
@@ -139,5 +165,45 @@ describe("GET /groups kind filter", () => {
   it("accepts every kind the client can offer, so no chip can 400", async () => {
     const { status } = await listing(`/groups?${GROUP_KINDS.map((k) => `kind=${k}`).join("&")}`);
     expect(status).toBe(200);
+  });
+});
+
+describe("GET /groups name search", () => {
+  it("matches the full district name", async () => {
+    const { ids } = await listing("/groups?q=shrestha");
+    expect(ids).toEqual(["01C"]);
+  });
+
+  it("matches the rendered label, not only the stored name", async () => {
+    // The table shows "Gr 2 - Shrestha"; typing what you read must find it.
+    for (const q of ["gr 2", "Gr 2 - Shrestha"]) {
+      const { ids } = await listing(`/groups?q=${encodeURIComponent(q)}`);
+      expect(ids, q).toEqual(["01C"]);
+    }
+  });
+
+  it("folds accents both ways", async () => {
+    for (const q of ["renteria", "RENTERÍA"]) {
+      const { ids } = await listing(`/groups?q=${encodeURIComponent(q)}`);
+      expect(ids, q).toEqual(["01H"]);
+    }
+  });
+
+  it("label matching never widens a kind-filtered listing", async () => {
+    // A label is derived from the name, so a household can't ride in on a
+    // classroom elision; the kind term already ran in SQL.
+    const { ids } = await listing("/groups?q=gr%202&kind=household");
+    expect(ids).toEqual([]);
+  });
+
+  it("caps the listing at 50 after the name term", async () => {
+    const many: Row[] = Array.from({ length: 60 }, (_, i) => ({
+      id: `01X${String(i).padStart(2, "0")}`,
+      kind: "household",
+      name: `Household ${i}`,
+      member_count: 1,
+    }));
+    const { ids } = await listing("/groups?q=household", many);
+    expect(ids.length).toBe(50);
   });
 });

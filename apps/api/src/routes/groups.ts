@@ -5,7 +5,7 @@
 
 import { Hono } from "hono";
 import type { Context } from "hono";
-import { GROUP_KINDS } from "@sd/shared";
+import { GROUP_KINDS, groupLabel } from "@sd/shared";
 import type { Capability, ClassroomCandidateDTO, ContactItemDTO, ContactItemInput, ContactType, GroupDetailDTO, GroupKind, GroupMemberDTO, GroupRefDTO, GroupSummaryDTO, ShareTargetDTO, Visibility } from "@sd/shared";
 import type { HonoEnv } from "../env.js";
 import { requireAuth } from "../middleware/session.js";
@@ -112,6 +112,14 @@ function requestedKinds(raw: string[]): { kinds: GroupKind[]; invalid: boolean }
   return { kinds, invalid: kinds.length !== asked.length };
 }
 
+/** Case- and accent-insensitive needle for the groups search: SQLite's
+ *  `lower()` is ASCII-only, so a SQL `LIKE` could never find "Rentería" from a
+ *  keyboard that typed "renteria". NFD + stripping combining marks folds both
+ *  sides the same way. */
+function foldSearch(s: string): string {
+  return s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
+}
+
 /** GET /groups?q=&kind= — search groups by name, narrowed by kind (auth).
  *  Names only; detail is gated. */
 groups.get("/", async (c) => {
@@ -122,31 +130,43 @@ groups.get("/", async (c) => {
   // belong to is reached through GET /me/households and GET /groups/:id.
   requireApproved(auth);
   await enforceReadRate(c.env, auth);
-  const q = (c.req.query("q") ?? "").trim().toLowerCase();
-  const like = `%${q}%`;
+  const q = (c.req.query("q") ?? "").trim();
   const { kinds, invalid } = requestedKinds(c.req.queries("kind") ?? []);
   if (invalid) return c.json({ error: "invalid_kind" }, 400);
   // Several selected kinds read as OR — "households and classrooms" — so the
-  // filter is one bound `IN`, appended to the name term rather than replacing
-  // it: a kind filter and a search box narrow the same list together.
+  // filter is one bound `IN`. The NAME term is applied in memory below, not in
+  // SQL: the table renders `groupLabel`'s elision ("Gr 2 - Shrestha"), so the
+  // search has to match what the reader can see typed back at it — the label
+  // and the full district string both — and the label only exists in TS. A
+  // school's group list is a few hundred rows, so reading them all is cheap.
+  // Matching the label is invariant 18 the safe way round: everything matched
+  // is derived from the name the row already carries in its `title`.
   const filter = kinds.length
-    ? { sql: ` AND g.kind IN (${kinds.map(() => "?").join(",")})`, binds: kinds as unknown[] }
+    ? { sql: ` WHERE g.kind IN (${kinds.map(() => "?").join(",")})`, binds: kinds as unknown[] }
     : { sql: "", binds: [] as unknown[] };
   const rows = await c.env.DB.prepare(
     `SELECT g.id, g.kind, g.name,
             (SELECT COUNT(*) FROM membership m WHERE m.group_id = g.id) AS member_count
-     FROM grp g
-     WHERE (? = '' OR lower(g.name) LIKE ?)${filter.sql}
-     ORDER BY g.name COLLATE NOCASE LIMIT 50`,
+     FROM grp g${filter.sql}
+     ORDER BY g.name COLLATE NOCASE`,
   )
-    .bind(q, like, ...filter.binds)
+    .bind(...filter.binds)
     .all<{ id: string; kind: GroupSummaryDTO["kind"]; name: string; member_count: number }>();
-  const result: GroupSummaryDTO[] = rows.results.map((g) => ({
-    id: g.id,
-    kind: g.kind,
-    name: g.name,
-    memberCount: g.member_count,
-  }));
+  const needle = foldSearch(q);
+  const result: GroupSummaryDTO[] = rows.results
+    .filter(
+      (g) =>
+        !needle ||
+        foldSearch(g.name).includes(needle) ||
+        foldSearch(groupLabel(g.name, g.kind)).includes(needle),
+    )
+    .slice(0, 50)
+    .map((g) => ({
+      id: g.id,
+      kind: g.kind,
+      name: g.name,
+      memberCount: g.member_count,
+    }));
   return c.json({ groups: result });
 });
 
