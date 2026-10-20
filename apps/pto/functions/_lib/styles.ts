@@ -137,7 +137,7 @@ a { color: var(--blue-700); }
 }
 .pt-card h3 { margin: 0; font-size: 15.5px; font-weight: 800; letter-spacing: -.2px; }
 .pt-card p { margin: 8px 0 0; color: var(--ink-2); font-size: 13.5px; line-height: 1.55; }
-.pt-card a { font-weight: 700; text-decoration: none; }
+.pt-card a { font-weight: 700; text-decoration: none; overflow-wrap: anywhere; }
 
 /* the year strip */
 .pt-legend { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 16px; }
