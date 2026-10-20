@@ -69,7 +69,7 @@ export function AppShell({
   );
 }
 
-export type NavKey = "calendar" | "admin";
+export type NavKey = "calendar" | "volunteers" | "admin";
 
 /** This app's OWN screens. The directory and the newsletter used to be here as
  *  absolute URLs; they are now in the platform switcher (AppSwitcher.tsx). One
@@ -77,6 +77,7 @@ export type NavKey = "calendar" | "admin";
 export function navItems(t: ReturnType<typeof useI18n>["t"], isSystemAdmin: boolean) {
   const items: [IconName, NavKey, string, string][] = [
     ["calendar", "calendar", t("navCalendar"), "/"],
+    ["members", "volunteers", t("volunteersTitle"), "/volunteers"],
   ];
   if (isSystemAdmin) items.push(["shield", "admin", t("navAdmin"), "/admin"]);
   return items;
