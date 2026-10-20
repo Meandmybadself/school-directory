@@ -265,7 +265,10 @@ export interface TeacherWishlist {
 
 export const TEACHER_WISHLISTS: TeacherWishlist[] = [
   {
-    teacher: "Profe JuanRo",
+    // ONE registry for both Kindergarten Juntos rooms — Amazon titles it
+    // "26-27 Kinder Juntos" and bylines it "Maestra Pame Y Profe JuanRo", so
+    // don't split it into two rows pointing at the same list.
+    teacher: "Maestra Pame y Profe JuanRo",
     room: "Kindergarten · Juntos",
     url: "https://www.amazon.com/registries/gl/guest-view/32HK7LBIOBUF3",
   },
