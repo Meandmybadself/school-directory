@@ -149,8 +149,9 @@ export interface Strings {
   volunteerAddIcs: string;
   volunteerSignedUpTitle: string;
   volunteerSignedUpBody: string;
-  /** The calendar's /volunteers page — an index of upcoming events that still
-   *  need help, assembled from the public sheets (counts, never names). */
+  /** The live "still needs a hand" list on the PTO's /how-to-help page —
+   *  upcoming events assembled from the public sheets (counts, never names).
+   *  It began life as the calendar's /volunteers screen, which this replaced. */
   volunteersPageLead: string;
   volunteersPageNone: string;
 
@@ -740,8 +741,7 @@ export interface Strings {
   ptoHowResourceNoteBody: string;
   ptoHowVolunteerTitle: string;
   ptoHowVolunteerLead: string;
-  /** The link on the "take a shift" card — it lands on the calendar's public
-   *  /volunteers index, the live list of open spots. */
+  /** The heading over the live list of events that still have an open spot. */
   ptoHowVolunteerOpen: string;
   /** Label before the strip of events that come back every year and always
    *  need hands; the event names beside it are data (proper nouns). */

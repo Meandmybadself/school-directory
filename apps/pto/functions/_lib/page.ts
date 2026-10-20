@@ -12,11 +12,13 @@
 //   server-side, and an absolute ban on anything member-private ever appearing.
 //
 // What makes that ban easy to keep here is worth stating, because it is the
-// design and not an accident: NOTHING on this page comes from a member-scoped
+// design and not an accident: NOTHING on these pages comes from a member-scoped
 // read. The copy is dictionary text, the facts are in `_lib/pto.ts`, and the one
-// subrequest is to the ANONYMOUS `/calendar-public/events` — the same read
-// apps/home makes, already narrowed by `publicEventOf` (invariant 12). This app
-// adds no public projection of its own, and the `pto_*` tables behind the boards
+// Function that reads anything — /how-to-help's volunteer block — reads only the
+// ANONYMOUS projections, `/calendar-public/events` and
+// `/volunteers-public/sheets/:slug`, already narrowed by `publicEventOf` and
+// `publicSheetOf` (invariants 12, 13; see `_lib/volunteers.ts`). This app adds
+// no public projection of its own, and the `pto_*` tables behind the boards
 // have none at all.
 //
 // The session cookie is host-only to the API's hostname, so it is NEVER present
@@ -27,11 +29,11 @@
 import { LOCALES, dictionaries, interpolate, type Locale, type Strings } from "@sd/shared";
 import { LANG_PARAM } from "./locale.js";
 
-// No `PagesEnv` here, deliberately: these Functions read no binding and make no
-// subrequest. The app's wrangler.toml therefore declares no vars — compare
-// apps/store's, which needs API_BASE at REQUEST time for its catalog. If this
-// page ever grows a read, that is the moment to add both back, and the moment to
-// re-answer invariant 28's question about what it may read.
+// No `PagesEnv` here: this file is the document shell and reads nothing. The
+// env type lives beside the one read this origin makes — `_lib/volunteers.ts`,
+// where /how-to-help's volunteer block answered invariant 28's question about
+// what a Function here may read (the anonymous routes, degrading to a hidden
+// block). The landing page still makes no subrequest at all.
 
 export function escapeHtml(s: string): string {
   return s

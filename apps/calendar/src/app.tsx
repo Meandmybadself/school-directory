@@ -4,7 +4,6 @@ import { useSession } from "./lib/session.js";
 import { takeReturnPath } from "./lib/returnPath.js";
 import { SignIn, CheckEmail } from "./screens/Onboarding.js";
 import { Calendar } from "./screens/Calendar.js";
-import { Volunteers } from "./screens/Volunteers.js";
 import { Event } from "./screens/Event.js";
 import { Admin } from "./screens/Admin.js";
 import { CalendarEvents } from "./screens/CalendarEvents.js";
@@ -81,12 +80,6 @@ export function App() {
             every member affordance when `me` is null. Admin stays gated below —
             both here and, authoritatively, on the server. */}
         <Route path="/" element={<Calendar />} />
-
-        {/* The volunteers index — upcoming events that still need help. Ungated
-            for the agenda's reason: it is built from the same anonymous reads
-            (counts, never names — invariant 13), and rows link out to the event
-            pages below, where signing up (and signing in) happens. */}
-        <Route path="/volunteers" element={<Volunteers />} />
 
         {/* A volunteer sheet no longer has a page of its own: the event page
             below renders the sheet inline, and this resolves the slug and

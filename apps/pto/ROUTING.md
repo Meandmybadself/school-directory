@@ -12,8 +12,8 @@ bitten twice.
 - `/` — the public page: what the PTO does, who runs it, the year, how to help
   or give
 - `/how-to-help` — the deeper half of that page's "Ways to help": the Resource
-  Center, the recurring volunteer work (live openings link out to the
-  calendar's public `/volunteers`), and the teacher wishlists
+  Center, the live list of events that still need volunteers (rows link out to
+  each event's page on the calendar), and the teacher wishlists
 - `/robots.txt`, `/sitemap.xml` (a public page added here and not to the
   sitemap's `PUBLIC_PATHS` is one no search engine hears about)
 
@@ -29,19 +29,23 @@ paragraphs of prose. Everything else is the PTO board's planning tool: gated on 
 session **and** on membership of the PTO board group, stateful, and useless to
 anyone else.
 
-That means this app has a property `apps/store` and `apps/home` do not: **no
-Function here makes a subrequest at all.** Each public page is a pure function
-of the requested URL, the `Accept-Language` header and the `sd_lang` cookie. It
-briefly read the anonymous `/calendar-public/events` for an upcoming-events
-block, the way `apps/home` still does; that block was dropped, and what is left
-is a page with no read to get wrong, nothing to degrade when the API blips, and
-no binding in its `wrangler.toml`. Every `pto_*` table is reached exclusively
-through the bundle's credentialed `fetch` to `/pto/*`.
+The landing page keeps a property `apps/store`'s and `apps/home`'s pages do
+not: **it makes no subrequest at all** — a pure function of the requested URL,
+the `Accept-Language` header and the `sd_lang` cookie, with no read to get
+wrong and nothing to degrade when the API blips. It briefly read the anonymous
+`/calendar-public/events` for an upcoming-events block, the way `apps/home`
+still does; that block was dropped.
 
-Keep it that way. If a Function here ever needs board data, the answer is that it
-shouldn't have it; if it needs calendar data, it takes the anonymous route and
-degrades to hiding the block, and that is a decision to re-make deliberately
-rather than a door left open.
+`/how-to-help` is the one Function that reads, and that was the decision an
+earlier version of this file said would have to be re-made deliberately — made
+for its volunteer block, because "what still needs help" is a live fact a page
+with no editor cannot transcribe. The terms are in `functions/_lib/volunteers.ts`
+and are exactly the ones this file prescribed: the ANONYMOUS routes only
+(`/calendar-public/events` and `/volunteers-public/sheets/:slug` — counts,
+never names), degrading to hiding the block on every failure. If a Function
+here ever needs board data, the answer is still that it shouldn't have it:
+every `pto_*` table is reached exclusively through the bundle's credentialed
+`fetch` to `/pto/*`.
 
 ## Do not add `public/_redirects`
 

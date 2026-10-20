@@ -166,6 +166,19 @@ a { color: var(--blue-700); }
 .pt-month .evs { display: flex; flex-wrap: wrap; gap: 7px; align-self: center; }
 @media (max-width: 560px) { .pt-month { grid-template-columns: 1fr; gap: 8px; } }
 
+/* /how-to-help: the live list of events still needing volunteers. Rows reuse
+   .pt-month's grid so the two pages' event lists read as one thing; the row is
+   an anchor out to the event's page on the calendar. .pt-spots follows the
+   category tags' inversion rule — --orange-ink is a foreground on a tint. */
+.pt-live { margin-bottom: 22px; }
+.pt-live-h { margin: 0; font-size: 15.5px; font-weight: 800; letter-spacing: -.2px; }
+.pt-live .pt-sub { margin-top: 4px; }
+a.pt-month { text-decoration: none; color: inherit; display: grid; }
+a.pt-month:hover .pt-vol-t { text-decoration: underline; }
+.pt-vol-t { font-weight: 700; font-size: 14px; }
+.pt-vol-when { color: var(--ink-3); font-size: 13px; align-self: center; }
+.pt-spots { color: var(--orange-ink); background: var(--orange-tint); }
+
 .pt-note {
   margin-top: 16px; padding: 14px 16px; border-left: 3px solid var(--orange);
   background: var(--orange-tint); border-radius: 0 var(--r-ctrl) var(--r-ctrl) 0;

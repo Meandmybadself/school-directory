@@ -187,12 +187,13 @@ All six SPAs are separate Cloudflare Pages projects talking to the single
   falls through to `index.html` on its own. See `apps/newsletter/ROUTING.md` —
   and `apps/store/ROUTING.md` and `apps/pto/ROUTING.md`, which restate the same
   trap for the same reason.
-- **The PTO app is the one whose public half reads nothing at all.** Its Function
-  makes no subrequest and its `wrangler.toml` declares no vars: the page is a
-  pure function of the URL, `Accept-Language` and the `sd_lang` cookie. Every
-  `pto_*` table is reached only through the bundle's credentialed `fetch` to
-  `/pto/*`; there is no `/pto-public/*` router and no public projection to
-  review. See invariant 28.
+- **The PTO app's landing page reads nothing at all** — a pure function of the
+  URL, `Accept-Language` and the `sd_lang` cookie. `/how-to-help` is the one
+  Function there that reads, and only the ANONYMOUS calendar projections, for
+  its live volunteer list (`functions/_lib/volunteers.ts`), degrading to a
+  hidden block on every failure. Every `pto_*` table is reached only through
+  the bundle's credentialed `fetch` to `/pto/*`; there is no `/pto-public/*`
+  router and no public projection to review. See invariant 28.
 - The calendar owns all calendar admin. `apps/web`'s Admin has no calendar tab —
   just a link out. `apps/web` keeps only `api.calendarEvents` (for Home's
   upcoming-events block); `/calendar` there is a redirect to the calendar site.
@@ -1466,13 +1467,18 @@ All six SPAs are separate Cloudflare Pages projects talking to the single
    public surface is ever wanted it needs a hand-written projection built field
    by field like its four siblings — the header of migration 0024 and the PTO
    section of `packages/shared/src/types.ts` are where to start reading. Note
-   what this buys the app's own public page: it is INDEXED (the third such
-   surface, after `apps/home` and the storefront) and it reads NOTHING — no
-   subrequest, no binding, a pure function of the URL and the request headers.
-   It briefly carried an upcoming-events block against the anonymous
-   `/calendar-public/events`, the way `apps/home` still does; dropping that left
-   the page stronger than this invariant asks, and adding a read back is a
-   decision to make on purpose rather than a door standing open.
+   what this buys the app's own public pages: they are INDEXED (the third such
+   surface, after `apps/home` and the storefront) and the landing page reads
+   NOTHING — no subrequest, no binding, a pure function of the URL and the
+   request headers. It briefly carried an upcoming-events block against the
+   anonymous `/calendar-public/events`, the way `apps/home` still does;
+   dropping that left it stronger than this invariant asks. Adding a read back
+   was the decision this paragraph said to make on purpose, and it was made
+   once, for `/how-to-help`'s live volunteer list: the ANONYMOUS projections
+   only (`/calendar-public/events` + `/volunteers-public/sheets/:slug` —
+   counts, never names, invariants 12 and 13), every failure hiding the block
+   (`apps/pto/functions/_lib/volunteers.ts`). Board data remains unreachable
+   from any Function.
    **The gate is `ptoAccess`** (`apps/api/src/lib/ptoBoard.ts`), called by
    `requirePto` on every route in `routes/pto.ts` including the reads. A system
    admin is always in; everyone else is in iff some Person they control sits on
@@ -1916,8 +1922,9 @@ All six SPAs are separate Cloudflare Pages projects talking to the single
   site and no route test will ever notice a stray `hour: "numeric"`.
 - **Every timed event is read in the SCHOOL'S timezone, never the reader's.**
   One configured IANA zone, default `America/Chicago` (`DEFAULT_TIME_ZONE` in
-  `packages/shared/src/timezone.ts`), set in three places that must agree:
-  `SCHOOL_TIMEZONE` in `apps/api/wrangler.toml` and `apps/home/wrangler.toml`,
+  `packages/shared/src/timezone.ts`), set in four places that must agree:
+  `SCHOOL_TIMEZONE` in `apps/api/wrangler.toml`, `apps/home/wrangler.toml` and
+  `apps/pto/wrangler.toml` (for `/how-to-help`'s event links),
   and `VITE_SCHOOL_TIMEZONE` on the calendar build in `deploy.yml`. Always read
   it through `resolveTimeZone`, which turns a missing or misspelled zone into
   the default rather than a `RangeError` on every date. In `apps/calendar` the
