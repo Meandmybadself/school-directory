@@ -179,8 +179,21 @@ const ALLOWED_BLOCKS = new Set([
   "horizontalRule",
   "hardBreak",
   "image",
+  "table",
+  "tableRow",
+  "tableHeader",
+  "tableCell",
   EVENTS_BLOCK_TYPE,
 ]);
+
+/** A cell's colspan/rowspan: a small positive integer or nothing. Clamped on
+ *  write AND re-checked at render (the fontSize precedent) so no stored value
+ *  can put anything but a digit or two into the emitted attribute. */
+function clampSpan(raw: unknown): number {
+  const n = typeof raw === "number" ? Math.round(raw) : 1;
+  if (!Number.isFinite(n)) return 1;
+  return Math.min(Math.max(n, 1), 20);
+}
 
 function sanitizeMarks(raw: unknown): NewsletterNode["marks"] {
   if (!Array.isArray(raw)) return undefined;
@@ -271,6 +284,34 @@ function sanitizeNode(raw: unknown, path: string): NewsletterNode | NewsletterNo
           lookaheadDays: clampLookahead(attrs.lookaheadDays),
           heading,
         },
+      };
+    }
+    // Table structure is enforced here, not trusted from the editor: a table
+    // holds only rows, a row only cells. A hand-crafted PATCH that nests
+    // anything else is flattened to its text (the strip-tag-keep-content rule
+    // above), so the renderer below can walk the shape without re-deriving it —
+    // though it still re-checks, being the allowlist of record (invariant 9).
+    case "table": {
+      const rows = children.filter((c) => c.type === "tableRow");
+      if (rows.length > 0) return { type, content: rows };
+      return children.length > 0 ? children : null;
+    }
+    case "tableRow": {
+      const cells = children.filter((c) => c.type === "tableHeader" || c.type === "tableCell");
+      if (cells.length > 0) return { type, content: cells };
+      return children.length > 0 ? children : null;
+    }
+    case "tableHeader":
+    case "tableCell": {
+      // Only the spans survive — TipTap's `colwidth` (column resizing) is
+      // deliberately dropped: a fixed pixel width authored on a wide screen is
+      // exactly what breaks a 600px email, so the renderer never emits one and
+      // the editor has resizing turned off to match.
+      const attrs = (node.attrs ?? {}) as Record<string, unknown>;
+      return {
+        type,
+        attrs: { colspan: clampSpan(attrs.colspan), rowspan: clampSpan(attrs.rowspan) },
+        content: children,
       };
     }
     case "horizontalRule":
@@ -921,12 +962,71 @@ function renderNode(node: NewsletterNode, ctx: Ctx): string {
       if (!src) return "";
       return `<img src="${escapeHtml(src)}" alt="${escapeHtml(a.alt ?? "")}"${attr(ctx, "nl-img", "display:block;max-width:100%;height:auto;border-radius:8px;margin:0 0 18px")} />`;
     }
+    case "table":
+      return renderTable(node, ctx);
     case EVENTS_BLOCK_TYPE:
       return renderEventsBlock(node, ctx);
     default:
       // Unreachable for sanitized input; render children rather than vanish.
+      // Among what lands here: a tableRow or tableCell that somehow isn't
+      // inside a table — renderTable is the only emitter of <tr>/<td>/<th>, so
+      // out of place they render as their text, never as stray table markup.
       return renderChildren(node.content, ctx);
   }
+}
+
+/** An author's table. The whole structure — rows and cells included — is
+ *  emitted here and nowhere else, re-checked rather than trusted from the
+ *  sanitizer, so no document shape can produce a <td> outside a <table>.
+ *
+ *  Email constraints shape the markup: border-collapse with a border per cell
+ *  (Outlook ignores most table-level border shorthands), every text style
+ *  restated on the cell (styles don't inherit into table cells in Word's
+ *  engine), width:100% so the table takes the 600px measure rather than its
+ *  content's whims. NOT role="presentation" — unlike the events block's layout
+ *  table, this one is a real data table an author made, and a screen reader
+ *  should navigate it as one. */
+function renderTable(node: NewsletterNode, ctx: Ctx): string {
+  // Print-only link QR codes are suspended inside a table: the codes place
+  // themselves by floating into a reserved right-hand margin rail (qrBlock),
+  // and a float with a page-margin-sized negative margin inside a table cell
+  // lands in the middle of the neighbouring column. Links in cells stay
+  // ordinary links, like the events block's generated ones.
+  const inner: Ctx = { ...ctx, linkQrs: null, qrSink: null };
+  const rows = (node.content ?? [])
+    .filter((r) => r.type === "tableRow")
+    .map((r) => renderTableRow(r, inner))
+    .join("");
+  if (!rows) return "";
+  return `<table cellpadding="0" cellspacing="0" border="0" width="100%"${attr(ctx, "nl-table", `width:100%;border-collapse:collapse;margin:0 0 16px`)}>${rows}</table>`;
+}
+
+function renderTableRow(row: NewsletterNode, ctx: Ctx): string {
+  const cells = (row.content ?? [])
+    .filter((c) => c.type === "tableHeader" || c.type === "tableCell")
+    .map((c) => renderTableCell(c, ctx))
+    .join("");
+  return `<tr>${cells}</tr>`;
+}
+
+function renderTableCell(cell: NewsletterNode, ctx: Ctx): string {
+  const header = cell.type === "tableHeader";
+  const tag = header ? "th" : "td";
+  const a = (cell.attrs ?? {}) as Record<string, unknown>;
+  const colspan = clampSpan(a.colspan);
+  const rowspan = clampSpan(a.rowspan);
+  const spans = `${colspan > 1 ? ` colspan="${colspan}"` : ""}${rowspan > 1 ? ` rowspan="${rowspan}"` : ""}`;
+  const base = `border:1px solid ${RULE};padding:8px 10px;font-size:15px;line-height:1.5;color:${INK};font-family:${FONT};text-align:left;vertical-align:top`;
+  const style = header ? `${base};font-weight:700;background:${BACKDROP}` : base;
+  const styled = attr(ctx, header ? "nl-th" : "nl-td", style);
+  // The single-paragraph cell is unwrapped, like a list item's, so the common
+  // cell doesn't inherit the paragraph's bottom margin or its 16px body size.
+  const kids = cell.content ?? [];
+  const inner =
+    kids.length === 1 && kids[0]?.type === "paragraph"
+      ? renderChildren(kids[0].content, ctx)
+      : renderChildren(kids, ctx);
+  return `<${tag}${spans}${styled}>${inner}</${tag}>`;
 }
 
 /** The issue body only — no masthead, no footer. Callers wrap it. */
@@ -994,6 +1094,22 @@ export function renderNewsletterText(
       case "horizontalRule":
         out.push("—".repeat(24));
         break;
+      case "table": {
+        // One line per row, cells separated by a pipe — the plainest shape a
+        // table survives in a text part. The entry is pushed whole so the rows
+        // stay one block apart from the surrounding paragraphs.
+        const lines = (n.content ?? [])
+          .filter((r) => r.type === "tableRow")
+          .map((r) =>
+            (r.content ?? [])
+              .filter((c) => c.type === "tableHeader" || c.type === "tableCell")
+              .map((c) => (c.content ?? []).map(inline).join(" ").trim())
+              .join(" | "),
+          )
+          .filter(Boolean);
+        if (lines.length > 0) out.push(lines.join("\n"));
+        break;
+      }
       case "image":
         break;
       case EVENTS_BLOCK_TYPE: {
@@ -1405,7 +1521,7 @@ export const NEWSLETTER_PRINT_RULES = `
   .nl-p,.nl-ul,.nl-ol{font-size:12pt;line-height:1.55}
   /* Don't strand a heading or an event row at the foot of a page. */
   .nl-h1,.nl-h2,.nl-h3,.nl-events-heading{break-after:avoid;page-break-after:avoid}
-  .nl-event,.nl-li,.nl-img,.nl-quote{break-inside:avoid;page-break-inside:avoid}
+  .nl-event,.nl-li,.nl-img,.nl-quote,.nl-table tr{break-inside:avoid;page-break-inside:avoid}
   /* Nothing on paper is clickable, so an accent-coloured title is just noise. */
   .nl-event-title-link{color:${INK}}
   .nl-foot{break-inside:avoid}
@@ -1456,6 +1572,12 @@ a{color:var(--nl-accent,${DEFAULT_ACCENT})}
 .nl-quote{margin:0 0 16px;padding:2px 0 2px 14px;border-left:3px solid var(--nl-accent,${DEFAULT_ACCENT});color:${MUTED};font-style:italic}
 .nl-hr{border:0;border-top:1px solid ${RULE};margin:26px 0}
 .nl-img{display:block;max-width:100%;height:auto;border-radius:8px;margin:0 0 18px}
+.nl-table{width:100%;border-collapse:collapse;margin:0 0 16px}
+.nl-th,.nl-td{border:1px solid ${RULE};padding:8px 10px;font-size:15px;line-height:1.5;text-align:left;vertical-align:top}
+.nl-th{font-weight:700;background:${BACKDROP}}
+/* A multi-paragraph cell keeps the cell's measure, not the body's. */
+.nl-th .nl-p,.nl-td .nl-p{font-size:inherit;margin:0 0 8px}
+.nl-th .nl-p:last-child,.nl-td .nl-p:last-child{margin-bottom:0}
 .nl-events{width:100%;border-collapse:collapse;margin:0 0 20px}
 .nl-events-heading{margin:28px 0 10px;font-size:19px;line-height:1.3;font-weight:700}
 .nl-events-empty{margin:0 0 18px;font-size:15px;color:${MUTED}}

@@ -97,6 +97,55 @@ describe("newsletter sanitizer", () => {
     expect((out.content![0]!.attrs as { lookaheadDays: number }).lookaheadDays).toBe(365);
   });
 
+  it("keeps a table and enforces its structure", () => {
+    const cell = (type: "tableCell" | "tableHeader", text: string, attrs?: Record<string, unknown>): NewsletterNode => ({
+      type,
+      attrs,
+      content: [para(text)],
+    });
+    const out = sanitizeNewsletterDoc(
+      doc({
+        type: "table",
+        content: [
+          { type: "tableRow", content: [cell("tableHeader", "Day"), cell("tableHeader", "Menu")] },
+          { type: "tableRow", content: [cell("tableCell", "Mon"), cell("tableCell", "Pizza")] },
+          // A non-row smuggled into the table is flattened out, not kept.
+          para("stray"),
+        ],
+      }),
+    )!;
+    const table = out.content![0]!;
+    expect(table.type).toBe("table");
+    expect(table.content!.every((r) => r.type === "tableRow")).toBe(true);
+    expect(JSON.stringify(out)).toContain("Pizza");
+    expect(JSON.stringify(out)).not.toContain("stray");
+  });
+
+  it("clamps cell spans and drops colwidth", () => {
+    const out = sanitizeNewsletterDoc(
+      doc({
+        type: "table",
+        content: [
+          {
+            type: "tableRow",
+            content: [
+              {
+                type: "tableCell",
+                attrs: { colspan: 999, rowspan: "2", colwidth: [340] },
+                content: [para("wide")],
+              },
+            ],
+          },
+        ],
+      }),
+    )!;
+    const cell = out.content![0]!.content![0]!.content![0]!;
+    // colspan clamped to the cap; a non-number rowspan falls back to 1; a
+    // stored pixel width never survives to break the 600px email.
+    expect(cell.attrs).toEqual({ colspan: 20, rowspan: 1 });
+    expect(JSON.stringify(out)).not.toContain("colwidth");
+  });
+
   it("keeps a known text size and drops anything else, keeping the text", () => {
     const sized = (attrs: Record<string, unknown>) =>
       doc({ type: "paragraph", content: [{ type: "text", text: "big news", marks: [{ type: "fontSize", attrs }] }] });
@@ -127,6 +176,81 @@ describe("newsletter renderer", () => {
     expect(email).not.toContain("class=");
     expect(web).toContain('class="nl-p"');
     expect(web).not.toContain("style=");
+  });
+
+  it("renders a table inline-styled for email and classed for web", () => {
+    const table: NewsletterNode = {
+      type: "table",
+      content: [
+        {
+          type: "tableRow",
+          content: [
+            { type: "tableHeader", content: [para("Day")] },
+            { type: "tableHeader", content: [para("Menu")] },
+          ],
+        },
+        {
+          type: "tableRow",
+          content: [
+            { type: "tableCell", attrs: { colspan: 2 }, content: [para("Mon <3")] },
+          ],
+        },
+      ],
+    };
+    const email = renderNewsletterBodyHtml(doc(table), NO_EVENTS, { mode: "email" });
+    expect(email).toContain("<table");
+    expect(email).toContain('<th style="');
+    expect(email).toContain('<td colspan="2" style="');
+    // Cell text is escaped like any other text, and the single-paragraph cell
+    // is unwrapped so no <p> margins bloat the rows.
+    expect(email).toContain("Mon &lt;3");
+    expect(email).not.toContain("<p");
+    // Not a layout table: screen readers should navigate an author's table.
+    expect(email).not.toContain('<table role="presentation"');
+
+    const web = renderNewsletterBodyHtml(doc(table), NO_EVENTS, { mode: "web" });
+    expect(web).toContain('class="nl-table"');
+    expect(web).toContain('<th class="nl-th">');
+    expect(web).toContain('<td colspan="2" class="nl-td">');
+  });
+
+  it("never emits table markup for a row or cell outside a table", () => {
+    const stray = doc(
+      { type: "tableCell", content: [para("loose cell")] },
+      { type: "tableRow", content: [{ type: "tableCell", content: [para("loose row")] }] },
+    );
+    // Unsanitized on purpose: the renderer is the allowlist of record and must
+    // hold the shape on its own.
+    const html = renderNewsletterBodyHtml(stray, NO_EVENTS, { mode: "email" });
+    expect(html).not.toContain("<td");
+    expect(html).not.toContain("<tr");
+    expect(html).toContain("loose cell");
+    expect(html).toContain("loose row");
+  });
+
+  it("flattens a table to pipe-separated rows in the text part", () => {
+    const table: NewsletterNode = {
+      type: "table",
+      content: [
+        {
+          type: "tableRow",
+          content: [
+            { type: "tableHeader", content: [para("Day")] },
+            { type: "tableHeader", content: [para("Menu")] },
+          ],
+        },
+        {
+          type: "tableRow",
+          content: [
+            { type: "tableCell", content: [para("Mon")] },
+            { type: "tableCell", content: [para("Pizza")] },
+          ],
+        },
+      ],
+    };
+    const text = renderNewsletterText(doc(table), NO_EVENTS);
+    expect(text).toContain("Day | Menu");
+    expect(text).toContain("Mon | Pizza");
   });
 
   it("renders a text size as a style for email and a class for web", () => {
