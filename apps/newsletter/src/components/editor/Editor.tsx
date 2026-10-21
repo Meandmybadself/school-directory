@@ -6,9 +6,12 @@
 // renderer case would silently drop content, and a formatting button the
 // renderer can't express would lie to the author. Keep the two in step.
 //
-// Notably absent: code blocks, tables, text colour and alignment. Not because
-// they're hard, but because each one is another thing to get right across Gmail,
+// Notably absent: code blocks, text colour and alignment. Not because they're
+// hard, but because each one is another thing to get right across Gmail,
 // Outlook and Apple Mail, and none of them earn that for a school newsletter.
+// Tables cleared that bar (a lunch menu or a schedule is a table or it is
+// nothing), with resizing OFF: the renderer never emits a column width, because
+// a pixel width authored on a wide screen is what breaks a 600px email.
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { EditorContent, useEditor, type Editor as TipTapEditor } from "@tiptap/react";
@@ -17,6 +20,10 @@ import Link from "@tiptap/extension-link";
 import { LINK_SHORTCUT_LABEL, LinkShortcut, linkSelection } from "./linking.js";
 import Image from "@tiptap/extension-image";
 import Placeholder from "@tiptap/extension-placeholder";
+import Table from "@tiptap/extension-table";
+import TableCell from "@tiptap/extension-table-cell";
+import TableHeader from "@tiptap/extension-table-header";
+import TableRow from "@tiptap/extension-table-row";
 import { NodeSelection } from "@tiptap/pm/state";
 import { isNewsletterFontSize, type NewsletterFontSize, type NewsletterNode } from "@sd/shared";
 import { Icon, type IconName } from "../Icon.js";
@@ -176,8 +183,25 @@ function Toolbar({ editor }: { editor: TipTapEditor }) {
         <ToolButton icon="crop" label="Edit image"
           onClick={() => setImageEdit({ source: selectedImage!.src, type: typeOfUrl(selectedImage!.src), replace: selectedImage! })} />
       )}
+      <ToolButton icon="table" label="Table"
+        onClick={() =>
+          editor.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run()
+        } />
       <ToolButton icon="calendar" label="Upcoming events"
         onClick={() => editor.chain().focus().insertEventsBlock().run()} />
+      {editor.isActive("table") && (
+        <>
+          <span className="nlx-tool-sep" />
+          <ToolButton label="+ Row" onClick={() => editor.chain().focus().addRowAfter().run()} />
+          <ToolButton label="− Row" onClick={() => editor.chain().focus().deleteRow().run()} />
+          <ToolButton label="+ Col" onClick={() => editor.chain().focus().addColumnAfter().run()} />
+          <ToolButton label="− Col" onClick={() => editor.chain().focus().deleteColumn().run()} />
+          <ToolButton label="Header" active={editor.isActive("tableHeader")}
+            onClick={() => editor.chain().focus().toggleHeaderRow().run()} />
+          <ToolButton icon="x" label="Delete table"
+            onClick={() => editor.chain().focus().deleteTable().run()} />
+        </>
+      )}
       <input
         ref={fileInput}
         type="file"
@@ -240,6 +264,12 @@ export function Editor({
         LinkShortcut,
         Image,
         FontSize,
+        // Resizing stays off: the sanitizer drops `colwidth` and the renderer
+        // never emits one, so offering the drag handle would lie to the author.
+        Table.configure({ resizable: false }),
+        TableRow,
+        TableHeader,
+        TableCell,
         Placeholder.configure({ placeholder: "Write the newsletter…" }),
         EventsBlock.configure({ accentColor, timeZone, calendarUrl }),
       ],

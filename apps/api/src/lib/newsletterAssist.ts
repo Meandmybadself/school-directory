@@ -122,7 +122,9 @@ export function collectTextSlots(doc: NewsletterNode): TextSlot[] {
         for (const child of node.content ?? []) walk(child, "paragraph");
         return;
       default:
-        // image, eventsBlock, horizontalRule — nothing to rewrite.
+        // image, eventsBlock, horizontalRule, table — nothing to rewrite.
+        // Tables are deliberate: a cell holds a schedule's facts, and the
+        // succinct pass has no business rewording a lunch menu.
         return;
     }
   };
