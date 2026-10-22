@@ -27,12 +27,15 @@ import { setSetting } from "../lib/db.js";
 import { ulid } from "../lib/ids.js";
 import {
   LOSTFOUND_GROUP_SETTING,
+  MAX_PHOTO_BYTES,
+  MAX_THUMB_BYTES,
   STAFF_ITEM_SELECT,
   claimOf,
   cleanFields,
   cleanText,
   deleteItem,
   getStaffItem,
+  isJpegBytes,
   lostFoundAccess,
   markPending,
   retagStuck,
@@ -209,21 +212,17 @@ lostFound.get(
   }),
 );
 
-const MAX_PHOTO_BYTES = 6 * 1024 * 1024;
-const MAX_THUMB_BYTES = 1024 * 1024;
-
 /** The body as JPEG bytes, or an error response. The browser re-encodes every
  *  photo through a canvas before upload, so JPEG is the only type accepted —
- *  and checking the magic bytes, not just the header, keeps the public media
- *  route from ever serving something that merely claimed to be one. */
+ *  `isJpegBytes` (shared with the email intake) checks the magic bytes, not
+ *  just the header. */
 async function readJpeg(c: Context<HonoEnv>, maxBytes: number): Promise<ArrayBuffer | Response> {
   const type = (c.req.header("content-type") ?? "").split(";")[0]!.trim();
   if (type !== JPEG) return c.json({ error: "unsupported_type" }, 415);
   const body = await c.req.arrayBuffer();
   if (body.byteLength === 0) return c.json({ error: "empty" }, 400);
   if (body.byteLength > maxBytes) return c.json({ error: "too_large" }, 413);
-  const head = new Uint8Array(body, 0, 3);
-  if (head[0] !== 0xff || head[1] !== 0xd8 || head[2] !== 0xff) return c.json({ error: "unsupported_type" }, 415);
+  if (!isJpegBytes(body)) return c.json({ error: "unsupported_type" }, 415);
   return body;
 }
 

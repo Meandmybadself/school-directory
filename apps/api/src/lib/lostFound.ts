@@ -106,6 +106,19 @@ export function versionedKey(id: string, thumb: boolean): string {
   return `${id}-${Date.now().toString(36)}${thumb ? "-thumb" : ""}.jpg`;
 }
 
+/** Photo caps and the JPEG sniff, shared by the upload route and the email
+ *  intake (routes/lostFound.ts, lib/lostFoundEmail.ts) so the two doors in
+ *  can't drift apart. The sniff reads the magic bytes, not the declared type:
+ *  the public media route must never serve something that merely claimed to
+ *  be a JPEG. */
+export const MAX_PHOTO_BYTES = 6 * 1024 * 1024;
+export const MAX_THUMB_BYTES = 1024 * 1024;
+export function isJpegBytes(b: ArrayBuffer): boolean {
+  if (b.byteLength < 3) return false;
+  const h = new Uint8Array(b, 0, 3);
+  return h[0] === 0xff && h[1] === 0xd8 && h[2] === 0xff;
+}
+
 function jsonList(raw: string): string[] {
   try {
     const v: unknown = JSON.parse(raw);
@@ -687,13 +700,16 @@ export async function deleteItem(
 
 /** Retry failed descriptions, and pending ones stranded by a Worker that died
  *  mid-call (pending for over ten minutes). Rides the daily cron — there is no
- *  slot for a cron of its own (src/index.ts). */
+ *  slot for a cron of its own (src/index.ts). No thumbnail is no obstacle:
+ *  `tagItem` reads the full photo when there is none (an emailed item may
+ *  never get one — lib/lostFoundEmail.ts), and the ten-minute threshold is
+ *  what protects an app upload whose thumbnail is still on its way. */
 export async function retagStuck(env: Env, limit: number): Promise<number> {
   if (!env.AI) return 0;
   const strandedBefore = new Date(Date.now() - 10 * 60 * 1000).toISOString();
   const { results } = await env.DB.prepare(
     `SELECT id FROM lf_item
-      WHERE tag_status = 'failed' OR (tag_status = 'pending' AND thumb_key IS NOT NULL AND updated_at < ?)
+      WHERE tag_status = 'failed' OR (tag_status = 'pending' AND updated_at < ?)
       ORDER BY found_at LIMIT ?`,
   )
     .bind(strandedBefore, limit)

@@ -13,6 +13,9 @@ export interface SendArgs {
    *  admin-configured sender identity doesn't change transactional mail. */
   from?: string;
   replyTo?: string;
+  /** Extra message headers. The lost & found intake's confirmation marks
+   *  itself auto-generated with these, so autoresponders don't answer it. */
+  headers?: Record<string, string>;
 }
 
 export interface SendResult {
@@ -38,6 +41,7 @@ function resendPayload(env: Env, msg: SendArgs) {
     html: msg.html,
     text: msg.text,
     ...(msg.replyTo ? { reply_to: msg.replyTo } : {}),
+    ...(msg.headers ? { headers: msg.headers } : {}),
   };
 }
 

@@ -91,6 +91,16 @@ bucket_name = "school-directory-lostfound-media"
 [ai]
 binding = "AI"
 
+# Cloudflare Images transforms: thumbnails for lost & found photos that arrive
+# by EMAIL (lib/lostFoundEmail.ts), where no browser canvas exists to make one.
+# Optional in code (absent → emailed items get no thumbnail and the model reads
+# the full photo). Billed per UNIQUE transformation; each photo is thumbnailed
+# once, so a school's volume sits inside the free monthly allowance.
+# The email intake itself needs Email Routing pointed at this Worker — a
+# by-hand setup like the Pages custom domains; see EMAIL-INTAKE.md.
+[images]
+binding = "IMAGES"
+
 # Semantic search over lost & found descriptions. Create once, by hand, before
 # the first deploy that carries this block:
 #   wrangler vectorize create school-directory-lostfound --dimensions=384 --metric=cosine
@@ -210,6 +220,9 @@ bucket_name = "school-directory-lostfound-media"
 # Not inherited from the top level, like every binding here.
 [env.production.ai]
 binding = "AI"
+
+[env.production.images]
+binding = "IMAGES"
 
 [[env.production.vectorize]]
 binding = "LOSTFOUND_VECTORS"

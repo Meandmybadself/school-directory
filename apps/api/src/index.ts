@@ -42,6 +42,7 @@ import { pto } from "./routes/pto.js";
 import { lostFound } from "./routes/lostFound.js";
 import { lostFoundPublic } from "./routes/lostFoundPublic.js";
 import { getItem as getLfItem, isListed, itemIdOfKey, retagStuck, sweepLostFound } from "./lib/lostFound.js";
+import { emailHandler } from "./email.js";
 
 const app = new Hono<HonoEnv>();
 
@@ -271,4 +272,6 @@ const scheduled: ExportedHandlerScheduledHandler<Env> = (event, env, ctx) => {
   ctx.waitUntil(refreshStoreCatalog(env));
 };
 
-export default { fetch: app.fetch, scheduled };
+// Inbound email (Email Routing → this Worker): the lost & found photo intake.
+// Routed addresses are configured by hand — see EMAIL-INTAKE.md.
+export default { fetch: app.fetch, scheduled, email: emailHandler };

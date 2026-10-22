@@ -55,7 +55,9 @@ export interface RosterAccess {
 export async function rosterAccess(
   env: Env,
   settingKey: string,
-  auth: AuthContext,
+  // Only these two facts decide anything, and the email intake
+  // (lib/lostFoundEmail.ts) asks on behalf of a sender who has no session.
+  auth: Pick<AuthContext, "userId" | "isSystemAdmin">,
 ): Promise<RosterAccess> {
   const groupId = await getSetting(env, settingKey);
   const group = groupId

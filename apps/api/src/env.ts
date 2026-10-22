@@ -23,6 +23,11 @@ export interface Env {
   /** Override the vision model (any Workers AI model that accepts an image and
    *  supports JSON mode). Unset → `LF_VISION_MODEL` in lib/lostFound.ts. */
   LOSTFOUND_VISION_MODEL?: string;
+  /** Cloudflare Images transforms — makes thumbnails for photos that arrive by
+   *  email (lib/lostFoundEmail.ts), where there is no browser canvas to do it.
+   *  Optional in the absent-means-off sense: without it, emailed items simply
+   *  have no thumbnail and the model reads the full photo. */
+  IMAGES?: ImagesBinding;
   /** Override the newsletter composer's assist model (any Workers AI chat
    *  model with JSON mode). Unset → `ASSIST_MODEL` in lib/newsletterAssist.ts,
    *  which is the same model the lost & found runs. Rides the same optional
