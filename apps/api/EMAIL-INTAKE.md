@@ -1,44 +1,51 @@
-# Lost & found photo intake by email — setup
+# Email on eisenhower.school — intake + forwarding aliases
 
-Staff mail a photo (or several) to the intake address and each JPEG becomes a
-HELD lost & found item, described by the model, waiting in the staff review
-queue. The code half ships with the Worker (`src/email.ts`,
-`src/lib/lostFoundEmail.ts`); this file is the by-hand half — Email Routing is
-account/zone configuration CI does not create, like the Pages custom domains.
+Cloudflare Email Routing owns the apex's mail (cut over from ForwardMX
+2026-10-22). Every routed address points at the API Worker's `email` handler
+(`src/email.ts`), which does two jobs:
 
-## Why a subdomain
+- **Forwarding aliases** (`admin@`, `pto@`): fan out to the destinations named
+  in the `EMAIL_FORWARDS` secret (`lib/emailForward.ts`). A Worker does this
+  rather than plain routing rules because a rule forwards to at most ONE
+  verified destination, and `pto@` goes to the whole board. The map is a
+  SECRET, not a wrangler var — the repo is public and the values are board
+  members' personal addresses.
+- **Lost & found photo intake** (`found@`): each JPEG from a staff sender
+  becomes a HELD item in the review queue (`lib/lostFoundEmail.ts`).
 
-`eisenhower.school` already receives mail: its MX records point at ForwardMX,
-which forwards the PTO's addresses. Cloudflare Email Routing needs the MX of
-whatever domain it serves, so enabling it on the APEX would replace ForwardMX
-and break those forwards. Email Routing can instead be enabled on a
-**subdomain** of the zone, which touches nothing at the apex. The intake
-address is therefore:
+## The pieces (all account/zone config CI does not create)
 
-```
-found@mail.eisenhower.school
-```
+1. **Email Routing enabled on the zone** — this is what replaced ForwardMX's
+   MX records. Deliberately NO catch-all: an address nobody configured
+   bounces with a 550.
+2. **Destination addresses** (account-level): every address mail is forwarded
+   TO must be created here, and its holder must click Cloudflare's
+   verification email, or `forward()` to it throws (the handler skips it and
+   delivers to the rest). Create one:
+   ```
+   curl -X POST "https://api.cloudflare.com/client/v4/accounts/c3b373ae8a90a6494e520f962bdf462b/email/routing/addresses" \
+     -H "Authorization: Bearer $CF_TOKEN" -H "Content-Type: application/json" \
+     -d '{"email":"person@example.com"}'
+   ```
+   (Needs Account → Email Routing Addresses: Edit on the token.)
+3. **Routing rules** (zone-level): `found@`, `admin@`, `pto@` each route to
+   the Worker `school-directory-api-production` (action type `worker`).
+   Needs Zone → Email Routing Rules: Edit.
+4. **`EMAIL_FORWARDS` secret** on the API Worker:
+   ```
+   cd apps/api && npx wrangler secret put EMAIL_FORWARDS --env production
+   # value: {"admin":["meandmybadself@gmail.com"],"pto":["…","…"]}
+   ```
 
-(If the PTO ever migrates ForwardMX's forwards into Cloudflare Email Routing,
-the address can move to `found@eisenhower.school` by adding an apex rule — the
-Worker doesn't care which address was routed to it.)
+## Adding the PTO board to pto@
 
-## Steps (Cloudflare dashboard, zone `eisenhower.school`)
+Two steps per person: create their destination address (step 2 above — this
+immediately sends them a "verify your email" message from Cloudflare, so warn
+the board first), then add their address to the `pto` list in the
+`EMAIL_FORWARDS` secret. Order doesn't matter: an unverified destination is
+skipped, not fatal, and starts receiving as soon as they click verify.
 
-1. **Compute & AI → Email Service → Email Routing** → select the zone and
-   enable Email Routing if it isn't already. Do NOT accept any prompt to add
-   MX records to the apex — skip straight to settings if offered.
-2. **Settings → Subdomains** → add `mail`. Cloudflare creates the MX + SPF
-   records on `mail.eisenhower.school` itself; wait for them to show in DNS.
-3. **Routing rules** → create a custom address `found@mail.eisenhower.school`
-   with the action **Send to a Worker** → `school-directory-api-production`.
-   (Catch-alls exist only on the apex; the literal address is all we want.)
-4. Send a test photo from a staff member's address and check:
-   - the item appears under Review in the staff app (held, then described);
-   - the confirmation reply arrives (sent via Resend, from `EMAIL_FROM`);
-   - a non-staff sender gets an SMTP rejection, and nothing is created.
-
-## What the Worker enforces (lib/lostFoundEmail.ts)
+## What the Worker enforces for found@ (lib/lostFoundEmail.ts)
 
 - Sender must be an **enabled account on the lost & found staff roster**
   (`lostfound_staff_group_id`, invariant 31/33) — matched on the ENVELOPE
@@ -59,6 +66,10 @@ Worker doesn't care which address was routed to it.)
   never sent in answer to machine-generated mail (out-of-office, forwarding
   rules), so no mail loop can form.
 
+The forwarding aliases deliberately get NONE of that gauntlet — a forwarding
+alias behaves like a plain routing rule, which forwards whatever Cloudflare
+accepted.
+
 ## Bindings involved
 
 - `IMAGES` (wrangler.toml): makes the thumbnail the app's canvas would have
@@ -66,3 +77,11 @@ Worker doesn't care which address was routed to it.)
   as the thumb. Billed per unique transformation (one per photo); a school's
   volume sits inside the free monthly allowance.
 - Inbound messages over Email Routing's 25 MiB cap never reach the Worker.
+
+## History / gotchas
+
+- The apex previously used **ForwardMX** (`mx1/mx2.forwardmx.net`); any alias
+  that existed only there died at cutover, by choice (no catch-all). The old
+  apex SPF (`include:_spf.forwardmx.net`) was replaced by Cloudflare's.
+- Outbound transactional mail (Resend, `EMAIL_FROM`) sends from
+  `mailer.meandmybadself.com` and is unaffected by any of this.

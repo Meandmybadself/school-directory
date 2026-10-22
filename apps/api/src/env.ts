@@ -77,6 +77,12 @@ export interface Env {
    * would take the directory down on a config slip.
    */
   READ_LIMIT?: RateLimit;
+  /** JSON map of forwarding aliases on the school's domain — local part →
+   *  verified destination addresses, e.g. `{"pto": ["…"], "admin": ["…"]}`
+   *  (lib/emailForward.ts). A SECRET, not a var: the repo is public and the
+   *  values are board members' personal addresses. Absent means no alias
+   *  forwards and every routed address is the lost & found intake. */
+  EMAIL_FORWARDS?: string;
   RESEND_API_KEY?: string;
   EMAIL_FROM?: string;
   /** Slack Incoming Webhook posting system events to the admins' channel

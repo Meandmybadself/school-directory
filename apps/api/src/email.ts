@@ -13,6 +13,7 @@ import PostalMime from "postal-mime";
 import type { Env } from "./env.js";
 import { writeAudit, type AuditMeta } from "./lib/audit.js";
 import { sendEmail } from "./lib/email.js";
+import { forwardsFor } from "./lib/emailForward.js";
 import {
   authFailed,
   dmarcVerdict,
@@ -25,6 +26,28 @@ import {
 import { notifySlackForAudit } from "./lib/slackNotify.js";
 
 export const emailHandler: EmailExportedHandler<Env> = async (message, env, ctx) => {
+  // Forwarding aliases first (admin@, pto@ — lib/emailForward.ts), and with
+  // none of the intake's extra gauntlet: a forwarding alias should behave like
+  // a plain Email Routing rule, which forwards what Cloudflare accepted. One
+  // failed destination (usually "not verified yet") must not cost the rest
+  // theirs; only a message NO destination accepted is refused, so the sender
+  // learns it rather than assuming it arrived.
+  const forwards = forwardsFor(env, message.to);
+  if (forwards) {
+    let delivered = 0;
+    for (const dest of forwards) {
+      try {
+        await message.forward(dest);
+        delivered++;
+      } catch (err) {
+        console.error(`[email] a forward failed: ${String(err).slice(0, 160)}`);
+      }
+    }
+    if (!delivered) message.setReject("No deliverable destination for this address.");
+    return;
+  }
+
+  // Everything else routed here is the lost & found intake.
   // Email Routing verified the sender; an explicit hard fail is refused before
   // the address is even looked up. setReject answers at SMTP time — a refusal
   // to the connecting server, never a bounce mailed to a spoofed sender.

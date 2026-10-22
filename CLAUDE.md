@@ -1052,7 +1052,7 @@ Worker, sharing one session:
    tap and the browser re-encodes under a FRESH R2 key (both media routes
    cache for an hour — overwriting a key keeps serving the old orientation).
    **Photos also arrive by EMAIL**: Email Routing hands
-   `found@mail.eisenhower.school` to the Worker's `email` handler
+   `found@eisenhower.school` to the Worker's `email` handler
    (`src/email.ts` → `lib/lostFoundEmail.ts`). The ENVELOPE sender must be an
    enabled account on the SAME staff roster, refused at SMTP time BEFORE the
    body is parsed (a stranger costs one indexed read, not a 25 MiB MIME
@@ -1076,9 +1076,17 @@ Worker, sharing one session:
    thumbnail a browser canvas would have; absent, the model reads the full
    photo (`tagItem`'s `photo_key` fallback, which is also why `retagStuck` no
    longer requires a thumbnail). Routing setup is BY HAND, like Pages custom
-   domains — `apps/api/EMAIL-INTAKE.md`; the apex MX belongs to ForwardMX, so
-   Email Routing lives on the `mail.` subdomain and must never be enabled on
-   the apex.
+   domains — `apps/api/EMAIL-INTAKE.md`. **The same handler serves the plain
+   forwarding aliases** (`admin@`, `pto@` — `lib/emailForward.ts`): an Email
+   Routing RULE forwards to at most one verified destination, so
+   multi-recipient aliases route to the Worker and fan out via
+   `message.forward()`, skipping (never aborting on) a destination that
+   hasn't verified. The map is the `EMAIL_FORWARDS` SECRET, never a
+   wrangler var — the repo is public and the values are board members'
+   personal addresses. Aliases get none of the intake's gauntlet (a
+   forwarding alias behaves like a plain rule). Cloudflare Email Routing owns
+   the apex MX (ForwardMX retired 2026-10-22, no catch-all by choice —
+   unconfigured addresses bounce).
    **`/privacy` changed first** (its own rule): the lost & found block and the
    Workers AI line, all four languages.
 
