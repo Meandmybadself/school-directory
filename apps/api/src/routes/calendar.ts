@@ -12,6 +12,7 @@ import { Hono } from "hono";
 import type { Context } from "hono";
 import type { HonoEnv } from "../env.js";
 import { requireAuth } from "../middleware/session.js";
+import { requireApproved } from "../lib/directoryAccess.js";
 import { findEventByPath, listCalendarFeeds, queryUpcomingEvents, type UpcomingEventsQuery } from "../lib/calendar.js";
 
 export const calendar = new Hono<HonoEnv>();
@@ -37,7 +38,14 @@ export function upcomingEventsQuery(c: Context<HonoEnv>): UpcomingEventsQuery {
  *  enabled imported feeds (upstream URL) plus managed calendars (this API's own
  *  published feed). Admin-only status/error fields stay out of this response. */
 calendar.get("/sources", async (c) => {
-  requireAuth(c);
+  const auth = requireAuth(c);
+  // Approval-gated even though nothing here reads `person`: an imported feed's
+  // upstream URL can be a secret Google/Outlook subscribe link granting the raw
+  // feed, ORGANIZER/ATTENDEE addresses included — invariant 12's reason for
+  // mirroring it on the anonymous route. Handing it to a self-registered,
+  // never-approved account would re-admit exactly the population invariant 32
+  // exists to remove. Approved members still get the real URL, as documented.
+  requireApproved(auth);
   const sources = await listCalendarFeeds(c.env, new URL(c.req.url).origin);
   return c.json({ sources });
 });

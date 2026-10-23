@@ -18,6 +18,7 @@ import { calendar } from "../src/routes/calendar.js";
 import { calendarPublic } from "../src/routes/calendarPublic.js";
 import type { HonoEnv } from "../src/env.js";
 import { UnauthorizedError } from "../src/middleware/session.js";
+import { DirectoryAccessError } from "../src/lib/directoryAccess.js";
 
 /** D1 stand-in returning fixed rows for the two SELECT shapes these routes use. */
 function testEnv(): HonoEnv["Bindings"] {
@@ -177,6 +178,51 @@ describe("member calendar routes refuse without a session", () => {
   it("GET /calendar/sources → 401", async () => {
     const res = await app.request("/calendar/sources", {}, testEnv());
     expect(res.status).toBe(401);
+  });
+});
+
+describe("GET /calendar/sources is approval-gated — the upstream URL is a directory read", () => {
+  // An imported feed's upstream URL can be a secret Google/Outlook subscribe
+  // link (invariant 12's reason for mirroring it on the anonymous route), so a
+  // self-registered, never-approved account must not receive it (invariant 32).
+  // Approved members still get the real URL — the documented policy.
+  function appAs(isApproved: boolean): Hono<HonoEnv> {
+    const app = new Hono<HonoEnv>();
+    app.use("*", async (c, next) => {
+      c.set("auth", {
+        userId: "01USER",
+        realUserId: "01USER",
+        email: "parent@example.com",
+        isSystemAdmin: false,
+        sessionId: "01SESSION",
+        activePersonId: null,
+        isMasquerading: false,
+        isApproved,
+      } as never);
+      await next();
+    });
+    app.route("/calendar", calendar);
+    // Mirrors src/index.ts's onError — DirectoryAccessError → 403 lives there.
+    app.onError((err, c) => {
+      if (err instanceof UnauthorizedError) return c.json({ error: "unauthorized" }, 401);
+      if (err instanceof DirectoryAccessError) {
+        return c.json({ error: "directory_access_required" }, 403);
+      }
+      throw err;
+    });
+    return app;
+  }
+
+  it("403 for a signed-in but unapproved account, with no upstream URL on the wire", async () => {
+    const res = await appAs(false).request("/calendar/sources", {}, testEnv());
+    expect(res.status).toBe(403);
+    expect(await res.text()).not.toContain("upstream.example");
+  });
+
+  it("200 with the real subscribe URL once approved", async () => {
+    const res = await appAs(true).request("/calendar/sources", {}, testEnv());
+    expect(res.status).toBe(200);
+    expect(await res.text()).toContain("upstream.example");
   });
 });
 

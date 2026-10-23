@@ -939,10 +939,12 @@ Worker, sharing one session:
    site narrowed from one edit. `requireApproved` (`lib/directoryAccess.ts`)
    is a function called at the top of a handler, not path middleware — the
    routes aren't a prefix, and a prefix mount would lock a pending member out
-   of their own family or silently not run. Four routes that don't read
+   of their own family or silently not run. Five routes that don't read
    `person` name it explicitly: `GET /groups`, `GET /groups/:id`,
    `GET /photos/:key`, `GET /volunteers/sheets/:slug` (whose `positionsOf`
-   still counts withheld names — invariant 13).
+   still counts withheld names — invariant 13), and `GET /calendar/sources`
+   (an imported feed's upstream URL may be a secret subscribe link —
+   invariant 12's reason for mirroring it publicly).
    **Two routes deliberately survive the gate** (else a pending family is
    trapped in a form they can't finish): `GET /groups/:id` opens for a group
    one of their own Persons is on — the roster inside still narrowed by the
