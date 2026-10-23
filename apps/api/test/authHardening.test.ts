@@ -186,6 +186,55 @@ describe("POST /auth/callback consumes the token exactly once", () => {
   });
 });
 
+describe("POST /auth/callback refuses a cross-site form post (login CSRF)", () => {
+  // The attack this pins: a page anywhere auto-submits a form carrying a fresh
+  // magic link for the ATTACKER'S address; SameSite=Lax doesn't stop the
+  // response from SETTING a cookie, so without the Origin check the victim's
+  // browser is silently signed in as the attacker.
+  const postFrom = (env: HonoEnv["Bindings"], origin?: string) =>
+    app().request(
+      "/auth/callback",
+      {
+        method: "POST",
+        body: new URLSearchParams({ t: "sometoken" }),
+        headers: origin === undefined ? {} : { origin },
+      },
+      env,
+      ctx,
+    );
+
+  it("a cross-origin POST is refused before the token is read — the member's link still works", async () => {
+    const writes: Row[] = [];
+    const res = await postFrom(testEnv(writes), "https://evil.example");
+    expect(res.status).toBe(302);
+    expect(res.headers.get("location")).toBe("http://localhost:5173/sign-in?error=link");
+    // Nothing consumed, nothing minted: the forged post must not spend the token.
+    expect(writes).toEqual([]);
+  });
+
+  it('a sandboxed frame ("null" Origin) is refused the same way', async () => {
+    const writes: Row[] = [];
+    const res = await postFrom(testEnv(writes), "null");
+    expect(res.status).toBe(302);
+    expect(writes).toEqual([]);
+  });
+
+  it("the handoff page's own same-origin POST still signs in", async () => {
+    const writes: Row[] = [];
+    const res = await postFrom(testEnv(writes), "http://localhost");
+    expect(res.status).toBe(302);
+    expect(res.headers.get("location")).not.toContain("error=link");
+    expect(wrote(writes, "INSERT INTO session")).toBe(true);
+  });
+
+  it("an absent Origin is allowed — non-browser clients and the no-JS button may omit it", async () => {
+    const writes: Row[] = [];
+    const res = await postFrom(testEnv(writes));
+    expect(res.headers.get("location")).not.toContain("error=link");
+    expect(wrote(writes, "INSERT INTO session")).toBe(true);
+  });
+});
+
 describe("POST /auth/start budgets its sends without becoming an oracle", () => {
   it("sends under the caps", async () => {
     const writes: Row[] = [];

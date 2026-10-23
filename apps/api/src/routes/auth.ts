@@ -159,11 +159,25 @@ auth.get("/callback", async (c) => {
  * page above, so the Lax session cookie set here rides back to the SPA normally.
  */
 auth.post("/callback", async (c) => {
+  // Before the token is loaded there's nothing to tell us which app started the
+  // sign-in, so a failure before that falls back to APP_URL as it always has.
+  const fail = (origin: string = c.env.APP_URL) => c.redirect(`${origin}/sign-in?error=link`, 302);
+
+  // The only intended poster is the handoff page below, which is same-origin,
+  // so a cross-site Origin is a forged post — refused before the token is even
+  // read, which also leaves it unconsumed for the member's own click. Without
+  // this, any page could auto-submit a fresh magic link for the ATTACKER'S
+  // address and silently swap the victim's session for the attacker's (login
+  // CSRF): SameSite=Lax stops a cross-site request from SENDING the session
+  // cookie, not this response from SETTING one. An absent Origin is allowed —
+  // non-browser clients and the no-JS button may omit it, and the attack needs
+  // a browser, which always names an origin (or "null", from a sandboxed
+  // frame, which also fails the comparison) on a cross-site form POST.
+  const postOrigin = c.req.header("origin");
+  if (postOrigin && postOrigin !== new URL(c.req.url).origin) return fail();
+
   const form = await c.req.parseBody().catch(() => null);
   const token = typeof form?.t === "string" ? form.t : c.req.query("t");
-  // Before the token is loaded there's nothing to tell us which app started the
-  // sign-in, so a missing token falls back to APP_URL as it always has.
-  const fail = (origin: string = c.env.APP_URL) => c.redirect(`${origin}/sign-in?error=link`, 302);
   if (!token) return fail();
 
   const tokenHash = await sha256(token);
