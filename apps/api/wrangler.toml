@@ -207,9 +207,10 @@ SCHOOL_TIMEZONE = "America/Chicago"
 NOMINATIM_URL = "https://nominatim.openstreetmap.org/search"
 BOOTSTRAP_ADMIN_EMAILS = "meandmybadself@gmail.com"
 # Turns the Cloudflare Email Sending channel ON for newsletter mail (see the
-# [[send_email]] note above). Uncomment ONLY after the domain is onboarded and
-# verified — an unverified sender fails every newsletter send permanently.
-# BULK_EMAIL_FROM = "Eisenhower PTO <newsletter@eisenhower.school>"
+# [[send_email]] note above). Set ONLY while the domain is onboarded and
+# verified (`wrangler email sending list`) — an unverified sender fails every
+# newsletter send permanently. Onboarded + enabled 2026-10-22.
+BULK_EMAIL_FROM = "Eisenhower PTO <newsletter@eisenhower.school>"
 
 [[env.production.d1_databases]]
 binding = "DB"
