@@ -36,7 +36,10 @@
   border: 1px solid var(--line);
   border-radius: 12px;
   background: var(--paper);
-  overflow: hidden;
+  /* clip, not hidden: both cut children to the rounded corners, but `hidden`
+     makes this box the toolbar's scroll container, so its position: sticky
+     could never engage against .sd-scroll. */
+  overflow: clip;
 }
 .nlx-editor.ro { background: var(--bg-2); }
 
