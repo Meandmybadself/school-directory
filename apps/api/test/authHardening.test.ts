@@ -134,8 +134,12 @@ describe("GET /auth/callback is read-only — a mail scanner must not spend the 
     expect(html).toContain('value="sometoken"');
     // Holding the token is the authorization, so no shared cache may keep it.
     expect(res.headers.get("cache-control")).toBe("no-store");
-    // A page reached by a secret in the URL must not leak that URL onward.
-    expect(res.headers.get("referrer-policy")).toBe("no-referrer");
+    // A page reached by a secret in the URL must not leak that URL onward —
+    // but `same-origin`, NOT `no-referrer`: under `no-referrer` the Fetch spec
+    // serializes the page's own form POST's Origin header to "null", which the
+    // POST handler's cross-site check refuses. Shipping `no-referrer` here
+    // broke every browser sign-in in production (2026-10-23).
+    expect(res.headers.get("referrer-policy")).toBe("same-origin");
   });
 
   it("escapes the token into the form rather than trusting its charset", async () => {

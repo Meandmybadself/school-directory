@@ -148,7 +148,13 @@ auth.get("/callback", async (c) => {
   return c.html(signInHandoffPage(token, c.env.SCHOOL_NAME), 200, {
     // Holding the token IS the authorization, so no shared cache may keep this.
     "cache-control": "no-store",
-    "referrer-policy": "no-referrer",
+    // `same-origin`, NOT `no-referrer`: under `no-referrer` the Fetch spec
+    // serializes the Origin header of this page's own form POST to "null",
+    // which the POST handler's cross-site check below then refuses — i.e. the
+    // stricter policy breaks every browser sign-in. `same-origin` still keeps
+    // this token-bearing URL out of any cross-origin Referer (the page's only
+    // navigation is the POST back to this same origin).
+    "referrer-policy": "same-origin",
   });
 });
 
