@@ -728,7 +728,9 @@ newsletter.post("/issues/:id/test-send", async (c) => {
 
   let sent = 0;
   for (const address of to) {
-    const result = await sendEmailResult(c.env, { ...msg, to: address });
+    // bulk: a test send must take the same channel the real send will, or the
+    // editor proofs a different sender identity than readers get.
+    const result = await sendEmailResult(c.env, { ...msg, to: address, bulk: true });
     if (result.ok) sent++;
   }
 

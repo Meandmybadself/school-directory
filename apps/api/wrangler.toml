@@ -91,6 +91,14 @@ bucket_name = "school-directory-lostfound-media"
 [ai]
 binding = "AI"
 
+# Cloudflare Email Sending (Workers Paid): the NEWSLETTER's outbound channel
+# (lib/email.ts routes `bulk` mail here; everything else stays on Resend, whose
+# free 100/day cap then belongs entirely to magic links and invites). The
+# channel turns ON only where BULK_EMAIL_FROM is also set — its domain must be
+# onboarded first: `npx wrangler email sending enable eisenhower.school`.
+[[send_email]]
+name = "EMAIL"
+
 # Cloudflare Images transforms: thumbnails for lost & found photos that arrive
 # by EMAIL (lib/lostFoundEmail.ts), where no browser canvas exists to make one.
 # Optional in code (absent → emailed items get no thumbnail and the model reads
@@ -198,6 +206,10 @@ LOSTFOUND_URL = "https://lostandfound.eisenhower.school"
 SCHOOL_TIMEZONE = "America/Chicago"
 NOMINATIM_URL = "https://nominatim.openstreetmap.org/search"
 BOOTSTRAP_ADMIN_EMAILS = "meandmybadself@gmail.com"
+# Turns the Cloudflare Email Sending channel ON for newsletter mail (see the
+# [[send_email]] note above). Uncomment ONLY after the domain is onboarded and
+# verified — an unverified sender fails every newsletter send permanently.
+# BULK_EMAIL_FROM = "Eisenhower PTO <newsletter@eisenhower.school>"
 
 [[env.production.d1_databases]]
 binding = "DB"
@@ -223,6 +235,9 @@ binding = "AI"
 
 [env.production.images]
 binding = "IMAGES"
+
+[[env.production.send_email]]
+name = "EMAIL"
 
 [[env.production.vectorize]]
 binding = "LOSTFOUND_VECTORS"

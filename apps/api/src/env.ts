@@ -83,6 +83,17 @@ export interface Env {
    *  values are board members' personal addresses. Absent means no alias
    *  forwards and every routed address is the lost & found intake. */
   EMAIL_FORWARDS?: string;
+  /** Cloudflare Email Sending (Workers Paid) — the NEWSLETTER's outbound
+   *  channel (lib/email.ts). Optional in the absent-means-off sense: without
+   *  it (or without BULK_EMAIL_FROM) every message rides Resend as before. */
+  EMAIL?: SendEmail;
+  /** The From identity for mail sent through the EMAIL binding, e.g.
+   *  "Eisenhower PTO <newsletter@eisenhower.school>". Its DOMAIN must be
+   *  onboarded to Email Sending, which is why the channel keys on this var:
+   *  set it only after `wrangler email sending enable` has verified. The
+   *  admin-configured sender keeps its display name; the old address
+   *  survives as Reply-To. */
+  BULK_EMAIL_FROM?: string;
   RESEND_API_KEY?: string;
   EMAIL_FROM?: string;
   /** Slack Incoming Webhook posting system events to the admins' channel

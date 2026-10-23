@@ -16,6 +16,12 @@ export interface SendArgs {
   /** Extra message headers. The lost & found intake's confirmation marks
    *  itself auto-generated with these, so autoresponders don't answer it. */
   headers?: Record<string, string>;
+  /** Newsletter-issue mail (the fan-out and the composer's test sends). When
+   *  the Cloudflare Email Sending channel is configured (`EMAIL` binding +
+   *  `BULK_EMAIL_FROM`), this mail goes out through it instead of Resend — so
+   *  Resend's free-plan 100/day cap belongs entirely to transactional mail
+   *  (magic links, invites), whose deliverability history stays untouched. */
+  bulk?: boolean;
 }
 
 export interface SendResult {
@@ -79,20 +85,75 @@ async function postResend(env: Env, path: string, body: unknown): Promise<SendRe
   }
 }
 
+/** The Cloudflare binding's error codes worth re-trying: the service's own
+ *  meters and transient failures. Everything else (validation, an unverified
+ *  sender, a suppressed recipient) would earn the same answer forever. */
+const CF_TRANSIENT_CODES = new Set([
+  "E_RATE_LIMIT_EXCEEDED",
+  "E_DAILY_LIMIT_EXCEEDED",
+  "E_DELIVERY_FAILED",
+  "E_INTERNAL_SERVER_ERROR",
+]);
+
 /** Whether a failed send is worth re-trying without a human. A 429, a 5xx and
  *  a no-verdict failure (a network error, a timeout, the subrequest cap) all
  *  pass — retrying is exactly what the per-second meter and the daily quota
  *  expect. A 4xx other than 429 is Resend judging the REQUEST (a malformed
  *  address, a rejected sender): re-sending the same thing would earn the same
- *  answer forever. */
+ *  answer forever. Cloudflare-channel errors carry their `E_*` code instead of
+ *  a status and are judged by `CF_TRANSIENT_CODES`. */
 export function isTransientSendError(error: string): boolean {
+  if (error.startsWith("E_")) return CF_TRANSIENT_CODES.has(error.split(":")[0]!);
   const m = /^(\d{3}):/.exec(error);
   if (!m) return true;
   const status = Number(m[1]);
   return status === 429 || status >= 500;
 }
 
+/** "Name <addr>" (or a bare address) → the binding's {name, email} shape. */
+function parseAddress(s: string): { name: string; email: string } {
+  const m = /^\s*(?:"?([^"<]*)"?\s*)?<([^>]+)>\s*$/.exec(s);
+  if (m) return { name: (m[1] ?? "").trim(), email: m[2]!.trim() };
+  return { name: "", email: s.trim() };
+}
+
+/** Send one message through the Cloudflare Email Sending binding.
+ *
+ *  The From ADDRESS must be on the onboarded sending domain, so it always
+ *  comes from `BULK_EMAIL_FROM`; the display NAME keeps whatever the message
+ *  asked for (the newsletter admin's configured sender), and when the asked-
+ *  for address differs it survives as Reply-To — replies keep landing where
+ *  they always did. Errors come back as "E_CODE: message", the shape
+ *  `isTransientSendError` reads. */
+async function sendViaBinding(env: Env, msg: SendArgs): Promise<SendResult> {
+  const bulkFrom = parseAddress(env.BULK_EMAIL_FROM ?? "");
+  const wanted = parseAddress(msg.from ?? env.EMAIL_FROM ?? "");
+  const replyTo = msg.replyTo ?? (wanted.email && wanted.email !== bulkFrom.email ? wanted.email : undefined);
+  try {
+    await env.EMAIL!.send({
+      from: { name: wanted.name || bulkFrom.name, email: bulkFrom.email },
+      to: msg.to,
+      subject: msg.subject,
+      html: msg.html,
+      text: msg.text,
+      ...(replyTo ? { replyTo } : {}),
+      ...(msg.headers ? { headers: msg.headers } : {}),
+    });
+    return { ok: true };
+  } catch (err) {
+    const code = (err as { code?: string })?.code || "E_UNKNOWN";
+    const message = err instanceof Error ? err.message : String(err);
+    const error = `${code}: ${message.slice(0, 160)}`;
+    console.error(`[email] cloudflare send failed: ${error}`);
+    return { ok: false, error };
+  }
+}
+
 export async function sendEmailResult(env: Env, msg: SendArgs): Promise<SendResult> {
+  // Newsletter mail takes the Cloudflare channel when it is configured; both
+  // halves absent-means-off, so a deploy before the domain is onboarded (or a
+  // local run) falls through to the Resend path unchanged.
+  if (msg.bulk && env.EMAIL && env.BULK_EMAIL_FROM) return sendViaBinding(env, msg);
   if (!env.RESEND_API_KEY) {
     // Local/dev fallback — surface the content (incl. magic link) in logs.
     console.log(
