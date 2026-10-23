@@ -5,7 +5,8 @@
 // write them.
 //
 // Two back a rate limit that COUNTS ROWS (`newsletter_confirmation` for the
-// public subscribe form, `auth_token` for /auth/start). For those, retention is
+// public subscribe form, `auth_token` for /auth/start AND for the member invite
+// cap in routes/controllers.ts — two windows, one table). For those, retention is
 // a security parameter: sweep sooner than the counting window and waiting out
 // the cron becomes a way to reset the budget. Neither may key its age test on
 // `expires_at` alone — a magic link dies in fifteen minutes and the count needs

@@ -14,6 +14,25 @@ import { inviteEmail, sendEmail } from "../lib/email.js";
 
 export const controllers = new Hono<HonoEnv>();
 
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+/** Invitations one account may send per rolling day. A family invites a
+ *  co-parent, a grandparent, maybe a sitter — a handful ever, so twenty in a
+ *  day is nobody's real usage. Per ACCOUNT rather than per address, because the
+ *  thing being bounded is the sender: without a cap this was the one
+ *  member-reachable send path with no budget at all, an unlimited spam cannon
+ *  under the school's sending identity from any compromised account. */
+const INVITES_PER_DAY = 20;
+
+/** Invitations all non-admin accounts together may send per rolling day. The
+ *  per-account cap bounds one compromised account; this bounds a CHAIN of them
+ *  — an invite token creates an account on click even with registration closed
+ *  (by design, routes/auth.ts), so each invited account can invite in turn.
+ *  Admin-origin invites (bulk import, POST /admin/users) are excluded from the
+ *  count so an onboarding import can't lock families out of inviting partners
+ *  for a day. */
+const INVITES_PER_DAY_TOTAL = 150;
+
 /** POST /persons/:id/controllers { email, householdId? } — invite a co-Controller.
  *
  *  `householdId` widens what accepting the invitation grants: control of every
@@ -50,6 +69,43 @@ controllers.post("/persons/:id/controllers", async (c) => {
       .first<{ ok: number }>();
     if (!admins) return c.json({ error: "forbidden_household" }, 403);
     householdId = body.householdId;
+  }
+
+  // Counted the way /auth/start counts (invariant 19's pattern): an auth_token
+  // row is written only on the path that also sends, so these are SEND counts,
+  // served by the same (kind, created_at) index (migration 0017) and outlived
+  // by lib/sweep.ts's 30-day retention. Unlike /auth/start the refusal is loud
+  // — the caller is authenticated and is being told about their own quota, so
+  // there is no existence oracle to protect (invariant 4 guards strangers).
+  // System admins are exempt: their sends are already a deliberate admin act,
+  // and the admin surfaces (bulk import) have their own shape.
+  if (!auth.isSystemAdmin) {
+    const since = new Date(Date.now() - DAY_MS).toISOString();
+    const counts = await c.env.DB.prepare(
+      `SELECT COUNT(*) AS total,
+              SUM(CASE WHEN invited_by = ? THEN 1 ELSE 0 END) AS mine
+         FROM auth_token
+        WHERE kind = 'invite' AND created_at > ?
+          AND invited_by NOT IN (SELECT id FROM user WHERE is_system_admin = 1)`,
+    )
+      .bind(auth.userId, since)
+      .first<{ total: number; mine: number | null }>();
+    const overMine = (counts?.mine ?? 0) >= INVITES_PER_DAY;
+    const overTotal = (counts?.total ?? 0) >= INVITES_PER_DAY_TOTAL;
+    if (overTotal) {
+      // Loud for the same reason /auth/start's instance cap is: this volume
+      // means the invite form is being driven by something that isn't a family.
+      console.error(
+        `[invite] DAILY INVITE CAP REACHED (${INVITES_PER_DAY_TOTAL}/day) — ` +
+          `member invitations refused until the window slides`,
+      );
+    }
+    if (overMine || overTotal) {
+      return c.json(
+        { error: "invite_limit", message: "Daily invitation limit reached. Try again tomorrow." },
+        429,
+      );
+    }
   }
 
   const token = randomToken();
