@@ -979,8 +979,9 @@ function renderNode(node: NewsletterNode, ctx: Ctx): string {
  *  emitted here and nowhere else, re-checked rather than trusted from the
  *  sanitizer, so no document shape can produce a <td> outside a <table>.
  *
- *  Email constraints shape the markup: border-collapse with a border per cell
- *  (Outlook ignores most table-level border shorthands), every text style
+ *  Borderless by design — structure reads from the header row's background and
+ *  the cell padding; border="0" on the element keeps Outlook from drawing its
+ *  own default grid. Email constraints shape the rest: every text style
  *  restated on the cell (styles don't inherit into table cells in Word's
  *  engine), width:100% so the table takes the 600px measure rather than its
  *  content's whims. NOT role="presentation" — unlike the events block's layout
@@ -1016,7 +1017,7 @@ function renderTableCell(cell: NewsletterNode, ctx: Ctx): string {
   const colspan = clampSpan(a.colspan);
   const rowspan = clampSpan(a.rowspan);
   const spans = `${colspan > 1 ? ` colspan="${colspan}"` : ""}${rowspan > 1 ? ` rowspan="${rowspan}"` : ""}`;
-  const base = `border:1px solid ${RULE};padding:8px 10px;font-size:15px;line-height:1.5;color:${INK};font-family:${FONT};text-align:left;vertical-align:top`;
+  const base = `padding:8px 10px;font-size:15px;line-height:1.5;color:${INK};font-family:${FONT};text-align:left;vertical-align:top`;
   const style = header ? `${base};font-weight:700;background:${BACKDROP}` : base;
   const styled = attr(ctx, header ? "nl-th" : "nl-td", style);
   // The single-paragraph cell is unwrapped, like a list item's, so the common
@@ -1573,7 +1574,7 @@ a{color:var(--nl-accent,${DEFAULT_ACCENT})}
 .nl-hr{border:0;border-top:1px solid ${RULE};margin:26px 0}
 .nl-img{display:block;max-width:100%;height:auto;border-radius:8px;margin:0 0 18px}
 .nl-table{width:100%;border-collapse:collapse;margin:0 0 16px}
-.nl-th,.nl-td{border:1px solid ${RULE};padding:8px 10px;font-size:15px;line-height:1.5;text-align:left;vertical-align:top}
+.nl-th,.nl-td{padding:8px 10px;font-size:15px;line-height:1.5;text-align:left;vertical-align:top}
 .nl-th{font-weight:700;background:${BACKDROP}}
 /* A multi-paragraph cell keeps the cell's measure, not the body's. */
 .nl-th .nl-p,.nl-td .nl-p{font-size:inherit;margin:0 0 8px}

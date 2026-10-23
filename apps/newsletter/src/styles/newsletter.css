@@ -115,7 +115,10 @@
 }
 .nlx-editor .ProseMirror img { max-width: 100%; height: auto; border-radius: 8px; }
 /* Tables, mirroring the renderer's .nl-table look so the draft reads like the
-   issue. Fixed layout: resizing is off, so columns share the width evenly. */
+   issue — except the cell borders, which the render deliberately omits (email,
+   archive and print alike): here they're dashed editing guides, since an
+   author can't put a cursor in a cell they can't see. Fixed layout: resizing
+   is off, so columns share the width evenly. */
 .nlx-editor .ProseMirror table {
   width: 100%;
   border-collapse: collapse;
@@ -126,7 +129,7 @@
 }
 .nlx-editor .ProseMirror th,
 .nlx-editor .ProseMirror td {
-  border: 1px solid var(--line);
+  border: 1px dashed var(--line);
   padding: 8px 10px;
   text-align: left;
   vertical-align: top;
