@@ -208,9 +208,12 @@ ${helpCard(t, "ptoHelpWishlist", "ptoHelpWishlistBody", WISHLISTS[0]!.url, WISHL
         <p class="pt-sub" style="margin-top:16px">
           <a href="${escapeHtml(WISHLISTS[1]!.url)}">${escapeHtml(WISHLISTS[1]!.label)} →</a>
         </p>
-        <!-- The deeper page: the Resource Center, the recurring volunteer
-             work, and the wishlists. Internal, so the href keeps ?lang= the
-             way every link on this origin does. -->
+        <!-- The deeper pages: the Resource Center's own page, then the rest —
+             the recurring volunteer work and the wishlists. Internal, so the
+             hrefs keep ?lang= the way every link on this origin does. -->
+        <p class="pt-sub" style="margin-top:4px">
+          <a href="${escapeHtml(`/resource-center?${LANG_PARAM}=${locale}`)}">${escapeHtml(t("ptoHowResourceTitle"))} →</a>
+        </p>
         <p class="pt-sub" style="margin-top:4px">
           <a href="${escapeHtml(`/how-to-help?${LANG_PARAM}=${locale}`)}"><b>${escapeHtml(t("ptoHelpMoreCta"))} →</b></a>
         </p>
