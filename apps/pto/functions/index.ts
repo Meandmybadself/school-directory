@@ -357,7 +357,7 @@ ${recurring}
             </div>
           </div>
         </div>
-        <div class="pt-grid">
+        <div class="pt-grid" style="margin-top:24px">
 ${helpCard(t, "ptoHowResourceTitle", "ptoHowResourceLead", `/resource-center?${LANG_PARAM}=${locale}`, t("ptoHowResourceTitle"))}
 ${helpCard(
     t,
