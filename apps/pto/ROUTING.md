@@ -10,15 +10,16 @@ bitten twice.
 **Pages Functions** (server-rendered, no bundle, works with JavaScript off):
 
 - `/` — the public page: what the PTO does, who runs it, the year, how to help
-  or give
-- `/how-to-help` — the deeper half of that page's "Ways to help": the live
-  list of events that still need volunteers (rows link out to each event's
-  page on the calendar) and the teacher wishlists
+  or give — including the live list of events that still need volunteers (rows
+  link out to each event's page on the calendar) and the teacher wishlists,
+  which lived on `/how-to-help` until that page folded in
+- `/how-to-help` — a 301 to `/`. The URL was indexed and circulated, so it
+  keeps answering; the landing page keeps `#volunteer` and `#wishlists`
+  anchors for the fragments old links carry
 - `/resource-center` — the Resource Center's own page, split out so a flyer
-  can carry its URL directly. Reuses the resource strings /how-to-help once
-  rendered and the facts in `_lib/pto.ts`; makes no subrequest, like the
-  landing page. Everything about the Center lives only here — the landing
-  page's help grid and /how-to-help's hero button both just link to it.
+  can carry its URL directly. Reuses the landing page's resource strings and
+  the facts in `_lib/pto.ts`; makes no subrequest. Everything about the
+  Center lives only here — the landing page's help grid just links to it.
 - `/robots.txt`, `/sitemap.xml` (a public page added here and not to the
   sitemap's `PUBLIC_PATHS` is one no search engine hears about)
 
@@ -34,23 +35,20 @@ paragraphs of prose. Everything else is the PTO board's planning tool: gated on 
 session **and** on membership of the PTO board group, stateful, and useless to
 anyone else.
 
-The landing page keeps a property `apps/store`'s and `apps/home`'s pages do
-not: **it makes no subrequest at all** — a pure function of the requested URL,
-the `Accept-Language` header and the `sd_lang` cookie, with no read to get
-wrong and nothing to degrade when the API blips. It briefly read the anonymous
-`/calendar-public/events` for an upcoming-events block, the way `apps/home`
-still does; that block was dropped.
-
-`/how-to-help` is the one Function that reads, and that was the decision an
+The landing page is the one Function that reads, and that was the decision an
 earlier version of this file said would have to be re-made deliberately — made
-for its volunteer block, because "what still needs help" is a live fact a page
-with no editor cannot transcribe. The terms are in `functions/_lib/volunteers.ts`
-and are exactly the ones this file prescribed: the ANONYMOUS routes only
-(`/calendar-public/events` and `/volunteers-public/sheets/:slug` — counts,
-never names), degrading to hiding the block on every failure. If a Function
-here ever needs board data, the answer is still that it shouldn't have it:
-every `pto_*` table is reached exclusively through the bundle's credentialed
-`fetch` to `/pto/*`.
+for its volunteer block (on `/how-to-help` at the time; the read moved here
+when that page merged in), because "what still needs help" is a live fact a
+page with no editor cannot transcribe. The terms are in
+`functions/_lib/volunteers.ts` and are exactly the ones this file prescribed:
+the ANONYMOUS routes only (`/calendar-public/events` and
+`/volunteers-public/sheets/:slug` — counts, never names), degrading to hiding
+the block on every failure. `/resource-center` still makes no subrequest at
+all — a pure function of the requested URL, the `Accept-Language` header and
+the `sd_lang` cookie, the property a page whose URL is on paper especially
+wants. If a Function here ever needs board data, the answer is still that it
+shouldn't have it: every `pto_*` table is reached exclusively through the
+bundle's credentialed `fetch` to `/pto/*`.
 
 ## Do not add `public/_redirects`
 

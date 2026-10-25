@@ -6,12 +6,13 @@
 # deploy` needs to be told the output directory for a project that has them.
 #
 # Like apps/newsletter's and apps/store's, it declares API_BASE, needed at
-# REQUEST time (a Vite build-time variable can't reach a Function): /how-to-help
-# reads the anonymous calendar projections for its live volunteer list — the one
-# read on this origin, taken on deliberately (see functions/_lib/volunteers.ts).
-# The landing page still reads nothing. SCHOOL_TIMEZONE is here for the same
-# reason apps/home carries it: the event links /how-to-help mints must name the
-# same day the calendar files the event under (CLAUDE.md, "Conventions").
+# REQUEST time (a Vite build-time variable can't reach a Function): the landing
+# page reads the anonymous calendar projections for its live volunteer list —
+# the one read on this origin, taken on deliberately (see
+# functions/_lib/volunteers.ts). /resource-center reads nothing. SCHOOL_TIMEZONE
+# is here for the same reason apps/home carries it: the event links the landing
+# page mints must name the same day the calendar files the event under
+# (CLAUDE.md, "Conventions").
 #
 # Pages has exactly two environments: production (the main branch) and preview
 # (every other branch). There is only one API, so both point at it.

@@ -6,7 +6,7 @@
 // LOCALES extends both for free.
 //
 // Static, unlike the store's, which is driven from the live catalog: the
-// public pages here are the three below and no data could add another. Nothing
+// public pages here are the two below and no data could add another. Nothing
 // to degrade, so nothing degrades. A page added to `functions/` and not to
 // PUBLIC_PATHS is a page no search engine hears about — the same rule
 // INDEXED_PATHS enforces on apps/home.
@@ -15,7 +15,7 @@ import { LOCALES } from "@sd/shared";
 import { LANG_PARAM } from "./_lib/locale.js";
 import { escapeHtml } from "./_lib/page.js";
 
-const PUBLIC_PATHS = ["/", "/how-to-help", "/resource-center"];
+const PUBLIC_PATHS = ["/", "/resource-center"];
 
 export const onRequestGet: PagesFunction = ({ request }) => {
   const origin = new URL(request.url).origin;

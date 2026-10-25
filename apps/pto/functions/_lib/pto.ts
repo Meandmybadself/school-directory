@@ -179,7 +179,7 @@ export const YEAR: YearMonth[] = [
 ];
 
 /** The events that come back every year and run on parent shifts — the strip
- *  on /how-to-help under "Volunteer opportunities". A curated SUBSET of `YEAR`,
+ *  in the landing page's "Ways to help" section. A curated SUBSET of `YEAR`,
  *  held separately rather than derived from it: being on the year strip says
  *  an event happens, being here says it needs hands, and only a person knows
  *  which is which. Live sign-up sheets stay on the calendar (invariant 13 —
@@ -223,9 +223,9 @@ export const YEAR_ROUND = [
  *  volunteer sign-up system of its own, on the calendar, where a shift is
  *  claimed by a directory Person and the sheet lives on the event (invariant
  *  13). Sending a family to a third-party sign-up from the page that explains
- *  the PTO would point them away from the thing built to replace it. "Take a
- *  shift" links to /how-to-help's volunteer section, whose live rows land on
- *  the calendar. */
+ *  the PTO would point them away from the thing built to replace it. The
+ *  landing page's volunteer section renders the live rows itself, and they
+ *  land on the calendar. */
 export interface PtoLink {
   /** The label is a proper noun or the service's own name, so it is data. */
   label: string;
@@ -241,11 +241,12 @@ export const WISHLISTS: PtoLink[] = [
   { label: "Staff lounge", url: "https://www.amazon.com/hz/wishlist/ls/3URWOKAJJQTEU" },
   { label: "Art room", url: "https://www.amazon.com/hz/wishlist/ls/1OQDDVBJE544I" },
   // The Resource Center's own list — "Resource Center Needs on Amazon" on the
-  // FRC's flyer. Third on purpose: the landing page reads only [0].
+  // FRC's flyer. Order matters: the landing page's wishlist cards pair copy
+  // with these entries by POSITION, and /resource-center reads [2].
   { label: "Resource Center", url: "https://www.amazon.com/hz/wishlist/ls/2XFXVRYLM3DBO" },
 ];
 
-/** One teacher's own wishlist — a row of the classroom table on /how-to-help.
+/** One teacher's own wishlist — a row of the landing page's classroom table.
  *
  *  THE ONE LIST IN THIS FILE THAT EXPIRES. Everything else here cleared the
  *  header's "nothing expires" bar; this is a roster of people, and people

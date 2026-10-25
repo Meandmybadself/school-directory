@@ -36,7 +36,7 @@ apps/calendar       Calendar SPA → calendar.eisenhower.school. Shares API/D1/s
 apps/newsletter     Newsletter SPA → newsletter.eisenhower.school. Admin authoring (TipTap) + member preferences, PLUS Pages Functions serving the public archive. Design system COPIED.
 apps/store          Store SPA → store.eisenhower.school. Cart + admin in the bundle, PLUS Pages Functions serving the PUBLIC, INDEXED storefront. Printful + Stripe. Design system COPIED. Vendor/DNS setup: SETUP.md.
 apps/api            Hono Worker → api-directory.eisenhower.school. Serves ALL the SPAs. Routes in src/routes, logic in src/lib, middleware in src/middleware.
-apps/pto            PTO SPA → pto.eisenhower.school. Planning boards (members AND PTO-board only) in the bundle, PLUS Pages Functions serving the PUBLIC, INDEXED explanatory pages (/, /how-to-help). Design system COPIED. Routing: ROUTING.md.
+apps/pto            PTO SPA → pto.eisenhower.school. Planning boards (members AND PTO-board only) in the bundle, PLUS Pages Functions serving the PUBLIC, INDEXED explanatory pages (/, /resource-center; /how-to-help 301s to /). Design system COPIED. Routing: ROUTING.md.
 apps/lostandfound   Lost & found SPA → lostandfound.eisenhower.school. Public browse/search/item/claim (open, NOT indexed) + staff screens (roster-gated) in one bundle; no Pages Functions. Design system COPIED. Invariant 33.
 apps/redirect       One-file Worker for hostnames that only 301 (retired directory.meandmybadself.com, ptomeet.eisenhower.school). Host map in src/index.ts; each host also a custom_domain route in wrangler.toml.
 apps/api/migrations Ordered D1 SQL migrations (NNNN_name.sql). Never edit an applied migration — add a new one.
@@ -121,11 +121,11 @@ Worker, sharing one session:
   Pages 308s `/index.html` → `/`, so an SPA-fallback rewrite sends `/admin` to
   the public page. Functions take precedence over assets; everything else falls
   through to `index.html` on its own. See each app's `ROUTING.md`.
-- **The PTO landing page reads nothing** — pure function of URL,
-  `Accept-Language`, `sd_lang`. `/how-to-help` reads only the ANONYMOUS
-  calendar projections (`functions/_lib/volunteers.ts`), hiding the block on
-  any failure. `pto_*` tables are reached only via the bundle's credentialed
-  `/pto/*` fetches. See invariant 28.
+- **The PTO landing page reads only the ANONYMOUS calendar projections**
+  (`functions/_lib/volunteers.ts`) for its live volunteer block, hiding the
+  block on any failure; `/resource-center` reads nothing — pure function of
+  URL, `Accept-Language`, `sd_lang`. `pto_*` tables are reached only via the
+  bundle's credentialed `/pto/*` fetches. See invariant 28.
 - The calendar owns all calendar admin; `apps/web`'s `/calendar` is a redirect
   and keeps only `api.calendarEvents` for Home's block.
 - **The calendar's home screen is public** — `/` reads `/calendar-public/*`
@@ -803,11 +803,11 @@ Worker, sharing one session:
    public surface is ever wanted, it is a hand-written projection like its
    four siblings (start from migration 0024's header and the PTO section of
    `types.ts`). The app's own public pages are INDEXED (surface #3); the
-   landing page reads NOTHING; `/how-to-help` reads only the anonymous
-   projections (`/calendar-public/events` + `/volunteers-public/sheets/:slug`
-   — counts, never names), every failure hiding the block
-   (`apps/pto/functions/_lib/volunteers.ts`). Board data is unreachable from
-   any Function.
+   landing page reads only the anonymous projections, for its volunteer block
+   (`/calendar-public/events` + `/volunteers-public/sheets/:slug` — counts,
+   never names), every failure hiding the block
+   (`apps/pto/functions/_lib/volunteers.ts`); `/resource-center` reads
+   NOTHING. Board data is unreachable from any Function.
    **The gate is `ptoAccess`** (`lib/ptoBoard.ts`) via `requirePto` on every
    route in `routes/pto.ts`, reads included. System admin always in; everyone
    else iff a Person they control sits on the roster of the

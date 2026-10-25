@@ -14,8 +14,8 @@
 // What makes that ban easy to keep here is worth stating, because it is the
 // design and not an accident: NOTHING on these pages comes from a member-scoped
 // read. The copy is dictionary text, the facts are in `_lib/pto.ts`, and the one
-// Function that reads anything — /how-to-help's volunteer block — reads only the
-// ANONYMOUS projections, `/calendar-public/events` and
+// Function that reads anything — the landing page's volunteer block — reads only
+// the ANONYMOUS projections, `/calendar-public/events` and
 // `/volunteers-public/sheets/:slug`, already narrowed by `publicEventOf` and
 // `publicSheetOf` (invariants 12, 13; see `_lib/volunteers.ts`). This app adds
 // no public projection of its own, and the `pto_*` tables behind the boards
@@ -31,9 +31,9 @@ import { LANG_PARAM } from "./locale.js";
 
 // No `PagesEnv` here: this file is the document shell and reads nothing. The
 // env type lives beside the one read this origin makes — `_lib/volunteers.ts`,
-// where /how-to-help's volunteer block answered invariant 28's question about
-// what a Function here may read (the anonymous routes, degrading to a hidden
-// block). The landing page still makes no subrequest at all.
+// where the landing page's volunteer block answers invariant 28's question
+// about what a Function here may read (the anonymous routes, degrading to a
+// hidden block). /resource-center still makes no subrequest at all.
 
 export function escapeHtml(s: string): string {
   return s

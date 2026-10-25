@@ -149,7 +149,7 @@ export interface Strings {
   volunteerAddIcs: string;
   volunteerSignedUpTitle: string;
   volunteerSignedUpBody: string;
-  /** The live "still needs a hand" list on the PTO's /how-to-help page —
+  /** The live "still needs a hand" list on the PTO's landing page —
    *  upcoming events assembled from the public sheets (counts, never names).
    *  It began life as the calendar's /volunteers screen, which this replaced. */
   volunteersPageLead: string;
@@ -712,20 +712,16 @@ export interface Strings {
   ptoMeetingsBody: string; // uses {place}
   ptoHelpTitle: string;
   ptoHelpLead: string;
-  ptoHelpVolunteer: string;
-  ptoHelpVolunteerBody: string;
   ptoHelpMeeting: string;
   ptoHelpMeetingBody: string;
+  /** The Resource Center wishlist card's title on /resource-center. */
   ptoHelpWishlist: string;
-  ptoHelpWishlistBody: string;
   ptoHelpShop: string;
   ptoHelpShopBody: string;
-  /** The deeper "How to help" page at pto.eisenhower.school/how-to-help — the
-   *  Resource Center, the recurring volunteer work and the wishlists.
-   *  `ptoHelpMoreCta` is the landing page's link to it. */
+  /** /resource-center's link back to the landing page's "Ways to help"
+   *  section, which carries the volunteer list and the wishlists since
+   *  /how-to-help folded into it. */
   ptoHelpMoreCta: string;
-  ptoHowTitle: string;
-  ptoHowLead: string;
   ptoHowResourceTitle: string;
   ptoHowResourceLead: string;
   ptoHowResourceWhat: string;
@@ -749,8 +745,6 @@ export interface Strings {
    *  `ASSISTANCE_FORM_URL` in apps/pto's `_lib/pto.ts`. A description, not a
    *  proper noun: the FRC's flyer translates the form's name itself. */
   ptoHowResourceFormCta: string;
-  ptoHowVolunteerTitle: string;
-  ptoHowVolunteerLead: string;
   /** The heading over the live list of events that still have an open spot. */
   ptoHowVolunteerOpen: string;
   /** Label before the strip of events that come back every year and always
@@ -1570,22 +1564,14 @@ const en: Strings = {
   ptoHelpTitle: "Ways to help",
   ptoHelpLead:
     "Nobody is asking for a year of your life. Most of what the PTO needs is two hours, once.",
-  ptoHelpVolunteer: "Take a shift",
-  ptoHelpVolunteerBody:
-    "Every event's sign-up sheet is on the calendar. Pick a two-hour slot — you are never the only one there.",
   ptoHelpMeeting: "Come to a meeting",
   ptoHelpMeetingBody:
     "Once a month, about an hour, and the fastest way to find out what is actually going on.",
   ptoHelpWishlist: "Send something",
-  ptoHelpWishlistBody:
-    "The staff lounge and the art room each keep a wishlist. Ordering one thing off it takes a minute.",
   ptoHelpShop: "Buy the shirt",
   ptoHelpShopBody:
     "Spirit wear from the PTO store. Every order supports the school, and you don't need an account.",
   ptoHelpMoreCta: "More ways to help",
-  ptoHowTitle: "How to help",
-  ptoHowLead:
-    "An hour at an event, one thing off a wishlist, or a few dollars toward a family having a hard month. All three land directly at the school, and none of them needs experience.",
   ptoHowResourceTitle: "The Resource Center",
   ptoHowResourceLead:
     "When an Eisenhower family hits a hard stretch, the Resource Center is how the school helps — quickly and quietly.",
@@ -1605,9 +1591,6 @@ const en: Strings = {
   ptoHowResourceNoteBody:
     "Fill out the assistance form, or call the Resource Center. Nobody at the PTO is told who asked, nothing is owed back, and this is exactly what it is for.",
   ptoHowResourceFormCta: "Assistance form",
-  ptoHowVolunteerTitle: "Volunteer opportunities",
-  ptoHowVolunteerLead:
-    "Every shift the PTO needs filled is a sign-up sheet on the calendar — what the job is, when it runs, and how many spots are left. Most are two hours, and you are never the only one there.",
   ptoHowVolunteerOpen: "What needs help right now",
   ptoHowVolunteerRecurring: "The ones that come back every year:",
   ptoHowWishlistTitle: "Teacher wishlists",
@@ -2363,22 +2346,14 @@ const es: Strings = {
   ptoHelpTitle: "Maneras de ayudar",
   ptoHelpLead:
     "Nadie le está pidiendo un año de su vida. Casi todo lo que la PTO necesita son dos horas, una vez.",
-  ptoHelpVolunteer: "Tome un turno",
-  ptoHelpVolunteerBody:
-    "La hoja de inscripción de cada evento está en el calendario. Elija un turno de dos horas — nunca estará solo ahí.",
   ptoHelpMeeting: "Venga a una reunión",
   ptoHelpMeetingBody:
     "Una vez al mes, más o menos una hora, y la forma más rápida de enterarse de lo que realmente pasa.",
   ptoHelpWishlist: "Mande algo",
-  ptoHelpWishlistBody:
-    "La sala de personal y el salón de arte tienen cada uno una lista de deseos. Pedir una cosa toma un minuto.",
   ptoHelpShop: "Compre la camiseta",
   ptoHelpShopBody:
     "Ropa escolar de la tienda de la PTO. Cada pedido apoya a la escuela, y no necesita cuenta.",
   ptoHelpMoreCta: "Más maneras de ayudar",
-  ptoHowTitle: "Cómo ayudar",
-  ptoHowLead:
-    "Una hora en un evento, una cosa de una lista de deseos, o unos dólares para una familia que pasa un mes difícil. Las tres cosas llegan directamente a la escuela, y ninguna requiere experiencia.",
   ptoHowResourceTitle: "El Centro de Recursos",
   ptoHowResourceLead:
     "Cuando una familia de Eisenhower pasa por un momento difícil, el Centro de Recursos es la forma en que la escuela ayuda — rápido y con discreción.",
@@ -2398,9 +2373,6 @@ const es: Strings = {
   ptoHowResourceNoteBody:
     "Complete el formulario de solicitud de apoyo, o llame al Centro de Recursos. Nadie en la PTO sabrá quién pidió ayuda, no se debe nada a cambio, y esto existe exactamente para eso.",
   ptoHowResourceFormCta: "Formulario de solicitud de apoyo",
-  ptoHowVolunteerTitle: "Oportunidades de voluntariado",
-  ptoHowVolunteerLead:
-    "Cada turno que la PTO necesita cubrir es una hoja de inscripción en el calendario — en qué consiste, cuándo es, y cuántos lugares quedan. La mayoría son de dos horas, y nunca estará solo ahí.",
   ptoHowVolunteerOpen: "Qué necesita ayuda ahora mismo",
   ptoHowVolunteerRecurring: "Los que vuelven cada año:",
   ptoHowWishlistTitle: "Listas de deseos de los maestros",
@@ -3126,20 +3098,12 @@ const zh: Strings = {
     "每月一次，通常是晚上 6:30 在 {place}，也可以用 Zoom 参加。十月的例会进行理事会选举。欢迎每一个人，我们对您没有任何期待，您一句话不说也完全可以。",
   ptoHelpTitle: "可以怎样帮忙",
   ptoHelpLead: "没有人要占用您一整年。家长会需要的大多只是两个小时，一次就好。",
-  ptoHelpVolunteer: "认领一个班次",
-  ptoHelpVolunteerBody:
-    "每个活动的报名表都在日历上。挑一个两小时的班次——那里绝不会只有您一个人。",
   ptoHelpMeeting: "来参加例会",
   ptoHelpMeetingBody: "每月一次，大约一小时，也是了解实际情况最快的方式。",
   ptoHelpWishlist: "寄点东西来",
-  ptoHelpWishlistBody:
-    "教职员休息室和美术教室各有一份心愿清单，下单买一样东西只要一分钟。",
   ptoHelpShop: "买一件校服衫",
   ptoHelpShopBody: "家长会商店的校园服饰。每一笔订单都支持学校，而且不需要账户。",
   ptoHelpMoreCta: "更多帮忙的方式",
-  ptoHowTitle: "如何帮忙",
-  ptoHowLead:
-    "在活动里帮一个小时，从心愿清单上买一样东西，或者为正经历难关的家庭捐几块钱。这三样都会直接落到学校，而且都不需要任何经验。",
   ptoHowResourceTitle: "资源中心",
   ptoHowResourceLead:
     "当一个 Eisenhower 家庭遇到难关时，资源中心就是学校伸出援手的方式——迅速而低调。",
@@ -3159,9 +3123,6 @@ const zh: Strings = {
   ptoHowResourceNoteBody:
     "请填写援助申请表，或致电资源中心。家长会里没有人会知道是谁开口，您也不欠任何人情——它存在的意义正是如此。",
   ptoHowResourceFormCta: "援助申请表",
-  ptoHowVolunteerTitle: "志愿者机会",
-  ptoHowVolunteerLead:
-    "家长会需要人手的每一个班次都是日历上的一张报名表——写明做什么、什么时候、还剩几个名额。大多数只要两小时，而且那里绝不会只有您一个人。",
   ptoHowVolunteerOpen: "现在哪里需要帮手",
   ptoHowVolunteerRecurring: "每年都会回来的活动：",
   ptoHowWishlistTitle: "教师心愿清单",
@@ -3971,22 +3932,14 @@ const so: Strings = {
   ptoHelpTitle: "Siyaabaha aad ku caawin karto",
   ptoHelpLead:
     "Cidina kaama codsanayso sannad noloshaada ah. Inta badan waxa PTO-du u baahan tahay waa laba saacadood, hal mar.",
-  ptoHelpVolunteer: "Qaado hal wareeg",
-  ptoHelpVolunteerBody:
-    "Warqadda diiwaangelinta munaasabad kasta waxay ku taal kalandarka. Dooro wareeg laba saacadood ah — waligaa keligaa halkaas kuma noqon doontid.",
   ptoHelpMeeting: "Kulan kaalay",
   ptoHelpMeetingBody:
     "Bishii mar, qiyaastii saacad, waana habka ugu dhaqsaha badan ee aad ku ogaan karto waxa dhab ahaan socda.",
   ptoHelpWishlist: "Wax soo dir",
-  ptoHelpWishlistBody:
-    "Qolka shaqaalaha iyo qolka farshaxanka mid kastaa wuxuu hayaa liis rabitaan. Hal shay oo aad ka dalbato waxay qaadanaysaa daqiiqad.",
   ptoHelpShop: "Iibso shaadhka",
   ptoHelpShopBody:
     "Dharka dugsiga oo laga helo dukaanka PTO-da. Dalab kastaa wuxuu taageeraa dugsiga, xisaabna uma baahnid.",
   ptoHelpMoreCta: "Siyaabo kale oo lagu caawiyo",
-  ptoHowTitle: "Sida loo caawiyo",
-  ptoHowLead:
-    "Hal saacad oo munaasabad ah, hal shay oo liis rabitaan ah laga dalbado, ama dhawr doolar oo loogu talagalay qoys bil adag soo maraya. Saddexduba si toos ah ayay dugsiga u gaaraan, midkoodna khibrad uma baahna.",
   ptoHowResourceTitle: "Xarunta Kheyraadka",
   ptoHowResourceLead:
     "Marka qoys Eisenhower ah uu wakhti adag soo maro, Xarunta Kheyraadka ayaa ah sida dugsigu u caawiyo — si degdeg ah oo aamusnaan ah.",
@@ -4006,9 +3959,6 @@ const so: Strings = {
   ptoHowResourceNoteBody:
     "Buuxi foomka codsiga caawinta, ama wac Xarunta Kheyraadka. Qofna PTO-da kama ogaan doono cidda codsatay, waxbana laguguma lahan — tani waxay u taagan tahay sidaas oo kale.",
   ptoHowResourceFormCta: "Foomka codsiga caawinta",
-  ptoHowVolunteerTitle: "Fursadaha mutadawacnimada",
-  ptoHowVolunteerLead:
-    "Wareeg kasta oo PTO-du u baahan tahay in la buuxiyo waa warqad diiwaangelin oo kalandarka ku taal — waxa shaqadu tahay, goorta ay socoto, iyo inta boos ee hadhay. Badankoodu waa laba saacadood, waligaana keligaa halkaas kuma noqon doontid.",
   ptoHowVolunteerOpen: "Waxa hadda caawimaad u baahan",
   ptoHowVolunteerRecurring: "Kuwa sannad kasta soo noqnoqda:",
   ptoHowWishlistTitle: "Liisaska rabitaanka macallimiinta",

@@ -1,10 +1,12 @@
-// The subrequests /how-to-help makes: which upcoming events still need hands.
+// The subrequests the landing page makes: which upcoming events still need
+// hands.
 //
 // This file is the decision ROUTING.md said would have to be re-made
-// deliberately — for a long time NO Function on this origin read anything, and
-// the landing page still reads nothing. The "how to help" page took the read
-// on because it is the page whose whole job is answering "where am I needed?",
-// and a hand-maintained copy of that answer is wrong within the week.
+// deliberately — for a long time NO Function on this origin read anything.
+// /how-to-help took the read on because answering "where am I needed?" with a
+// hand-maintained copy is wrong within the week; when that page merged into
+// the landing page, the read moved with its block. /resource-center still
+// reads nothing at all.
 //
 // It is apps/home's `events.ts` with the calendar app's /volunteers assembly
 // folded in (that screen moved here and was retired), and it keeps all three

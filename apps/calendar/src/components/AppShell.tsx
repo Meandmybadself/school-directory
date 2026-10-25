@@ -74,8 +74,8 @@ export type NavKey = "calendar" | "admin";
 /** This app's OWN screens. The directory and the newsletter used to be here as
  *  absolute URLs; they are now in the platform switcher (AppSwitcher.tsx). One
  *  list, read by both the bottom bar and the desktop sidebar. (The /volunteers
- *  index briefly lived here too; it moved to the PTO site's /how-to-help, which
- *  renders the same anonymous reads server-side.) */
+ *  index briefly lived here too; it moved to the PTO site's landing page,
+ *  which renders the same anonymous reads server-side.) */
 export function navItems(t: ReturnType<typeof useI18n>["t"], isSystemAdmin: boolean) {
   const items: [IconName, NavKey, string, string][] = [
     ["calendar", "calendar", t("navCalendar"), "/"],

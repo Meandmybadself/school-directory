@@ -1,17 +1,18 @@
 // GET /resource-center — the Resource Center's own page.
 //
-// Split out of /how-to-help at the board's request so the page can be the URL
-// on a flyer: a family handed "pto.eisenhower.school/resource-center" should
-// land on the Resource Center and nothing else, with no scrolling past the
-// volunteer list and the wishlists to find it. Everything about the Center
-// lives ONLY here now: the landing page's "Ways to help" grid carries a card
-// that links to this page, and /how-to-help's hero button does the same.
+// Split out of the "how to help" content at the board's request so the page
+// can be the URL on a flyer: a family handed
+// "pto.eisenhower.school/resource-center" should land on the Resource Center
+// and nothing else, with no scrolling past the volunteer list and the
+// wishlists to find it. Everything about the Center lives ONLY here: the
+// landing page's "Ways to help" grid carries a card that links to this page.
 //
-// The THIRD indexed page on this origin — in the sitemap's PUBLIC_PATHS, with
+// The SECOND indexed page on this origin — in the sitemap's PUBLIC_PATHS, with
 // hreflang alternates, translated into all four languages. Every string here
-// is a dictionary key the how-to-help section already carries (invariant 6),
-// so the page shipped with zero new translations; the facts — the assistance
-// form, the FRC's phone, the Amazon list, GiveMN — come from `_lib/pto.ts`.
+// is a dictionary key the landing page's help sections already carry
+// (invariant 6), so the page shipped with zero new translations; the facts —
+// the assistance form, the FRC's phone, the Amazon list, GiveMN — come from
+// `_lib/pto.ts`.
 //
 // Like the landing page, IT MAKES NO SUBREQUEST AT ALL (invariant 28's
 // strongest answer): a pure function of the URL, Accept-Language and the
@@ -43,7 +44,7 @@ const PATH = "/resource-center";
 
 type T = (key: keyof Strings, vars?: Record<string, string>) => string;
 
-/** A card with no link — the same shape /how-to-help's resource cards have. */
+/** A card with no link — the landing page's card shape, minus the link line. */
 function card(t: T, title: keyof Strings, body: keyof Strings): string {
   return `        <div class="pt-card">
           <h3>${escapeHtml(t(title))}</h3>
@@ -102,7 +103,7 @@ ${linkCard(t, "ptoHowResourceVolunteer", "ptoHowResourceVolunteerBody", `mailto:
         <!-- The rest of the ways to help — internal, so the href keeps ?lang=
              the way every link on this origin does. -->
         <p class="pt-sub" style="margin-top:16px">
-          <a href="${escapeHtml(`/how-to-help?${LANG_PARAM}=${locale}`)}"><b>${escapeHtml(t("ptoHelpMoreCta"))} →</b></a>
+          <a href="${escapeHtml(`/?${LANG_PARAM}=${locale}#help`)}"><b>${escapeHtml(t("ptoHelpMoreCta"))} →</b></a>
         </p>
       </section>
 

@@ -166,9 +166,9 @@ a { color: var(--blue-700); }
 .pt-month .evs { display: flex; flex-wrap: wrap; gap: 7px; align-self: center; }
 @media (max-width: 560px) { .pt-month { grid-template-columns: 1fr; gap: 8px; } }
 
-/* /how-to-help: the live list of events still needing volunteers. Rows reuse
-   .pt-month's grid so the two pages' event lists read as one thing; the row is
-   an anchor out to the event's page on the calendar. .pt-spots follows the
+/* The live list of events still needing volunteers. Rows reuse .pt-month's
+   grid so it reads as one thing with the year strip above it; the row is an
+   anchor out to the event's page on the calendar. .pt-spots follows the
    category tags' inversion rule — --orange-ink is a foreground on a tint. */
 .pt-live { margin-bottom: 22px; }
 .pt-live-h { margin: 0; font-size: 15.5px; font-weight: 800; letter-spacing: -.2px; }
@@ -179,7 +179,7 @@ a.pt-month:hover .pt-vol-t { text-decoration: underline; }
 .pt-vol-when { color: var(--ink-3); font-size: 13px; align-self: center; }
 .pt-spots { color: var(--orange-ink); background: var(--orange-tint); }
 
-/* /how-to-help: the classroom wishlist table. Rows reuse .pt-month's grid the
+/* The classroom wishlist table. Rows reuse .pt-month's grid the
    way the volunteer list does, and the whole row links out. The filter box
    ships hidden; the page's one inline script reveals it, so without JS the
    complete list simply renders. */

@@ -1,26 +1,36 @@
-// GET / — the public page: what the PTO does, who runs it, the year, and how to
-// help or give.
+// GET / — the public page: what the PTO does, who runs it, the year, how to
+// help or give — including, since /how-to-help folded into it, the live list
+// of events that still need volunteers and the teacher wishlists.
 //
 // This is the page a family is handed when they ask "what IS the PTO?", so it is
 // server-rendered with full OG tags and no bundle, and it is INDEXED — see
 // functions/_lib/page.ts on what that obliges.
 //
-// IT MAKES NO SUBREQUEST AT ALL. It is a pure function of the requested URL, the
-// Accept-Language header and the `sd_lang` cookie — every word on it is either
-// dictionary copy (invariant 6) or a proper noun from `_lib/pto.ts`. It briefly
-// had an upcoming-events block reading the anonymous `/calendar-public/events`,
-// the way apps/home still does, and dropping that leaves this page stronger than
-// the rule invariant 28 asks of it: there is no read to get wrong, nothing to
-// degrade when the API blips, and the calendar is one tap away in the nav for
-// anyone who wants dates. The month strip below says WHAT happens and roughly
-// when in the year, which is what a page with no editor can promise to keep true.
+// IT MAKES ONE READ, for the volunteer block alone: "what still needs help" is
+// a live fact a page with no editor cannot transcribe, so it comes from the
+// ANONYMOUS calendar projections on the terms _lib/volunteers.ts spells out —
+// counts, never names, and every failure mode hides the block, so an API blip
+// degrades this page to the pure-function page it otherwise is. Everything
+// else is a function of the requested URL, the Accept-Language header and the
+// `sd_lang` cookie — dictionary copy (invariant 6) or a proper noun from
+// `_lib/pto.ts`. (The read lived on /how-to-help until that page merged in
+// here; /resource-center still reads nothing at all.)
 //
 // Structure, and why in this order: a family arriving cold wants to know what
 // this thing does before who runs it, and what it costs them before where to
-// give. So — what it does, who runs it, the year, how to help, donate, where to
-// find us.
+// give. So — what it does, who runs it, the year, how to help (what needs
+// hands right now, then the standing ways in), the wishlists, donate, where
+// to find us.
 
-import type { Locale, Strings } from "@sd/shared";
+import {
+  dictionaries,
+  eventPath,
+  formatClockRange,
+  resolveTimeZone,
+  type Locale,
+  type PublicCalendarEventDTO,
+  type Strings,
+} from "@sd/shared";
 import { CALENDAR_URL, appHref, footer, header } from "./_lib/chrome.js";
 import { LANG_PARAM, langCookie, resolveLocale } from "./_lib/locale.js";
 import { escapeHtml, html, jsonLd, shell, translator } from "./_lib/page.js";
@@ -33,6 +43,8 @@ import {
   PTO_EMAIL,
   SEATS,
   SOCIAL,
+  TEACHER_WISHLISTS,
+  VOLUNTEER_EVENTS,
   WISHLISTS,
   YEAR,
   YEAR_ROUND,
@@ -40,8 +52,10 @@ import {
   monthName,
   phoneE164,
   telHref,
+  type TeacherWishlist,
 } from "./_lib/pto.js";
 import { PTO_CSS } from "./_lib/styles.js";
+import { openVolunteerEvents, type OpenSheetRow, type PagesEnv } from "./_lib/volunteers.js";
 
 const SCHOOL = "Eisenhower PTO";
 
@@ -80,13 +94,12 @@ function monthRow(t: T, locale: Locale, month: number, events: { name: string; c
         </div>`;
 }
 
-/** A "way to help" card, each with the one link that actually does the thing.
+/** A card whose last line is the one link that actually does the thing.
  *
- *  Four are rendered — the second is the Resource Center, whose link is its
- *  own page on this origin. "Buy the shirt" stays out while the shop is being
- *  built, alongside the header's store link and apps/home's store tile. Its
- *  copy (`ptoHelpShop`, `ptoHelpShopBody`) is translated and waiting, so
- *  restoring it is one line — see `_lib/chrome.ts`'s `header`. */
+ *  "Buy the shirt" stays out while the shop is being built, alongside the
+ *  header's store link and apps/home's store tile. Its copy (`ptoHelpShop`,
+ *  `ptoHelpShopBody`) is translated and waiting, so restoring it is one line —
+ *  see `_lib/chrome.ts`'s `header`. */
 function helpCard(t: T, title: keyof Strings, body: keyof Strings, href: string, label: string): string {
   return `        <div class="pt-card">
           <h3>${escapeHtml(t(title))}</h3>
@@ -94,6 +107,91 @@ function helpCard(t: T, title: keyof Strings, body: keyof Strings, href: string,
           <p><a href="${escapeHtml(href)}">${escapeHtml(label)} →</a></p>
         </div>`;
 }
+
+/** "Sat, Nov 14" in the school's timezone — the day the calendar itself files
+ *  the event under, not the day it falls on wherever the reader happens to be.
+ *  All-day events are stored at UTC midnight and read back in UTC — both are
+ *  apps/home's `eventDay`, for the same block one app over. */
+function eventDay(locale: Locale, e: PublicCalendarEventDTO, tz: string): string {
+  return new Intl.DateTimeFormat(locale, {
+    timeZone: e.allDay ? "UTC" : tz,
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+  }).format(new Date(e.start));
+}
+
+/** The clock time, or the words "all day" — a time rendered for an event
+ *  stored at UTC midnight would be a lie in either direction. */
+function eventWhen(locale: Locale, e: PublicCalendarEventDTO, tz: string): string {
+  if (e.allDay) return dictionaries[locale].allDay ?? dictionaries.en.allDay;
+  return formatClockRange(e.start, e.end, locale, tz);
+}
+
+/** The live list: each row is the event's own page on the calendar, which is
+ *  where the sheet, the shifts and the claim flow live. Counts only — the
+ *  entire anonymous story about a position (invariant 13). */
+function liveRows(t: T, locale: Locale, rows: OpenSheetRow[], tz: string): string {
+  const items = rows
+    .map(({ event: e, left }) => {
+      const href = appHref(CALENDAR_URL, eventPath(e, tz), locale);
+      return `          <a class="pt-month pt-vol" href="${escapeHtml(href)}">
+            <div class="m">${escapeHtml(eventDay(locale, e, tz))}</div>
+            <div class="evs">
+              <span class="pt-vol-t">${escapeHtml(e.title)}</span>
+              <span class="pt-vol-when">${escapeHtml(eventWhen(locale, e, tz))}</span>
+              <span class="pt-tag pt-spots">${escapeHtml(t("volunteerSpotsLeft", { left: String(left) }))}</span>
+            </div>
+          </a>`;
+    })
+    .join("\n");
+  return `        <div class="pt-live">
+          <h3 class="pt-live-h">${escapeHtml(t("ptoHowVolunteerOpen"))}</h3>
+          <p class="pt-sub" style="margin-bottom:12px">${escapeHtml(t("volunteersPageLead"))}</p>
+          <div class="pt-year">
+${items}
+          </div>
+        </div>`;
+}
+
+/** One classroom's row: the whole row is the link out to the teacher's list,
+ *  the way a volunteer row is the link to its event. Everything a filter
+ *  should match on — teacher and room — is the row's own text. */
+function teacherRow(t: T, w: TeacherWishlist): string {
+  return `          <a class="pt-month pt-tw" href="${escapeHtml(w.url)}">
+            <div class="m">${escapeHtml(w.teacher)}</div>
+            <div class="evs">
+              <span class="pt-vol-when">${escapeHtml(w.room)}</span>
+              <span class="pt-tw-open">${escapeHtml(t("ptoHowWishlistOpen"))} →</span>
+            </div>
+          </a>`;
+}
+
+/** The page's one script. It reveals the filter box (shipped `hidden`, so a
+ *  reader without JS never sees a control that does nothing) and hides rows
+ *  as you type. Matching is diacritic-insensitive — "senora" finds "Señora" —
+ *  and display is set inline so no CSS has to know about hidden grid rows. */
+const WISHLIST_FILTER_JS = `(function () {
+  var q = document.getElementById("tw-q");
+  var list = document.getElementById("tw-list");
+  var none = document.getElementById("tw-none");
+  if (!q || !list || !none) return;
+  var norm = function (s) {
+    return s.normalize("NFD").replace(/[\\u0300-\\u036f]/g, "").toLowerCase();
+  };
+  var rows = [].slice.call(list.children);
+  q.hidden = false;
+  q.addEventListener("input", function () {
+    var v = norm(q.value.trim());
+    var shown = 0;
+    rows.forEach(function (r) {
+      var hit = !v || norm(r.textContent).indexOf(v) !== -1;
+      r.style.display = hit ? "" : "none";
+      if (hit) shown++;
+    });
+    none.hidden = shown > 0;
+  });
+})();`;
 
 /** The same facts the block under "Find us" prints, in the form a search engine
  *  reads them — this is one of only three surfaces in the project that ask to be
@@ -131,13 +229,40 @@ function orgData(t: T, origin: string) {
   };
 }
 
-export const onRequestGet: PagesFunction = ({ request }) => {
+export const onRequestGet: PagesFunction<PagesEnv> = async ({ request, env }) => {
   const url = new URL(request.url);
   const { locale, explicit } = resolveLocale(url, request);
   const t = translator(locale, SCHOOL);
+  const tz = resolveTimeZone(env.SCHOOL_TIMEZONE);
 
   const title = `${t("ptoTitle")} — ${SCHOOL}`;
   const description = t("ptoLead");
+
+  // `null` hides the block (the question could not be asked); `[]` renders the
+  // honest "every spot is taken" line, because here the API DID answer.
+  const open = await openVolunteerEvents(env);
+  const liveBlock =
+    open === null
+      ? ""
+      : open.length === 0
+        ? `          <p class="pt-sub">${escapeHtml(t("volunteersPageNone"))}</p>`
+        : liveRows(t, locale, open, tz);
+
+  // The recurring-events strip: the same tags the year strip above it wears,
+  // so the two sections say "Field Day" in the same colour.
+  const recurring = VOLUNTEER_EVENTS.map(
+    (e) => `            <span class="pt-tag t-${escapeHtml(e.category)}">${escapeHtml(e.name)}</span>`,
+  ).join("\n");
+
+  // The school-wide lists, paired with their copy by POSITION — WISHLISTS is
+  // ordered (staff lounge, art room, then the Resource Center). The FRC card
+  // stays in this grid on purpose — this section's job is every wishlist in
+  // one place — even though /resource-center also carries that list.
+  const wishlistCards = [
+    { title: "ptoHowWishlistLounge", body: "ptoHowWishlistLoungeBody", link: WISHLISTS[0]! },
+    { title: "ptoHowWishlistArt", body: "ptoHowWishlistArtBody", link: WISHLISTS[1]! },
+    { title: "ptoHowResourceTitle", body: "ptoHowWishlistFrcBody", link: WISHLISTS[2]! },
+  ] as const;
 
   const body = `    <div class="pt-wrap">
 ${header(t, SCHOOL, locale, "/")}
@@ -202,8 +327,24 @@ ${YEAR.map((m) => monthRow(t, locale, m.month, m.events)).join("\n")}
       <section class="pt-sec" id="help">
         <h2 class="pt-h2">${escapeHtml(t("ptoHelpTitle"))}</h2>
         <p class="pt-sub">${escapeHtml(t("ptoHelpLead"))}</p>
+        <!-- id="volunteer" survives from /how-to-help#volunteer: the redirect
+             carries no fragment of its own, so an old link's fragment rides
+             through and still lands here. -->
+        <div id="volunteer">
+${liveBlock}
+          <!-- One link to the whole calendar; the live rows above already
+               link each event. -->
+          <p class="pt-sub" style="margin-top:16px">
+            <a href="${escapeHtml(appHref(CALENDAR_URL, "/", locale))}"><b>${escapeHtml(t("calendarTitle"))} →</b></a>
+          </p>
+          <div class="pt-note">
+            <b>${escapeHtml(t("ptoHowVolunteerRecurring"))}</b>
+            <div class="pt-legend" style="margin:10px 0 0">
+${recurring}
+            </div>
+          </div>
+        </div>
         <div class="pt-grid">
-${helpCard(t, "ptoHelpVolunteer", "ptoHelpVolunteerBody", `/how-to-help?${LANG_PARAM}=${locale}#volunteer`, t("ptoHowVolunteerTitle"))}
 ${helpCard(t, "ptoHowResourceTitle", "ptoHowResourceLead", `/resource-center?${LANG_PARAM}=${locale}`, t("ptoHowResourceTitle"))}
 ${helpCard(
     t,
@@ -215,15 +356,34 @@ ${helpCard(
     `${appHref(CALENDAR_URL, "/", locale)}&q=${encodeURIComponent("General Meeting")}`,
     t("ptoMeetingsTitle"),
   )}
-${helpCard(t, "ptoHelpWishlist", "ptoHelpWishlistBody", WISHLISTS[0]!.url, WISHLISTS[0]!.label)}
         </div>
-        <!-- The deeper page — the recurring volunteer work and ALL the
-             wishlists, which is why no second wishlist link rides here.
-             Internal, so the href keeps ?lang= the way every link on this
-             origin does. (The Resource Center's own page is the card above.) -->
-        <p class="pt-sub" style="margin-top:16px">
-          <a href="${escapeHtml(`/how-to-help?${LANG_PARAM}=${locale}`)}"><b>${escapeHtml(t("ptoHelpMoreCta"))} →</b></a>
-        </p>
+      </section>
+
+      <section class="pt-sec" id="wishlists">
+        <h2 class="pt-h2">${escapeHtml(t("ptoHowWishlistTitle"))}</h2>
+        <p class="pt-sub">${escapeHtml(t("ptoHowWishlistLead"))}</p>
+        <div class="pt-grid">
+${wishlistCards
+    .map((c) => helpCard(t, c.title, c.body, c.link.url, t("ptoHowWishlistOpen")))
+    .join("\n")}
+        </div>
+        <h3 class="pt-live-h" style="margin-top:34px">${escapeHtml(t("ptoHowWishlistClassTitle"))}</h3>
+        <p class="pt-sub" style="margin-top:4px">${escapeHtml(t("ptoHowWishlistClassLead"))}</p>
+        <input id="tw-q" class="pt-filter" type="search" hidden placeholder="${escapeHtml(
+          t("ptoHowWishlistFilter"),
+        )}" aria-label="${escapeHtml(t("ptoHowWishlistFilter"))}" />
+        <div class="pt-year" id="tw-list">
+${TEACHER_WISHLISTS.map((w) => teacherRow(t, w)).join("\n")}
+        </div>
+        <p class="pt-sub" id="tw-none" hidden style="margin:10px 0 0">${escapeHtml(
+          t("ptoHowWishlistFilterNone"),
+        )}</p>
+        <script>${WISHLIST_FILTER_JS}</script>
+        <div class="pt-note">
+          <b>${escapeHtml(t("ptoHowWishlistNoteTitle"))}</b> ${escapeHtml(
+            t("ptoHowWishlistNoteBody"),
+          )}
+        </div>
       </section>
 
       <section class="pt-sec" id="donate">
