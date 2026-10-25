@@ -240,7 +240,7 @@ export const WISHLISTS: PtoLink[] = [
   { label: "Staff lounge", url: "https://www.amazon.com/hz/wishlist/ls/3URWOKAJJQTEU" },
   { label: "Art room", url: "https://www.amazon.com/hz/wishlist/ls/1OQDDVBJE544I" },
   // The Resource Center's own list — "Resource Center Needs on Amazon" on the
-  // FRC's flyer. Third on purpose: the landing page reads only [0] and [1].
+  // FRC's flyer. Third on purpose: the landing page reads only [0].
   { label: "Resource Center", url: "https://www.amazon.com/hz/wishlist/ls/2XFXVRYLM3DBO" },
 ];
 

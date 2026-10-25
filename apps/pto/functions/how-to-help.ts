@@ -1,5 +1,7 @@
 // GET /how-to-help — the deeper half of the landing page's "Ways to help":
-// the Resource Center, the volunteer work, and the teacher wishlists.
+// the volunteer work and the teacher wishlists. (The Resource Center had a
+// section here until it got a page of its own at /resource-center; now the
+// hero's first button sends readers there.)
 //
 // The landing page answers "what is the PTO?" and gives helping one section;
 // this page is for the family who already wants to help and is asking HOW. It
@@ -22,11 +24,9 @@
 // never appears and the complete list simply renders — the page stays whole
 // server-side, which is the property everything else here already has.
 //
-// The Resource Center section has one line aimed the other way — at a family
-// that needs it rather than one that can give. It ends in the Family
-// Assistance Request Form and the Resource Center's own phone number, appended
-// as links AFTER the translated sentence so the sentence reads complete
-// without them in every language.
+// The family that NEEDS the Resource Center rather than one that can give is
+// served by /resource-center itself — its hero leads with the assistance form,
+// which is why this page carries no copy of that note.
 
 import {
   dictionaries,
@@ -41,12 +41,9 @@ import { CALENDAR_URL, appHref, footer, header } from "./_lib/chrome.js";
 import { LANG_PARAM, langCookie, resolveLocale } from "./_lib/locale.js";
 import { escapeHtml, html, shell, translator } from "./_lib/page.js";
 import {
-  ASSISTANCE_FORM_URL,
-  FRC_PHONE,
   TEACHER_WISHLISTS,
   VOLUNTEER_EVENTS,
   WISHLISTS,
-  telHref,
   type TeacherWishlist,
 } from "./_lib/pto.js";
 import { PTO_CSS } from "./_lib/styles.js";
@@ -179,8 +176,9 @@ export const onRequestGet: PagesFunction<PagesEnv> = async ({ request, env }) =>
 
   // The school-wide lists, paired with their copy by POSITION — WISHLISTS is
   // ordered (staff lounge, art room, then the Resource Center) and the landing
-  // page's help section already depends on that order the same way. The
-  // Resource Center card's title reuses the section heading one fold up.
+  // page's help section already depends on that order the same way. The FRC
+  // card stays in this grid on purpose — this section's job is every wishlist
+  // in one place — even though /resource-center also carries that list.
   const wishlistCards = [
     { title: "ptoHowWishlistLounge", body: "ptoHowWishlistLoungeBody", link: WISHLISTS[0]! },
     { title: "ptoHowWishlistArt", body: "ptoHowWishlistArtBody", link: WISHLISTS[1]! },
@@ -194,26 +192,12 @@ ${header(t, SCHOOL, locale, PATH)}
         <h1 class="pt-h1">${escapeHtml(t("ptoHowTitle"))}</h1>
         <p class="pt-lead">${escapeHtml(t("ptoHowLead"))}</p>
         <div class="pt-cta">
-          <a class="pt-btn pt-btn-ghost" href="#resource-center">${escapeHtml(t("ptoHowResourceTitle"))}</a>
+          <!-- The Resource Center is its own page now, so its button is the
+               one that leaves this page — internal, so the href keeps ?lang=
+               the way every link on this origin does. -->
+          <a class="pt-btn pt-btn-ghost" href="${escapeHtml(`/resource-center?${LANG_PARAM}=${locale}`)}">${escapeHtml(t("ptoHowResourceTitle"))}</a>
           <a class="pt-btn pt-btn-ghost" href="#volunteer">${escapeHtml(t("ptoHowVolunteerTitle"))}</a>
           <a class="pt-btn pt-btn-ghost" href="#wishlists">${escapeHtml(t("ptoHowWishlistTitle"))}</a>
-        </div>
-      </section>
-
-      <section class="pt-sec" id="resource-center">
-        <h2 class="pt-h2">${escapeHtml(t("ptoHowResourceTitle"))}</h2>
-        <p class="pt-sub">${escapeHtml(t("ptoHowResourceLead"))}</p>
-        <!-- The full story — what it buys, how it reaches a family, how to
-             help — lives on the Resource Center's own page now; this section
-             introduces it and links there. Internal, so the href keeps ?lang=
-             the way every link on this origin does. -->
-        <p class="pt-sub" style="margin-top:4px">
-          <a href="${escapeHtml(`/resource-center?${LANG_PARAM}=${locale}`)}"><b>${escapeHtml(t("ptoHowResourceTitle"))} →</b></a>
-        </p>
-        <div class="pt-note">
-          <b>${escapeHtml(t("ptoHowResourceNoteTitle"))}</b> ${escapeHtml(
-            t("ptoHowResourceNoteBody"),
-          )} <a href="${escapeHtml(ASSISTANCE_FORM_URL)}">${escapeHtml(t("ptoHowResourceFormCta"))} →</a> · <a href="${escapeHtml(telHref(FRC_PHONE))}">${escapeHtml(FRC_PHONE)}</a>
         </div>
       </section>
 
@@ -221,10 +205,12 @@ ${header(t, SCHOOL, locale, PATH)}
         <h2 class="pt-h2">${escapeHtml(t("ptoHowVolunteerTitle"))}</h2>
         <p class="pt-sub">${escapeHtml(t("ptoHowVolunteerLead"))}</p>
 ${liveBlock}
-        <div class="pt-grid">
-${linkCard(t, "ptoHelpVolunteer", "ptoHelpVolunteerBody", appHref(CALENDAR_URL, "/", locale), t("calendarTitle"))}
-${linkCard(t, "ptoHelpMeeting", "ptoHelpMeetingBody", appHref(CALENDAR_URL, "/", locale), t("ptoMeetingsTitle"))}
-        </div>
+        <!-- One link to the whole calendar; the "Take a shift" and "Come to a
+             meeting" cards live on the landing page, and the live rows above
+             already link each event. -->
+        <p class="pt-sub" style="margin-top:16px">
+          <a href="${escapeHtml(appHref(CALENDAR_URL, "/", locale))}"><b>${escapeHtml(t("calendarTitle"))} →</b></a>
+        </p>
         <div class="pt-note">
           <b>${escapeHtml(t("ptoHowVolunteerRecurring"))}</b>
           <div class="pt-legend" style="margin:10px 0 0">

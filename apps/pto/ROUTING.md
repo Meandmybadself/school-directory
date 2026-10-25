@@ -11,14 +11,14 @@ bitten twice.
 
 - `/` — the public page: what the PTO does, who runs it, the year, how to help
   or give
-- `/how-to-help` — the deeper half of that page's "Ways to help": the Resource
-  Center, the live list of events that still need volunteers (rows link out to
-  each event's page on the calendar), and the teacher wishlists
+- `/how-to-help` — the deeper half of that page's "Ways to help": the live
+  list of events that still need volunteers (rows link out to each event's
+  page on the calendar) and the teacher wishlists
 - `/resource-center` — the Resource Center's own page, split out so a flyer
-  can carry its URL directly. Reuses /how-to-help's resource strings and the
-  facts in `_lib/pto.ts`; makes no subrequest, like the landing page. The
-  cards live only here: /how-to-help's resource section and the landing
-  page's "Ways to help" grid introduce the Center and link to this page.
+  can carry its URL directly. Reuses the resource strings /how-to-help once
+  rendered and the facts in `_lib/pto.ts`; makes no subrequest, like the
+  landing page. Everything about the Center lives only here — the landing
+  page's help grid and /how-to-help's hero button both just link to it.
 - `/robots.txt`, `/sitemap.xml` (a public page added here and not to the
   sitemap's `PUBLIC_PATHS` is one no search engine hears about)
 

@@ -207,13 +207,11 @@ ${helpCard(t, "ptoHowResourceTitle", "ptoHowResourceLead", `/resource-center?${L
 ${helpCard(t, "ptoHelpMeeting", "ptoHelpMeetingBody", appHref(CALENDAR_URL, "/", locale), t("ptoMeetingsTitle"))}
 ${helpCard(t, "ptoHelpWishlist", "ptoHelpWishlistBody", WISHLISTS[0]!.url, WISHLISTS[0]!.label)}
         </div>
-        <p class="pt-sub" style="margin-top:16px">
-          <a href="${escapeHtml(WISHLISTS[1]!.url)}">${escapeHtml(WISHLISTS[1]!.label)} →</a>
-        </p>
-        <!-- The deeper page — the recurring volunteer work and the wishlists.
+        <!-- The deeper page — the recurring volunteer work and ALL the
+             wishlists, which is why no second wishlist link rides here.
              Internal, so the href keeps ?lang= the way every link on this
              origin does. (The Resource Center's own page is the card above.) -->
-        <p class="pt-sub" style="margin-top:4px">
+        <p class="pt-sub" style="margin-top:16px">
           <a href="${escapeHtml(`/how-to-help?${LANG_PARAM}=${locale}`)}"><b>${escapeHtml(t("ptoHelpMoreCta"))} →</b></a>
         </p>
       </section>
