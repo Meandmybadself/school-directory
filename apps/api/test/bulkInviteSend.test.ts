@@ -18,6 +18,11 @@
 //   4. The overflow beyond the per-run batch budget is withdrawn BEFORE any
 //      mailing, while the waitUntil is certain to still be alive; the fallback
 //      singles are budgeted, and what the budget can't reach is withdrawn too.
+//   5. On the Cloudflare Email Sending channel (the production channel since
+//      2026-10-25) the batch seam reports per message, so a refusal withdraws
+//      exactly that invite — the whole-batch retry and the single-send
+//      fallback are Resend-only, because re-running a partially delivered
+//      batch would duplicate the accepted sends.
 
 import { afterEach, describe, expect, it } from "vitest";
 import type { Env } from "../src/env.js";
@@ -160,5 +165,34 @@ describe("sendBulkInvites", () => {
     expect(f.deletes).toContain(`ci:${await sha256("token159")}`);
     // The withdrawal happened while the waitUntil was certain to be alive.
     expect(f.order[0]).toBe("withdraw");
+  });
+
+  it("on the Cloudflare channel, withdraws exactly the refused invites and never re-sends the accepted ones", async () => {
+    const f = fake();
+    const sent: string[] = [];
+    const env = f.env as unknown as { EMAIL: unknown; BULK_EMAIL_FROM: string };
+    env.EMAIL = {
+      async send(b: { to: string }) {
+        if (b.to === "fam1@example.com") {
+          const err = new Error("bad address") as Error & { code: string };
+          err.code = "E_VALIDATION_ERROR"; // permanent — no per-message retry
+          throw err;
+        }
+        sent.push(b.to);
+        return { messageId: "mid" };
+      },
+    };
+    env.BULK_EMAIL_FROM = "Eisenhower PTO <newsletter@sitemail.eisenhower.school>";
+    stubFetch(f, () => {
+      throw new Error("the binding is the channel — nothing may fetch Resend");
+    });
+
+    await sendBulkInvites(f.env, "https://api.example", invites(20), { paceMs: 0 });
+
+    expect(f.batchCalls).toHaveLength(0);
+    expect(f.singleCalls).toHaveLength(0);
+    expect(sent).toHaveLength(19);
+    const hash = await sha256("token1");
+    expect(f.deletes).toEqual([`ci:${hash}`, `at:${hash}`]);
   });
 });

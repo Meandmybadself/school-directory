@@ -12,9 +12,11 @@ file and the tests are the current contract.
 Single-tenant **school directory**, live in production, plus the services that
 grew on its identity: a calendar with volunteer sign-ups, a newsletter, a merch
 store, the PTO's site and planning boards, and a lost & found.
-Cloudflare-native: React/Vite (Pages) + Hono (Workers) + D1 + R2, with Resend
-email, Nominatim geocoding, Stripe + Printful (store), Workers AI + Vectorize
-(lost & found), and an optional Slack webhook.
+Cloudflare-native: React/Vite (Pages) + Hono (Workers) + D1 + R2, with
+Cloudflare email (Email Sending + Routing on `sitemail.eisenhower.school`;
+Resend as the dormant fallback channel), Nominatim geocoding, Stripe +
+Printful (store), Workers AI + Vectorize (lost & found), and an optional
+Slack webhook.
 
 The directory is **members-only; there is no public visibility level.** The
 deliberately-open surfaces are: the front door, the calendar agenda and event
@@ -1172,8 +1174,11 @@ pnpm dev:home     # just the apex landing page (wrangler dev) on :5176
 `pnpm dev` is `pnpm --parallel --filter "./apps/*" dev` (picks up `apps/home`
 too; `apps/redirect` has no dev script and is skipped).
 
-Magic links print to the **API console** when `RESEND_API_KEY` is empty — so
-newsletter sends print there too. Demo login: `dana@eisenhower.edu`.
+Magic links print to the **API console** when no outbound channel is
+configured — locally that means `RESEND_API_KEY` empty and no
+`BULK_EMAIL_FROM` var (production has both halves of the Cloudflare channel;
+lib/email.ts) — so newsletter sends print there too. Demo login:
+`dana@eisenhower.edu`.
 
 `vite dev` serves only each SPA; the server-rendered public surfaces (the
 newsletter archive, the storefront, the PTO pages) are Pages Functions and

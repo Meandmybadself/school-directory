@@ -1,5 +1,10 @@
-// Email delivery via Resend. When no API key is configured (local dev), the
-// message is logged to the console so the magic link is still reachable.
+// Email delivery. One channel once it is fully configured: the Cloudflare
+// Email Sending binding (`EMAIL` + `BULK_EMAIL_FROM`, both halves set only in
+// production) carries ALL outbound mail from the app's sending domain,
+// sitemail.eisenhower.school. Resend (`RESEND_API_KEY`) survives as the
+// fallback while the channel is half-configured — the transition contract —
+// and with neither configured (local dev, vitest) the message is logged to
+// the console so the magic link is still reachable.
 
 import { escapeHtml } from "@sd/shared";
 import type { Env } from "../env.js";
@@ -16,12 +21,6 @@ export interface SendArgs {
   /** Extra message headers. The lost & found intake's confirmation marks
    *  itself auto-generated with these, so autoresponders don't answer it. */
   headers?: Record<string, string>;
-  /** Newsletter-issue mail (the fan-out and the composer's test sends). When
-   *  the Cloudflare Email Sending channel is configured (`EMAIL` binding +
-   *  `BULK_EMAIL_FROM`), this mail goes out through it instead of Resend — so
-   *  Resend's free-plan 100/day cap belongs entirely to transactional mail
-   *  (magic links, invites), whose deliverability history stays untouched. */
-  bulk?: boolean;
 }
 
 export interface SendResult {
@@ -117,21 +116,36 @@ function parseAddress(s: string): { name: string; email: string } {
   return { name: "", email: s.trim() };
 }
 
+function addressDomain(email: string): string {
+  return email.slice(email.lastIndexOf("@") + 1).toLowerCase();
+}
+
+/** Both halves of the Cloudflare channel configured — the binding carries ALL
+ *  outbound mail. Keyed on BULK_EMAIL_FROM because its domain must be
+ *  onboarded to Email Sending before the first send, and unsetting the var is
+ *  the kill switch back to Resend. */
+export function bindingChannelOn(env: Env): boolean {
+  return Boolean(env.EMAIL && env.BULK_EMAIL_FROM);
+}
+
 /** Send one message through the Cloudflare Email Sending binding.
  *
- *  The From ADDRESS must be on the onboarded sending domain, so it always
- *  comes from `BULK_EMAIL_FROM`; the display NAME keeps whatever the message
- *  asked for (the newsletter admin's configured sender), and when the asked-
- *  for address differs it survives as Reply-To — replies keep landing where
- *  they always did. Errors come back as "E_CODE: message", the shape
+ *  The From ADDRESS must be on the onboarded sending domain. An asked-for
+ *  address already there sends as itself — transactional mail keeps its own
+ *  identity (`EMAIL_FROM`, e.g. directory@sitemail…). Any other domain gets
+ *  the `BULK_EMAIL_FROM` address instead; the display NAME keeps whatever the
+ *  message asked for (the newsletter admin's configured sender), and the
+ *  asked-for address survives as Reply-To — replies keep landing where they
+ *  always did. Errors come back as "E_CODE: message", the shape
  *  `isTransientSendError` reads. */
 async function sendViaBinding(env: Env, msg: SendArgs): Promise<SendResult> {
   const bulkFrom = parseAddress(env.BULK_EMAIL_FROM ?? "");
   const wanted = parseAddress(msg.from ?? env.EMAIL_FROM ?? "");
-  const replyTo = msg.replyTo ?? (wanted.email && wanted.email !== bulkFrom.email ? wanted.email : undefined);
+  const onDomain = wanted.email !== "" && addressDomain(wanted.email) === addressDomain(bulkFrom.email);
+  const replyTo = msg.replyTo ?? (wanted.email && !onDomain ? wanted.email : undefined);
   try {
     await env.EMAIL!.send({
-      from: { name: wanted.name || bulkFrom.name, email: bulkFrom.email },
+      from: { name: wanted.name || bulkFrom.name, email: onDomain ? wanted.email : bulkFrom.email },
       to: msg.to,
       subject: msg.subject,
       html: msg.html,
@@ -150,10 +164,11 @@ async function sendViaBinding(env: Env, msg: SendArgs): Promise<SendResult> {
 }
 
 export async function sendEmailResult(env: Env, msg: SendArgs): Promise<SendResult> {
-  // Newsletter mail takes the Cloudflare channel when it is configured; both
-  // halves absent-means-off, so a deploy before the domain is onboarded (or a
-  // local run) falls through to the Resend path unchanged.
-  if (msg.bulk && env.EMAIL && env.BULK_EMAIL_FROM) return sendViaBinding(env, msg);
+  // ALL mail takes the Cloudflare channel when it is configured; both halves
+  // absent-means-off, so vitest and a bare `wrangler dev` (where the binding
+  // exists but the top-level vars set no BULK_EMAIL_FROM) fall through
+  // unchanged — Resend with a key, else the console log below.
+  if (bindingChannelOn(env)) return sendViaBinding(env, msg);
   if (!env.RESEND_API_KEY) {
     // Local/dev fallback — surface the content (incl. magic link) in logs.
     console.log(
@@ -175,23 +190,54 @@ export const RESEND_PACE_MS = 1100;
 /** Resend's batch endpoint takes up to this many messages per call. */
 export const BATCH_API_MAX = 100;
 
-/** Send several messages in ONE Resend call — one subrequest, one unit against
- *  the per-second meter, however many messages ride in it (up to BATCH_API_MAX).
+export interface BatchSendResult extends SendResult {
+  /** Per-message outcomes, same order as the input. Present only when the
+   *  Cloudflare channel sent the messages individually (the binding has no
+   *  batch endpoint); `ok` is then true iff EVERY message was accepted, and a
+   *  caller that sees this field must not retry the whole batch — the
+   *  accepted messages are already in recipients' inboxes. Absent on the
+   *  all-or-nothing Resend batch call. */
+  results?: SendResult[];
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((r) => setTimeout(r, ms));
+}
+
+/** Send several messages in one call to this seam.
  *
- *  This exists for the bulk-invite path: on the Workers free plan an invocation
- *  gets 50 subrequests, so mailing a roster-sized import one fetch per address
- *  dies mid-list the way the October 2026 newsletter send did. Batched, a
- *  100-family import is a single call.
+ *  On the Cloudflare channel each message is its own `send()` (paced by
+ *  `paceMs`, one transient retry apiece), reported per message in `results`.
  *
- *  The trade to know before reusing it: the batch is accepted or refused as a
- *  WHOLE (Resend documents no partial-success mode), so the caller cannot learn
- *  per-recipient outcomes. That is why the newsletter does NOT use it — its
- *  ledger records a verdict per recipient — and why callers here keep batches
- *  small and fall back to single sends when a batch is refused. */
-export async function sendEmailBatchResult(env: Env, msgs: SendArgs[]): Promise<SendResult> {
+ *  On Resend it is ONE /emails/batch call — one subrequest, one unit against
+ *  the per-second meter. That mattered on the Workers free plan, where an
+ *  invocation gets 50 subrequests and mailing a roster-sized import one fetch
+ *  per address dies mid-list the way the October 2026 newsletter send did.
+ *  The trade: the batch is accepted or refused as a WHOLE (Resend documents
+ *  no partial-success mode), so the caller learns no per-recipient outcomes
+ *  and falls back to budgeted single sends when a batch is refused. */
+export async function sendEmailBatchResult(env: Env, msgs: SendArgs[], paceMs = 0): Promise<BatchSendResult> {
   if (msgs.length === 0) return { ok: true };
   if (msgs.length > BATCH_API_MAX) {
     return { ok: false, error: `batch of ${msgs.length} exceeds the API limit of ${BATCH_API_MAX}` };
+  }
+  if (bindingChannelOn(env)) {
+    const results: SendResult[] = [];
+    for (const [i, msg] of msgs.entries()) {
+      if (i > 0 && paceMs > 0) await sleep(paceMs);
+      let r = await sendViaBinding(env, msg);
+      if (!r.ok && isTransientSendError(r.error ?? "")) {
+        if (paceMs > 0) await sleep(paceMs);
+        r = await sendViaBinding(env, msg);
+      }
+      results.push(r);
+    }
+    const failed = results.filter((r) => !r.ok).length;
+    return {
+      ok: failed === 0,
+      ...(failed > 0 ? { error: `${failed} of ${msgs.length} refused: ${results.find((r) => !r.ok)?.error}` } : {}),
+      results,
+    };
   }
   if (!env.RESEND_API_KEY) {
     for (const msg of msgs) {

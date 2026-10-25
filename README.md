@@ -78,7 +78,7 @@ React SPA (Pages)  ──fetch (JSON, session cookie)──▶  Hono API (Worker
   cache-first service worker (apps/web)                │  session + audit middleware
                                                        ├─ D1 (SQL)
 Pages Functions ───────────────────────────────────────┤  ├─ R2 (member photos; newsletter media, separately)
-  newsletter archive, storefront                       ├─ Resend (email)
+  newsletter archive, storefront                       ├─ CF Email Sending (email; Resend fallback)
                                                        ├─ Nominatim (geocode, server-only)
 apps/home (Worker) ────────────────────────────────────┘  ├─ Stripe + Printful (store)
   one subrequest: the public agenda                       └─ Slack (optional, system events)

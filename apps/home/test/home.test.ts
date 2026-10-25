@@ -828,9 +828,14 @@ describe("/privacy", () => {
     // A service added to the code and not to this page is the failure worth
     // catching, so the test names them rather than counting.
     const html = await body("/privacy");
-    for (const who of ["Cloudflare", "Resend", "OpenStreetMap", "Stripe", "Printful", "Slack"]) {
+    for (const who of ["Cloudflare", "Cloudflare Email", "OpenStreetMap", "Stripe", "Printful", "Slack"]) {
       expect(html).toContain(who);
     }
+    // Resend is retired to a dormant fallback (2026-10-25) — no mail reaches
+    // it, so it must NOT be presented as a party that sees anything. Turning
+    // the fallback back on means restoring it here and in all four
+    // dictionaries first.
+    expect(html).not.toContain("Resend");
   });
 
   it("makes no subrequest at all", async () => {

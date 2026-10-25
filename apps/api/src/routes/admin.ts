@@ -101,12 +101,27 @@ export async function sendBulkInvites(
       return msg;
     });
 
-    let batch = await sendEmailBatchResult(env, msgs);
-    if (!batch.ok && isTransientSendError(batch.error ?? "")) {
-      if (paceMs > 0) await sleep(paceMs);
-      batch = await sendEmailBatchResult(env, msgs);
+    const batch = await sendEmailBatchResult(env, msgs, paceMs);
+
+    // The Cloudflare channel reports per message (and already retried each
+    // transient failure once), so a refusal is per-invite: withdraw exactly
+    // those. Re-running the WHOLE batch here would duplicate the accepted
+    // sends, and the single-send fallback below exists only for Resend's
+    // all-or-nothing batch verdict.
+    if (batch.results) {
+      const stranded = slice.filter((_, j) => !(batch.results?.[j]?.ok ?? false));
+      if (stranded.length > 0) {
+        await withdrawUnmailedInvites(env, stranded, "the mail channel refused it");
+      }
+      continue;
     }
-    if (batch.ok) continue;
+
+    let whole: typeof batch = batch;
+    if (!whole.ok && isTransientSendError(whole.error ?? "")) {
+      if (paceMs > 0) await sleep(paceMs);
+      whole = await sendEmailBatchResult(env, msgs, paceMs);
+    }
+    if (whole.ok) continue;
 
     const stranded: QueuedInvite[] = [];
     for (let j = 0; j < slice.length; j++) {

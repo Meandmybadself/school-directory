@@ -8,10 +8,15 @@ on it. One subdomain, three jobs:
 
 - **Inbound** (Cloudflare Email Routing, enabled per-subdomain on the zone):
   routed addresses point at the API Worker's `email` handler (`src/email.ts`).
-- **Outbound bulk** (Cloudflare Email Sending): the newsletter channel —
-  `BULK_EMAIL_FROM = newsletter@sitemail.eisenhower.school` (wrangler.toml).
-- **Outbound transactional** (Resend, `EMAIL_FROM` secret): magic links,
-  invites, admin notifications, the intake's confirmation replies.
+- **Outbound — ALL of it** (Cloudflare Email Sending, since 2026-10-25):
+  newsletter fan-out sends as `BULK_EMAIL_FROM =
+  newsletter@sitemail.eisenhower.school` (wrangler.toml); transactional mail
+  (magic links, invites, admin notifications, the intake's confirmation
+  replies) keeps its own identity via the `EMAIL_FROM` secret — an address on
+  the same onboarded domain sends as itself (lib/email.ts). Resend is the
+  dormant FALLBACK, used only if the channel is ever half-unconfigured;
+  turning it back on for real means restoring Resend to `/privacy`'s
+  services list first.
 
 The Worker's `email` handler does two jobs, keyed on the LOCAL PART only
 (`forwardsFor` never looks at the domain, so the same handler served the apex
@@ -138,9 +143,10 @@ accepted.
   (`mx1/mx2.forwardmx.net`); any alias that existed only there died at
   cutover, by choice (no catch-all). The old apex SPF
   (`include:_spf.forwardmx.net`) was replaced by Cloudflare's.
-- Outbound transactional mail (Resend, `EMAIL_FROM`) historically sent from
-  `mailer.meandmybadself.com`; it moves to a sitemail sender once the domain
-  is verified in Resend (dashboard — the stored API key is send-only).
+- Outbound transactional mail rode Resend from `mailer.meandmybadself.com`
+  until 2026-10-25, when all sending consolidated on Cloudflare Email
+  Sending from sitemail (`/privacy`'s email line changed with it). The
+  Resend account and its domain still exist if the fallback is ever needed.
 - Testing a forward by mailing yourself from Gmail LOOKS like it failed:
   Gmail dedupes the returning copy by Message-ID; check `wrangler tail` for
   the `Email … - Ok` line instead.

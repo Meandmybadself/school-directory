@@ -1382,7 +1382,7 @@ const en: Strings = {
   privacyServiceHosting:
     "Cloudflare — hosting, the database and file storage. Everything here lives on their infrastructure. Cloudflare also counts visits to every page here — which page, the site that linked you, your browser and country — without cookies and without following you to other sites.",
   privacyServiceEmail:
-    "Resend — delivers our email, so it handles the address a message is sent to and what the message says.",
+    "Cloudflare Email — delivers our email, so it handles the address a message is sent to and what the message says.",
   privacyServiceMaps:
     "OpenStreetMap — if you add an address, it is sent once to turn into coordinates. Map pictures are fetched by our server, by map square rather than by address, so your browser never asks anyone else for them.",
   privacyServiceStore:
@@ -2175,7 +2175,7 @@ const es: Strings = {
   privacyServiceHosting:
     "Cloudflare: alojamiento, base de datos y almacenamiento de archivos. Todo lo de aquí vive en su infraestructura. Cloudflare también cuenta las visitas a todas las páginas de aquí (qué página, el sitio que le trajo, su navegador y su país) sin cookies y sin seguirle a otros sitios.",
   privacyServiceEmail:
-    "Resend: entrega nuestro correo, así que maneja la dirección a la que se envía un mensaje y lo que dice el mensaje.",
+    "Cloudflare Email: entrega nuestro correo, así que maneja la dirección a la que se envía un mensaje y lo que dice el mensaje.",
   privacyServiceMaps:
     "OpenStreetMap: si agrega una dirección, se envía una vez para convertirla en coordenadas. Las imágenes de mapa las obtiene nuestro servidor, por cuadrícula y no por dirección, así que su navegador nunca se las pide a nadie más.",
   privacyServiceStore:
@@ -2945,7 +2945,7 @@ const zh: Strings = {
   privacyServicesBody: "有几家公司代我们处理其中一部分工作。每一家只能看到其职责所需的内容：",
   privacyServiceHosting:
     "Cloudflare——托管、数据库与文件存储。这里的一切都运行在他们的基础设施上。Cloudflare 还会统计这里每个页面的访问量（访问了哪个页面、从哪个网站链接过来、浏览器和国家），不使用 Cookie，也不会在其他网站上追踪您。",
-  privacyServiceEmail: "Resend——负责投递我们的邮件，因此会接触收件地址和邮件内容。",
+  privacyServiceEmail: "Cloudflare Email——负责投递我们的邮件，因此会接触收件地址和邮件内容。",
   privacyServiceMaps:
     "OpenStreetMap——如果您填写地址，它会被发送一次以转换为坐标。地图图片由我们的服务器获取，按地图方格而非按地址，所以您的浏览器不会向第三方请求。",
   privacyServiceStore:
@@ -3782,7 +3782,7 @@ const so: Strings = {
   privacyServiceHosting:
     "Cloudflare — martigelinta, xogta iyo kaydinta faylalka. Wax kasta oo halkan ah wuxuu ku nool yahay qalabkooda. Cloudflare wuxuu sidoo kale tiriyaa booqashooyinka bog kasta oo halkan ah — bogga, goobta kuu soo gudbisay, browser-kaaga iyo dalka — iyadoo aan cookies la isticmaalin oo aan laguu raacin goobo kale.",
   privacyServiceEmail:
-    "Resend — wuxuu gaadhsiiyaa iimaylkeenna, sidaas darteed wuxuu qabtaa cinwaanka loo diro fariinta iyo waxa fariintu sheegayso.",
+    "Cloudflare Email — wuxuu gaadhsiiyaa iimaylkeenna, sidaas darteed wuxuu qabtaa cinwaanka loo diro fariinta iyo waxa fariintu sheegayso.",
   privacyServiceMaps:
     "OpenStreetMap — haddii aad ku darto cinwaan, hal mar ayaa loo diraa si loogu beddelo qiyaaso. Sawirada khariidadda waxaa soo qaata server-keenna, oo ah sanduuq khariidad ee ma aha cinwaan, sidaas darteed browser-kaagu weligiis cidna kama weydiisto.",
   privacyServiceStore:

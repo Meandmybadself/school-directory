@@ -91,11 +91,11 @@ bucket_name = "school-directory-lostfound-media"
 [ai]
 binding = "AI"
 
-# Cloudflare Email Sending (Workers Paid): the NEWSLETTER's outbound channel
-# (lib/email.ts routes `bulk` mail here; everything else stays on Resend, whose
-# free 100/day cap then belongs entirely to magic links and invites). The
-# channel turns ON only where BULK_EMAIL_FROM is also set — its domain must be
-# onboarded first: `npx wrangler email sending enable sitemail.eisenhower.school`.
+# Cloudflare Email Sending (Workers Paid): the outbound channel for ALL mail —
+# newsletter fan-out and transactional alike (lib/email.ts; Resend is the
+# fallback while this is half-configured). The channel turns ON only where
+# BULK_EMAIL_FROM is also set — its domain must be onboarded first:
+# `npx wrangler email sending enable sitemail.eisenhower.school`.
 # App mail lives on the sitemail. subdomain because the APEX's mail is the
 # school's (Google Workspace) — see EMAIL-INTAKE.md.
 [[send_email]]
@@ -168,9 +168,11 @@ namespace_id = "1001"
 simple = { limit = 60, period = 60 }
 
 # Secrets (set via `wrangler secret put --env production`, or .dev.vars locally):
-#   RESEND_API_KEY    — Resend email API key (magic links / invites)
-#   EMAIL_FROM        — verified Resend sender, e.g.
-#                       "Eisenhower Directory <directory@sitemail.eisenhower.school>"
+#   RESEND_API_KEY    — Resend email API key: the FALLBACK channel, used only
+#                       while the Cloudflare channel above is half-configured
+#   EMAIL_FROM        — transactional From identity on the sending domain, e.g.
+#                       "Eisenhower PTO Directory <directory@sitemail.eisenhower.school>"
+#                       (on the Resend fallback it must be a Resend-verified sender)
 #   SLACK_WEBHOOK_URL — Slack Incoming Webhook for system-event notifications
 #                       (optional; the feature is off entirely when unset, and
 #                       logs to the console instead — see CLAUDE.md invariant 22)

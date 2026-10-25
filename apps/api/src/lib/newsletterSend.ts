@@ -299,7 +299,7 @@ export async function runFanOut(env: Env, issueId: string, opts: FanOutOptions =
             snapshot,
             unsubscribeToken: row.unsubscribe_token,
           });
-          const result = await sendEmailResult(env, { ...msg, to: row.email, bulk: true });
+          const result = await sendEmailResult(env, { ...msg, to: row.email });
           await recordOutcome(env, row.id, result);
         }),
       );

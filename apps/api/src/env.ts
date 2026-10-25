@@ -83,20 +83,30 @@ export interface Env {
    *  values are board members' personal addresses. Absent means no alias
    *  forwards and every routed address is the lost & found intake. */
   EMAIL_FORWARDS?: string;
-  /** Cloudflare Email Sending (Workers Paid) — the NEWSLETTER's outbound
-   *  channel (lib/email.ts). Optional in the absent-means-off sense: without
-   *  it (or without BULK_EMAIL_FROM) every message rides Resend as before. */
+  /** Cloudflare Email Sending (Workers Paid) — the outbound channel for ALL
+   *  mail once BULK_EMAIL_FROM is also set (lib/email.ts). Optional in the
+   *  absent-means-off sense: without either half, every message rides Resend
+   *  as before (or the console, with no Resend key — local dev's magic
+   *  links). */
   EMAIL?: SendEmail;
-  /** The From identity for mail sent through the EMAIL binding, e.g.
+  /** The default From identity for mail sent through the EMAIL binding, e.g.
    *  "Eisenhower PTO <newsletter@sitemail.eisenhower.school>". Its DOMAIN
    *  must be onboarded to Email Sending, which is why the channel keys on
    *  this var: set it only after `wrangler email sending enable` has
    *  verified. App mail lives on the sitemail. subdomain — the apex's mail
-   *  is the school's Google Workspace (EMAIL-INTAKE.md). The
-   *  admin-configured sender keeps its display name; the old address
-   *  survives as Reply-To. */
+   *  is the school's Google Workspace (EMAIL-INTAKE.md). A message asking
+   *  for a From on that same domain (EMAIL_FROM) sends as itself; any other
+   *  asked-for sender keeps its display name and survives as Reply-To. */
   BULK_EMAIL_FROM?: string;
+  /** Resend — the FALLBACK channel while the Cloudflare one is
+   *  half-configured. Dormant in production since app mail consolidated on
+   *  the binding (2026-10-25); unsetting BULK_EMAIL_FROM falls back here. */
   RESEND_API_KEY?: string;
+  /** The transactional From identity (magic links, invites, notifications),
+   *  e.g. "Eisenhower PTO Directory <directory@sitemail.eisenhower.school>".
+   *  On the Cloudflare channel its domain must be the onboarded one or it is
+   *  demoted to Reply-To; on the Resend fallback it must be a
+   *  Resend-verified sender. */
   EMAIL_FROM?: string;
   /** Slack Incoming Webhook posting system events to the admins' channel
    *  (invariant 22). Absent — the default, and the case in local dev — turns
