@@ -195,9 +195,8 @@ const WISHLIST_FILTER_JS = `(function () {
 
 /** The hero's jump links — the page got long when /how-to-help folded in, so
  *  the hero maps it: one chip per section below, in page order, each label the
- *  section's own heading, so the row costs no copy of its own. Donate and
- *  "Ways to help" appear here AND as the CTA buttons above — the buttons are
- *  emphasis, the row is the complete map. */
+ *  section's own heading, so the row costs no copy of its own. It replaced the
+ *  hero's Donate / "Ways to help" buttons, which said less than it does. */
 const ANCHORS: Array<[href: string, label: keyof Strings]> = [
   ["#what", "ptoWhatTitle"],
   ["#board", "ptoBoardTitle"],
@@ -286,10 +285,6 @@ ${header(t, SCHOOL, locale, "/")}
         <div class="pt-eyebrow">${PROGRAMS.map((p) => escapeHtml(p)).join('<span class="sep">◆</span>')}</div>
         <h1 class="pt-h1">${escapeHtml(t("ptoTitle"))}</h1>
         <p class="pt-lead">${escapeHtml(t("ptoLead"))}</p>
-        <div class="pt-cta">
-          <a class="pt-btn" href="#donate">${escapeHtml(t("ptoDonateTitle"))}</a>
-          <a class="pt-btn pt-btn-ghost" href="#help">${escapeHtml(t("ptoHelpTitle"))}</a>
-        </div>
         <nav class="pt-anchors" aria-label="${escapeHtml(t("ptoOnThisPage"))}">
 ${ANCHORS.map(([href, label]) => `          <a class="pt-chip" href="${href}">${escapeHtml(t(label))}</a>`).join("\n")}
         </nav>

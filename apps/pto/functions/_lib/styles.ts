@@ -123,9 +123,10 @@ a { color: var(--blue-700); }
   margin: 16px 0 0; max-width: 62ch;
 }
 .pt-cta { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 24px; }
-/* The hero's jump links: a complete map of the sections below, quieter than
-   the CTA buttons above it. Reuses .pt-chip, sized down a step. */
-.pt-anchors { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 18px; }
+/* The hero's jump links: a complete map of the sections below (the landing
+   hero has no CTA buttons — this row replaced them; /resource-center still
+   uses .pt-cta). Reuses .pt-chip, sized down a step. */
+.pt-anchors { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 24px; }
 .pt-anchors .pt-chip { font-size: 12.5px; padding: 6px 11px; color: var(--ink-2); }
 
 /* sections */
