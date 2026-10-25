@@ -21,7 +21,7 @@
 // find us.
 
 import type { Locale, Strings } from "@sd/shared";
-import { CALENDAR_URL, FEEDBACK_EMAIL, appHref, footer, header } from "./_lib/chrome.js";
+import { CALENDAR_URL, appHref, footer, header } from "./_lib/chrome.js";
 import { LANG_PARAM, langCookie, resolveLocale } from "./_lib/locale.js";
 import { escapeHtml, html, jsonLd, shell, translator } from "./_lib/page.js";
 import {
@@ -30,6 +30,7 @@ import {
   MEETING_PLACE,
   ORG,
   PROGRAMS,
+  PTO_EMAIL,
   SEATS,
   SOCIAL,
   WISHLISTS,
@@ -115,7 +116,7 @@ function orgData(t: T, origin: string) {
     legalName: ORG.legalName,
     url: `${origin}/`,
     description: t("ptoLead"),
-    email: FEEDBACK_EMAIL,
+    email: PTO_EMAIL,
     telephone: phoneE164(ORG.phone),
     taxID: ORG.ein,
     address: {
@@ -202,9 +203,18 @@ ${YEAR.map((m) => monthRow(t, locale, m.month, m.events)).join("\n")}
         <h2 class="pt-h2">${escapeHtml(t("ptoHelpTitle"))}</h2>
         <p class="pt-sub">${escapeHtml(t("ptoHelpLead"))}</p>
         <div class="pt-grid">
-${helpCard(t, "ptoHelpVolunteer", "ptoHelpVolunteerBody", appHref(CALENDAR_URL, "/", locale), t("calendarTitle"))}
+${helpCard(t, "ptoHelpVolunteer", "ptoHelpVolunteerBody", `/how-to-help?${LANG_PARAM}=${locale}#volunteer`, t("ptoHowVolunteerTitle"))}
 ${helpCard(t, "ptoHowResourceTitle", "ptoHowResourceLead", `/resource-center?${LANG_PARAM}=${locale}`, t("ptoHowResourceTitle"))}
-${helpCard(t, "ptoHelpMeeting", "ptoHelpMeetingBody", appHref(CALENDAR_URL, "/", locale), t("ptoMeetingsTitle"))}
+${helpCard(
+    t,
+    "ptoHelpMeeting",
+    "ptoHelpMeetingBody",
+    // A pre-filled calendar search (the agenda keeps ?q= in the URL for exactly
+    // this). The term matches the EVENT'S title, which is authored content and
+    // never translated (invariant 6) — so it is English in every locale.
+    `${appHref(CALENDAR_URL, "/", locale)}&q=${encodeURIComponent("General Meeting")}`,
+    t("ptoMeetingsTitle"),
+  )}
 ${helpCard(t, "ptoHelpWishlist", "ptoHelpWishlistBody", WISHLISTS[0]!.url, WISHLISTS[0]!.label)}
         </div>
         <!-- The deeper page — the recurring volunteer work and ALL the
@@ -233,7 +243,7 @@ ${SOCIAL.map(
     (l) => `          <a class="pt-chip" href="${escapeHtml(l.url)}">${escapeHtml(l.label)}</a>`,
   ).join("\n")}
           <a class="pt-chip" href="${escapeHtml(appHref(CALENDAR_URL, "/", locale))}">${escapeHtml(t("calendarTitle"))}</a>
-          <a class="pt-chip" href="mailto:${escapeHtml(FEEDBACK_EMAIL)}">${escapeHtml(FEEDBACK_EMAIL)}</a>
+          <a class="pt-chip" href="mailto:${escapeHtml(PTO_EMAIL)}">${escapeHtml(PTO_EMAIL)}</a>
         </div>
         <!-- The nonprofit itself. Here rather than in the donate box on purpose:
              it answers "who legally is this?", which is a question about the

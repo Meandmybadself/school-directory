@@ -46,6 +46,29 @@ const HIDDEN_KEY = "sd_cal_hidden";
  *  copy, so nothing else belongs in it. */
 const HINT_KEY = "sd_cal_hint_dismissed";
 
+/** The search box in the URL, so a search is deep-linkable: `/?q=Book Fair` is
+ *  a link somebody can text, and what is in the box is always what the address
+ *  bar says. Written with `history.replaceState` rather than the router — a
+ *  keystroke must not become a history entry, and the router never needs to
+ *  know (the same reasoning as the `?lang=` strip in src/i18n/index.tsx, which
+ *  deletes only its own parameter and so leaves this one alone). */
+const QUERY_PARAM = "q";
+
+function initialQuery(): string {
+  try {
+    return new URL(window.location.href).searchParams.get(QUERY_PARAM) ?? "";
+  } catch {
+    return "";
+  }
+}
+
+function writeQueryParam(q: string): void {
+  const url = new URL(window.location.href);
+  if (q) url.searchParams.set(QUERY_PARAM, q);
+  else url.searchParams.delete(QUERY_PARAM);
+  window.history.replaceState(null, "", `${url.pathname}${url.search}${url.hash}`);
+}
+
 /** The agenda's day heading format. Shared by the day groups and the search
  *  index, so the two agree on what a given day is called — and matched by the
  *  event page, so a reader who taps through sees the same day name. */
@@ -302,7 +325,11 @@ export function Calendar() {
   const [events, setEvents] = useState<PublicCalendarEventDTO[] | null>(null);
   const [feeds, setFeeds] = useState<PublicCalendarFeedDTO[]>([]);
   const [hidden, setHidden] = useState<Set<string>>(loadHidden);
-  const [q, setQ] = useState("");
+  const [q, setQ] = useState(initialQuery);
+  const search = (v: string) => {
+    setQ(v);
+    writeQueryParam(v);
+  };
 
   // One read, the anonymous one, for everybody — no waiting on /me before the
   // agenda appears, which is what a link pasted into a text message needs.
@@ -362,7 +389,7 @@ export function Calendar() {
 
   const body = (
     <>
-      <SearchBar value={q} onChange={setQ} />
+      <SearchBar value={q} onChange={search} />
       <FilterBar feeds={feeds} hidden={hidden} onToggle={toggle} />
       {events === null && (
         <div className="sd-card sd-card-pad sd-meta" style={{ textAlign: "center", padding: "28px 16px" }}>…</div>

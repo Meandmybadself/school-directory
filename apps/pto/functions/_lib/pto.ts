@@ -224,7 +224,8 @@ export const YEAR_ROUND = [
  *  claimed by a directory Person and the sheet lives on the event (invariant
  *  13). Sending a family to a third-party sign-up from the page that explains
  *  the PTO would point them away from the thing built to replace it. "Take a
- *  shift" links to the calendar. */
+ *  shift" links to /how-to-help's volunteer section, whose live rows land on
+ *  the calendar. */
 export interface PtoLink {
   /** The label is a proper noun or the service's own name, so it is data. */
   label: string;
@@ -297,10 +298,11 @@ export const ASSISTANCE_FORM_URL =
  *  PTO's registration, which stays what the nonprofit block prints. */
 export const FRC_PHONE = "(952) 988-4308";
 
-/** The PTO's own mailbox — where the Resource Center's volunteer card points.
- *  Distinct from `FEEDBACK_EMAIL` in `_lib/chrome.ts`, which reaches whoever
- *  runs this site rather than the PTO's inbox. */
-export const PTO_EMAIL = "Eisenhowerpto@hopkinsschools.org";
+/** The PTO's own mailbox — the landing page's "Find us" chip and JSON-LD
+ *  contact, and where the Resource Center's volunteer card points. Distinct
+ *  from `FEEDBACK_EMAIL` in `_lib/chrome.ts`, which reaches whoever runs this
+ *  site rather than the PTO's inbox and stays on the footer's credit line. */
+export const PTO_EMAIL = "EisenhowerPTO@hopkinsschools.org";
 
 export const SOCIAL: PtoLink[] = [
   { label: "Facebook", url: "https://www.facebook.com/groups/159524300738821" },
