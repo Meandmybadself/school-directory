@@ -12,8 +12,11 @@ import { useI18n } from "../i18n/index.js";
 
 /** Where feedback goes. Config rather than copy — an instance that isn't
  *  Eisenhower overrides it the way it overrides the school name, and the default
- *  keeps the deploy working without a new CI variable. */
-const FEEDBACK_EMAIL = import.meta.env.VITE_FEEDBACK_EMAIL ?? "admin@eisenhower.school";
+ *  keeps the deploy working without a new CI variable. THIS app's default is the
+ *  PTO's own mailbox, not the site-runner address the other five apps use —
+ *  feedback about the PTO's site belongs to the PTO (matches the Functions
+ *  footer in functions/_lib/chrome.ts). */
+const FEEDBACK_EMAIL = import.meta.env.VITE_FEEDBACK_EMAIL ?? "EisenhowerPTO@hopkinsschools.org";
 
 /** The organisation's name. A proper noun, so it is configuration and not a
  *  dictionary string — it reads the same in all four languages, and it is the

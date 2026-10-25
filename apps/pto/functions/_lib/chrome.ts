@@ -18,13 +18,18 @@ import {
 } from "@sd/shared";
 import { LANG_PARAM } from "./locale.js";
 import { escapeHtml } from "./page.js";
+import { PTO_EMAIL } from "./pto.js";
 
 export const APEX_URL = "https://eisenhower.school";
 export const DIRECTORY_URL = "https://directory.eisenhower.school";
 export const CALENDAR_URL = "https://calendar.eisenhower.school";
 export const NEWSLETTER_URL = "https://newsletter.eisenhower.school";
 export const STORE_URL = "https://store.eisenhower.school";
-export const FEEDBACK_EMAIL = "admin@eisenhower.school";
+/** Where the footer's feedback line points. On THIS app it is the PTO's own
+ *  mailbox (`PTO_EMAIL` in `_lib/pto.ts`), not the site-runner address the
+ *  other apps' footers use — feedback about the PTO's pages belongs to the
+ *  PTO. The SPA's copied SiteFooter defaults to the same address. */
+export const FEEDBACK_EMAIL = PTO_EMAIL;
 
 /** The sibling apps the header links to, in the order `PLATFORM_APPS` fixes
  *  for every surface in the project. Hardcoded production origins, like the

@@ -35,7 +35,7 @@ const PLATFORM_ORIGINS: PlatformOrigins = {
 };
 
 /** Where feedback goes. One constant, used by the credit line below. */
-export const FEEDBACK_EMAIL = "admin@eisenhower.school";
+export const FEEDBACK_EMAIL = "EisenhowerPTO@hopkinsschools.org";
 
 /** The organisation's name. A proper noun, so it is data and reads the same in
  *  all four languages. */

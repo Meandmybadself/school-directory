@@ -95,7 +95,7 @@ ${input.body}
       <div>
         <a href="${PTO_URL}">Eisenhower PTO</a>
         <span aria-hidden="true"> · </span>
-        Feedback to <a href="mailto:admin@eisenhower.school">admin@eisenhower.school</a>
+        Feedback to <a href="mailto:EisenhowerPTO@hopkinsschools.org">EisenhowerPTO@hopkinsschools.org</a>
         <span aria-hidden="true"> · </span>
         <a href="${SOURCE_URL}">GitHub</a>
       </div>

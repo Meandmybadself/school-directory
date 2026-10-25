@@ -299,9 +299,9 @@ export const ASSISTANCE_FORM_URL =
 export const FRC_PHONE = "(952) 988-4308";
 
 /** The PTO's own mailbox — the landing page's "Find us" chip and JSON-LD
- *  contact, and where the Resource Center's volunteer card points. Distinct
- *  from `FEEDBACK_EMAIL` in `_lib/chrome.ts`, which reaches whoever runs this
- *  site rather than the PTO's inbox and stays on the footer's credit line. */
+ *  contact, where the Resource Center's volunteer card points, and (as
+ *  `FEEDBACK_EMAIL` in `_lib/chrome.ts`) the footer's feedback address: on
+ *  this app every address a reader sees is the PTO's. */
 export const PTO_EMAIL = "EisenhowerPTO@hopkinsschools.org";
 
 export const SOCIAL: PtoLink[] = [

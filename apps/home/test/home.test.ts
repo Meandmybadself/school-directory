@@ -16,7 +16,7 @@ const env: Env = {
   PTO_URL: "https://pto.eisenhower.school",
   LOSTFOUND_URL: "https://lostandfound.eisenhower.school",
   SCHOOL_SITE_URL: "https://eisenhower.hopkinsschools.org/",
-  FEEDBACK_EMAIL: "admin@eisenhower.school",
+  FEEDBACK_EMAIL: "EisenhowerPTO@hopkinsschools.org",
   SCHOOL_CITY: "Hopkins",
   SCHOOL_REGION: "Minnesota",
   SCHOOL_REGION_CODE: "MN",
@@ -242,7 +242,7 @@ describe("the landing page", () => {
     for (const locale of LOCALES) {
       const html = await body(`/?lang=${locale}`);
       expect(html).toContain(`https://pto.eisenhower.school/?lang=${locale}`);
-      expect(html).toContain("mailto:admin@eisenhower.school");
+      expect(html).toContain("mailto:EisenhowerPTO@hopkinsschools.org");
       // "GitHub" is a proper noun and reads the same in all four languages,
       // which is why it is no longer a dictionary string at all.
       expect(html).toContain(`<a href="${SOURCE_URL}">GitHub</a>`);
@@ -720,7 +720,7 @@ describe("/faq/print", () => {
       expect(html).toContain(`eisenhower.school/faq?lang=${l}`);
     }
     // And an address to write to, on every sheet.
-    expect(html.match(/admin@eisenhower\.school/g)?.length).toBeGreaterThanOrEqual(LOCALES.length);
+    expect(html.match(/EisenhowerPTO@hopkinsschools\.org/g)?.length).toBeGreaterThanOrEqual(LOCALES.length);
   });
 
   it("is not indexed — two copies of one text compete with each other", async () => {
