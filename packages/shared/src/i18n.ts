@@ -1536,9 +1536,9 @@ const en: Strings = {
   ptoRoleSecretary: "Secretary",
   ptoRoleSecretaryBody:
     "Minutes, the monthly PTO Corner newsletter, flyers, wishlists, and getting photos of the year taken and shared.",
-  ptoRoleTreasurer: "Co-Treasurers",
+  ptoRoleTreasurer: "Treasurer",
   ptoRoleTreasurerBody:
-    "The treasurer's report, the budget, taxes, deposits and reimbursements. Two seats, because it is more than one evening a month.",
+    "The treasurer's report, the budget, taxes, deposits and reimbursements.",
   ptoRoleFundraising: "Fundraising Chair",
   ptoRoleFundraisingBody:
     "Restaurant nights, the Read-A-Thon, the plant sale and Give to the Max Day.",
@@ -2319,9 +2319,9 @@ const es: Strings = {
   ptoRoleSecretary: "Secretaría",
   ptoRoleSecretaryBody:
     "Las actas, el boletín mensual PTO Corner, los volantes, las listas de deseos, y hacer que las fotos del año se tomen y se compartan.",
-  ptoRoleTreasurer: "Co-Tesorerías",
+  ptoRoleTreasurer: "Tesorería",
   ptoRoleTreasurerBody:
-    "El informe de tesorería, el presupuesto, los impuestos, los depósitos y los reembolsos. Dos puestos, porque es más de una tarde al mes.",
+    "El informe de tesorería, el presupuesto, los impuestos, los depósitos y los reembolsos.",
   ptoRoleFundraising: "Coordinación de recaudación",
   ptoRoleFundraisingBody:
     "Las noches en restaurantes, el Read-A-Thon, la venta de plantas y el Give to the Max Day.",
@@ -3074,9 +3074,8 @@ const zh: Strings = {
   ptoRoleSecretary: "秘书",
   ptoRoleSecretaryBody:
     "会议记录、每月的 PTO Corner 通讯、宣传单、心愿清单，以及安排全年活动照片的拍摄与分享。",
-  ptoRoleTreasurer: "共同财务长",
-  ptoRoleTreasurerBody:
-    "财务报告、预算、报税、存款与报销。设两个席位，因为这不止是每月一个晚上的事。",
+  ptoRoleTreasurer: "财务长",
+  ptoRoleTreasurerBody: "财务报告、预算、报税、存款与报销。",
   ptoRoleFundraising: "筹款负责人",
   ptoRoleFundraisingBody: "餐厅之夜、阅读马拉松、植物义卖和 Give to the Max Day。",
   ptoRoleVolunteer: "志愿者负责人",
@@ -3907,9 +3906,9 @@ const so: Strings = {
   ptoRoleSecretary: "Xoghaye",
   ptoRoleSecretaryBody:
     "Diiwaanka kulamada, wargeyska bishii mar ah ee PTO Corner, warqadaha, liisaska rabitaanka, iyo in sawirrada sannadka la qaado oo la wadaago.",
-  ptoRoleTreasurer: "Khasnajiyaal wadaag ah",
+  ptoRoleTreasurer: "Khasnaji",
   ptoRoleTreasurerBody:
-    "Warbixinta maaliyadda, miisaaniyadda, canshuuraha, kaydinta iyo lacag-celinta. Laba kursi, maxaa yeelay waa ka badan hal fiid bishii.",
+    "Warbixinta maaliyadda, miisaaniyadda, canshuuraha, kaydinta iyo lacag-celinta.",
   ptoRoleFundraising: "Hoggaamiyaha ururinta lacagta",
   ptoRoleFundraisingBody:
     "Habeennada makhaayadaha, Read-A-Thon, iibka geedaha, iyo Give to the Max Day.",
