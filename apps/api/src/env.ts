@@ -88,9 +88,11 @@ export interface Env {
    *  it (or without BULK_EMAIL_FROM) every message rides Resend as before. */
   EMAIL?: SendEmail;
   /** The From identity for mail sent through the EMAIL binding, e.g.
-   *  "Eisenhower PTO <newsletter@eisenhower.school>". Its DOMAIN must be
-   *  onboarded to Email Sending, which is why the channel keys on this var:
-   *  set it only after `wrangler email sending enable` has verified. The
+   *  "Eisenhower PTO <newsletter@sitemail.eisenhower.school>". Its DOMAIN
+   *  must be onboarded to Email Sending, which is why the channel keys on
+   *  this var: set it only after `wrangler email sending enable` has
+   *  verified. App mail lives on the sitemail. subdomain — the apex's mail
+   *  is the school's Google Workspace (EMAIL-INTAKE.md). The
    *  admin-configured sender keeps its display name; the old address
    *  survives as Reply-To. */
   BULK_EMAIL_FROM?: string;
