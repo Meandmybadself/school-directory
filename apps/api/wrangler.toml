@@ -95,7 +95,9 @@ binding = "AI"
 # (lib/email.ts routes `bulk` mail here; everything else stays on Resend, whose
 # free 100/day cap then belongs entirely to magic links and invites). The
 # channel turns ON only where BULK_EMAIL_FROM is also set — its domain must be
-# onboarded first: `npx wrangler email sending enable eisenhower.school`.
+# onboarded first: `npx wrangler email sending enable sitemail.eisenhower.school`.
+# App mail lives on the sitemail. subdomain because the APEX's mail is the
+# school's (Google Workspace) — see EMAIL-INTAKE.md.
 [[send_email]]
 name = "EMAIL"
 
@@ -167,7 +169,8 @@ simple = { limit = 60, period = 60 }
 
 # Secrets (set via `wrangler secret put --env production`, or .dev.vars locally):
 #   RESEND_API_KEY    — Resend email API key (magic links / invites)
-#   EMAIL_FROM        — verified Resend sender, e.g. "Eisenhower Directory <directory@…>"
+#   EMAIL_FROM        — verified Resend sender, e.g.
+#                       "Eisenhower Directory <directory@sitemail.eisenhower.school>"
 #   SLACK_WEBHOOK_URL — Slack Incoming Webhook for system-event notifications
 #                       (optional; the feature is off entirely when unset, and
 #                       logs to the console instead — see CLAUDE.md invariant 22)
@@ -209,8 +212,10 @@ BOOTSTRAP_ADMIN_EMAILS = "meandmybadself@gmail.com"
 # Turns the Cloudflare Email Sending channel ON for newsletter mail (see the
 # [[send_email]] note above). Set ONLY while the domain is onboarded and
 # verified (`wrangler email sending list`) — an unverified sender fails every
-# newsletter send permanently. Onboarded + enabled 2026-10-22.
-BULK_EMAIL_FROM = "Eisenhower PTO <newsletter@eisenhower.school>"
+# newsletter send permanently. sitemail.eisenhower.school onboarded + verified
+# by test send 2026-10-25 (the apex's own onboarding, 2026-10-22, is retired
+# with the apex MX handoff to Google Workspace — EMAIL-INTAKE.md).
+BULK_EMAIL_FROM = "Eisenhower PTO <newsletter@sitemail.eisenhower.school>"
 
 [[env.production.d1_databases]]
 binding = "DB"
