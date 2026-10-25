@@ -17,8 +17,8 @@ bitten twice.
 - `/resource-center` — the Resource Center's own page, split out so a flyer
   can carry its URL directly. Reuses /how-to-help's resource strings and the
   facts in `_lib/pto.ts`; makes no subrequest, like the landing page. The
-  board intends to break the rest of /how-to-help into volunteering and
-  donations pages later; until then /how-to-help keeps its resource section.
+  cards live only here: /how-to-help's resource section and the landing
+  page's "Ways to help" grid introduce the Center and link to this page.
 - `/robots.txt`, `/sitemap.xml` (a public page added here and not to the
   sitemap's `PUBLIC_PATHS` is one no search engine hears about)
 

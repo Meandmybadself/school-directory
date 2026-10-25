@@ -81,10 +81,11 @@ function monthRow(t: T, locale: Locale, month: number, events: { name: string; c
 
 /** A "way to help" card, each with the one link that actually does the thing.
  *
- *  Three of these are rendered, not four: "Buy the shirt" is out while the shop
- *  is being built, alongside the header's store link and apps/home's store
- *  tile. Its copy (`ptoHelpShop`, `ptoHelpShopBody`) is translated and waiting,
- *  so restoring it is one line — see `_lib/chrome.ts`'s `header`. */
+ *  Four are rendered — the second is the Resource Center, whose link is its
+ *  own page on this origin. "Buy the shirt" stays out while the shop is being
+ *  built, alongside the header's store link and apps/home's store tile. Its
+ *  copy (`ptoHelpShop`, `ptoHelpShopBody`) is translated and waiting, so
+ *  restoring it is one line — see `_lib/chrome.ts`'s `header`. */
 function helpCard(t: T, title: keyof Strings, body: keyof Strings, href: string, label: string): string {
   return `        <div class="pt-card">
           <h3>${escapeHtml(t(title))}</h3>
@@ -202,18 +203,16 @@ ${YEAR.map((m) => monthRow(t, locale, m.month, m.events)).join("\n")}
         <p class="pt-sub">${escapeHtml(t("ptoHelpLead"))}</p>
         <div class="pt-grid">
 ${helpCard(t, "ptoHelpVolunteer", "ptoHelpVolunteerBody", appHref(CALENDAR_URL, "/", locale), t("calendarTitle"))}
+${helpCard(t, "ptoHowResourceTitle", "ptoHowResourceLead", `/resource-center?${LANG_PARAM}=${locale}`, t("ptoHowResourceTitle"))}
 ${helpCard(t, "ptoHelpMeeting", "ptoHelpMeetingBody", appHref(CALENDAR_URL, "/", locale), t("ptoMeetingsTitle"))}
 ${helpCard(t, "ptoHelpWishlist", "ptoHelpWishlistBody", WISHLISTS[0]!.url, WISHLISTS[0]!.label)}
         </div>
         <p class="pt-sub" style="margin-top:16px">
           <a href="${escapeHtml(WISHLISTS[1]!.url)}">${escapeHtml(WISHLISTS[1]!.label)} →</a>
         </p>
-        <!-- The deeper pages: the Resource Center's own page, then the rest —
-             the recurring volunteer work and the wishlists. Internal, so the
-             hrefs keep ?lang= the way every link on this origin does. -->
-        <p class="pt-sub" style="margin-top:4px">
-          <a href="${escapeHtml(`/resource-center?${LANG_PARAM}=${locale}`)}">${escapeHtml(t("ptoHowResourceTitle"))} →</a>
-        </p>
+        <!-- The deeper page — the recurring volunteer work and the wishlists.
+             Internal, so the href keeps ?lang= the way every link on this
+             origin does. (The Resource Center's own page is the card above.) -->
         <p class="pt-sub" style="margin-top:4px">
           <a href="${escapeHtml(`/how-to-help?${LANG_PARAM}=${locale}`)}"><b>${escapeHtml(t("ptoHelpMoreCta"))} →</b></a>
         </p>

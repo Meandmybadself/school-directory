@@ -3,9 +3,9 @@
 // Split out of /how-to-help at the board's request so the page can be the URL
 // on a flyer: a family handed "pto.eisenhower.school/resource-center" should
 // land on the Resource Center and nothing else, with no scrolling past the
-// volunteer list and the wishlists to find it. (/how-to-help keeps its
-// resource section for now; the board is still deciding how the rest of that
-// page splits apart.)
+// volunteer list and the wishlists to find it. The cards live ONLY here now:
+// /how-to-help's resource section and the landing page's "Ways to help" grid
+// each introduce the Center in a line and link to this page.
 //
 // The THIRD indexed page on this origin — in the sitemap's PUBLIC_PATHS, with
 // hreflang alternates, translated into all four languages. Every string here

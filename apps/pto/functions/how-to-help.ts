@@ -38,13 +38,11 @@ import {
   type Strings,
 } from "@sd/shared";
 import { CALENDAR_URL, appHref, footer, header } from "./_lib/chrome.js";
-import { langCookie, resolveLocale } from "./_lib/locale.js";
+import { LANG_PARAM, langCookie, resolveLocale } from "./_lib/locale.js";
 import { escapeHtml, html, shell, translator } from "./_lib/page.js";
 import {
   ASSISTANCE_FORM_URL,
-  DONATE,
   FRC_PHONE,
-  PTO_EMAIL,
   TEACHER_WISHLISTS,
   VOLUNTEER_EVENTS,
   WISHLISTS,
@@ -58,14 +56,6 @@ const SCHOOL = "Eisenhower PTO";
 const PATH = "/how-to-help";
 
 type T = (key: keyof Strings, vars?: Record<string, string>) => string;
-
-/** A card with no link — the Resource Center's "what" and "how". */
-function card(t: T, title: keyof Strings, body: keyof Strings): string {
-  return `        <div class="pt-card">
-          <h3>${escapeHtml(t(title))}</h3>
-          <p>${escapeHtml(t(body))}</p>
-        </div>`;
-}
 
 /** A card whose last line is the one link that actually does the thing — the
  *  same shape the landing page's help cards have. */
@@ -213,12 +203,13 @@ ${header(t, SCHOOL, locale, PATH)}
       <section class="pt-sec" id="resource-center">
         <h2 class="pt-h2">${escapeHtml(t("ptoHowResourceTitle"))}</h2>
         <p class="pt-sub">${escapeHtml(t("ptoHowResourceLead"))}</p>
-        <div class="pt-grid">
-${card(t, "ptoHowResourceWhat", "ptoHowResourceWhatBody")}
-${card(t, "ptoHowResourceWho", "ptoHowResourceWhoBody")}
-${linkCard(t, "ptoHowResourceVolunteer", "ptoHowResourceVolunteerBody", `mailto:${PTO_EMAIL}`, PTO_EMAIL)}
-${linkCard(t, "ptoHowResourceGive", "ptoHowResourceGiveBody", DONATE.url, t("ptoDonateCta"))}
-        </div>
+        <!-- The full story — what it buys, how it reaches a family, how to
+             help — lives on the Resource Center's own page now; this section
+             introduces it and links there. Internal, so the href keeps ?lang=
+             the way every link on this origin does. -->
+        <p class="pt-sub" style="margin-top:4px">
+          <a href="${escapeHtml(`/resource-center?${LANG_PARAM}=${locale}`)}"><b>${escapeHtml(t("ptoHowResourceTitle"))} →</b></a>
+        </p>
         <div class="pt-note">
           <b>${escapeHtml(t("ptoHowResourceNoteTitle"))}</b> ${escapeHtml(
             t("ptoHowResourceNoteBody"),
