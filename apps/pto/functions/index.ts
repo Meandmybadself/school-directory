@@ -193,6 +193,21 @@ const WISHLIST_FILTER_JS = `(function () {
   });
 })();`;
 
+/** The hero's jump links — the page got long when /how-to-help folded in, so
+ *  the hero maps it: one chip per section below, in page order, each label the
+ *  section's own heading, so the row costs no copy of its own. Donate and
+ *  "Ways to help" appear here AND as the CTA buttons above — the buttons are
+ *  emphasis, the row is the complete map. */
+const ANCHORS: Array<[href: string, label: keyof Strings]> = [
+  ["#what", "ptoWhatTitle"],
+  ["#board", "ptoBoardTitle"],
+  ["#year", "ptoYearTitle"],
+  ["#help", "ptoHelpTitle"],
+  ["#wishlists", "ptoHowWishlistTitle"],
+  ["#donate", "ptoDonateTitle"],
+  ["#find", "ptoFindTitle"],
+];
+
 /** The same facts the block under "Find us" prints, in the form a search engine
  *  reads them — this is one of only three surfaces in the project that ask to be
  *  indexed, and an organization's name, address and EIN is exactly what
@@ -275,9 +290,12 @@ ${header(t, SCHOOL, locale, "/")}
           <a class="pt-btn" href="#donate">${escapeHtml(t("ptoDonateTitle"))}</a>
           <a class="pt-btn pt-btn-ghost" href="#help">${escapeHtml(t("ptoHelpTitle"))}</a>
         </div>
+        <nav class="pt-anchors" aria-label="${escapeHtml(t("ptoOnThisPage"))}">
+${ANCHORS.map(([href, label]) => `          <a class="pt-chip" href="${href}">${escapeHtml(t(label))}</a>`).join("\n")}
+        </nav>
       </section>
 
-      <section class="pt-sec">
+      <section class="pt-sec" id="what">
         <h2 class="pt-h2">${escapeHtml(t("ptoWhatTitle"))}</h2>
         <p class="pt-sub">${escapeHtml(t("ptoWhatBody"))}</p>
         <div class="pt-grid">
@@ -288,7 +306,7 @@ ${pillar(t, "ptoPillarStaff", "ptoPillarStaffBody")}
         </div>
       </section>
 
-      <section class="pt-sec">
+      <section class="pt-sec" id="board">
         <h2 class="pt-h2">${escapeHtml(t("ptoBoardTitle"))}</h2>
         <p class="pt-sub">${escapeHtml(t("ptoBoardLead"))}</p>
         <div class="pt-grid">
@@ -305,7 +323,7 @@ ${SEATS.map((s) => seatCard(t, s.title, s.body)).join("\n")}
         </div>
       </section>
 
-      <section class="pt-sec">
+      <section class="pt-sec" id="year">
         <h2 class="pt-h2">${escapeHtml(t("ptoYearTitle"))}</h2>
         <p class="pt-sub">${escapeHtml(t("ptoYearLead"))}</p>
         <div class="pt-legend">
@@ -395,7 +413,7 @@ ${TEACHER_WISHLISTS.map((w) => teacherRow(t, w)).join("\n")}
         </div>
       </section>
 
-      <section class="pt-sec">
+      <section class="pt-sec" id="find">
         <h2 class="pt-h2">${escapeHtml(t("ptoFindTitle"))}</h2>
         <p class="pt-sub">${escapeHtml(t("ptoFindLead"))}</p>
         <div class="pt-links">

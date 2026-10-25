@@ -123,9 +123,14 @@ a { color: var(--blue-700); }
   margin: 16px 0 0; max-width: 62ch;
 }
 .pt-cta { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 24px; }
+/* The hero's jump links: a complete map of the sections below, quieter than
+   the CTA buttons above it. Reuses .pt-chip, sized down a step. */
+.pt-anchors { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 18px; }
+.pt-anchors .pt-chip { font-size: 12.5px; padding: 6px 11px; color: var(--ink-2); }
 
 /* sections */
-.pt-sec { padding-top: 54px; }
+.pt-sec { padding-top: 54px; scroll-margin-top: 10px; }
+@media (prefers-reduced-motion: no-preference) { html { scroll-behavior: smooth; } }
 .pt-h2 { font-size: clamp(20px, 3vw, 25px); font-weight: 800; letter-spacing: -.5px; margin: 0; }
 .pt-sub { color: var(--ink-2); font-size: 15px; line-height: 1.55; margin: 8px 0 22px; max-width: 62ch; }
 .pt-body { color: var(--ink-2); font-size: 15.5px; line-height: 1.6; max-width: 62ch; }

@@ -722,6 +722,9 @@ export interface Strings {
    *  section, which carries the volunteer list and the wishlists since
    *  /how-to-help folded into it. */
   ptoHelpMoreCta: string;
+  /** Accessible name of the hero's jump-link row; the chips themselves reuse
+   *  the section headings, so this is the row's only copy of its own. */
+  ptoOnThisPage: string;
   ptoHowResourceTitle: string;
   ptoHowResourceLead: string;
   ptoHowResourceWhat: string;
@@ -1572,6 +1575,7 @@ const en: Strings = {
   ptoHelpShopBody:
     "Spirit wear from the PTO store. Every order supports the school, and you don't need an account.",
   ptoHelpMoreCta: "More ways to help",
+  ptoOnThisPage: "On this page",
   ptoHowResourceTitle: "The Resource Center",
   ptoHowResourceLead:
     "When an Eisenhower family hits a hard stretch, the Resource Center is how the school helps — quickly and quietly.",
@@ -2354,6 +2358,7 @@ const es: Strings = {
   ptoHelpShopBody:
     "Ropa escolar de la tienda de la PTO. Cada pedido apoya a la escuela, y no necesita cuenta.",
   ptoHelpMoreCta: "Más maneras de ayudar",
+  ptoOnThisPage: "En esta página",
   ptoHowResourceTitle: "El Centro de Recursos",
   ptoHowResourceLead:
     "Cuando una familia de Eisenhower pasa por un momento difícil, el Centro de Recursos es la forma en que la escuela ayuda — rápido y con discreción.",
@@ -3104,6 +3109,7 @@ const zh: Strings = {
   ptoHelpShop: "买一件校服衫",
   ptoHelpShopBody: "家长会商店的校园服饰。每一笔订单都支持学校，而且不需要账户。",
   ptoHelpMoreCta: "更多帮忙的方式",
+  ptoOnThisPage: "本页内容",
   ptoHowResourceTitle: "资源中心",
   ptoHowResourceLead:
     "当一个 Eisenhower 家庭遇到难关时，资源中心就是学校伸出援手的方式——迅速而低调。",
@@ -3940,6 +3946,7 @@ const so: Strings = {
   ptoHelpShopBody:
     "Dharka dugsiga oo laga helo dukaanka PTO-da. Dalab kastaa wuxuu taageeraa dugsiga, xisaabna uma baahnid.",
   ptoHelpMoreCta: "Siyaabo kale oo lagu caawiyo",
+  ptoOnThisPage: "Boggan dhexdiisa",
   ptoHowResourceTitle: "Xarunta Kheyraadka",
   ptoHowResourceLead:
     "Marka qoys Eisenhower ah uu wakhti adag soo maro, Xarunta Kheyraadka ayaa ah sida dugsigu u caawiyo — si degdeg ah oo aamusnaan ah.",
