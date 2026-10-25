@@ -113,11 +113,19 @@ export function header(
   locale: Locale,
   path: string,
 ): string {
+  // This site's own page first, then the sibling apps. Internal, so the href
+  // keeps ?lang= the way every link on this origin does; the label is the
+  // page's own title, so the link costs no copy of its own.
+  const resourceLink = `<a href="${escapeHtml(`/resource-center?${LANG_PARAM}=${locale}`)}"${
+    path === "/resource-center" ? ' aria-current="page"' : ""
+  }>${escapeHtml(t("ptoHowResourceTitle"))}</a>`;
   // The same four, in the same order, as every SPA's switcher and the store's
-  // header. A reader here is signed out, so each lands on a PUBLIC entry.
+  // header. A reader here is signed out, so each lands on a PUBLIC entry. The
+  // PTO's entry claims aria-current only on the landing page itself — on
+  // /resource-center that belongs to the link above.
   const links = PLATFORM_APPS.map((app) => {
     const href = escapeHtml(platformAppHref(app, PLATFORM_ORIGINS, locale, false));
-    const current = app.key === "pto" ? ' aria-current="page"' : "";
+    const current = app.key === "pto" && path === "/" ? ' aria-current="page"' : "";
     return `<a href="${href}"${current}>${escapeHtml(t(app.label))}</a>`;
   }).join("\n        ");
   return `    <header class="pt-head">
@@ -129,6 +137,7 @@ export function header(
         </span>
       </a>
       <nav class="pt-navlinks">
+        ${resourceLink}
         ${links}
       </nav>
       <!-- The footer carries the language switcher on wide screens; on a phone
