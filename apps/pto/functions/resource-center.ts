@@ -82,7 +82,7 @@ ${header(t, SCHOOL, locale, PATH)}
 
       <section class="pt-hero">
         <h1 class="pt-h1">${escapeHtml(t("ptoHowResourceTitle"))}</h1>
-        <p class="pt-lead">${escapeHtml(t("ptoHowResourceLead"))}</p>
+        <p class="pt-lead" style="max-width:none">${escapeHtml(t("ptoHowResourceLead"))}</p>
         <div class="pt-cta">
           <a class="pt-btn" href="${escapeHtml(ASSISTANCE_FORM_URL)}">${escapeHtml(t("ptoHowResourceFormCta"))}</a>
           <a class="pt-btn pt-btn-ghost" href="#give">${escapeHtml(t("ptoResourceDonateTitle"))}</a>
