@@ -946,7 +946,12 @@ export interface AccessClaimStatusDTO {
    *  for the same reason — it decides what a reviewer is shown, never what
    *  anyone may read. */
   isStaff: boolean;
-  /** All three. The route re-derives this; the client never asserts it. */
+  /** The family has entered at least one contact item (any Person they
+   *  control, or their household). Required before the directory opens — the
+   *  read gate is reciprocal — so the form requires it too, or an approved
+   *  family would still meet a locked directory with no warning. */
+  hasContactInfo: boolean;
+  /** All conditions. The route re-derives this; the client never asserts it. */
   complete: boolean;
 }
 
@@ -968,6 +973,11 @@ export interface MeDTO {
   /** Why the button is disabled, present only while `directoryAccess` is
    *  `incomplete` — there is nothing to itemise once they have asked. */
   accessClaim?: AccessClaimStatusDTO;
+  /** The reciprocity half of the read gate: the family has entered at least
+   *  one contact item. `approved` with this false means the directory is
+   *  still closed, and the fix is adding contact info, not re-applying. Raw
+   *  fact for every account; the admin exemption lives in the gate itself. */
+  hasContactInfo: boolean;
 }
 
 /** One pending (or decided) application, as the admin queue renders it.

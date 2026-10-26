@@ -16,7 +16,7 @@
 // friendlier font. Each unmet condition links to the screen that fixes it.
 
 import { useCallback, useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, Navigate } from "react-router-dom";
 import type { AccessClaimStatusDTO, ControllablePersonDTO } from "@sd/shared";
 import { Icon } from "../components/Icon.js";
 import { Btn, Tag } from "../components/atoms.js";
@@ -122,6 +122,43 @@ export function Access() {
     [refresh],
   );
 
+  // ── Approved, but the directory is still closed ────────────────────────────
+  //
+  // The reciprocity rule: the review said yes, and the directory stays shut
+  // until the family has entered at least one contact item. The screen is the
+  // fix, not the form: one sentence of why and a link to the profile editor
+  // where contact info lives. RequireApproved routes here only in that state,
+  // but /access is also a URL — an approved member with contact info (or an
+  // admin, whom the gate exempts) landing on it from a bookmark or the back
+  // button has nothing to do here and goes home rather than being told to add
+  // what the row below would show as already done.
+  const contactLocked = me?.hasContactInfo === false && !me.user.isSystemAdmin;
+  if (state === "approved" && !contactLocked) return <Navigate to="/" replace />;
+  if (state === "approved") {
+    return (
+      <AppShell>
+        <div className="sd-scroll">
+          <ScreenHeader title={t("accessContactTitle")} />
+          <div className="sd-card sd-card-pad" style={{ margin: "0 16px", lineHeight: 1.5 }}>
+            <p style={{ margin: 0 }}>{t("accessContactBody")}</p>
+          </div>
+          <div style={{ margin: "16px 16px 0" }}>
+            <ul style={{ margin: 0, padding: 0 }}>
+              <Condition
+                met={me?.hasContactInfo === true}
+                label={t("accessNeedContact")}
+                to={me?.persons[0] ? `/persons/${me.persons[0].id}/edit` : "/welcome"}
+              />
+            </ul>
+          </div>
+          <div className="sd-meta" style={{ margin: "14px 16px", lineHeight: 1.5 }}>
+            {t("accessMeanwhile")}
+          </div>
+        </div>
+      </AppShell>
+    );
+  }
+
   // ── Pending: nothing to do but wait, so nothing to fill in ────────────────
   if (state === "pending") {
     return (
@@ -172,6 +209,15 @@ export function Access() {
               to="/persons/new"
             />
             <Condition met={claim?.studentPlaced === true} label={t("accessNeedClassroom")} />
+            {/* The reciprocity condition. Required here, before the review,
+                because the read gate requires it after — an application that
+                let a family through without it would clear approval and still
+                meet a locked directory with no warning. */}
+            <Condition
+              met={claim?.hasContactInfo === true}
+              label={t("accessNeedContact")}
+              to={me?.persons[0] ? `/persons/${me.persons[0].id}/edit` : "/welcome"}
+            />
           </ul>
 
           {/* The other route, and it has to be VISIBLE rather than inferred.
@@ -254,28 +300,41 @@ export function Access() {
 
 /** The route guard. A UI convenience and nothing more: every gated route
  *  re-resolves the same answer server-side through `requireApproved`, so a
- *  client holding a stale copy gets a 403 rather than data. */
+ *  client holding a stale copy gets a 403 rather than data.
+ *
+ *  Approval alone no longer opens the directory: the family must also have
+ *  entered at least one contact item (the reciprocity rule). The admin
+ *  exemption mirrors the server's — the gate exempts system admins, so the
+ *  guard must too, or an admin with a bare profile would see a wall the API
+ *  would never show them. */
 export function RequireApproved({ children }: { children: React.ReactNode }) {
   const { me } = useSession();
-  if (me && me.directoryAccess !== "approved") return <Access />;
+  const contactLocked = me?.hasContactInfo === false && !me.user.isSystemAdmin;
+  if (me && (me.directoryAccess !== "approved" || contactLocked)) return <Access />;
   return <>{children}</>;
 }
 
-/** The one-line nudge Home shows an account that has not asked yet. */
+/** The one-line nudge Home shows an account the directory is closed to —
+ *  because it has not asked, is waiting, or (approved) still owes the
+ *  reciprocity rule a contact item. */
 export function AccessNudge() {
   const { t } = useI18n();
   const { me } = useSession();
-  if (!me || me.directoryAccess === "approved") return null;
+  if (!me) return null;
+  const contactLocked = me.hasContactInfo === false && !me.user.isSystemAdmin;
+  if (me.directoryAccess === "approved" && !contactLocked) return null;
   return (
     <Link to="/access" style={{ textDecoration: "none", display: "block", margin: "0 16px 12px" }}>
       <div className="sd-card sd-card-pad" style={{ display: "flex", alignItems: "center", gap: 10 }}>
         <Icon name="lock" size={18} style={{ color: "var(--orange)", flex: "none" }} />
         <span style={{ lineHeight: 1.4, flex: 1 }}>
-          {me.directoryAccess === "pending"
-            ? t("accessPendingTitle")
-            : me.directoryAccess === "declined"
-              ? t("accessDeclinedTitle")
-              : t("accessFormTitle")}
+          {me.directoryAccess === "approved"
+            ? t("accessContactTitle")
+            : me.directoryAccess === "pending"
+              ? t("accessPendingTitle")
+              : me.directoryAccess === "declined"
+                ? t("accessDeclinedTitle")
+                : t("accessFormTitle")}
         </span>
         {me.directoryAccess === "pending" && <Tag tone="line">{t("accessSubmitted")}</Tag>}
       </div>

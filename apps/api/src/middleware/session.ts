@@ -4,6 +4,7 @@
 import { createMiddleware } from "hono/factory";
 import type { AuthContext, HonoEnv } from "../env.js";
 import { readActivePerson, readSessionId } from "../lib/cookies.js";
+import { hasContactInfoSql } from "../lib/directoryAccess.js";
 import { isExpired, nowIso } from "../lib/time.js";
 
 interface SessionRow {
@@ -76,7 +77,16 @@ export const sessionMiddleware = createMiddleware<HonoEnv>(async (c, next) => {
             .run(),
         );
 
-        const activePersonId = await resolveActivePerson(c, user.id);
+        // The contact half of the gate only DECIDES anything for an approved
+        // non-admin — an admin is in regardless, an unapproved account is out
+        // regardless — and both facts are already on the session row, so every
+        // other request keeps the old single-row active-person read.
+        const needsContact = user.is_system_admin !== 1 && user.access_approved_at !== null;
+        const { personId: activePersonId, hasContact } = await resolveActivePerson(
+          c,
+          user.id,
+          needsContact,
+        );
         const auth: AuthContext = {
           userId: user.id,
           realUserId: session.acting_admin_id ?? user.id,
@@ -85,7 +95,14 @@ export const sessionMiddleware = createMiddleware<HonoEnv>(async (c, next) => {
           sessionId: session.id,
           activePersonId,
           isMasquerading: !!session.acting_admin_id,
-          isApproved: user.is_system_admin === 1 || user.access_approved_at !== null,
+          // The directory is reciprocal: approval alone does not open it — the
+          // family must also have contributed at least one piece of contact
+          // information (lib/directoryAccess.ts, `hasContactInfoSql`). Both
+          // facts ride reads the middleware already makes, so the combined
+          // gate still costs no extra round trip. Admins are exempt from the
+          // contact half: theirs is administration, not browsing.
+          isApproved:
+            user.is_system_admin === 1 || (user.access_approved_at !== null && hasContact),
         };
         c.set("auth", auth);
       }
@@ -99,20 +116,34 @@ export const sessionMiddleware = createMiddleware<HonoEnv>(async (c, next) => {
  *  Both cases in one statement: the ORDER BY floats the cookie's Person to the
  *  top when the viewer actually controls it, and falls through to the oldest
  *  grant when they don't. Selecting only from rows the user controls is what
- *  makes the cookie safe to trust — an unrecognised value simply can't win. */
+ *  makes the cookie safe to trust — an unrecognised value simply can't win.
+ *
+ *  The contact-info half of the directory gate rides along in the SELECT list
+ *  rather than taking a round trip of its own — this statement already runs on
+ *  every authenticated request, and the middleware's floor is the API's floor —
+ *  and only when `withContact` says the answer decides anything, so the common
+ *  request keeps the old single-row read. A user with no `control` rows gets no
+ *  row back, and `false` is then exact: both branches of the predicate reach
+ *  `contact_item` through `control`. */
 async function resolveActivePerson(
   c: Parameters<Parameters<typeof createMiddleware<HonoEnv>>[0]>[0],
   userId: string,
-): Promise<string | null> {
+  withContact: boolean,
+): Promise<{ personId: string | null; hasContact: boolean }> {
+  // All-anonymous binds, in statement order: the fragment's two (SELECT list
+  // first), then the WHERE, then the ORDER BY — the discipline
+  // lib/directoryAccess.ts's claim statement spells out.
+  const contactCol = withContact ? `, ${hasContactInfoSql()} AS has_contact` : "";
+  const binds = withContact ? [userId, userId] : [];
   const row = await c.env.DB.prepare(
-    `SELECT person_id FROM control
+    `SELECT person_id${contactCol} FROM control
       WHERE user_id = ?
       ORDER BY (person_id = ?) DESC, since ASC
       LIMIT 1`,
   )
-    .bind(userId, readActivePerson(c) ?? "")
-    .first<{ person_id: string }>();
-  return row?.person_id ?? null;
+    .bind(...binds, userId, readActivePerson(c) ?? "")
+    .first<{ person_id: string; has_contact?: number }>();
+  return { personId: row?.person_id ?? null, hasContact: (row?.has_contact ?? 0) > 0 };
 }
 
 /** Guard: 401 unless an AuthContext is present. Returns it for convenience. */

@@ -116,23 +116,83 @@ export async function accessClaimStatus(env: Env, userId: string): Promise<Acces
          WHERE c.user_id = ?) AS placed,
        (SELECT COUNT(*) FROM control c
           JOIN capability_grant g ON g.person_id = c.person_id
-         WHERE c.user_id = ? AND g.capability IN ('teacher','staff')) AS staff`,
+         WHERE c.user_id = ? AND g.capability IN ('teacher','staff')) AS staff,
+       ${hasContactInfoSql()} AS contact`,
   )
-    .bind(userId, ...listable.binds, userId, userId, userId)
-    .first<{ named: number; students: number; placed: number; staff: number }>();
+    .bind(userId, ...listable.binds, userId, userId, userId, userId, userId)
+    .first<{ named: number; students: number; placed: number; staff: number; contact: number }>();
 
   const selfNamed = (row?.named ?? 0) > 0;
   const hasStudent = (row?.students ?? 0) > 0;
   const studentPlaced = (row?.placed ?? 0) > 0;
   const isStaff = (row?.staff ?? 0) > 0;
+  const contact = (row?.contact ?? 0) > 0;
   return {
     selfNamed,
     hasStudent,
     studentPlaced,
     isStaff,
-    // Either route, and a name on both: a reviewer needs somebody to be.
-    complete: selfNamed && (isStaff || (hasStudent && studentPlaced)),
+    hasContactInfo: contact,
+    // Either route, a name on both — and something for the directory to hold:
+    // the read gate (`hasContactInfo`, above) requires contact info after
+    // approval, so the form requires it before, or a family would clear the
+    // review and still meet a locked directory with no warning.
+    complete: selfNamed && contact && (isStaff || (hasStudent && studentPlaced)),
   };
+}
+
+/**
+ * Has this account's FAMILY contributed at least one piece of contact
+ * information? Reading the directory is reciprocal: approval says who you are,
+ * this says you brought something to it — a member who shares nothing does not
+ * get to browse what everyone else shared. Both are required before
+ * `AuthContext.isApproved` resolves true (system admins excepted — theirs is a
+ * duty, not browsing).
+ *
+ * Family-level, deliberately: an item on ANY Person the account controls
+ * counts, and so does one on a household the family belongs to (reached
+ * through a controlled Person's membership) — a second parent whose partner
+ * already entered the home phone has provided it in every sense that matters,
+ * and telling them otherwise would demand a duplicate row. Visibility is NOT
+ * consulted: what the directory asks for is that the information exists here
+ * at all, and requiring `service` would make the privacy-first default
+ * (invariant 3) fail a gate it has no reason to fail.
+ *
+ * One spelling of the predicate, emitted as a fragment so the session
+ * middleware can fold it into a statement it already makes. `userRef` is how
+ * the statement names the account — the default anonymous `?` contributes TWO
+ * binds, both the user id, in the order the fragment is spliced.
+ * Reads `contact_item`, `control`, `membership`, `grp` — never `person`, so it
+ * spends none of test/personListable.test.ts's exemption budget.
+ *
+ * The household branch carries `self_asserted = 0`, the clause invariant 31
+ * says every membership-derived privilege read must carry and a second copy
+ * forgets. It cannot be violated today — only classrooms self-assert, and
+ * classrooms are not households — but this read CONFERS something (it opens
+ * the gate), and the day another membership kind becomes self-assertable, a
+ * self-placed row must not let an account satisfy reciprocity off another
+ * family's household phone number.
+ */
+export function hasContactInfoSql(userRef = "?"): string {
+  return `EXISTS (
+    SELECT 1 FROM contact_item ci
+     WHERE (ci.owner_kind = 'person'
+            AND ci.owner_id IN (SELECT person_id FROM control WHERE user_id = ${userRef}))
+        OR (ci.owner_kind = 'group'
+            AND ci.owner_id IN (SELECT m.group_id FROM membership m
+                                  JOIN control c2 ON c2.person_id = m.person_id
+                                  JOIN grp g ON g.id = m.group_id AND g.kind = 'household'
+                                 WHERE c2.user_id = ${userRef}
+                                   AND m.self_asserted = 0)))`;
+}
+
+/** The fragment above as a one-row read, for the places that are not already
+ *  mid-statement (`GET /me`, which has to report the state to the client). */
+export async function hasContactInfo(env: Env, userId: string): Promise<boolean> {
+  const row = await env.DB.prepare(`SELECT ${hasContactInfoSql()} AS has_contact`)
+    .bind(userId, userId)
+    .first<{ has_contact: number }>();
+  return (row?.has_contact ?? 0) > 0;
 }
 
 /** One account's access row. Its own read because `GET /me` needs the two
@@ -161,6 +221,12 @@ export class DirectoryAccessError extends Error {
 
 /**
  * The guard for a route that serves one family's data to another.
+ *
+ * `auth.isApproved` is the COMBINED gate the session middleware resolves:
+ * admin approval AND at least one piece of contact information contributed
+ * (`hasContactInfoSql`), system admins excepted. A member who later deletes
+ * their last contact item re-closes the directory on their next request; the
+ * client learns which half is missing from `GET /me`, not from this 403.
  *
  * Deliberately a function called at the top of a handler rather than a
  * middleware mounted on a path: the routes needing it are not a path prefix —

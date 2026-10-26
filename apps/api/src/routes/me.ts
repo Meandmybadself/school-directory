@@ -11,7 +11,13 @@ import { setActivePersonCookie } from "../lib/cookies.js";
 import { displayName } from "../lib/privacy.js";
 import { ulid } from "../lib/ids.js";
 import { nowIso } from "../lib/time.js";
-import { accessClaimStatus, accessRowOf, accessStateOf, type AccessRow } from "../lib/directoryAccess.js";
+import {
+  accessClaimStatus,
+  accessRowOf,
+  accessStateOf,
+  hasContactInfo,
+  type AccessRow,
+} from "../lib/directoryAccess.js";
 import { notifyAccessRequest } from "../lib/notify.js";
 
 export const me = new Hono<HonoEnv>();
@@ -205,6 +211,17 @@ me.get("/", async (c) => {
     // Surface the acting admin's id while masquerading so the client shows the banner.
     masqueradingAs: auth.isMasquerading ? auth.realUserId : null,
     directoryAccess: access,
+    // The OTHER half of the read gate, reported separately because the states
+    // are orthogonal: `approved` with this false is a member the review said
+    // yes to whose directory is still closed (the reciprocity rule), and the
+    // client has to say "add contact info", not re-show the application form.
+    // The RAW fact, admins included — the exemption lives in the gate, and a
+    // reporting route that pre-applied it would tell an admin a lie about
+    // their own profile. Its own read on purpose: the middleware computes the
+    // predicate only when it decides the gate (approved non-admins), and this
+    // route must report it in EVERY state — /me is once per app load, where
+    // the middleware's statement is every request.
+    hasContactInfo: await hasContactInfo(c.env, auth.userId),
   };
   // Itemised for the two states that SHOW the form. `pending` and `approved`
   // have nothing to fill in, so a list of conditions there is noise — but a

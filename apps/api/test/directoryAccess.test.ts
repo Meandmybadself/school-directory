@@ -15,7 +15,9 @@
 //
 //   1. The predicate itself. Unapproved resolves to the caller's OWN Persons —
 //      not to "1", and not to the unlisted rule, which would admit the school.
-//   2. The claim is three conditions and needs all three. A form that let an
+//   2. The claim is three conditions and needs all three — plus the
+//      reciprocity condition (contact info entered), required at the form
+//      because the read gate requires it after approval. A form that let an
 //      empty application through would put nothing in front of a reviewer,
 //      which is the one thing this gate exists to prevent.
 //   3. The route gates. `/directory` refuses outright; a profile 404s the way
@@ -41,6 +43,7 @@ import {
   DirectoryAccessError,
   RateLimitedError,
 } from "../src/lib/directoryAccess.js";
+import { sessionMiddleware } from "../src/middleware/session.js";
 import { directory } from "../src/routes/directory.js";
 import { persons } from "../src/routes/persons.js";
 import { groups } from "../src/routes/groups.js";
@@ -135,31 +138,44 @@ describe("what state an account is in", () => {
 });
 
 describe("a claim a reviewer can actually look at", () => {
-  /** Answers `accessClaimStatus`'s single statement from a tiny world. */
+  /** Answers `accessClaimStatus`'s single statement from a tiny world. Contact
+   *  info defaults to PRESENT so the pre-existing cases read unchanged; the
+   *  reciprocity cases set it to 0 themselves. */
   function claimEnv(world: {
     named: number;
     students: number;
     placed: number;
     staff?: number;
+    contact?: number;
   }): Env {
     return {
       DB: {
         prepare(sql: string) {
           if (!sql.includes("AS named")) throw new Error(`unexpected: ${sql}`);
           // The guard has to be composed, or a family could complete an
-          // application on a Person the gate would hide.
-          if (!sql.includes("SELECT person_id FROM control WHERE user_id = ?")) {
+          // application on a Person the gate would hide. Matched on the
+          // alias'd spelling `personListableSql(…, "p")` emits, NOT on the
+          // bare control subquery — `hasContactInfoSql` contains that same
+          // subquery, so the looser match would be satisfied by the contact
+          // fragment alone and the tripwire would be dead.
+          if (!sql.includes("p.id IN (SELECT person_id FROM control")) {
             throw new Error("claim statement does not compose the gate");
           }
+          // The reciprocity condition has to be IN the statement — a claim that
+          // stopped asking would let a family through to a directory the read
+          // gate still holds shut.
+          if (!sql.includes("contact_item")) {
+            throw new Error("claim statement does not ask about contact info");
+          }
           return {
-            bind: () => ({ first: async () => ({ staff: 0, ...world }) }),
+            bind: () => ({ first: async () => ({ staff: 0, contact: 1, ...world }) }),
           };
         },
       },
     } as unknown as Env;
   }
 
-  it("needs all three conditions", async () => {
+  it("needs every condition", async () => {
     expect(
       (await accessClaimStatus(claimEnv({ named: 1, students: 1, placed: 1 }), ME)).complete,
     ).toBe(true);
@@ -167,9 +183,22 @@ describe("a claim a reviewer can actually look at", () => {
       { named: 0, students: 1, placed: 1 },
       { named: 1, students: 0, placed: 1 },
       { named: 1, students: 1, placed: 0 },
+      // The reciprocity rule: a complete family claim with no contact info is
+      // not submittable — the read gate would refuse them after approval, and
+      // the form has to say so before, where the fix is a link away.
+      { named: 1, students: 1, placed: 1, contact: 0 },
     ]) {
       expect((await accessClaimStatus(claimEnv(world), ME)).complete).toBe(false);
     }
+  });
+
+  it("reports the missing contact info so the form can point at it", async () => {
+    const s = await accessClaimStatus(
+      claimEnv({ named: 1, students: 1, placed: 1, contact: 0 }),
+      ME,
+    );
+    expect(s.hasContactInfo).toBe(false);
+    expect(s.complete).toBe(false);
   });
 
   it("reports which condition failed, so the form can point at a sentence", async () => {
@@ -670,7 +699,9 @@ describe("a teacher or staff member can apply at all", () => {
   function claim(world: { named: number; students: number; placed: number; staff: number }): Env {
     return {
       DB: {
-        prepare: () => ({ bind: () => ({ first: async () => world }) }),
+        // Contact info present: this block is about the staff route, and the
+        // reciprocity condition has its own cases above.
+        prepare: () => ({ bind: () => ({ first: async () => ({ contact: 1, ...world }) }) }),
       },
     } as unknown as Env;
   }
@@ -835,5 +866,107 @@ describe("the daily read budget", () => {
     expect(line).toContain("a&lt;b&gt;@x.org");
     expect(line).toContain("masquerading");
     expect(line).not.toMatch(/<[^>]*>/);
+  });
+});
+
+// ── 8. The reciprocity half of the gate ──────────────────────────────────────
+//
+// Approval says who you are; the directory still stays shut until the family
+// has entered at least one contact item (`hasContactInfoSql`). The combined
+// answer is resolved by the SESSION MIDDLEWARE — every `auth.isApproved`
+// consumer, route guard and predicate alike, inherits it — so these run the
+// real middleware against a scripted D1. Behavioural in this file's way: the
+// fake answers `has_contact` only when the statement actually asks
+// `contact_item`, so a middleware that dropped the predicate fails the
+// approved-with-contact case on a value rather than passing on a script.
+
+describe("approval alone does not open the directory", () => {
+  function middlewareEnv(world: {
+    approvedAt: string | null;
+    isAdmin?: boolean;
+    hasContact: boolean;
+  }): Env {
+    const stmt = (sql: string, binds: unknown[]) => ({
+      bind: (...b: unknown[]) => stmt(sql, b),
+      async first<T>(): Promise<T | null> {
+        if (sql.includes("FROM session s")) {
+          return {
+            id: "01SESSION",
+            user_id: ME,
+            expires_at: "2999-01-01T00:00:00.000Z",
+            revoked_at: null,
+            acting_admin_id: null,
+            parent_session_id: null,
+            email: "dana@eisenhower.edu",
+            is_system_admin: world.isAdmin ? 1 : 0,
+            disabled_at: null,
+            access_approved_at: world.approvedAt,
+          } as T;
+        }
+        if (sql.includes("FROM control")) {
+          // HONOUR the binds, don't just script a value: the fragment's two
+          // user-id binds come first (SELECT list), then the WHERE's, then the
+          // ORDER BY's cookie value — the order directoryAccess.ts's own
+          // comment warns about. A middleware that swapped them puts the
+          // cookie value in a user_id slot; this fake then returns no row, and
+          // the approved-with-contact case fails on a value instead of passing
+          // on a script.
+          const userSlots = sql.includes("contact_item") ? binds.slice(0, 3) : binds.slice(0, 1);
+          if (!userSlots.every((b) => b === ME)) return null;
+          return {
+            person_id: MY_SELF,
+            has_contact: sql.includes("contact_item") && world.hasContact ? 1 : 0,
+          } as T;
+        }
+        return null;
+      },
+      async run() {
+        return { meta: { changes: 0 } };
+      },
+    });
+    return { DB: { prepare: (sql: string) => stmt(sql, []) } } as unknown as Env;
+  }
+
+  const ctx = { waitUntil() {}, passThroughOnException() {}, props: {} } as ExecutionContext;
+
+  async function resolvedAuth(world: Parameters<typeof middlewareEnv>[0]): Promise<AuthContext | undefined> {
+    const a = new Hono<HonoEnv>();
+    a.use("*", sessionMiddleware);
+    let seen: AuthContext | undefined;
+    a.get("/probe", (c) => {
+      seen = c.var.auth;
+      return c.json({ ok: true });
+    });
+    await a.request(
+      "/probe",
+      { headers: { cookie: "sd_session=01SESSION" } },
+      middlewareEnv(world) as never,
+      ctx,
+    );
+    return seen;
+  }
+
+  const APPROVED = "2026-09-01T00:00:00.000Z";
+
+  it("opens for an approved account that has entered contact info", async () => {
+    const auth = await resolvedAuth({ approvedAt: APPROVED, hasContact: true });
+    expect(auth?.isApproved).toBe(true);
+    // The active Person still resolves from the same statement.
+    expect(auth?.activePersonId).toBe(MY_SELF);
+  });
+
+  it("stays shut for an approved account that has entered none", async () => {
+    const auth = await resolvedAuth({ approvedAt: APPROVED, hasContact: false });
+    expect(auth?.isApproved).toBe(false);
+  });
+
+  it("contact info is not a way around the review", async () => {
+    const auth = await resolvedAuth({ approvedAt: null, hasContact: true });
+    expect(auth?.isApproved).toBe(false);
+  });
+
+  it("exempts a system admin — theirs is administration, not browsing", async () => {
+    const auth = await resolvedAuth({ approvedAt: null, isAdmin: true, hasContact: false });
+    expect(auth?.isApproved).toBe(true);
   });
 });

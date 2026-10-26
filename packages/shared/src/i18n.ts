@@ -215,6 +215,11 @@ export interface Strings {
   accessSubmitFailed: string;
   accessSubmitted: string;
   accessMeanwhile: string;
+  // The reciprocity half of the gate: the directory stays closed — even to an
+  // approved account — until the family has entered at least one contact item.
+  accessNeedContact: string;
+  accessContactTitle: string;
+  accessContactBody: string;
   unlistedBadge: string;
   exitPreview: string;
   contact: string;
@@ -1079,6 +1084,10 @@ const en: Strings = {
   accessSubmitted: "Request sent",
   accessMeanwhile:
     "In the meantime you can use the calendar, sign up to volunteer, read the newsletter and manage your own family.",
+  accessNeedContact: "Add at least one way to reach your family — a phone number, email, or address",
+  accessContactTitle: "Add your contact info",
+  accessContactBody:
+    "One more step. The directory works both ways: families share how to reach each other. Add at least one phone number, email, or address to your profile and the directory will open.",
   unlistedBadge: "Unlisted",
   exitPreview: "Exit preview",
   contact: "Contact",
@@ -1915,6 +1924,10 @@ const es: Strings = {
   accessSubmitted: "Solicitud enviada",
   accessMeanwhile:
     "Mientras tanto puede usar el calendario, apuntarse como voluntario, leer el boletín y administrar a su propia familia.",
+  accessNeedContact: "Agregue al menos una forma de contactar a su familia: un teléfono, correo o dirección",
+  accessContactTitle: "Agregue su información de contacto",
+  accessContactBody:
+    "Falta un paso. El directorio funciona en ambos sentidos: las familias comparten cómo contactarse. Agregue al menos un teléfono, correo o dirección a su perfil y el directorio se abrirá.",
   unlistedBadge: "No listado",
   exitPreview: "Salir",
   contact: "Contacto",
@@ -2689,6 +2702,10 @@ const zh: Strings = {
   accessSubmitted: "申请已发送",
   accessMeanwhile:
     "在此期间，您仍可使用日历、报名志愿服务、阅读通讯，并管理自己的家庭信息。",
+  accessNeedContact: "请至少添加一种联系方式——电话、邮箱或地址",
+  accessContactTitle: "添加您的联系方式",
+  accessContactBody:
+    "还差一步。通讯录是双向的：家庭之间互相分享联系方式。请在您的个人资料中至少添加一个电话、邮箱或地址，通讯录即会开放。",
   unlistedBadge: "未列出",
   exitPreview: "退出",
   contact: "联系方式",
@@ -3447,6 +3464,10 @@ const so: Strings = {
   accessSubmitted: "Codsiga waa la diray",
   accessMeanwhile:
     "Inta lagu jiro waxaad isticmaali kartaa jadwalka, iskaa wax u qabso, akhri wargeyska, oo maamul qoyskaaga.",
+  accessNeedContact: "Ku dar ugu yaraan hal hab lagula xiriiro qoyskaaga — taleefan, iimayl ama cinwaan",
+  accessContactTitle: "Ku dar xogta xiriirkaaga",
+  accessContactBody:
+    "Hal tallaabo ayaa hadhay. Buugga xogtu waa laba dhinac: qoysasku waxay wadaagaan sida loola xiriiro. Ku dar ugu yaraan hal taleefan, iimayl ama cinwaan, buugga xogtuna wuu furmayaa.",
   unlistedBadge: "Aan la liisgelin",
   exitPreview: "Ka bax horudhaca",
   contact: "Xiriir",

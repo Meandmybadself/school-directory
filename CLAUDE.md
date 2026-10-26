@@ -928,6 +928,21 @@ Worker, sharing one session:
 32. **Reading the directory is GRANTED, not conferred by signing up.**
    Migration 0029 adds `user.access_approved_at` (non-null IS the
    authorization); `AuthContext.isApproved` rides the session join.
+   **Approval alone no longer opens the directory — reading is RECIPROCAL.**
+   `isApproved` is now approval AND at least one contact item contributed by
+   the family (`hasContactInfoSql` in `lib/directoryAccess.ts` — any Person
+   the account controls, or their household; visibility deliberately not
+   consulted, since requiring `service` would make invariant 3's
+   privacy-first default fail the gate). System admins are exempt (theirs is
+   administration, not browsing); the predicate rides the middleware's
+   existing active-person read, so the combined gate still costs no round
+   trip. The application form requires it too (`accessClaimStatus`,
+   `accessNeedContact`), or a family would clear review and still meet a
+   locked directory; an already-approved account that never entered contact
+   info (or deletes its last item) re-closes on its next request, and
+   `MeDTO.hasContactInfo` is how the app says "add contact info" instead of
+   re-showing the form. Section 8 of `test/directoryAccess.test.ts` pins it
+   through the real session middleware.
    **An application, not an allowlist**: an allowlist judges an EMAIL (which
    asserts nothing, and checking it would need the district's roster — FERPA
    obligations this system doesn't have); an application judges what the
