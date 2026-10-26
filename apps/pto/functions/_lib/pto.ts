@@ -219,13 +219,17 @@ export const YEAR_ROUND = [
  *  no handle on it — a placeholder, not an address — and a donate button that
  *  lands on Venmo's home page is worse than one that isn't there.
  *
- *  SignUpGenius is absent too, and for a better reason: this instance HAS a
- *  volunteer sign-up system of its own, on the calendar, where a shift is
- *  claimed by a directory Person and the sheet lives on the event (invariant
- *  13). Sending a family to a third-party sign-up from the page that explains
- *  the PTO would point them away from the thing built to replace it. The
- *  landing page's volunteer section renders the live rows itself, and they
- *  land on the calendar. */
+ *  SignUpGenius is absent FOR EVENTS, and for a better reason: this instance
+ *  HAS a volunteer sign-up system of its own, on the calendar, where a shift
+ *  is claimed by a directory Person and the sheet lives on the event
+ *  (invariant 13). Sending a family to a third-party sign-up from the page
+ *  that explains the PTO would point them away from the thing built to
+ *  replace it. The landing page's volunteer section renders the live rows
+ *  itself, and they land on the calendar. The ONE exception is
+ *  `FRC_SIGNUP` below — the Resource Center's recurring shifts — which the
+ *  board chose deliberately (Melanie, 2026-10-23: a helper should see every
+ *  upcoming slot in one place and claim several at once, which the
+ *  per-event sheets don't do). An exception by name, not a precedent. */
 export interface PtoLink {
   /** The label is a proper noun or the service's own name, so it is data. */
   label: string;
@@ -237,13 +241,36 @@ export const DONATE: PtoLink = {
   url: "https://www.givemn.org/organization/Eisenhower-Xx-Juntos-Pto",
 };
 
+/** The PTO's existing Square storefront — spirit wear, and where a direct
+ *  dollar donation lands (/resource-center's "Ways to donate" card, at the
+ *  board's request). Predates this repo's own apps/store, which is still
+ *  unannounced; when that shop launches, deciding which of the two a donation
+ *  card points at is a board conversation, not a find-and-replace. */
+export const SQUARE_STORE: PtoLink = {
+  label: "PTO Store",
+  url: "https://ike-xx-pto.square.site/gallery",
+};
+
+/** The Resource Center's recurring volunteer shifts, on SignUpGenius — the
+ *  one third-party sign-up this site links (see the header's SignUpGenius
+ *  note for why, and why only this one). This exact URL is the draft Melanie
+ *  created and Niki approved (email thread, 2026-10-23); the bare
+ *  …/10C0F4EABA62FA6F5C25 group link is NOT it. */
+export const FRC_SIGNUP: PtoLink = {
+  label: "SignUpGenius",
+  url: "https://www.signupgenius.com/go/10C0F4EABA62FA6F5C25-67041653-family",
+};
+
 export const WISHLISTS: PtoLink[] = [
   { label: "Staff lounge", url: "https://www.amazon.com/hz/wishlist/ls/3URWOKAJJQTEU" },
   { label: "Art room", url: "https://www.amazon.com/hz/wishlist/ls/1OQDDVBJE544I" },
-  // The Resource Center's own list — "Resource Center Needs on Amazon" on the
-  // FRC's flyer. Order matters: the landing page's wishlist cards pair copy
-  // with these entries by POSITION, and /resource-center reads [2].
-  { label: "Resource Center", url: "https://www.amazon.com/hz/wishlist/ls/2XFXVRYLM3DBO" },
+  // The Resource Center's own list — "RESOURCE CENTER NEEDS ON AMAZON" in the
+  // school's Oct 19 2026 family newsletter, which supersedes the FRC flyer's
+  // earlier list (…/ls/2XFXVRYLM3DBO; the flyer still circulates, so if the
+  // board ever asks why two lists exist, that is the other one). Order
+  // matters: the landing page's wishlist cards pair copy with these entries
+  // by POSITION, and /resource-center reads [2].
+  { label: "Resource Center", url: "https://www.amazon.com/hz/wishlist/ls/3DUI9J9AOX9G9" },
 ];
 
 /** One teacher's own wishlist — a row of the landing page's classroom table.

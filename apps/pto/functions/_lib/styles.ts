@@ -211,6 +211,21 @@ a.pt-tw:hover .pt-tw-open { text-decoration: underline; }
 }
 .pt-note b { color: var(--ink); }
 
+/* /resource-center's featured need — the first thing on that page, swapped
+   roughly monthly (the copy lives in the dictionaries; see
+   ptoResourceFeatured* in @sd/shared). Orange where .pt-donate is blue, so
+   the page's two highlighted blocks read as different kinds of ask. */
+.pt-feature {
+  margin-top: 26px; padding: 22px 24px;
+  background: var(--orange-tint); border: 1px solid var(--line);
+  border-left: 4px solid var(--orange); border-radius: var(--r-card);
+}
+.pt-feature .pt-eyebrow { color: var(--orange-ink); }
+.pt-feature h2 {
+  font-size: clamp(20px, 3vw, 25px); font-weight: 800; letter-spacing: -.5px; margin: 10px 0 0;
+}
+.pt-feature p { color: var(--ink-2); font-size: 15.5px; line-height: 1.6; margin: 10px 0 0; max-width: 62ch; }
+
 /* donate */
 .pt-donate {
   background: var(--blue-tint); border: 1px solid var(--line);

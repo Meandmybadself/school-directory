@@ -737,8 +737,9 @@ export interface Strings {
   ptoHowResourceWho: string;
   ptoHowResourceWhoBody: string;
   /** The standing ask from the FRC's own flyer: regular volunteers who shop
-   *  and keep the shelves organized. The card's link is the PTO's mailbox
-   *  (`PTO_EMAIL` in apps/pto's `_lib/pto.ts`). */
+   *  and keep the shelves organized. The card's link is the FRC's own
+   *  sign-up sheet (`FRC_SIGNUP` in apps/pto's `_lib/pto.ts`), so the body
+   *  points at "the sign-up sheet" rather than naming the service. */
   ptoHowResourceVolunteer: string;
   ptoHowResourceVolunteerBody: string;
   ptoHowResourceGive: string;
@@ -753,6 +754,27 @@ export interface Strings {
    *  `ASSISTANCE_FORM_URL` in apps/pto's `_lib/pto.ts`. A description, not a
    *  proper noun: the FRC's flyer translates the form's name itself. */
   ptoHowResourceFormCta: string;
+  /** /resource-center's featured-need block — the first thing on the page,
+   *  swapped roughly monthly by rewriting Title and Body in all four
+   *  languages (the Tag stays put). Current: the winter clothing drive from
+   *  the school's Oct 2026 newsletter. “WINTER GEAR DRIVE” is the label on
+   *  the front office's own bin, so it stays verbatim in every language. */
+  ptoResourceFeaturedTag: string;
+  ptoResourceFeaturedTitle: string;
+  ptoResourceFeaturedBody: string;
+  /** Heading of /resource-center's highlighted "Ways to donate" group. */
+  ptoResourceDonateTitle: string;
+  /** The gift-card card. No URL to carry: the ask is a card left at the
+   *  front office, so the card's one link dials the FRC (`FRC_PHONE`). */
+  ptoResourceGiftCards: string;
+  ptoResourceGiftCardsBody: string;
+  /** The direct-dollar card; its link is `SQUARE_STORE` in apps/pto's
+   *  `_lib/pto.ts`. */
+  ptoResourceSquare: string;
+  ptoResourceSquareBody: string;
+  ptoResourceSquareCta: string;
+  /** Label on the volunteer card's link to `FRC_SIGNUP`. */
+  ptoResourceSignupCta: string;
   /** The heading over the live list of events that still have an open spot. */
   ptoHowVolunteerOpen: string;
   /** Label before the strip of events that come back every year and always
@@ -1596,7 +1618,7 @@ const en: Strings = {
     "School staff see the need first and handle every request personally and confidentially. A short form — or a quiet word — is all it takes, and no list anyone else reads. The PTO's part is keeping it funded.",
   ptoHowResourceVolunteer: "Help run it",
   ptoHowResourceVolunteerBody:
-    "Regular volunteers do the shopping and keep the shelves stocked and organized — a couple of hours a week. Email the PTO if that could be you or someone in your family.",
+    "Regular volunteers do the shopping and keep the shelves stocked and organized — a couple of hours a week. Every upcoming shift is on the sign-up sheet; pick one that fits.",
   ptoHowResourceGive: "How to give",
   ptoHowResourceGiveBody:
     "Give through GiveMN and mention the Resource Center with your gift, or leave cash or a check marked “Resource Center” at the front office.",
@@ -1604,6 +1626,19 @@ const en: Strings = {
   ptoHowResourceNoteBody:
     "Fill out the assistance form, or call the Resource Center. Nobody at the PTO is told who asked, nothing is owed back, and this is exactly what it is for.",
   ptoHowResourceFormCta: "Assistance form",
+  ptoResourceFeaturedTag: "Needed right now",
+  ptoResourceFeaturedTitle: "Winter clothing drive",
+  ptoResourceFeaturedBody:
+    "The Resource Center is collecting winter coats and cool-weather clothing — pants, sweatshirts, and the like — in child and adult sizes alike. Drop donations in the front-office bin marked “WINTER GEAR DRIVE.”",
+  ptoResourceDonateTitle: "Ways to donate",
+  ptoResourceGiftCards: "Gift cards",
+  ptoResourceGiftCardsBody:
+    "Gift cards for groceries, gas or clothing let a family put the help exactly where their month needs it. Leave one marked “Resource Center” at the front office, or call to arrange.",
+  ptoResourceSquare: "Give dollars",
+  ptoResourceSquareBody:
+    "A direct dollar donation through the PTO's store goes straight to work — any amount, no account needed.",
+  ptoResourceSquareCta: "Open the PTO store",
+  ptoResourceSignupCta: "Pick a shift",
   ptoHowVolunteerOpen: "What needs help right now",
   ptoHowVolunteerRecurring: "The ones that come back every year:",
   ptoHowWishlistTitle: "Teacher wishlists",
@@ -2383,7 +2418,7 @@ const es: Strings = {
     "El personal de la escuela ve la necesidad primero y atiende cada caso de manera personal y confidencial. Basta un formulario corto — o una palabra discreta — y no hay ninguna lista que otros lean. La parte de la PTO es que nunca falten fondos.",
   ptoHowResourceVolunteer: "Ayude a mantenerlo",
   ptoHowResourceVolunteerBody:
-    "Voluntarios regulares hacen las compras y mantienen los estantes surtidos y ordenados — un par de horas por semana. Escriba a la PTO si usted o alguien de su familia puede.",
+    "Voluntarios regulares hacen las compras y mantienen los estantes surtidos y ordenados — un par de horas por semana. Todos los turnos próximos están en la hoja de inscripción; elija el que le quede bien.",
   ptoHowResourceGive: "Cómo donar",
   ptoHowResourceGiveBody:
     "Done a través de GiveMN y mencione el Centro de Recursos con su donación, o deje efectivo o un cheque marcado «Resource Center» en la oficina de la escuela.",
@@ -2391,6 +2426,19 @@ const es: Strings = {
   ptoHowResourceNoteBody:
     "Complete el formulario de solicitud de apoyo, o llame al Centro de Recursos. Nadie en la PTO sabrá quién pidió ayuda, no se debe nada a cambio, y esto existe exactamente para eso.",
   ptoHowResourceFormCta: "Formulario de solicitud de apoyo",
+  ptoResourceFeaturedTag: "Lo que se necesita ahora",
+  ptoResourceFeaturedTitle: "Colecta de ropa de invierno",
+  ptoResourceFeaturedBody:
+    "El Centro de Recursos está reuniendo abrigos de invierno y ropa para el frío — pantalones, sudaderas y similares — en tallas de niño y de adulto por igual. Deje su donación en el contenedor de la oficina de la escuela marcado «WINTER GEAR DRIVE».",
+  ptoResourceDonateTitle: "Maneras de donar",
+  ptoResourceGiftCards: "Tarjetas de regalo",
+  ptoResourceGiftCardsBody:
+    "Una tarjeta de regalo para despensa, gasolina o ropa permite que una familia use la ayuda exactamente donde su mes la necesita. Deje una marcada «Resource Center» en la oficina de la escuela, o llame para coordinar.",
+  ptoResourceSquare: "Done en efectivo",
+  ptoResourceSquareBody:
+    "Una donación directa en dólares a través de la tienda de la PTO se pone a trabajar de inmediato — cualquier monto, sin necesidad de cuenta.",
+  ptoResourceSquareCta: "Abrir la tienda de la PTO",
+  ptoResourceSignupCta: "Elegir un turno",
   ptoHowVolunteerOpen: "Qué necesita ayuda ahora mismo",
   ptoHowVolunteerRecurring: "Los que vuelven cada año:",
   ptoHowWishlistTitle: "Listas de deseos de los maestros",
@@ -3137,7 +3185,7 @@ const zh: Strings = {
     "学校教职员最先看到需要，并亲自、保密地处理每一个请求。只需填一份简短的表格——或者悄悄说一声——也没有任何别人能看到的名单。家长会的任务是让这里永远有钱可用。",
   ptoHowResourceVolunteer: "帮忙运营",
   ptoHowResourceVolunteerBody:
-    "固定志愿者负责采购，并让货架保持充足、整齐——每周只需两三个小时。如果您或家人有时间，请给家长会发邮件。",
+    "固定志愿者负责采购，并让货架保持充足、整齐——每周只需两三个小时。所有近期班次都在报名表上，挑一个合适的即可。",
   ptoHowResourceGive: "怎样捐助",
   ptoHowResourceGiveBody:
     "通过 GiveMN 捐款并注明“资源中心”，或把现金或写明“Resource Center”的支票交到学校前台。",
@@ -3145,6 +3193,19 @@ const zh: Strings = {
   ptoHowResourceNoteBody:
     "请填写援助申请表，或致电资源中心。家长会里没有人会知道是谁开口，您也不欠任何人情——它存在的意义正是如此。",
   ptoHowResourceFormCta: "援助申请表",
+  ptoResourceFeaturedTag: "当前最需要",
+  ptoResourceFeaturedTitle: "冬衣捐赠活动",
+  ptoResourceFeaturedBody:
+    "资源中心正在收集冬季外套和御寒衣物——长裤、卫衣等——儿童和成人尺码都欢迎。请将捐赠物品放入学校前台标有“WINTER GEAR DRIVE”的收集箱。",
+  ptoResourceDonateTitle: "捐助方式",
+  ptoResourceGiftCards: "礼品卡",
+  ptoResourceGiftCardsBody:
+    "食品、汽油或服装的礼品卡，能让家庭把帮助用在当月最需要的地方。请在学校前台留下一张写明“Resource Center”的礼品卡，或来电安排。",
+  ptoResourceSquare: "直接捐款",
+  ptoResourceSquareBody:
+    "通过家长会的商店直接捐款，立刻就能派上用场——金额不限，无需注册账户。",
+  ptoResourceSquareCta: "打开家长会商店",
+  ptoResourceSignupCta: "挑选班次",
   ptoHowVolunteerOpen: "现在哪里需要帮手",
   ptoHowVolunteerRecurring: "每年都会回来的活动：",
   ptoHowWishlistTitle: "教师心愿清单",
@@ -3978,7 +4039,7 @@ const so: Strings = {
     "Shaqaalaha dugsiga ayaa baahida marka hore arka, codsi kastana si shakhsi ah oo qarsoodi ah ayay u maareeyaan. Foom gaaban — ama hadal aamusan — ayaa ku filan, liis cid kale aqrisaana ma jiro. Qaybta PTO-du waa inaysan lacagtu weligeed dhammaan.",
   ptoHowResourceVolunteer: "Ka caawi socodsiinta",
   ptoHowResourceVolunteerBody:
-    "Mutadawiciin joogto ah ayaa wax soo iibsada oo khaanadaha buuxiya oo hagaajiya — laba saacadood toddobaadkii. Email u dir PTO-da haddii adiga ama qof qoyskaaga ka mid ah uu awoodo.",
+    "Mutadawiciin joogto ah ayaa wax soo iibsada oo khaanadaha buuxiya oo hagaajiya — laba saacadood toddobaadkii. Wardiyada soo socda oo dhan waxay ku qoran yihiin xaashida isqorista; ka dooro mid kugu habboon.",
   ptoHowResourceGive: "Sida wax loo bixiyo",
   ptoHowResourceGiveBody:
     "Ku deeq GiveMN oo deeqdaada ku xus Xarunta Kheyraadka, ama xafiiska hore ku dhaaf lacag caddaan ah ama jeeg ku qoran “Resource Center”.",
@@ -3986,6 +4047,19 @@ const so: Strings = {
   ptoHowResourceNoteBody:
     "Buuxi foomka codsiga caawinta, ama wac Xarunta Kheyraadka. Qofna PTO-da kama ogaan doono cidda codsatay, waxbana laguguma lahan — tani waxay u taagan tahay sidaas oo kale.",
   ptoHowResourceFormCta: "Foomka codsiga caawinta",
+  ptoResourceFeaturedTag: "Waxa hadda loo baahan yahay",
+  ptoResourceFeaturedTitle: "Ururinta dharka jiilaalka",
+  ptoResourceFeaturedBody:
+    "Xarunta Kheyraadku waxay ururinaysaa jaakadaha jiilaalka iyo dharka qabowga — surwaallo, funaanado dhaxan iyo kuwo la mid ah — cabbirrada carruurta iyo kuwa dadka waaweynba. Deeqda ku rid sanduuqa xafiiska hore ee ku calaamadeysan “WINTER GEAR DRIVE”.",
+  ptoResourceDonateTitle: "Siyaabaha wax loogu deeqo",
+  ptoResourceGiftCards: "Kaararka hadiyadda",
+  ptoResourceGiftCardsBody:
+    "Kaadh hadiyadeed oo raashin, shidaal ama dhar ah wuxuu qoyska u oggolaanayaa inay caawimada geliyaan meesha bishoodu ugu baahan tahay. Mid ku qoran “Resource Center” xafiiska hore ku dhaaf, ama soo wac si loo qabanqaabiyo.",
+  ptoResourceSquare: "Lacag ku deeq",
+  ptoResourceSquareBody:
+    "Deeq lacageed oo toos ah oo loo maro dukaanka PTO-da ayaa isla markiiba shaqo gasha — qaddar kasta, akoonna looma baahna.",
+  ptoResourceSquareCta: "Fur dukaanka PTO-da",
+  ptoResourceSignupCta: "Dooro wardi",
   ptoHowVolunteerOpen: "Waxa hadda caawimaad u baahan",
   ptoHowVolunteerRecurring: "Kuwa sannad kasta soo noqnoqda:",
   ptoHowWishlistTitle: "Liisaska rabitaanka macallimiinta",
