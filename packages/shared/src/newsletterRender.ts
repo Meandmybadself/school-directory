@@ -760,6 +760,58 @@ function qrBlock(ctx: Ctx, render: () => string): { inner: string; col: string }
   return { inner, col: `<span class="nl-qr-col" aria-hidden="true">${sink.join("")}</span>` };
 }
 
+/** Reverses escapeHtml on an attribute value. Only for values THIS package
+ *  escaped (a sanitized footer's href): escapeHtml writes exactly these five
+ *  entities, so undoing them — `&amp;` last, so a double-escaped entity comes
+ *  back as the entity, not its character — recovers the stored string. */
+function unescapeAttr(v: string): string {
+  return v
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&amp;/g, "&");
+}
+
+/** The admin's footer with a printed code for each of its links, like the
+ *  body's (`qrBlock`) — the footer is where an issue's standing links live (the
+ *  PTO site, a board address), and paper flattens those like any other. The
+ *  footer is stored HTML rather than TipTap (sanitizeFooterHtml's one seam), so
+ *  its links are found by scanning the anchors — safe on sanitizer output,
+ *  whose attribute values cannot hold a raw angle bracket — and each href is
+ *  re-checked with `safeLinkHref` rather than trusted from storage, the
+ *  renderer being the allowlist of record (invariant 9). `ctx` is the one the
+ *  BODY rendered with: numbers continue from the body's, and a footer link
+ *  repeating a body link reuses its number instead of drawing a second code.
+ *  The returned column floats into a rail the FOOTER reserves for itself
+ *  (`nl-body-rail` on `.nl-foot`, set by the caller when `col` is non-empty),
+ *  so a footer without links keeps its full measure. Email mode has no
+ *  `linkQrs` and passes through untouched. */
+function footerQrs(html: string, ctx: Ctx): { inner: string; col: string } {
+  if (!ctx.linkQrs || !html.includes("<a")) return { inner: html, col: "" };
+  const outer = ctx.qrSink;
+  const sink: string[] = [];
+  ctx.qrSink = sink;
+  // Anchors are paired with a stack rather than a lazy open-to-close match, so
+  // a (degenerate but storable) nested anchor still puts each ref after its
+  // own close tag. An anchor whose unsafe href the sanitizer dropped carries
+  // none, and gets no code and no ref.
+  const open: (string | null)[] = [];
+  const inner = html.replace(/<a\b[^<>]*>|<\/a>/g, (tag) => {
+    if (tag[1] !== "/") {
+      const m = /\bhref="([^"]*)"/.exec(tag);
+      const href = m ? safeLinkHref(unescapeAttr(m[1] ?? "")) : null;
+      if (href) linkQr(href, ctx);
+      open.push(href);
+      return tag;
+    }
+    return tag + linkQrRef(open.pop() ?? null, ctx);
+  });
+  ctx.qrSink = outer;
+  if (sink.length === 0) return { inner, col: "" };
+  return { inner, col: `<span class="nl-qr-col" aria-hidden="true">${sink.join("")}</span>` };
+}
+
 function renderChildren(nodes: NewsletterNode[] | undefined, ctx: Ctx): string {
   const list = nodes ?? [];
   return list
@@ -1030,13 +1082,12 @@ function renderTableCell(cell: NewsletterNode, ctx: Ctx): string {
   return `<${tag}${spans}${styled}>${inner}</${tag}>`;
 }
 
-/** The issue body only — no masthead, no footer. Callers wrap it. */
-export function renderNewsletterBodyHtml(
-  doc: NewsletterNode,
-  resolveEvents: EventsResolver,
-  opts: NewsletterRenderOptions,
-): string {
-  return renderNode(doc, {
+/** One render's context from the public options. Shared by the body entry
+ *  point below and by `renderNewsletterIssuePageHtml`, which keeps the SAME
+ *  context across the body and the footer so their printed link codes share
+ *  one numbering (see `footerQrs`). */
+function renderCtx(resolveEvents: EventsResolver, opts: NewsletterRenderOptions): Ctx {
+  return {
     mode: opts.mode,
     accent: opts.accentColor || DEFAULT_ACCENT,
     timeZone: opts.timeZone || DEFAULT_TIME_ZONE,
@@ -1045,7 +1096,16 @@ export function renderNewsletterBodyHtml(
     calendarUrl: opts.calendarUrl ?? "",
     linkQrs: opts.mode === "web" ? new Map() : null,
     qrSink: null,
-  });
+  };
+}
+
+/** The issue body only — no masthead, no footer. Callers wrap it. */
+export function renderNewsletterBodyHtml(
+  doc: NewsletterNode,
+  resolveEvents: EventsResolver,
+  opts: NewsletterRenderOptions,
+): string {
+  return renderNode(doc, renderCtx(resolveEvents, opts));
 }
 
 // ── Plain text ──────────────────────────────────────────────────────────────
@@ -1388,13 +1448,23 @@ export interface NewsletterIssuePageInput extends NewsletterWrapperInput {
  *  below; the caller supplies the document around it. */
 export function renderNewsletterIssuePageHtml(input: NewsletterIssuePageInput): string {
   const { branding } = input;
-  const body = renderNewsletterBodyHtml(input.doc, input.resolveEvents, {
+  // The context is built here rather than through renderNewsletterBodyHtml so
+  // the footer below renders against the SAME one: its printed link codes
+  // number on from the body's, and a footer link the body already carries
+  // reuses that code instead of drawing a second.
+  const ctx = renderCtx(input.resolveEvents, {
     mode: "web",
     accentColor: branding.accentColor,
     timeZone: input.timeZone,
     locale: input.locale,
     calendarUrl: branding.calendarUrl,
   });
+  const body = renderNode(input.doc, ctx);
+  // The admin's footer links get codes too — a printed footer is where the
+  // issue's standing links (the PTO site, a board address) go dead otherwise.
+  // Only the footer: "See all issues" and "View as PDF" below it are this
+  // page's navigation, not the issue's content, and both are hidden in print.
+  const footer = footerQrs(footerHtmlOf(branding), ctx);
 
   const mark = branding.logoUrl
     ? `<img src="${escapeHtml(branding.logoUrl)}" alt="${escapeHtml(branding.newsletterTitle)}" />`
@@ -1411,7 +1481,9 @@ export function renderNewsletterIssuePageHtml(input: NewsletterIssuePageInput): 
     : "";
 
   const foot = [
-    footerHtmlOf(branding),
+    // Column first so it floats out of the rail-padded box from the top of the
+    // footer, exactly as a body block's column does (qrBlock).
+    `${footer.col}${footer.inner}`,
     input.archiveHref
       ? `<p style="margin:8px 0 0"><a href="${escapeHtml(input.archiveHref)}">See all issues</a></p>`
       : "",
@@ -1467,7 +1539,7 @@ export function renderNewsletterIssuePageHtml(input: NewsletterIssuePageInput): 
         <div class="nl-body${body.includes('class="nl-qr-col"') ? " nl-body-rail" : ""}">
 ${body}
         </div>
-        <div class="nl-foot">
+        <div class="nl-foot${footer.col ? " nl-body-rail" : ""}">
           ${foot}
         </div>
       </article>
@@ -1535,7 +1607,9 @@ export const NEWSLETTER_PRINT_RULES = `
      qrBlock). The body reserves the rail once, so every block has the same
      measure; each block's codes float into it with a negative margin as wide
      as the rail, which keeps them out of the text entirely, and clear the
-     previous block's codes rather than overlap them. */
+     previous block's codes rather than overlap them. The footer's links get
+     the same treatment (footerQrs): .nl-foot reserves its own rail only when
+     it holds a code, so a footer without links keeps its full measure. */
   .nl-body-rail{padding-right:1.2in}
   .nl-body-rail::after{content:"";display:block;clear:both}
   .nl-qr-col{display:flex;flex-direction:column;gap:.1in;float:right;clear:right;width:.95in;margin:2px -1.2in .1in 0;break-inside:avoid;page-break-inside:avoid}

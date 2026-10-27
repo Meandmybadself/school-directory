@@ -14,7 +14,9 @@ import {
   NEWSLETTER_WEB_CSS,
   publishedIssueQrSvg,
   renderNewsletterBodyHtml,
+  renderNewsletterEmailHtml,
   renderNewsletterIssuePageHtml,
+  sanitizeFooterHtml,
 } from "@sd/shared";
 import type { NewsletterBrandingDTO, NewsletterNode } from "@sd/shared";
 
@@ -252,6 +254,81 @@ describe("a printed QR code beside each link in the body", () => {
     expect(size(".nl-qr")).toEqual(size(".nl-qr-col"));
     // And the margin the number's drop is computed against is that same size.
     expect(size(".nl-qr-col")[0]).toBe(".75in");
+  });
+
+  it("and beside each link in the admin's footer, in a rail the footer reserves", () => {
+    // The footer goes through sanitizeFooterHtml first, like a real save: what
+    // the page renders is the STORED form, escaped hrefs and all.
+    const footPage = (footer: string, doc: NewsletterNode = DOC) =>
+      renderNewsletterIssuePageHtml({
+        branding: { ...BRANDING, footerHtml: sanitizeFooterHtml(footer) },
+        title: "T",
+        subtitle: null,
+        doc,
+        resolveEvents: () => [],
+        dateLabel: "September 1, 2099",
+        isDraft: false,
+        archiveHref: "",
+        printHref: "",
+        issueUrl: "",
+        publishedUrl: "",
+      });
+    const bodyLink = (href: string): NewsletterNode =>
+      ({
+        type: "doc",
+        content: [{ type: "paragraph", content: [{ type: "text", text: "go", marks: [{ type: "link", attrs: { href } }] }] }],
+      }) as NewsletterNode;
+
+    // The code, its column, and the matching superscript — all inside the foot.
+    const html = footPage('<p>Visit <a href="https://pto.eisenhower.school">the PTO</a></p>');
+    const foot = html.slice(html.indexOf('<div class="nl-foot'));
+    expect(foot).toMatch(/^<div class="nl-foot nl-body-rail">\s*<span class="nl-qr-col" aria-hidden="true"><span class="nl-qr-item" style="--qz:0\.\d{4}"><span class="nl-qr-num">1<\/span><svg /);
+    expect(foot).toContain('>the PTO</a><sup class="nl-qr-ref">1</sup>');
+    // The footer's rail is its own: a body without codes reserves none.
+    expect(html).toContain('class="nl-body"');
+    expect(html).not.toContain("nl-body nl-body-rail");
+
+    // Numbers run on from the body's, and a destination the body already
+    // carries reuses its number instead of drawing a second code.
+    const both = footPage(
+      '<a href="https://example.org/fair">fair</a> and <a href="mailto:pto@example.org">write us</a>',
+      bodyLink("https://example.org/fair"),
+    );
+    const bothFoot = both.slice(both.indexOf('<div class="nl-foot'));
+    expect(bothFoot).toContain('>fair</a><sup class="nl-qr-ref">1</sup>');
+    expect(bothFoot).toContain('>write us</a><sup class="nl-qr-ref">2</sup>');
+    expect((bothFoot.match(/<svg /g) ?? []).length).toBe(1);
+    expect((both.match(/<svg /g) ?? []).length).toBe(2);
+
+    // The stored href is escaped (&amp;); the code must encode the destination
+    // the page serves, so it matches the body's raw mark and dedupes to one.
+    const amp = footPage(
+      '<a href="https://example.org/?a=1&b=2">again</a>',
+      bodyLink("https://example.org/?a=1&b=2"),
+    );
+    expect((amp.match(/<svg /g) ?? []).length).toBe(1);
+    expect(amp).toContain('>again</a><sup class="nl-qr-ref">1</sup>');
+
+    // A footer without links keeps its full measure, and nothing is drawn.
+    const plain = footPage("<p>The PTO Board</p>");
+    expect(plain).toContain('<div class="nl-foot">');
+    expect(plain).not.toContain("nl-foot nl-body-rail");
+    expect(plain).not.toContain("nl-qr-col");
+
+    // The email's footer stays exactly as it was (it can't hide a code on screen).
+    const email = renderNewsletterEmailHtml({
+      branding: { ...BRANDING, footerHtml: sanitizeFooterHtml('<a href="https://pto.eisenhower.school">the PTO</a>') },
+      title: "T",
+      subtitle: null,
+      doc: DOC,
+      resolveEvents: () => [],
+      unsubscribeUrl: "https://example.org/u",
+      unsubscribeWording: "You get this because.",
+      mailingAddress: "123 School St",
+      webUrl: "https://newsletter.eisenhower.school/n/t",
+    });
+    expect(email).not.toContain("nl-qr");
+    expect(email).not.toContain("<svg");
   });
 
   it("reserves the rail on the page only when the issue has a code to put in it", () => {
