@@ -241,14 +241,15 @@ export const DONATE: PtoLink = {
   url: "https://www.givemn.org/organization/Eisenhower-Xx-Juntos-Pto",
 };
 
-/** The PTO's existing Square storefront — spirit wear, and where a direct
- *  dollar donation lands (/resource-center's "Ways to donate" card, at the
- *  board's request). Predates this repo's own apps/store, which is still
- *  unannounced; when that shop launches, deciding which of the two a donation
- *  card points at is a board conversation, not a find-and-replace. */
+/** The PTO's existing Square storefront — where a direct dollar donation
+ *  lands (/resource-center's "Ways to donate" card, at the board's request).
+ *  The URL is the Resource Center donation product itself, not the gallery.
+ *  Predates this repo's own apps/store, which is still unannounced; when that
+ *  shop launches, deciding which of the two a donation card points at is a
+ *  board conversation, not a find-and-replace. */
 export const SQUARE_STORE: PtoLink = {
   label: "PTO Store",
-  url: "https://ike-xx-pto.square.site/gallery",
+  url: "https://ike-xx-pto.square.site/product/resource-center-donation/2ALRIBTRKTENHD5DPTQO6UNH?cp=true&sa=true&sbp=false&q=false",
 };
 
 /** The Resource Center's recurring volunteer shifts, on SignUpGenius — the
