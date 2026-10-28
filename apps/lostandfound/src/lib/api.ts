@@ -5,9 +5,11 @@
 //
 // Two halves, like the store's client and unlike the PTO's. `/lostfound-public/*`
 // needs no session at all — browsing and saying "that's mine" are open to anyone
-// (invariant 33). `/lostfound/*` needs a session AND the staff roster gate,
-// server side; a 403 there means "signed in, but not lost & found staff", which
-// is a different screen from a 401.
+// (invariant 33). `/lostfound/*` needs a session AND, for everything past
+// SUBMITTING an item (`uploadPhoto`, plus `uploadThumb` on an item you just
+// created and the server still holds), the staff roster gate, server side; a
+// 403 there means "signed in, but not allowed that", which is a different
+// screen from a 401.
 //
 // Photo uploads send the raw JPEG as the body rather than multipart, for the
 // reason routes/newsletter.ts's media upload does: `image/jpeg` is not a

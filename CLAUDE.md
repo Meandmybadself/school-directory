@@ -37,7 +37,7 @@ apps/newsletter     Newsletter SPA → newsletter.eisenhower.school. Admin autho
 apps/store          Store SPA → store.eisenhower.school. Cart + admin in the bundle, PLUS Pages Functions serving the PUBLIC, INDEXED storefront. Printful + Stripe. Design system COPIED. Vendor/DNS setup: SETUP.md.
 apps/api            Hono Worker → api-directory.eisenhower.school. Serves ALL the SPAs. Routes in src/routes, logic in src/lib, middleware in src/middleware.
 apps/pto            PTO SPA → pto.eisenhower.school. Planning boards (members AND PTO-board only) in the bundle, PLUS Pages Functions serving the PUBLIC, INDEXED explanatory pages (/, /resource-center; /how-to-help 301s to /). Design system COPIED. Routing: ROUTING.md.
-apps/lostandfound   Lost & found SPA → lostandfound.eisenhower.school. Public browse/search/item/claim (open, NOT indexed) + staff screens (roster-gated) in one bundle; no Pages Functions. Design system COPIED. Invariant 33.
+apps/lostandfound   Lost & found SPA → lostandfound.eisenhower.school. Public browse/search/item/claim (open, NOT indexed) + member submit (any session; items held for review) + staff screens (roster-gated) in one bundle; no Pages Functions. Design system COPIED. Invariant 33.
 apps/redirect       One-file Worker for hostnames that only 301 (retired directory.meandmybadself.com, ptomeet.eisenhower.school). Host map in src/index.ts; each host also a custom_domain route in wrangler.toml.
 apps/api/migrations Ordered D1 SQL migrations (NNNN_name.sql). Never edit an applied migration — add a new one.
 packages/shared     Domain types (types.ts) + i18n dictionaries (i18n.ts). Imported as `@sd/shared`.
@@ -1033,9 +1033,9 @@ Worker, sharing one session:
 33. **Lost & found: the item is public; what is WRITTEN on it is not — and
    neither is the photo until somebody has looked.**
    `lostandfound.eisenhower.school` (apps/lostandfound, routes/lostFound*.ts,
-   lib/lostFound.ts, migration 0033): staff photograph found items, a Workers
-   AI vision model describes them, anyone may browse and claim. Four rules
-   square that with `/privacy`:
+   lib/lostFound.ts, migration 0033): staff — and any signed-in member —
+   photograph found items, a Workers AI vision model describes them, anyone may
+   browse and claim. Four rules square that with `/privacy`:
    - **`visible_text` is staff-only** (on a school water bottle it's a child's
      name). `publicItemOf` is the only builder of the public shape and never
      reads it; `scrubNames` cuts those words from title/description/tags (the
@@ -1051,6 +1051,19 @@ Worker, sharing one session:
      `lib/lostFound.ts`, in SQL: found, not hidden, not held. A staff save
      never moves the hold; the model's write is guarded on
      `tag_status = 'pending'` so staff edits win.
+     **Submitting is open to any session; publishing is not.** `POST /items` +
+     the creator's own thumbnail PUT need only a session (`/submit` in the app,
+     translated, unlike the staff screens) — and the thumbnail PUT only while
+     the item is still HELD and PENDING, because the thumbnail is the public
+     grid's image: past that window a creator's swap would put an unreviewed
+     picture online, so only the roster touches a live item's images. A non-staff creation is flagged
+     `member_submitted` (migration 0037) and the model NEVER releases its hold
+     — reading no writing proves nothing about a photo a non-staff member
+     chose — so it waits in the review queue until staff Publish; the flag is
+     a column, not a request-time check, because `retagStuck` re-describes
+     from the cron with no session in sight. Bounded by `MEMBER_ITEMS_PER_DAY`
+     (25, counted from the caller's own rows; staff exempt — the roster is the
+     trust decision). The staff-verified email intake stays unflagged.
    - **The claim form is anonymous and bounded like invariant 14**: `website`
      honeypot; 3/day per contact, 10 open per item, 50/day instance-wide,
      counted from `lf_claim` rows; the SAME `{ ok: true }` for stored,

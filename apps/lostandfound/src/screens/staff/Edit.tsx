@@ -226,6 +226,12 @@ export function Edit() {
               {item.heldAt && item.status === "found" && (
                 <div className="lf-notice warn" role="status" style={{ display: "flex", flexDirection: "column", gap: 10 }}>
                   <b>Held for review — not on the public site yet.</b>
+                  {item.memberSubmitted && (
+                    <span>
+                      Added by a family member{item.createdByEmail ? ` (${item.createdByEmail})` : ""} — their items
+                      always wait here for a staff look, whatever the AI read.
+                    </span>
+                  )}
                   <span>
                     {item.visibleText
                       ? `The AI read writing on this item: “${item.visibleText}”. If the photo shows a child's name, retake it with the label turned away (delete this item and upload again), then publish.`

@@ -7,6 +7,7 @@ import { SignIn, CheckEmail } from "./screens/Onboarding.js";
 import { Browse } from "./screens/Browse.js";
 import { Item } from "./screens/Item.js";
 import { NoAccess } from "./screens/NoAccess.js";
+import { Submit } from "./screens/Submit.js";
 import { Dashboard } from "./screens/staff/Dashboard.js";
 import { Upload } from "./screens/staff/Upload.js";
 import { Edit } from "./screens/staff/Edit.js";
@@ -49,6 +50,19 @@ function RequireStaff({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
+/** Submitting a found item needs only a session — the server holds every
+ *  member-submitted item for staff review, so there is no second gate here. */
+function RequireSignedIn({ children }: { children: React.ReactNode }) {
+  const { loading, me } = useSession();
+  const { pathname } = useLocation();
+  if (loading) return <Loading />;
+  if (!me) {
+    rememberReturnPath(pathname);
+    return <Navigate to="/sign-in" replace />;
+  }
+  return <>{children}</>;
+}
+
 function RequireAdmin({ children }: { children: React.ReactNode }) {
   const { loading, me } = useSession();
   const { pathname } = useLocation();
@@ -61,12 +75,14 @@ function RequireAdmin({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
-/** A signed-in visitor on the sign-in page goes where staff work. One who
- *  isn't staff then sees NoAccess there, which explains itself. */
+/** A signed-in visitor on the sign-in page goes where their account can act:
+ *  staff to their dashboard, everyone else to the submit screen — adding a
+ *  found item is why a non-staff member signs in here at all. */
 function RedirectIfAuthed({ children }: { children: React.ReactNode }) {
   const { loading, me } = useSession();
-  if (loading) return <Loading />;
-  if (me) return <Navigate to="/staff" replace />;
+  const { loading: accessLoading, access } = useAccess();
+  if (loading || (me && accessLoading)) return <Loading />;
+  if (me) return <Navigate to={access?.canUse ? "/staff" : "/submit"} replace />;
   return <>{children}</>;
 }
 
@@ -99,6 +115,10 @@ export function App() {
             public projection. */}
         <Route path="/" element={<Browse />} />
         <Route path="/item/:id" element={<Item />} />
+
+        {/* Any signed-in account; the server holds what they add for staff
+            review before it can appear publicly (invariant 33). */}
+        <Route path="/submit" element={<RequireSignedIn><Submit /></RequireSignedIn>} />
 
         <Route path="/staff" element={<RequireStaff><Dashboard /></RequireStaff>} />
         <Route path="/staff/upload" element={<RequireStaff><Upload /></RequireStaff>} />

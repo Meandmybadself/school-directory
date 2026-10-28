@@ -79,18 +79,21 @@ export function AppShell({
   );
 }
 
-export type NavKey = "browse" | "staff" | "settings";
+export type NavKey = "browse" | "submit" | "staff" | "settings";
 
 /** This app's OWN screens, read by both the bottom bar and the desktop sidebar.
  *  The sibling apps are the platform switcher's job (AppSwitcher.tsx).
  *
- *  Browsing is everyone's; the staff entry appears only for an account the
- *  roster gate admits, and settings only for a system admin. Hiding them is a
- *  courtesy — the routes behind them are gated server side either way. */
-export function navItems(t: ReturnType<typeof useI18n>["t"], isSystemAdmin: boolean, isStaff: boolean) {
+ *  Browsing is everyone's; any signed-in account may ADD a found item (staff
+ *  reach the same thing through their own screens, so the tab hides for them);
+ *  the staff entry appears only for an account the roster gate admits, and
+ *  settings only for a system admin. Hiding them is a courtesy — the routes
+ *  behind them are gated server side either way. */
+export function navItems(t: ReturnType<typeof useI18n>["t"], isSystemAdmin: boolean, isStaff: boolean, isSignedIn: boolean) {
   const items: [IconName, NavKey, string, string][] = [
     ["search", "browse", t("lfNavBrowse"), "/"],
   ];
+  if (isSignedIn && !isStaff) items.push(["plus", "submit", t("lfNavSubmit"), "/submit"]);
   if (isStaff) items.push(["box", "staff", t("lfNavStaff"), "/staff"]);
   if (isSystemAdmin) items.push(["shield", "settings", t("navAdmin"), "/staff/settings"]);
   return items;
@@ -102,7 +105,7 @@ export function BottomNav({ active }: { active: NavKey }) {
   const chrome = useChrome();
   const { me } = useSession();
   const { access } = useAccess();
-  const items = navItems(t, !!me?.user.isSystemAdmin, !!access?.canUse);
+  const items = navItems(t, !!me?.user.isSystemAdmin, !!access?.canUse, !!me);
 
   return (
     <nav className="sd-bottomnav">

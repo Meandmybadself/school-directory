@@ -2049,6 +2049,9 @@ export interface LfStaffItemDTO extends Omit<LfPublicItemDTO, "pending"> {
   /** Unclaimed long enough that it's time to donate it (LF_DONATE_AFTER_DAYS). */
   donateDue: boolean;
   openClaims: number;
+  /** Added by a signed-in member who isn't on the staff roster. Such an item
+   *  stays held until staff publish it, whatever the model read. */
+  memberSubmitted: boolean;
   createdByEmail: string | null;
   updatedAt: string;
 }

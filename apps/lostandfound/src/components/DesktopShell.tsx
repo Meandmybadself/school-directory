@@ -18,7 +18,7 @@ function Sidebar({ active }: { active: NavKey }) {
   const navigate = useNavigate();
   const { me } = useSession();
   const { access } = useAccess();
-  const items = navItems(t, !!me?.user.isSystemAdmin, !!access?.canUse);
+  const items = navItems(t, !!me?.user.isSystemAdmin, !!access?.canUse, !!me);
 
   return (
     <aside className="sd-desknav">
@@ -86,11 +86,12 @@ export function DesktopShell({
             </button>
           )}
           {/* Browsing is public, so a signed-out visitor does reach this shell.
-              The way in is labelled for who it is FOR — staff — so a parent
-              doesn't think they need an account to claim something. */}
+              The way in is labelled for what an account is FOR — adding a found
+              item — so a parent doesn't think they need one to claim
+              something. */}
           {!me && !loading && (
             <button className="sd-btn sd-btn-ghost sd-btn-sm" onClick={() => navigate("/sign-in")}>
-              {t("lfStaffSignIn")}
+              {t("lfSignInToAdd")}
             </button>
           )}
         </header>

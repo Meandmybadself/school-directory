@@ -161,13 +161,15 @@ export function Browse() {
           </div>
         )}
 
-        {/* The only way into the staff half for someone who isn't signed in.
-            Quiet on purpose, and labelled for who it's for — a family never
-            needs an account here, and shouldn't think they do. */}
-        {!sessionLoading && !me && (
+        {/* The way in for someone who FOUND something: any signed-in member may
+            add an item (it goes to the office's review queue), and staff reach
+            their screens through the same sign-in. Quiet on purpose — browsing
+            and claiming never need an account, and shouldn't look like they
+            do. */}
+        {!sessionLoading && (
           <p className="sd-meta" style={{ textAlign: "center", marginTop: 8 }}>
-            <Link className="sd-link" to="/sign-in">
-              {t("lfStaffSignIn")}
+            <Link className="sd-link" to={me ? "/submit" : "/sign-in"}>
+              {me ? t("lfSubmitTitle") : t("lfSignInToAdd")}
             </Link>
           </p>
         )}

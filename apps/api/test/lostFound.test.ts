@@ -1,9 +1,12 @@
-// Lost & found (invariant 33): the gate on every staff route, the public
-// projection's key set, the name scrub, and the claim form's uniform answer.
+// Lost & found (invariant 33): the gate on every staff route, the member
+// submission path (any session may add an item; it stays held until staff
+// publish), the public projection's key set, the name scrub, and the claim
+// form's uniform answer.
 //
-// The ROUTES list is enumerated by hand, as test/ptoRoutes.test.ts's is: if you
-// add a route to routes/lostFound.ts, add it here — a route that forgets
-// `requireStaff` is exactly what nothing else will notice.
+// The route lists are enumerated by hand, as test/ptoRoutes.test.ts's are: if
+// you add a route to routes/lostFound.ts, add it to STAFF_ROUTES or — only for
+// a route that is deliberately open to any session — MEMBER_ROUTES. A route
+// that forgets `requireStaff` is exactly what nothing else will notice.
 
 import { Hono } from "hono";
 import { describe, expect, it } from "vitest";
@@ -69,6 +72,7 @@ function row(over: Partial<LfItemRow> = {}): LfItemRow {
     found_at: "2026-10-01T15:00:00.000Z",
     returned_at: null,
     created_by: "01U_STAFF",
+    member_submitted: 0,
     updated_at: "2026-10-01T15:00:00.000Z",
     ...over,
   };
@@ -126,8 +130,6 @@ const STAFF_ROUTES: Array<[string, string, unknown?]> = [
   ["GET", "/lostfound/items?view=attention"],
   ["GET", "/lostfound/items?ids=01ITEM,01OTHER"],
   ["GET", "/lostfound/items/01ITEM"],
-  ["POST", "/lostfound/items?location=Gym", JPEG],
-  ["PUT", "/lostfound/items/01ITEM/thumb", JPEG],
   ["PUT", "/lostfound/items/01ITEM/photo", JPEG],
   ["PATCH", "/lostfound/items/01ITEM", { title: "x" }],
   ["POST", "/lostfound/items/01ITEM/publish", {}],
@@ -143,6 +145,15 @@ const STAFF_ROUTES: Array<[string, string, unknown?]> = [
   ["POST", "/lostfound/retag-failed", {}],
 ];
 
+/** Open to ANY session — submitting a found item (routes/lostFound.ts's
+ *  header). Still refused without a session, and still preflighted. */
+const MEMBER_ROUTES: Array<[string, string, unknown?]> = [
+  ["POST", "/lostfound/items?location=Gym", JPEG],
+  ["PUT", "/lostfound/items/01ITEM/thumb", JPEG],
+];
+
+const ALL_ROUTES = [...STAFF_ROUTES, ...MEMBER_ROUTES];
+
 function call(app: Hono<HonoEnv>, method: string, path: string, body: unknown, env: HonoEnv["Bindings"]) {
   const init: RequestInit = { method };
   if (body instanceof Uint8Array) {
@@ -155,9 +166,9 @@ function call(app: Hono<HonoEnv>, method: string, path: string, body: unknown, e
   return app.request(path, init, env);
 }
 
-describe("every /lostfound staff route refuses without a session", () => {
+describe("every /lostfound route refuses without a session", () => {
   const app = appWith(null);
-  for (const [method, path, body] of STAFF_ROUTES) {
+  for (const [method, path, body] of ALL_ROUTES) {
     it(`${method} ${path} → 401`, async () => {
       expect((await call(app, method, path, body, gateEnv(true))).status).toBe(401);
     });
@@ -177,7 +188,7 @@ describe("a write a cross-site form could send is refused before anything else",
   // `sd_session` is SameSite=Lax, which doesn't separate sibling subdomains;
   // only a body type that forces a CORS preflight does (routes/lostFound.ts).
   const app = appWith(auth("01U_STAFF"));
-  for (const [method, path] of STAFF_ROUTES.filter(([m]) => m !== "GET")) {
+  for (const [method, path] of ALL_ROUTES.filter(([m]) => m !== "GET")) {
     it(`${method} ${path} with no body / a form body → 415`, async () => {
       expect((await app.request(path, { method }, gateEnv(true))).status).toBe(415);
       const form = await app.request(
@@ -201,6 +212,176 @@ describe("the routes outside the staff gate", () => {
     const staff = appWith(auth("01U_STAFF"));
     expect((await call(staff, "GET", "/lostfound/groups", undefined, gateEnv(true))).status).toBe(403);
     expect((await call(staff, "PUT", "/lostfound/settings", { groupId: GROUP }, gateEnv(true))).status).toBe(403);
+  });
+});
+
+// ── Member submission ───────────────────────────────────────────────────────
+// Any session may POST an item; what makes that safe is that a non-staff item
+// is flagged `member_submitted` (the model never releases its hold — only
+// staff's Publish does) and bounded per day.
+
+/** D1 + R2 stand-ins for the submission path: the roster gate, the daily cap's
+ *  count, the INSERT (recorded), and the reload that builds the response. */
+function submitEnv(opts: { onRoster: boolean; todayCount?: number }) {
+  const writes: { sql: string; args: unknown[] }[] = [];
+  const media: string[] = [];
+  const env = {
+    DB: {
+      prepare(sql: string) {
+        return {
+          bind: (...args: unknown[]) => ({
+            async first() {
+              if (sql.includes("FROM setting")) return { value: GROUP };
+              if (sql.includes("FROM grp")) return { id: GROUP, name: "Front office" };
+              if (sql.includes("FROM membership m")) return opts.onRoster ? { ok: 1 } : null;
+              if (sql.includes("COUNT(*) AS n FROM lf_item")) return { n: opts.todayCount ?? 0 };
+              if (sql.includes("FROM lf_item i")) {
+                // getStaffItem's reload: echo back what the INSERT wrote.
+                const ins = writes.find((w) => w.sql.includes("INSERT INTO lf_item"));
+                if (!ins) return null;
+                return {
+                  ...row(),
+                  id: ins.args[0],
+                  visible_text: "",
+                  held_at: ins.args[4],
+                  member_submitted: ins.args[7],
+                  open_claims: 0,
+                  created_by_email: null,
+                };
+              }
+              throw new Error(`submitEnv: unhandled first: ${sql}`);
+            },
+            async run() {
+              writes.push({ sql, args });
+              return { meta: { changes: 1 } };
+            },
+          }),
+        };
+      },
+    },
+    LOSTFOUND_MEDIA: {
+      put: async (key: string) => void media.push(`put ${key}`),
+      delete: async (key: string) => void media.push(`delete ${key}`),
+    },
+  } as unknown as HonoEnv["Bindings"];
+  return { env, writes, media };
+}
+
+describe("POST /lostfound/items as a signed-in member", () => {
+  async function post(opts: Parameters<typeof submitEnv>[0], who = "01U_PARENT") {
+    const audit: AuditDraft[] = [];
+    const { env, writes, media } = submitEnv(opts);
+    const res = await call(appWith(auth(who), audit), "POST", "/lostfound/items?location=Gym", JPEG, env);
+    return { res, writes, media, audit };
+  }
+
+  it("creates the item flagged member_submitted, held, and says so in the audit detail", async () => {
+    const { res, writes, audit } = await post({ onRoster: false });
+    expect(res.status).toBe(201);
+    const ins = writes.find((w) => w.sql.includes("INSERT INTO lf_item"))!;
+    // (id, photo_key, location, search_text, held_at, found_at, created_by, member_submitted, updated_at)
+    expect(ins.args[7]).toBe(1);
+    expect(ins.args[4]).toBeTruthy(); // held from the first moment
+    expect(audit).toHaveLength(1);
+    expect(audit[0]!).toMatchObject({ action: "lostfound.item.created", detail: { memberSubmitted: true } });
+    expect(((await res.json()) as { memberSubmitted: boolean }).memberSubmitted).toBe(true);
+  });
+
+  it("creates a staff upload unflagged, with no detail — the model may still release it", async () => {
+    const { res, writes, audit } = await post({ onRoster: true }, "01U_STAFF");
+    expect(res.status).toBe(201);
+    expect(writes.find((w) => w.sql.includes("INSERT INTO lf_item"))!.args[7]).toBe(0);
+    expect(audit[0]!.detail).toBeUndefined();
+  });
+
+  it("refuses a member past the daily cap before anything is stored; staff are exempt", async () => {
+    const capped = await post({ onRoster: false, todayCount: 25 });
+    expect(capped.res.status).toBe(429);
+    expect(capped.writes).toEqual([]);
+    expect(capped.media).toEqual([]);
+    expect(capped.audit).toEqual([]);
+    // Staff never meet the counter at all: the roster is the trust decision.
+    expect((await post({ onRoster: true, todayCount: 999 }, "01U_STAFF")).res.status).toBe(201);
+  });
+});
+
+describe("PUT /lostfound/items/:id/thumb ownership", () => {
+  // The creator's window is EXACTLY "still held, still pending" — the second
+  // half of submitting. Past it, the thumbnail is the public grid's image, so
+  // only the roster may touch it (the route's comment; invariant 33).
+  function thumbEnv(over: Partial<LfItemRow>, onRoster = false) {
+    const writes: string[] = [];
+    const env = {
+      DB: {
+        prepare(sql: string) {
+          return {
+            bind: () => ({
+              async first() {
+                if (sql.includes("FROM setting")) return { value: GROUP };
+                if (sql.includes("FROM grp")) return { id: GROUP, name: "Front office" };
+                if (sql.includes("FROM membership m")) return onRoster ? { ok: 1 } : null;
+                if (sql.includes("FROM lf_item i")) {
+                  return { ...row(), member_submitted: 1, open_claims: 0, created_by_email: null, ...over };
+                }
+                throw new Error(`thumbEnv: unhandled first: ${sql}`);
+              },
+              async run() {
+                writes.push(sql);
+                return { meta: { changes: 1 } };
+              },
+            }),
+          };
+        },
+      },
+      LOSTFOUND_MEDIA: { put: async () => {}, delete: async () => {} },
+    } as unknown as HonoEnv["Bindings"];
+    return { env, writes };
+  }
+
+  // The pending path launches `tagItem` through the execution context, so give
+  // Hono one; with no AI binding the call fails onto the item, harmlessly here.
+  const CTX = { waitUntil: () => {} } as unknown as ExecutionContext;
+  const put = (who: string, env: HonoEnv["Bindings"]) =>
+    appWith(auth(who)).request(
+      "/lostfound/items/01ITEM/thumb",
+      { method: "PUT", body: JPEG, headers: { "content-type": "image/jpeg" } },
+      env,
+      CTX,
+    );
+
+  const HELD_PENDING: Partial<LfItemRow> = {
+    created_by: "01U_PARENT",
+    held_at: "2026-10-01T15:00:00.000Z",
+    tag_status: "pending",
+    visible_text: "",
+  };
+
+  it("lets the item's creator send the thumbnail while it is held and pending, and nobody else off the roster", async () => {
+    const own = thumbEnv(HELD_PENDING);
+    expect((await put("01U_PARENT", own.env)).status).toBe(200);
+    expect(own.writes.some((s) => s.includes("SET thumb_key"))).toBe(true);
+
+    const other = thumbEnv(HELD_PENDING);
+    expect((await put("01U_OTHER", other.env)).status).toBe(403);
+    expect(other.writes).toEqual([]);
+  });
+
+  it("refuses the creator once the item is published or described — the public image is the roster's", async () => {
+    // Published: staff looked and released the hold.
+    const published = thumbEnv({ created_by: "01U_PARENT", held_at: null, tag_status: "tagged" });
+    expect((await put("01U_PARENT", published.env)).status).toBe(403);
+    expect(published.writes).toEqual([]);
+
+    // Still held, but described: the model has written; staff review is next.
+    const described = thumbEnv({ created_by: "01U_PARENT", held_at: "2026-10-01T15:00:00.000Z", tag_status: "tagged" });
+    expect((await put("01U_PARENT", described.env)).status).toBe(403);
+    expect(described.writes).toEqual([]);
+  });
+
+  it("staff keep the route whatever the item's state (rotation re-sends a thumbnail)", async () => {
+    const staff = thumbEnv({ created_by: "01U_PARENT", held_at: null, tag_status: "tagged" }, true);
+    expect((await put("01U_STAFF", staff.env)).status).toBe(200);
+    expect(staff.writes.some((s) => s.includes("SET thumb_key"))).toBe(true);
   });
 });
 
@@ -457,11 +638,14 @@ describe("the hold (a name can be in the PHOTO)", () => {
     return sqls[0]!;
   }
 
-  it("is released by the model only when it reads no writing AND never read any before", async () => {
+  it("is released by the model only when it reads no writing AND never read any before AND staff submitted it", async () => {
     // SET expressions see the OLD row, so this releases only an item whose
     // stored visible_text was empty — a retag that misses a name it read the
-    // first time leaves the hold for staff.
-    expect(await aiWrite({ title: "Red mitten" })).toContain("held_at = CASE WHEN visible_text = '' THEN NULL ELSE held_at END");
+    // first time leaves the hold for staff. A member-submitted item is never
+    // released by the model at all (migration 0037): only staff publish it.
+    expect(await aiWrite({ title: "Red mitten" })).toContain(
+      "held_at = CASE WHEN visible_text = '' AND member_submitted = 0 THEN NULL ELSE held_at END",
+    );
   });
 
   it("is kept when the model read writing", async () => {

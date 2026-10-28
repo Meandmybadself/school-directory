@@ -1,9 +1,10 @@
 // Sign in → check email, for this app's own origin.
 //
-// Reached by staff only: browsing and claiming need no account at all.
-// `api.authStart` sends returnTo, so the magic-link callback redirects back
-// here rather than to the directory — the session itself is shared either way.
-// The link can only carry an origin, so the staff page someone was heading for
+// Reached by staff, and by a member who found something (adding an item is the
+// one thing here that needs an account): browsing and claiming need none at
+// all. `api.authStart` sends returnTo, so the magic-link callback redirects
+// back here rather than to the directory — the session itself is shared either
+// way. The link can only carry an origin, so the page someone was heading for
 // is stashed in lib/returnPath.ts and taken back in app.tsx.
 //
 // The response to /auth/start is always identical whether or not the address has
@@ -96,8 +97,8 @@ export function SignIn() {
             <Btn block icon="mail" type="submit" disabled={busy || !email.includes("@")}>{t("emailLink")}</Btn>
           </div>
         </form>
-        {/* A parent who tapped "staff sign-in" by mistake needs the way back:
-            nothing they want here requires an account. */}
+        {/* A parent who tapped "sign in" by mistake needs the way back: looking
+            for a lost item never requires an account. */}
         <p style={{ textAlign: "center", marginTop: 18 }}>
           <Link className="sd-link" to="/">← {t("lfBackToAll")}</Link>
         </p>

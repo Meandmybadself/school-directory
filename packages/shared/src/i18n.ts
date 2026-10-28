@@ -872,7 +872,33 @@ export interface Strings {
   lfClaimThanksBody: string;
   lfClaimError: string;
   lfClaimPrivacy: string;
-  lfStaffSignIn: string;
+  /** The public browse page's quiet sign-in link. Submitting an item (any
+   *  signed-in member) and the staff screens both start at the same sign-in. */
+  lfSignInToAdd: string;
+  /** The member submit screen — translated, unlike the staff screens: any
+   *  family may use it (invariant 33: a member's item stays held until staff
+   *  publish it). */
+  lfNavSubmit: string;
+  lfSubmitTitle: string;
+  lfSubmitLead: string;
+  lfSubmitLocation: string;
+  lfSubmitLocationHint: string;
+  lfSubmitPlaceholder: string;
+  lfSubmitChoose: string;
+  lfSubmitAddMore: string;
+  lfSubmitChooseHint: string;
+  lfSubmitNotice: string;
+  lfSubmitOne: string;
+  lfSubmitMany: string;
+  lfSubmitClear: string;
+  lfSubmitPreparing: string;
+  lfSubmitWaiting: string;
+  lfSubmitUploading: string;
+  lfSubmitDone: string;
+  lfSubmitFailed: string;
+  lfSubmitLimit: string;
+  lfSubmitReadError: string;
+  lfSubmitRotateError: string;
   /** On the public item page, for signed-in staff only: straight to the editor. */
   lfStaffEdit: string;
   lfNoAccessTitle: string;
@@ -1424,7 +1450,7 @@ const en: Strings = {
   privacyLostFoundTitle:
     "Lost & found",
   privacyLostFoundBody:
-    "The lost & found is the one part of this site that is public by design: staff photograph items turned in at school, and anyone can browse them. Writing on an item — often a child's name — is shown only to staff, never on the public page or in its search, and an item with writing on it stays hidden until a staff member has checked the photo. If you say an item is yours, the name, contact and note you type are seen only by staff, and are deleted 60 days after your request is settled. A returned item and its photo are deleted after 30 days.",
+    "The lost & found is the one part of this site that is public by design: staff and signed-in members photograph items turned in at school, and anyone can browse them. Writing on an item — often a child's name — is shown only to staff, never on the public page or in its search, and an item with writing on it — and every item a member adds — stays hidden until a staff member has checked the photo. If you say an item is yours, the name, contact and note you type are seen only by staff, and are deleted 60 days after your request is settled. A returned item and its photo are deleted after 30 days.",
   landingLfBody:
     "Everything turned in at school, with a photo. Search for what's missing and tell the office it's yours.",
   landingLfMore:
@@ -1432,7 +1458,7 @@ const en: Strings = {
   faqLostFoundTitle:
     "Lost something at school?",
   faqLostFoundBody:
-    "Staff photograph what's turned in and post it on the lost & found site. Anyone can look, and you can tell the office an item is yours without an account. Names written on items are never shown publicly.",
+    "Staff photograph what's turned in and post it on the lost & found site — and with a directory account, you can add something you found yourself. Anyone can look, and you can tell the office an item is yours without an account. Names written on items are never shown publicly.",
   privacyNeverTitle: "What we don't do",
   privacyNeverBody:
     "We do not sell or share this information, we run no advertising, and nothing here tracks you: the only measurement is the cookie-free visit count described above, which records pages, not people. Nobody is profiled and nothing is sent to a data broker.",
@@ -1730,9 +1756,30 @@ const en: Strings = {
   lfClaimError: "That didn't send. Check your name and contact, then try again.",
   lfClaimPrivacy: "Only school staff see your name and contact.",
   lfStaffEdit: "Edit this item",
-  lfStaffSignIn: "Staff sign-in",
+  lfSignInToAdd: "Found something? Sign in to add it",
+  lfNavSubmit: "Add item",
+  lfSubmitTitle: "Add a found item",
+  lfSubmitLead: "Found something at school? Snap a photo — one item per photo, nothing but the item in the frame — and send it in. The office checks every item before it appears here.",
+  lfSubmitLocation: "Where did you find it? (optional)",
+  lfSubmitLocationHint: "Applies to every photo in this batch.",
+  lfSubmitPlaceholder: "e.g. Gym, playground, cafeteria",
+  lfSubmitChoose: "Take or choose photos",
+  lfSubmitAddMore: "Add more photos",
+  lfSubmitChooseHint: "Pick several at once, or snap one after another. Tap ↻ on any that came out sideways.",
+  lfSubmitNotice: "Turn names and labels away from the camera — the office reviews every item before it goes public.",
+  lfSubmitOne: "Submit 1 item",
+  lfSubmitMany: "Submit {n} items",
+  lfSubmitClear: "Clear",
+  lfSubmitPreparing: "Preparing {n}…",
+  lfSubmitWaiting: "Waiting to upload…",
+  lfSubmitUploading: "Uploading…",
+  lfSubmitDone: "Sent — the office will review it before it appears.",
+  lfSubmitFailed: "Upload failed. Check the connection and try again.",
+  lfSubmitLimit: "That's enough items for one day — thank you! Bring the rest to the office.",
+  lfSubmitReadError: "This browser can't read “{name}”. Try taking it with the camera instead.",
+  lfSubmitRotateError: "Couldn't rotate “{name}”.",
   lfNoAccessTitle: "This part is for school staff",
-  lfNoAccessBody: "Adding found items and handling claims is for the staff who run the lost and found. Browsing is open to everyone.",
+  lfNoAccessBody: "Handling claims and publishing items is for the staff who run the lost and found. Browsing is open to everyone, and any signed-in member can add something they found.",
   lfNoAccessNote: "If you help with the lost and found and can't get in, ask the school office.",
   lfCatWaterBottle: "Water bottle",
   lfCatLunchBox: "Lunch box",
@@ -2224,7 +2271,7 @@ const es: Strings = {
   privacyLostFoundTitle:
     "Objetos perdidos",
   privacyLostFoundBody:
-    "Objetos perdidos es la única parte de este sitio que es pública a propósito: el personal fotografía los objetos que se entregan en la escuela y cualquiera puede verlos. Lo que esté escrito en un objeto —a menudo el nombre de un niño o una niña— solo lo ve el personal; nunca aparece en la página pública ni en su búsqueda, y un objeto con algo escrito queda oculto hasta que alguien del personal revisa la foto. Si dice que un objeto es suyo, el nombre, el contacto y la nota que escriba solo los ve el personal, y se borran 60 días después de resolverse su solicitud. Un objeto devuelto y su foto se borran a los 30 días.",
+    "Objetos perdidos es la única parte de este sitio que es pública a propósito: el personal y los miembros con sesión iniciada fotografían los objetos que se entregan en la escuela y cualquiera puede verlos. Lo que esté escrito en un objeto —a menudo el nombre de un niño o una niña— solo lo ve el personal; nunca aparece en la página pública ni en su búsqueda, y un objeto con algo escrito —y todo objeto agregado por un miembro— queda oculto hasta que alguien del personal revisa la foto. Si dice que un objeto es suyo, el nombre, el contacto y la nota que escriba solo los ve el personal, y se borran 60 días después de resolverse su solicitud. Un objeto devuelto y su foto se borran a los 30 días.",
   landingLfBody:
     "Todo lo que se entrega en la escuela, con foto. Busque lo que le falta y avise a la oficina de que es suyo.",
   landingLfMore:
@@ -2232,7 +2279,7 @@ const es: Strings = {
   faqLostFoundTitle:
     "¿Perdió algo en la escuela?",
   faqLostFoundBody:
-    "El personal fotografía lo que se entrega y lo publica en el sitio de objetos perdidos. Cualquiera puede mirar, y puede avisar a la oficina de que un objeto es suyo sin tener cuenta. Los nombres escritos en los objetos nunca se muestran en público.",
+    "El personal fotografía lo que se entrega y lo publica en el sitio de objetos perdidos — y con una cuenta del directorio, usted también puede agregar algo que encontró. Cualquiera puede mirar, y puede avisar a la oficina de que un objeto es suyo sin tener cuenta. Los nombres escritos en los objetos nunca se muestran en público.",
   privacyNeverTitle: "Lo que no hacemos",
   privacyNeverBody:
     "No vendemos ni compartimos esta información, no mostramos publicidad y nada aquí le rastrea: la única medición es el conteo de visitas sin cookies descrito arriba, que registra páginas, no personas. No se crean perfiles de nadie y no se envía nada a intermediarios de datos.",
@@ -2530,9 +2577,30 @@ const es: Strings = {
   lfClaimError: "No se pudo enviar. Revisa tu nombre y tu contacto e inténtalo de nuevo.",
   lfClaimPrivacy: "Solo el personal de la escuela ve tu nombre y tu contacto.",
   lfStaffEdit: "Editar este objeto",
-  lfStaffSignIn: "Acceso para el personal",
+  lfSignInToAdd: "¿Encontraste algo? Inicia sesión para agregarlo",
+  lfNavSubmit: "Agregar",
+  lfSubmitTitle: "Agregar un objeto encontrado",
+  lfSubmitLead: "¿Encontraste algo en la escuela? Toma una foto —un objeto por foto, solo el objeto en la imagen— y envíala. La oficina revisa cada objeto antes de que aparezca aquí.",
+  lfSubmitLocation: "¿Dónde lo encontraste? (opcional)",
+  lfSubmitLocationHint: "Se aplica a todas las fotos de este lote.",
+  lfSubmitPlaceholder: "p. ej. Gimnasio, patio, cafetería",
+  lfSubmitChoose: "Toma o elige fotos",
+  lfSubmitAddMore: "Agregar más fotos",
+  lfSubmitChooseHint: "Elige varias a la vez o tómalas una tras otra. Toca ↻ en las que salieron de lado.",
+  lfSubmitNotice: "Gira los nombres y las etiquetas lejos de la cámara — la oficina revisa cada objeto antes de hacerlo público.",
+  lfSubmitOne: "Enviar 1 objeto",
+  lfSubmitMany: "Enviar {n} objetos",
+  lfSubmitClear: "Borrar",
+  lfSubmitPreparing: "Preparando {n}…",
+  lfSubmitWaiting: "Esperando para subir…",
+  lfSubmitUploading: "Subiendo…",
+  lfSubmitDone: "Enviado — la oficina lo revisará antes de que aparezca.",
+  lfSubmitFailed: "No se pudo subir. Revisa la conexión e intenta de nuevo.",
+  lfSubmitLimit: "Ya son suficientes objetos por hoy — ¡gracias! Lleva el resto a la oficina.",
+  lfSubmitReadError: "Este navegador no puede leer “{name}”. Intenta tomarla con la cámara.",
+  lfSubmitRotateError: "No se pudo girar “{name}”.",
   lfNoAccessTitle: "Esta parte es para el personal de la escuela",
-  lfNoAccessBody: "Agregar objetos encontrados y atender reclamos le corresponde al personal que administra objetos perdidos. Cualquiera puede explorar.",
+  lfNoAccessBody: "Atender reclamos y publicar objetos le corresponde al personal que administra objetos perdidos. Cualquiera puede explorar, y cualquier miembro con sesión iniciada puede agregar algo que encontró.",
   lfNoAccessNote: "Si ayudas con objetos perdidos y no puedes entrar, pregunta en la oficina de la escuela.",
   lfCatWaterBottle: "Botella de agua",
   lfCatLunchBox: "Lonchera",
@@ -2999,7 +3067,7 @@ const zh: Strings = {
   privacyLostFoundTitle:
     "失物招领",
   privacyLostFoundBody:
-    "失物招领是本网站唯一有意公开的部分：工作人员会为学校收到的物品拍照，任何人都可以浏览。物品上写的字（通常是孩子的名字）只有工作人员能看到，绝不会出现在公开页面或其搜索中；写有文字的物品在工作人员检查照片之前不会公开。如果您认领某件物品，您填写的姓名、联系方式和留言只有工作人员能看到，并会在您的申请处理完毕 60 天后删除。已归还的物品及其照片会在 30 天后删除。",
+    "失物招领是本网站唯一有意公开的部分：工作人员和已登录的成员会为学校收到的物品拍照，任何人都可以浏览。物品上写的字（通常是孩子的名字）只有工作人员能看到，绝不会出现在公开页面或其搜索中；写有文字的物品，以及成员添加的所有物品，在工作人员检查照片之前都不会公开。如果您认领某件物品，您填写的姓名、联系方式和留言只有工作人员能看到，并会在您的申请处理完毕 60 天后删除。已归还的物品及其照片会在 30 天后删除。",
   landingLfBody:
     "学校收到的所有失物，都附有照片。搜索您丢失的东西，并告诉办公室那是您的。",
   landingLfMore:
@@ -3007,7 +3075,7 @@ const zh: Strings = {
   faqLostFoundTitle:
     "在学校丢了东西？",
   faqLostFoundBody:
-    "工作人员会为收到的物品拍照，并发布在失物招领网站上。任何人都可以查看，无需账户即可告诉办公室某件物品是您的。物品上写的名字绝不会公开显示。",
+    "工作人员会为收到的物品拍照，并发布在失物招领网站上——拥有目录账户的您也可以自己添加捡到的物品。任何人都可以查看，无需账户即可告诉办公室某件物品是您的。物品上写的名字绝不会公开显示。",
   privacyNeverTitle: "我们不做的事",
   privacyNeverBody:
     "我们不出售也不共享这些信息，不投放广告，这里也没有任何东西追踪您：唯一的统计就是上面提到的不使用 Cookie 的访问计数，它记录的是页面，而不是人。我们不对任何人建立画像，也不向数据经纪商发送任何内容。",
@@ -3293,9 +3361,30 @@ const zh: Strings = {
   lfClaimError: "发送失败。请检查姓名和联系方式后重试。",
   lfClaimPrivacy: "只有学校工作人员能看到你的姓名和联系方式。",
   lfStaffEdit: "编辑此物品",
-  lfStaffSignIn: "工作人员登录",
+  lfSignInToAdd: "捡到东西了？登录即可添加",
+  lfNavSubmit: "添加物品",
+  lfSubmitTitle: "添加拾到的物品",
+  lfSubmitLead: "在学校捡到东西了？拍张照片——一张照片一件物品，画面里只拍物品——然后提交。办公室会先审核每件物品，之后才会显示在这里。",
+  lfSubmitLocation: "在哪里捡到的？（可选）",
+  lfSubmitLocationHint: "适用于本批所有照片。",
+  lfSubmitPlaceholder: "例如：体育馆、操场、食堂",
+  lfSubmitChoose: "拍照或选择照片",
+  lfSubmitAddMore: "添加更多照片",
+  lfSubmitChooseHint: "可以一次选多张，也可以连拍。拍横了的照片请点 ↻。",
+  lfSubmitNotice: "拍照时请让姓名和标签背向镜头——每件物品公开前都会经办公室审核。",
+  lfSubmitOne: "提交 1 件物品",
+  lfSubmitMany: "提交 {n} 件物品",
+  lfSubmitClear: "清空",
+  lfSubmitPreparing: "正在准备 {n} 张…",
+  lfSubmitWaiting: "等待上传…",
+  lfSubmitUploading: "上传中…",
+  lfSubmitDone: "已提交——办公室审核后才会显示。",
+  lfSubmitFailed: "上传失败。请检查网络后重试。",
+  lfSubmitLimit: "今天提交的物品已经够多了——谢谢！其余的请送到办公室。",
+  lfSubmitReadError: "此浏览器无法读取“{name}”。请改用相机拍摄。",
+  lfSubmitRotateError: "无法旋转“{name}”。",
   lfNoAccessTitle: "这部分仅供学校工作人员使用",
-  lfNoAccessBody: "添加招领物品和处理认领由负责失物招领的工作人员进行。任何人都可以浏览。",
+  lfNoAccessBody: "处理认领和发布物品由负责失物招领的工作人员进行。任何人都可以浏览；登录的成员也可以添加捡到的物品。",
   lfNoAccessNote: "如果你在协助失物招领工作却无法进入，请联系学校办公室。",
   lfCatWaterBottle: "水壶",
   lfCatLunchBox: "午餐盒",
@@ -3844,7 +3933,7 @@ const so: Strings = {
   privacyLostFoundTitle:
     "Alaabta lumay",
   privacyLostFoundBody:
-    "Alaabta lumay waa qaybta kaliya ee boggan oo si ula kac ah u furan: shaqaaluhu waxay sawiraan alaabta dugsiga lagu soo celiyo, qof kastana wuu eegi karaa. Qoraalka ku yaal shay — inta badan magaca ilmo — waxaa arka shaqaalaha oo kaliya; weligiis kama muuqdo bogga guud ama raadintiisa, shayga qoraal leh waa la qariyaa ilaa xubin shaqaale ah ay hubiso sawirka. Haddii aad sheegto in shay adiga kuu leeyahay, magaca, xiriirka iyo qoraalka aad qorto waxaa arka shaqaalaha oo kaliya, waxaana la tirtiraa 60 maalmood kadib marka codsigaaga la xalliyo. Shay la celiyay iyo sawirkiisa waxaa la tirtiraa 30 maalmood kadib.",
+    "Alaabta lumay waa qaybta kaliya ee boggan oo si ula kac ah u furan: shaqaalaha iyo xubnaha galay ayaa sawira alaabta dugsiga lagu soo celiyo, qof kastana wuu eegi karaa. Qoraalka ku yaal shay — inta badan magaca ilmo — waxaa arka shaqaalaha oo kaliya; weligiis kama muuqdo bogga guud ama raadintiisa, shayga qoraal leh — iyo shay kasta oo xubin ay ku darto — waa la qariyaa ilaa xubin shaqaale ah ay hubiso sawirka. Haddii aad sheegto in shay adiga kuu leeyahay, magaca, xiriirka iyo qoraalka aad qorto waxaa arka shaqaalaha oo kaliya, waxaana la tirtiraa 60 maalmood kadib marka codsigaaga la xalliyo. Shay la celiyay iyo sawirkiisa waxaa la tirtiraa 30 maalmood kadib.",
   landingLfBody:
     "Wax kasta oo dugsiga lagu soo celiyay, sawir leh. Raadi waxa kaa maqan oo u sheeg xafiiska inuu adiga kuu leeyahay.",
   landingLfMore:
@@ -3852,7 +3941,7 @@ const so: Strings = {
   faqLostFoundTitle:
     "Ma wax baad ku lumisay dugsiga?",
   faqLostFoundBody:
-    "Shaqaaluhu waxay sawiraan waxa la soo celiyo oo ku dhejiyaan bogga alaabta lumay. Qof kastaa wuu eegi karaa, waxaadna xafiiska u sheegi kartaa in shay adiga kuu leeyahay adigoon xisaab lahayn. Magacyada ku qoran alaabta weligood si guud looma muujiyo.",
+    "Shaqaaluhu waxay sawiraan waxa la soo celiyo oo ku dhejiyaan bogga alaabta lumay — haddii aad xisaab tusmada ku leedahayna, adiguba waxaad ku dari kartaa wax aad heshay. Qof kastaa wuu eegi karaa, waxaadna xafiiska u sheegi kartaa in shay adiga kuu leeyahay adigoon xisaab lahayn. Magacyada ku qoran alaabta weligood si guud looma muujiyo.",
   privacyNeverTitle: "Waxa aanan samayn",
   privacyNeverBody:
     "Ma iibinno oo ma wadaagno macluumaadkan, xayaysiin ma wadno, waxna halkan kuma raadraacaan: cabbirka kaliya waa tirinta booqashooyinka ee aan cookies lahayn ee kor lagu sharaxay, taas oo diiwaangelisa bogag, ee ma aha dad. Cidna lagama sameeyo profile waxbana looma diro dallaal xog.",
@@ -4151,9 +4240,30 @@ const so: Strings = {
   lfClaimError: "Lama dirin. Hubi magacaaga iyo xiriirkaaga, kadibna mar kale isku day.",
   lfClaimPrivacy: "Shaqaalaha dugsiga oo keliya ayaa arka magacaaga iyo xiriirkaaga.",
   lfStaffEdit: "Wax ka beddel shaygan",
-  lfStaffSignIn: "Gelitaanka shaqaalaha",
+  lfSignInToAdd: "Wax ma heshay? Gal si aad ugu darto",
+  lfNavSubmit: "Ku dar",
+  lfSubmitTitle: "Ku dar shay la helay",
+  lfSubmitLead: "Wax ma ka heshay dugsiga? Sawir qaad — hal shay sawirkiiba, shayga oo keliya ha ku jiro — kadibna soo dir. Xafiisku wuu eegaa shay kasta ka hor inta uusan halkan ka muuqan.",
+  lfSubmitLocation: "Xaggee baad ka heshay? (ikhtiyaari)",
+  lfSubmitLocationHint: "Waxay khusaysaa dhammaan sawirrada dufcaddan.",
+  lfSubmitPlaceholder: "tus. Jimicsiga, garoonka, maqaayadda",
+  lfSubmitChoose: "Sawir qaad ama dooro sawirro",
+  lfSubmitAddMore: "Ku dar sawirro kale",
+  lfSubmitChooseHint: "Hal mar dhowr dooro, ama mid mid u qaad. Taabo ↻ kuwa gees u soo baxay.",
+  lfSubmitNotice: "Magacyada iyo summadaha ka jeedi kamaradda — xafiisku wuu eegaa shay kasta ka hor inta aan la faafin.",
+  lfSubmitOne: "Dir 1 shay",
+  lfSubmitMany: "Dir {n} shay",
+  lfSubmitClear: "Tirtir",
+  lfSubmitPreparing: "Diyaarinaya {n}…",
+  lfSubmitWaiting: "Sugaya in la geeyo…",
+  lfSubmitUploading: "Waa la gelinayaa…",
+  lfSubmitDone: "Waa la diray — xafiisku wuu eegi doonaa ka hor inta uusan muuqan.",
+  lfSubmitFailed: "Gelintu way fashilantay. Hubi xiriirka oo mar kale isku day.",
+  lfSubmitLimit: "Maanta waa ku filan tahay — mahadsanid! Inta kale xafiiska keen.",
+  lfSubmitReadError: "Biraawsarkan ma akhriyi karo “{name}”. Isku day inaad kamaradda ku qaaddo.",
+  lfSubmitRotateError: "Lama wareejin karin “{name}”.",
   lfNoAccessTitle: "Qaybtan waxaa iska leh shaqaalaha dugsiga",
-  lfNoAccessBody: "Ku darista alaabta la helay iyo maaraynta codsiyada waxaa qabta shaqaalaha maamula alaabta lumay. Qof kasta wuu daawan karaa.",
+  lfNoAccessBody: "Maaraynta codsiyada iyo faafinta alaabta waxaa qabta shaqaalaha maamula alaabta lumay. Qof kasta wuu daawan karaa, xubin kasta oo gashayna waxay ku dari kartaa wax ay heshay.",
   lfNoAccessNote: "Haddii aad caawiso alaabta lumay oo aadan geli karin, weydii xafiiska dugsiga.",
   lfCatWaterBottle: "Dhalo biyo",
   lfCatLunchBox: "Sanduuqa qadada",

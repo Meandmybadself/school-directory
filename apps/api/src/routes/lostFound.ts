@@ -1,8 +1,13 @@
-// Lost & found, the staff half. Every route needs a session AND the roster gate
-// (`lostFoundAccess`, the `rosterAccess` PTO and the newsletter share —
-// invariant 31), except `/access`, which must answer a member who isn't staff
-// or the app has nothing to show but a spinner, and the two settings routes,
-// which are system-admin only.
+// Lost & found, the signed-in half. Every route needs a session AND the roster
+// gate (`lostFoundAccess`, the `rosterAccess` PTO and the newsletter share —
+// invariant 31), with four exceptions: `/access` answers any session (a member
+// who isn't staff needs an answer, not a spinner); the two settings routes are
+// system-admin only; and SUBMITTING a found item — `POST /items` plus the
+// thumbnail PUT on an item the caller created — is open to ANY session. That
+// is safe because a member-submitted item stays HELD until staff publish it,
+// whatever the model reads (migration 0037), and bounded by
+// MEMBER_ITEMS_PER_DAY. Everything a member submits lands in the staff review
+// queue; nothing they do here puts a photo online.
 //
 // CROSS-SITE WRITES. `sd_session` is SameSite=Lax, which says nothing between
 // sibling subdomains: a form on any *.eisenhower.school page would carry it.
@@ -29,6 +34,7 @@ import {
   LOSTFOUND_GROUP_SETTING,
   MAX_PHOTO_BYTES,
   MAX_THUMB_BYTES,
+  MEMBER_ITEMS_PER_DAY,
   STAFF_ITEM_SELECT,
   claimOf,
   cleanFields,
@@ -69,7 +75,8 @@ lostFound.use("*", async (c, next) => {
 
 class LfForbidden extends Error {}
 
-/** Session + the lost & found roster. Every route below but three starts here. */
+/** Session + the lost & found roster. Every route below but the header's four
+ *  exceptions starts here. */
 async function requireStaff(c: Context<HonoEnv>): Promise<AuthContext> {
   const auth = requireAuth(c);
   if (!(await lostFoundAccess(c.env, auth)).canUse) throw new LfForbidden();
@@ -226,13 +233,26 @@ async function readJpeg(c: Context<HonoEnv>, maxBytes: number): Promise<ArrayBuf
   return body;
 }
 
-/** POST /lostfound/items?location= — raw JPEG body (the full-size photo). The
- *  item starts HELD; the model releases it if it reads no writing on it
- *  (invariant 33). */
+/** POST /lostfound/items?location= — raw JPEG body (the full-size photo). Open
+ *  to ANY session: the item starts HELD either way, and only staff uploads may
+ *  be auto-released by the model (invariant 33). A non-staff submission is
+ *  flagged `member_submitted` — it stays held until staff publish — and is
+ *  bounded to MEMBER_ITEMS_PER_DAY, counted from the caller's own rows (a
+ *  refusal is about the caller's own input, so it may say so plainly). */
 lostFound.post(
   "/items",
   guarded(async (c) => {
-    const auth = await requireStaff(c);
+    const auth = requireAuth(c);
+    const isStaff = (await lostFoundAccess(c.env, auth)).canUse;
+    if (!isStaff) {
+      const dayAgo = new Date(Date.now() - DAYS).toISOString();
+      const mine = await c.env.DB.prepare("SELECT COUNT(*) AS n FROM lf_item WHERE created_by = ? AND found_at > ?")
+        .bind(auth.userId, dayAgo)
+        .first<{ n: number }>();
+      if ((mine?.n ?? 0) >= MEMBER_ITEMS_PER_DAY) {
+        return c.json({ error: "rate_limited", message: "That's enough items for one day — thank you! Bring the rest to the office." }, 429);
+      }
+    }
     const photo = await readJpeg(c, MAX_PHOTO_BYTES);
     if (photo instanceof Response) return photo;
 
@@ -243,30 +263,44 @@ lostFound.post(
     const location = cleanText(c.req.query("location"), 120);
     try {
       await c.env.DB.prepare(
-        `INSERT INTO lf_item (id, photo_key, location, search_text, held_at, found_at, created_by, updated_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+        `INSERT INTO lf_item (id, photo_key, location, search_text, held_at, found_at, created_by, member_submitted, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       )
         // Held from the first moment: nobody has looked at the photo yet.
-        .bind(id, photoKey, location, location.toLowerCase(), now, now, auth.userId, now)
+        .bind(id, photoKey, location, location.toLowerCase(), now, now, auth.userId, isStaff ? 0 : 1, now)
         .run();
     } catch (err) {
       await c.env.LOSTFOUND_MEDIA.delete(photoKey);
       throw err;
     }
-    c.var.audit.push({ action: "lostfound.item.created", entityKind: "lf_item", entityId: id });
+    c.var.audit.push({
+      action: "lostfound.item.created",
+      entityKind: "lf_item",
+      entityId: id,
+      ...(isStaff ? {} : { detail: { memberSubmitted: true } }),
+    });
     const row = await getStaffItem(c.env, id);
     return c.json(staffItemOf(row!, originOf(c)), 201);
   }),
 );
 
 /** PUT /lostfound/items/:id/thumb — raw JPEG thumbnail; starts the description
- *  the first time. Sent again after a rotation, under a fresh key. */
+ *  the first time. Sent again after a rotation, under a fresh key. Open to the
+ *  item's own creator as well as staff, but ONLY while the item is still held
+ *  and awaiting description — the second half of submitting (POST above), and
+ *  nothing more. The window matters: the thumbnail is the image the PUBLIC
+ *  grid serves (`publicItemOf`), so once the model has written or staff have
+ *  published, letting the creator swap it would put an unreviewed picture
+ *  online — exactly what the hold exists to prevent (invariant 33). The
+ *  roster is what's trusted with a live item's images, not this route. */
 lostFound.put(
   "/items/:id/thumb",
   guarded(async (c) => {
-    await requireStaff(c);
+    const auth = requireAuth(c);
     const row = await getStaffItem(c.env, param(c, "id"));
     if (!row) return c.json({ error: "not_found" }, 404);
+    const submitting = row.created_by === auth.userId && row.held_at !== null && row.tag_status === "pending";
+    if (!submitting && !(await lostFoundAccess(c.env, auth)).canUse) throw new LfForbidden();
     const thumb = await readJpeg(c, MAX_THUMB_BYTES);
     if (thumb instanceof Response) return thumb;
 

@@ -1,5 +1,6 @@
-// Lost & found (invariant 33): staff photograph what turns up at school, a
-// vision model describes it, and anyone can browse and say "that's mine".
+// Lost & found (invariant 33): staff — and any signed-in member — photograph
+// what turns up at school, a vision model describes it, and anyone can browse
+// and say "that's mine".
 //
 // THREE SEAMS, and the file is arranged around them.
 //
@@ -67,6 +68,9 @@ export interface LfItemRow {
   found_at: string;
   returned_at: string | null;
   created_by: string | null;
+  /** 1 when the creator was NOT on the staff roster at creation time. The model
+   *  never auto-releases the hold on such an item (migration 0037). */
+  member_submitted: number;
   updated_at: string;
 }
 
@@ -113,6 +117,12 @@ export function versionedKey(id: string, thumb: boolean): string {
  *  be a JPEG. */
 export const MAX_PHOTO_BYTES = 6 * 1024 * 1024;
 export const MAX_THUMB_BYTES = 1024 * 1024;
+/** Items a non-staff member may create per rolling day, counted from their own
+ *  `lf_item` rows. Generous — a parent clearing a playground bin fits — while
+ *  bounding what one account can spend in R2 storage and model calls. Staff are
+ *  exempt: the roster is the trust decision there. */
+export const MEMBER_ITEMS_PER_DAY = 25;
+
 export function isJpegBytes(b: ArrayBuffer): boolean {
   if (b.byteLength < 3) return false;
   const h = new Uint8Array(b, 0, 3);
@@ -183,6 +193,7 @@ export function staffItemOf(row: LfStaffRow, origin: string): LfStaffItemDTO {
     suggestedRotation: cleanRotation(row.suggested_rotation),
     donateDue: donateDue(row),
     openClaims: row.open_claims,
+    memberSubmitted: row.member_submitted === 1,
     createdByEmail: row.created_by_email,
     updatedAt: row.updated_at,
   };
@@ -337,8 +348,11 @@ export async function saveFields(
   // SET expressions see the old row, so `visible_text = ''` below is what was
   // stored before this write. Once something was read, only staff publish —
   // a retag that happens to miss the name must not put the photo online.
+  // A member-submitted item is never released by the model at all (migration
+  // 0037): no writing proves nothing about a photo a non-staff member chose,
+  // so only staff's Publish puts it online.
   const hold = onlyIfPending
-    ? `, held_at = ${f.visibleText ? "COALESCE(held_at, ?)" : "CASE WHEN visible_text = '' THEN NULL ELSE held_at END"}`
+    ? `, held_at = ${f.visibleText ? "COALESCE(held_at, ?)" : "CASE WHEN visible_text = '' AND member_submitted = 0 THEN NULL ELSE held_at END"}`
     : "";
   const holdBinds = onlyIfPending && f.visibleText ? [now] : [];
   // Only the model suggests a rotation; a staff save leaves the last one alone.
