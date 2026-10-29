@@ -29,8 +29,8 @@
 // need first — swapped roughly monthly by rewriting ptoResourceFeatured* in
 // the dictionaries — then how to apply, then the donate group highlighted as
 // one block, then the volunteer sign-up, with the general what/how cards
-// moved to the bottom. TODO: the Resource Center logo goes at the top once
-// Niki sends the PNG (promised Mon 2026-10-26).
+// moved to the bottom. The Resource Center logo (Niki's, 2026-10-29) tops the
+// hero — a static asset in public/, so it costs no subrequest either.
 
 import type { Locale, Strings } from "@sd/shared";
 import { footer, header } from "./_lib/chrome.js";
@@ -80,6 +80,9 @@ export const onRequestGet: PagesFunction = ({ request }) => {
 ${header(t, SCHOOL, locale, PATH)}
 
       <section class="pt-hero">
+        <!-- alt="" on purpose: the h1 right below says the same name in the
+             reader's language; the badge's English is decoration here. -->
+        <img class="pt-hero-logo" src="/resource-center-logo.webp" alt="" width="512" height="512">
         <h1 class="pt-h1">${escapeHtml(t("ptoHowResourceTitle"))}</h1>
         <p class="pt-lead" style="max-width:none">${escapeHtml(t("ptoHowResourceLead"))}</p>
         <div class="pt-cta">

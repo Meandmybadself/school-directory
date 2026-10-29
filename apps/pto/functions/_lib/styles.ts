@@ -109,6 +109,9 @@ a { color: var(--blue-700); }
 
 /* hero */
 .pt-hero { padding: 46px 0 8px; }
+/* The Resource Center badge (transparent circle, self-coloured — fine in both
+   themes). width/height attrs keep the intrinsic ratio; this caps the size. */
+.pt-hero-logo { width: clamp(110px, 18vw, 160px); height: auto; display: block; }
 .pt-eyebrow {
   font-size: 11.5px; font-weight: 700; letter-spacing: .9px; text-transform: uppercase;
   color: var(--ink-3); display: flex; gap: 9px; flex-wrap: wrap; align-items: center;
