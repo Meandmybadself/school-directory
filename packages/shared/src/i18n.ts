@@ -1647,7 +1647,7 @@ const en: Strings = {
     "Regular volunteers do the shopping and keep the shelves stocked and organized — a couple of hours a week. Every upcoming shift is on the sign-up sheet; pick one that fits.",
   ptoHowResourceGive: "How to give",
   ptoHowResourceGiveBody:
-    "Give through GiveMN and mention the Resource Center with your gift, or leave cash or a check marked “Resource Center” at the front office.",
+    "Give through the PTO's Square store, or leave cash or a check marked “Resource Center” at the front office.",
   ptoHowResourceNoteTitle: "Need assistance?",
   ptoHowResourceNoteBody:
     "Fill out the assistance form, or call the Resource Center. Nobody at the PTO is told who asked, nothing is owed back, and this is exactly what it is for.",
@@ -2468,7 +2468,7 @@ const es: Strings = {
     "Voluntarios regulares hacen las compras y mantienen los estantes surtidos y ordenados — un par de horas por semana. Todos los turnos próximos están en la hoja de inscripción; elija el que le quede bien.",
   ptoHowResourceGive: "Cómo donar",
   ptoHowResourceGiveBody:
-    "Done a través de GiveMN y mencione el Centro de Recursos con su donación, o deje efectivo o un cheque marcado «Resource Center» en la oficina de la escuela.",
+    "Done a través de la tienda Square de la PTO, o deje efectivo o un cheque marcado «Resource Center» en la oficina de la escuela.",
   ptoHowResourceNoteTitle: "¿Necesita ayuda?",
   ptoHowResourceNoteBody:
     "Complete el formulario de solicitud de apoyo, o llame al Centro de Recursos. Nadie en la PTO sabrá quién pidió ayuda, no se debe nada a cambio, y esto existe exactamente para eso.",
@@ -3256,7 +3256,7 @@ const zh: Strings = {
     "固定志愿者负责采购，并让货架保持充足、整齐——每周只需两三个小时。所有近期班次都在报名表上，挑一个合适的即可。",
   ptoHowResourceGive: "怎样捐助",
   ptoHowResourceGiveBody:
-    "通过 GiveMN 捐款并注明“资源中心”，或把现金或写明“Resource Center”的支票交到学校前台。",
+    "通过家长会的 Square 商店捐款，或把现金或写明“Resource Center”的支票交到学校前台。",
   ptoHowResourceNoteTitle: "需要帮助吗？",
   ptoHowResourceNoteBody:
     "请填写援助申请表，或致电资源中心。家长会里没有人会知道是谁开口，您也不欠任何人情——它存在的意义正是如此。",
@@ -4131,7 +4131,7 @@ const so: Strings = {
     "Mutadawiciin joogto ah ayaa wax soo iibsada oo khaanadaha buuxiya oo hagaajiya — laba saacadood toddobaadkii. Wardiyada soo socda oo dhan waxay ku qoran yihiin xaashida isqorista; ka dooro mid kugu habboon.",
   ptoHowResourceGive: "Sida wax loo bixiyo",
   ptoHowResourceGiveBody:
-    "Ku deeq GiveMN oo deeqdaada ku xus Xarunta Kheyraadka, ama xafiiska hore ku dhaaf lacag caddaan ah ama jeeg ku qoran “Resource Center”.",
+    "Ku deeq dukaanka Square ee PTO-da, ama xafiiska hore ku dhaaf lacag caddaan ah ama jeeg ku qoran “Resource Center”.",
   ptoHowResourceNoteTitle: "Ma u baahan tahay caawimaad?",
   ptoHowResourceNoteBody:
     "Buuxi foomka codsiga caawinta, ama wac Xarunta Kheyraadka. Qofna PTO-da kama ogaan doono cidda codsatay, waxbana laguguma lahan — tani waxay u taagan tahay sidaas oo kale.",

@@ -11,8 +11,8 @@
 // hreflang alternates, translated into all four languages. Every string here
 // is a dictionary key the landing page's help sections already carry
 // (invariant 6), so the page shipped with zero new translations; the facts —
-// the assistance form, the FRC's phone, the Amazon list, GiveMN — come from
-// `_lib/pto.ts`.
+// the assistance form, the FRC's phone, the Amazon list, the Square store —
+// come from `_lib/pto.ts`.
 //
 // Like the landing page, IT MAKES NO SUBREQUEST AT ALL (invariant 28's
 // strongest answer): a pure function of the URL, Accept-Language and the
@@ -38,7 +38,6 @@ import { LANG_PARAM, langCookie, resolveLocale } from "./_lib/locale.js";
 import { escapeHtml, html, shell, translator } from "./_lib/page.js";
 import {
   ASSISTANCE_FORM_URL,
-  DONATE,
   FRC_PHONE,
   FRC_SIGNUP,
   SQUARE_STORE,
@@ -109,8 +108,9 @@ ${header(t, SCHOOL, locale, PATH)}
            the change request: the wishlist (the CURRENT list — see WISHLISTS
            in _lib/pto.ts), gift cards (no URL to give, so the card's link
            dials the FRC), and direct dollars through the Square store. GiveMN
-           moved down to the general cards: it stays on the page, but the
-           highlighted group is the board's list and nothing else. -->
+           is deliberately absent from this page (board's ask, 2026-10-29):
+           every donation link here lands on the Square store. The landing
+           page's donate button still carries DONATE (GiveMN). -->
       <section class="pt-sec" id="give">
         <div class="pt-donate">
           <h2 class="pt-h2">${escapeHtml(t("ptoResourceDonateTitle"))}</h2>
@@ -138,13 +138,13 @@ ${linkCard(t, "ptoResourceSquare", "ptoResourceSquareBody", SQUARE_STORE.url, t(
       </section>
 
       <!-- General Resource Center information, moved to the bottom at the
-           board's request. "How to give" (GiveMN, cash, checks) rides here
-           rather than in the highlighted group above. -->
+           board's request. "How to give" (the Square store, cash, checks)
+           rides here rather than in the highlighted group above. -->
       <section class="pt-sec">
         <div class="pt-grid">
 ${card(t, "ptoHowResourceWhat", "ptoHowResourceWhatBody")}
 ${card(t, "ptoHowResourceWho", "ptoHowResourceWhoBody")}
-${linkCard(t, "ptoHowResourceGive", "ptoHowResourceGiveBody", DONATE.url, t("ptoDonateCta"))}
+${linkCard(t, "ptoHowResourceGive", "ptoHowResourceGiveBody", SQUARE_STORE.url, t("ptoResourceSquareCta"))}
         </div>
       </section>
 

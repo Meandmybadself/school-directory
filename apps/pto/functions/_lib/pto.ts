@@ -242,7 +242,8 @@ export const DONATE: PtoLink = {
 };
 
 /** The PTO's existing Square storefront — where a direct dollar donation
- *  lands (/resource-center's "Ways to donate" card, at the board's request).
+ *  lands (/resource-center's "Ways to donate" card and its bottom "How to
+ *  give" card, at the board's request — every donation link on that page).
  *  The URL is the Resource Center donation product itself, not the gallery.
  *  Predates this repo's own apps/store, which is still unannounced; when that
  *  shop launches, deciding which of the two a donation card points at is a
