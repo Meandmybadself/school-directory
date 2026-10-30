@@ -896,7 +896,6 @@ export interface Strings {
   lfSubmitUploading: string;
   lfSubmitDone: string;
   lfSubmitFailed: string;
-  lfSubmitLimit: string;
   lfSubmitReadError: string;
   lfSubmitRotateError: string;
   /** On the public item page, for signed-in staff only: straight to the editor. */
@@ -1775,7 +1774,6 @@ const en: Strings = {
   lfSubmitUploading: "Uploading…",
   lfSubmitDone: "Sent — the office will review it before it appears.",
   lfSubmitFailed: "Upload failed. Check the connection and try again.",
-  lfSubmitLimit: "That's enough items for one day — thank you! Bring the rest to the office.",
   lfSubmitReadError: "This browser can't read “{name}”. Try taking it with the camera instead.",
   lfSubmitRotateError: "Couldn't rotate “{name}”.",
   lfNoAccessTitle: "This part is for school staff",
@@ -2596,7 +2594,6 @@ const es: Strings = {
   lfSubmitUploading: "Subiendo…",
   lfSubmitDone: "Enviado — la oficina lo revisará antes de que aparezca.",
   lfSubmitFailed: "No se pudo subir. Revisa la conexión e intenta de nuevo.",
-  lfSubmitLimit: "Ya son suficientes objetos por hoy — ¡gracias! Lleva el resto a la oficina.",
   lfSubmitReadError: "Este navegador no puede leer “{name}”. Intenta tomarla con la cámara.",
   lfSubmitRotateError: "No se pudo girar “{name}”.",
   lfNoAccessTitle: "Esta parte es para el personal de la escuela",
@@ -3380,7 +3377,6 @@ const zh: Strings = {
   lfSubmitUploading: "上传中…",
   lfSubmitDone: "已提交——办公室审核后才会显示。",
   lfSubmitFailed: "上传失败。请检查网络后重试。",
-  lfSubmitLimit: "今天提交的物品已经够多了——谢谢！其余的请送到办公室。",
   lfSubmitReadError: "此浏览器无法读取“{name}”。请改用相机拍摄。",
   lfSubmitRotateError: "无法旋转“{name}”。",
   lfNoAccessTitle: "这部分仅供学校工作人员使用",
@@ -4259,7 +4255,6 @@ const so: Strings = {
   lfSubmitUploading: "Waa la gelinayaa…",
   lfSubmitDone: "Waa la diray — xafiisku wuu eegi doonaa ka hor inta uusan muuqan.",
   lfSubmitFailed: "Gelintu way fashilantay. Hubi xiriirka oo mar kale isku day.",
-  lfSubmitLimit: "Maanta waa ku filan tahay — mahadsanid! Inta kale xafiiska keen.",
   lfSubmitReadError: "Biraawsarkan ma akhriyi karo “{name}”. Isku day inaad kamaradda ku qaaddo.",
   lfSubmitRotateError: "Lama wareejin karin “{name}”.",
   lfNoAccessTitle: "Qaybtan waxaa iska leh shaqaalaha dugsiga",

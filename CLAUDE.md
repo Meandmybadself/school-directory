@@ -1061,13 +1061,12 @@ Worker, sharing one session:
      — reading no writing proves nothing about a photo a non-staff member
      chose — so it waits in the review queue until staff Publish; the flag is
      a column, not a request-time check, because `retagStuck` re-describes
-     from the cron with no session in sight. Bounded by `MEMBER_ITEMS_PER_DAY`
-     (100, counted from the caller's own rows; staff exempt — the roster is
-     the trust decision; was 25 until a parent photographing the whole rack
-     was cut off mid-pile — the bound is against abuse, not enthusiasm). On
-     the cap's 429 the submit screen STOPS the batch and re-stages the untried
-     photos instead of spending a request per photo on the same refusal. The
-     staff-verified email intake stays unflagged.
+     from the cron with no session in sight. There is deliberately NO
+     per-member item cap (`MEMBER_ITEMS_PER_DAY`, 25/day, shipped first and
+     cut a parent off mid-rack, 2026-10): the HOLD is the gate — nothing a
+     member submits reaches the web until staff Publish — and a runaway
+     account's spend is a pile of held items in front of staff, deletable
+     from the review queue. The staff-verified email intake stays unflagged.
    - **The claim form is anonymous and bounded like invariant 14**: `website`
      honeypot; 3/day per contact, 10 open per item, 50/day instance-wide,
      counted from `lf_claim` rows; the SAME `{ ok: true }` for stored,

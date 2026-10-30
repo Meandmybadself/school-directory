@@ -216,13 +216,15 @@ describe("the routes outside the staff gate", () => {
 });
 
 // ── Member submission ───────────────────────────────────────────────────────
-// Any session may POST an item; what makes that safe is that a non-staff item
-// is flagged `member_submitted` (the model never releases its hold — only
-// staff's Publish does) and bounded per day.
+// Any session may POST an item, and there is deliberately NO per-member cap
+// (one shipped and cut a parent off mid-rack). What makes that safe is that a
+// non-staff item is flagged `member_submitted` and the model never releases
+// its hold — only staff's Publish does. The fake below answers no COUNT query,
+// so a cap quietly reintroduced fails these tests loudly.
 
-/** D1 + R2 stand-ins for the submission path: the roster gate, the daily cap's
- *  count, the INSERT (recorded), and the reload that builds the response. */
-function submitEnv(opts: { onRoster: boolean; todayCount?: number }) {
+/** D1 + R2 stand-ins for the submission path: the roster gate, the INSERT
+ *  (recorded), and the reload that builds the response. */
+function submitEnv(opts: { onRoster: boolean }) {
   const writes: { sql: string; args: unknown[] }[] = [];
   const media: string[] = [];
   const env = {
@@ -234,7 +236,6 @@ function submitEnv(opts: { onRoster: boolean; todayCount?: number }) {
               if (sql.includes("FROM setting")) return { value: GROUP };
               if (sql.includes("FROM grp")) return { id: GROUP, name: "Front office" };
               if (sql.includes("FROM membership m")) return opts.onRoster ? { ok: 1 } : null;
-              if (sql.includes("COUNT(*) AS n FROM lf_item")) return { n: opts.todayCount ?? 0 };
               if (sql.includes("FROM lf_item i")) {
                 // getStaffItem's reload: echo back what the INSERT wrote.
                 const ins = writes.find((w) => w.sql.includes("INSERT INTO lf_item"));
@@ -294,17 +295,6 @@ describe("POST /lostfound/items as a signed-in member", () => {
     expect(audit[0]!.detail).toBeUndefined();
   });
 
-  it("refuses a member past the daily cap before anything is stored; staff are exempt", async () => {
-    // The literal is deliberate: moving MEMBER_ITEMS_PER_DAY should land here
-    // (and in CLAUDE.md's invariant 33) as its own decision, not ride along.
-    const capped = await post({ onRoster: false, todayCount: 100 });
-    expect(capped.res.status).toBe(429);
-    expect(capped.writes).toEqual([]);
-    expect(capped.media).toEqual([]);
-    expect(capped.audit).toEqual([]);
-    // Staff never meet the counter at all: the roster is the trust decision.
-    expect((await post({ onRoster: true, todayCount: 999 }, "01U_STAFF")).res.status).toBe(201);
-  });
 });
 
 describe("PUT /lostfound/items/:id/thumb ownership", () => {

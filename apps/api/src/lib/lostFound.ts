@@ -117,13 +117,12 @@ export function versionedKey(id: string, thumb: boolean): string {
  *  be a JPEG. */
 export const MAX_PHOTO_BYTES = 6 * 1024 * 1024;
 export const MAX_THUMB_BYTES = 1024 * 1024;
-/** Items a non-staff member may create per rolling day, counted from their own
- *  `lf_item` rows. The bound is against ABUSE (what one account can spend in R2
- *  storage and model calls), not against enthusiasm: 25 looked generous until a
- *  parent photographing the whole lost & found rack was cut off mid-pile
- *  (2026-10), so the cap is sized to the biggest legitimate session seen, with
- *  room. Staff are exempt: the roster is the trust decision there. */
-export const MEMBER_ITEMS_PER_DAY = 100;
+// There is deliberately NO per-member item cap. A 25/day one shipped first and
+// cut off a parent photographing the whole lost & found rack mid-pile
+// (2026-10); the actual safety is the HOLD — a member-submitted item never
+// reaches the web until staff Publish — and a runaway account's spend (R2
+// objects, model calls) is a pile of held items in front of staff, deletable
+// from the review queue in one sitting.
 
 export function isJpegBytes(b: ArrayBuffer): boolean {
   if (b.byteLength < 3) return false;

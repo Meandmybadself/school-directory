@@ -15,7 +15,7 @@ import { useEffect, useRef, useState } from "react";
 import { Screen } from "../components/Screen.js";
 import { Icon } from "../components/Icon.js";
 import { Btn } from "../components/atoms.js";
-import { ApiError, api } from "../lib/api.js";
+import { api } from "../lib/api.js";
 import { useI18n } from "../i18n/index.js";
 import { resizePhoto, rotatePhoto, type Turn } from "../lib/lf.js";
 
@@ -113,28 +113,21 @@ export function Submit() {
     }
   };
 
-  const uploadOne = async (item: Staged, where: string): Promise<"ok" | "failed" | "limited"> => {
+  const uploadOne = async (item: Staged, where: string) => {
     update(item.key, { phase: "uploading" });
     try {
       const created = await api.uploadPhoto(item.photo, where);
       // The thumbnail landing is what starts the vision model (routes/lostFound.ts).
       await api.uploadThumb(created.id, item.thumb);
       update(item.key, { phase: "done" });
-      return "ok";
-    } catch (err) {
-      // The daily cap is the one refusal worth its own words (it is about the
-      // caller's own account, so the server says so plainly; we translate it).
-      const limited = err instanceof ApiError && err.status === 429;
-      update(item.key, { phase: "error", error: limited ? t("lfSubmitLimit") : t("lfSubmitFailed") });
-      return limited ? "limited" : "failed";
+    } catch {
+      update(item.key, { phase: "error", error: t("lfSubmitFailed") });
     }
   };
 
-  /** Every staged photo, UPLOAD_CONCURRENCY at a time — until the daily cap
-   *  answers. The cap refuses every further upload today, so sending the rest
-   *  of the batch would only repeat the same refusal down the queue; instead
-   *  the untried photos go back to the tray (nothing re-staged, re-rotated or
-   *  lost) and the limit is said once, up by the form. */
+  /** Every staged photo, UPLOAD_CONCURRENCY at a time. There is no per-member
+   *  cap to meet (routes/lostFound.ts): however big the pile, every photo goes,
+   *  and every one lands in the office's review queue. */
   const submit = async () => {
     const batch = staged;
     if (!batch.length) return;
@@ -145,22 +138,10 @@ export function Submit() {
       ...rs,
     ]);
     let next = 0;
-    let limited = false;
     const worker = async () => {
-      while (!limited && next < batch.length) {
-        if ((await uploadOne(batch[next++]!, where)) === "limited") limited = true;
-      }
+      while (next < batch.length) await uploadOne(batch[next++]!, where);
     };
     await Promise.all(Array.from({ length: Math.min(UPLOAD_CONCURRENCY, batch.length) }, worker));
-    if (limited) {
-      const untried = batch.slice(next);
-      if (untried.length) {
-        const keys = new Set(untried.map((s) => s.key));
-        setRows((rs) => rs.filter((r) => !keys.has(r.key)));
-        setStaged((s) => [...untried, ...s]);
-      }
-      setPrepError(t("lfSubmitLimit"));
-    }
   };
 
   const phaseText: Record<Phase, (r: Row) => string> = {

@@ -5,9 +5,8 @@
 // system-admin only; and SUBMITTING a found item — `POST /items` plus the
 // thumbnail PUT on an item the caller created — is open to ANY session. That
 // is safe because a member-submitted item stays HELD until staff publish it,
-// whatever the model reads (migration 0037), and bounded by
-// MEMBER_ITEMS_PER_DAY. Everything a member submits lands in the staff review
-// queue; nothing they do here puts a photo online.
+// whatever the model reads (migration 0037). Everything a member submits lands
+// in the staff review queue; nothing they do here puts a photo online.
 //
 // CROSS-SITE WRITES. `sd_session` is SameSite=Lax, which says nothing between
 // sibling subdomains: a form on any *.eisenhower.school page would carry it.
@@ -34,7 +33,6 @@ import {
   LOSTFOUND_GROUP_SETTING,
   MAX_PHOTO_BYTES,
   MAX_THUMB_BYTES,
-  MEMBER_ITEMS_PER_DAY,
   STAFF_ITEM_SELECT,
   claimOf,
   cleanFields,
@@ -234,25 +232,17 @@ async function readJpeg(c: Context<HonoEnv>, maxBytes: number): Promise<ArrayBuf
 }
 
 /** POST /lostfound/items?location= — raw JPEG body (the full-size photo). Open
- *  to ANY session: the item starts HELD either way, and only staff uploads may
- *  be auto-released by the model (invariant 33). A non-staff submission is
- *  flagged `member_submitted` — it stays held until staff publish — and is
- *  bounded to MEMBER_ITEMS_PER_DAY, counted from the caller's own rows (a
- *  refusal is about the caller's own input, so it may say so plainly). */
+ *  to ANY session, with NO per-member cap (one shipped and cut off a parent
+ *  photographing the whole rack): the item starts HELD either way, and only
+ *  staff uploads may be auto-released by the model (invariant 33). A non-staff
+ *  submission is flagged `member_submitted` and stays held until staff publish
+ *  — the review queue is the gate, so nothing a member sends here reaches the
+ *  web, however much of it there is. */
 lostFound.post(
   "/items",
   guarded(async (c) => {
     const auth = requireAuth(c);
     const isStaff = (await lostFoundAccess(c.env, auth)).canUse;
-    if (!isStaff) {
-      const dayAgo = new Date(Date.now() - DAYS).toISOString();
-      const mine = await c.env.DB.prepare("SELECT COUNT(*) AS n FROM lf_item WHERE created_by = ? AND found_at > ?")
-        .bind(auth.userId, dayAgo)
-        .first<{ n: number }>();
-      if ((mine?.n ?? 0) >= MEMBER_ITEMS_PER_DAY) {
-        return c.json({ error: "rate_limited", message: "That's enough items for one day — thank you! Bring the rest to the office." }, 429);
-      }
-    }
     const photo = await readJpeg(c, MAX_PHOTO_BYTES);
     if (photo instanceof Response) return photo;
 
