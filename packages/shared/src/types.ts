@@ -2011,6 +2011,10 @@ export interface LfPublicListDTO {
   /** Another page exists. Always false for a search, which returns its best
    *  matches in one go. */
   hasMore: boolean;
+  /** How many items are listed in all, ignoring any search or filter — the
+   *  "N items are waiting" line up top. A count over exactly the public gate,
+   *  so it discloses nothing browsing doesn't. */
+  total: number;
 }
 
 /** POST /lostfound-public/items/:id/claims. `website` is a honeypot: a person

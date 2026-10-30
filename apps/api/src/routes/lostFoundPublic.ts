@@ -24,6 +24,7 @@ import {
   cleanText,
   getItem,
   isListed,
+  listedCount,
   normalizeContact,
   parseFilters,
   publicItemOf,
@@ -41,8 +42,14 @@ lostFoundPublic.get("/items", async (c) => {
   const page = Math.max(0, Math.min(100, Number(query.page) || 0));
   const origin = new URL(c.req.url).origin;
 
-  const { items, hasMore } = q ? await search(c.env, q, filters) : await browse(c.env, filters, page);
-  return c.json({ items: items.map((row) => publicItemOf(row, origin)), hasMore });
+  // `total` is the WHOLE listing's size, deliberately ignoring the search and
+  // filters — it is the "N items are waiting" line up top, steady while
+  // someone narrows.
+  const [{ items, hasMore }, total] = await Promise.all([
+    q ? search(c.env, q, filters) : browse(c.env, filters, page),
+    listedCount(c.env),
+  ]);
+  return c.json({ items: items.map((row) => publicItemOf(row, origin)), hasMore, total });
 });
 
 /** GET /lostfound-public/items/:id — 404 for anything not currently listed. */

@@ -25,6 +25,7 @@ export function Browse() {
 
   const [draft, setDraft] = useState(q);
   const [items, setItems] = useState<LfPublicItemDTO[] | null>(null);
+  const [total, setTotal] = useState<number | null>(null);
   const [hasMore, setHasMore] = useState(false);
   const [page, setPage] = useState(0);
   const [error, setError] = useState(false);
@@ -59,6 +60,7 @@ export function Browse() {
       const res = await api.browse({ q, category, color, page: nextPage });
       if (mine !== seq.current) return;
       setItems((prev) => (nextPage === 0 || !prev ? res.items : [...prev, ...res.items]));
+      setTotal(res.total);
       setHasMore(res.hasMore);
       setPage(nextPage);
     } catch {
@@ -79,6 +81,13 @@ export function Browse() {
         <div>
           <h1 className="sd-h1">{t("lfBrowseTitle")}</h1>
           <p className="sd-lead" style={{ marginTop: 8 }}>{t("lfBrowseLead")}</p>
+          {/* The whole listing's size, steady while someone searches or
+              filters. Zero says nothing — the empty grid already does. */}
+          {total !== null && total > 0 && (
+            <p className="sd-meta" style={{ marginTop: 6 }}>
+              {total === 1 ? t("lfItemCountOne") : t("lfItemCount", { n: total })}
+            </p>
+          )}
         </div>
 
         <form

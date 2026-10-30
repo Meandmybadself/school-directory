@@ -572,7 +572,12 @@ export interface LfFilters {
   color?: string;
 }
 
-export const LF_PAGE_SIZE = 24;
+/** Effectively "everything" at a school's scale: the browse page shows ALL
+ *  listed items at once (asked for, 2026-10 — a parent scanning for a coat
+ *  shouldn't pump a button). The paging machinery underneath stays as the
+ *  escape hatch for the day the rack outgrows this, and the LIMIT still
+ *  bounds one response's size. */
+export const LF_PAGE_SIZE = 500;
 /** Cosine floor for semantic matches. bge-small scores even unrelated text
  *  fairly high; raise this if searches return noise. */
 const MIN_SEMANTIC_SCORE = 0.7;
@@ -584,6 +589,15 @@ export const LISTED = "status = 'found' AND hidden_at IS NULL AND held_at IS NUL
 /** `LISTED`, for a row already in hand. Keep the two in step. */
 export const isListed = (r: Pick<LfItemRow, "status" | "hidden_at" | "held_at">): boolean =>
   r.status === "found" && !r.hidden_at && !r.held_at;
+
+/** How many items are listed right now — the number the browse page shows up
+ *  top. Counts exactly the public gate, nothing narrower or wider: the same
+ *  rows browsing already shows, so the number discloses nothing new
+ *  (invariant 18's COUNT rule). */
+export async function listedCount(env: Env): Promise<number> {
+  const n = await env.DB.prepare(`SELECT COUNT(*) AS n FROM lf_item WHERE ${LISTED}`).first<number>("n");
+  return n ?? 0;
+}
 
 export function parseFilters(q: Record<string, string>): LfFilters {
   return {
