@@ -58,6 +58,17 @@ function signupsOf(p: VolunteerPositionDTO | AnySheet["positions"][number]): Vol
   return "signups" in p ? p.signups : [];
 }
 
+/** The runbook link, which exists only on the member shape (`publicSheetOf`
+ *  withholds it — CLAUDE.md invariant 13's posture). A helper for signupsOf's
+ *  reason, plus one more: VolunteerSheetDTO is structurally a SUBTYPE of
+ *  PublicVolunteerSheetDTO, so any freshly computed union (a ternary, a `??`)
+ *  collapses AnySheet to just the public shape and an in-place `"runbookUrl" in
+ *  sheet` check types as `unknown` there. The declared parameter type here
+ *  keeps both constituents, so the narrowing works in exactly one place. */
+export function runbookOf(sheet: AnySheet): string | null {
+  return "runbookUrl" in sheet ? sheet.runbookUrl : null;
+}
+
 function formatTime(iso: string, locale: string): string {
   return formatClock(iso, locale, SCHOOL_TIME_ZONE);
 }

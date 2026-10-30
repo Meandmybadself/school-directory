@@ -26,6 +26,7 @@ function sheet(): VolunteerSheetDTO {
     id: "01SHEET",
     slug: "fall-carnival-2026-10-17",
     intro: "Help us run the carnival.",
+    runbookUrl: "https://docs.google.com/document/d/carnival-runbook",
     closesAt: "2026-10-16T05:00:00.000Z",
     closed: false,
     published: true,
@@ -106,6 +107,14 @@ describe("publicSheetOf", () => {
     expect(pub).not.toHaveProperty("canManage");
     expect(pub).not.toHaveProperty("published");
     expect(pub).not.toHaveProperty("orphaned");
+  });
+
+  it("withholds the runbook link", () => {
+    // The organizers' working document (migration 0039) — shown to signed-in
+    // members on the event page, never on this enumerable anonymous one.
+    const pub = publicSheetOf(sheet());
+    expect(pub).not.toHaveProperty("runbookUrl");
+    expect(JSON.stringify(pub)).not.toContain("carnival-runbook");
   });
 
   it("does not let a newly added DTO field ride along", () => {

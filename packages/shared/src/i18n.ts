@@ -134,6 +134,9 @@ export interface Strings {
   volunteerNotePlaceholder: string;
   volunteerSignupsClosed: string;
   volunteerNoPositions: string;
+  /** Link text for a sheet's runbook — the organizers' document on how the
+   *  event is run. Members-only; the public sheet never carries the URL. */
+  volunteerRunbook: string;
   volunteerNamesMembersOnly: string;
   volunteerAlready: string;
   volunteerTookLastSpot: string;
@@ -1058,6 +1061,7 @@ const en: Strings = {
   volunteerNotePlaceholder: "Anything the organizer should know",
   volunteerSignupsClosed: "Signups are closed.",
   volunteerNoPositions: "No positions have been posted yet.",
+  volunteerRunbook: "How this event is run",
   volunteerNamesMembersOnly: "Sign in to see who has signed up.",
   volunteerAlready: "Already signed up for this.",
   volunteerTookLastSpot: "Someone just took the last spot.",
@@ -1945,6 +1949,7 @@ const es: Strings = {
   volunteerNotePlaceholder: "Algo que deba saber quien organiza",
   volunteerSignupsClosed: "Las inscripciones están cerradas.",
   volunteerNoPositions: "Todavía no se han publicado puestos.",
+  volunteerRunbook: "Cómo se organiza este evento",
   volunteerNamesMembersOnly: "Inicia sesión para ver quién se ha apuntado.",
   volunteerAlready: "Ya está apuntado en este puesto.",
   volunteerTookLastSpot: "Alguien acaba de tomar el último lugar.",
@@ -2758,6 +2763,7 @@ const zh: Strings = {
   volunteerNotePlaceholder: "有什么需要组织者知道的",
   volunteerSignupsClosed: "报名已截止。",
   volunteerNoPositions: "尚未发布任何岗位。",
+  volunteerRunbook: "活动组织指南",
   volunteerNamesMembersOnly: "登录后可查看报名名单。",
   volunteerAlready: "该岗位已报名。",
   volunteerTookLastSpot: "最后一个名额刚被别人报走了。",
@@ -3543,6 +3549,7 @@ const so: Strings = {
   volunteerNotePlaceholder: "Wax kasta oo qabanqaabiyuhu u baahan yahay inuu ogaado",
   volunteerSignupsClosed: "Is-diiwaangelintu waa xiran tahay.",
   volunteerNoPositions: "Weli ma jiraan boosas la soo bandhigay.",
+  volunteerRunbook: "Sida munaasabaddan loo maamulo",
   volunteerNamesMembersOnly: "Gal si aad u aragto cidda is-diiwaangelisay.",
   volunteerAlready: "Horey ayaad tan isugu diiwaangelisay.",
   volunteerTookLastSpot: "Qof ayaa hadda qaatay booskii ugu dambeeyay.",

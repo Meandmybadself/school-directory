@@ -37,7 +37,7 @@ import { ScreenHeader, SectLabel } from "../components/parts.js";
 import { SiteFooter } from "../components/SiteFooter.js";
 import { EditEventSheet } from "../components/EditEventSheet.js";
 import { LinkifiedText } from "../components/LinkifiedText.js";
-import { VolunteerPositions, type AnySheet } from "../components/VolunteerPositions.js";
+import { VolunteerPositions, runbookOf, type AnySheet } from "../components/VolunteerPositions.js";
 import { useI18n } from "../i18n/index.js";
 import { useIsDesktop } from "../lib/useIsDesktop.js";
 import { api } from "../lib/api.js";
@@ -236,6 +236,18 @@ export function Event() {
       {sheet.intro && (
         <div style={{ fontSize: 13.5, lineHeight: 1.5, color: "var(--ink-2)", whiteSpace: "pre-wrap", wordBreak: "break-word", marginTop: 9 }}>
           {sheet.intro}
+        </div>
+      )}
+      {/* The organizers' runbook. Member-only by construction: the anonymous
+          endpoint's shape has no such field (publicSheetOf withholds it), so
+          this renders nothing for a signed-out reader — runbookOf is the one
+          place that reads it; see its note for why not an `in` check here. */}
+      {runbookOf(sheet) && (
+        <div className="sd-row" style={{ gap: 7, marginTop: 9 }}>
+          <Icon name="file" size={15} style={{ color: "var(--ink-3)", flex: "0 0 auto" }} />
+          <a href={runbookOf(sheet)!} target="_blank" rel="noopener noreferrer" className="sd-link" style={{ fontSize: 13.5, fontWeight: 600 }}>
+            {t("volunteerRunbook")}
+          </a>
         </div>
       )}
       {sheet.closed && (

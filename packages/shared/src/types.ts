@@ -606,6 +606,12 @@ export interface VolunteerSheetDTO {
   closed: boolean;
   /** False while the sheet is a draft; the public route 404s on those. */
   published: boolean;
+  /** Optional link to an external runbook (a Google Doc, typically) describing
+   *  how the event is run. Member-only: deliberately withheld by
+   *  `publicSheetOf` — a working document like this routinely names families
+   *  and logistics that don't belong on an enumerable anonymous page. http(s)
+   *  only, enforced on write (migration 0039). */
+  runbookUrl: string | null;
   event: VolunteerEventDTO;
   positions: VolunteerPositionDTO[];
   /** True when the viewer may edit the sheet (system admins today). */
@@ -631,7 +637,8 @@ export interface VolunteerSheetDTO {
  *  exactly as PublicCalendarEventDTO withholds them, so the durable handle that
  *  addresses member signup data stays out of unauthenticated responses. The
  *  occurrence's instant still reaches the reader as `event.start`, which the
- *  public agenda publishes anyway; it is the durable PAIR that is withheld. */
+ *  public agenda publishes anyway; it is the durable PAIR that is withheld.
+ *  `runbookUrl` is withheld too — see its note on VolunteerSheetDTO. */
 export interface PublicVolunteerSheetDTO {
   slug: string;
   intro: string | null;
@@ -663,6 +670,8 @@ export interface VolunteerSheetInput {
   intro?: string | null;
   closesAt?: string | null;
   published?: boolean;
+  /** http(s) link to an external runbook; see VolunteerSheetDTO.runbookUrl. */
+  runbookUrl?: string | null;
 }
 
 export interface VolunteerPositionInput {

@@ -274,6 +274,17 @@ export function EventVolunteers() {
   const [copiedEmails, setCopiedEmails] = useState<number | null>(null);
   /** The list itself, shown only when the browser refused the clipboard. */
   const [emailList, setEmailList] = useState<string | null>(null);
+  /** Working copy of the sheet's runbook link. Re-seeded when a different sheet
+   *  opens — deliberately not on every sheet refresh, so a position save mid-
+   *  typing doesn't clobber the draft. The server normalizes on save, so the
+   *  field is re-read from the response rather than trusted as typed. */
+  const [runbook, setRunbook] = useState("");
+
+  const sheetId = sheet?.id ?? null;
+  useEffect(() => {
+    setRunbook(sheet?.runbookUrl ?? "");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sheetId]);
 
   const loadOccurrences = useCallback(async () => {
     const r = await api.eventOccurrences(id).catch(() => ({ occurrences: [] as ManagedOccurrenceDTO[] }));
@@ -378,6 +389,23 @@ export function EventVolunteers() {
       void loadOccurrences();
     } catch (err) {
       setError(errorMessage(err, "Couldn't change that."));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  /** Save the runbook link. The server holds it to http(s) and answers with the
+   *  canonical form (`new URL().href`), which is what lands back in the field. */
+  const saveRunbook = async () => {
+    if (!sheet) return;
+    setBusy(true);
+    setError(null);
+    try {
+      const r = await api.updateVolunteerSheet(sheet.id, { runbookUrl: runbook.trim() || null });
+      setSheet(r.sheet);
+      setRunbook(r.sheet.runbookUrl ?? "");
+    } catch (err) {
+      setError(errorMessage(err, "Couldn't save the runbook link."));
     } finally {
       setBusy(false);
     }
@@ -634,6 +662,30 @@ export function EventVolunteers() {
           Anyone with this link can see the positions and how many spots are filled. Names are shown to
           signed-in members only, and signing up requires an account.
         </div>
+
+        <Field
+          label="Runbook"
+          hint="Optional — a link to an external runbook (a Google Doc) detailing how to run this event. Shown to signed-in members only; the public page never carries it."
+        >
+          <div className="sd-row" style={{ gap: 8 }}>
+            <input
+              className="sd-input"
+              type="url"
+              placeholder="https://docs.google.com/document/d/…"
+              value={runbook}
+              onChange={(e) => setRunbook(e.target.value)}
+              style={{ flex: 1, minWidth: 0 }}
+            />
+            <Btn
+              sm
+              kind="secondary"
+              disabled={busy || runbook.trim() === (sheet.runbookUrl ?? "")}
+              onClick={() => void saveRunbook()}
+            >
+              Save
+            </Btn>
+          </div>
+        </Field>
 
         {/* Said after the fact rather than instead of it: the message is still
             worth sending to everyone else. Worded for either button, since both

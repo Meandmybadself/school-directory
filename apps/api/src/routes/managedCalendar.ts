@@ -322,7 +322,7 @@ managedCalendar.get("/managed-events/:id/occurrences", async (c) => {
   return c.json({ occurrences: await listOccurrences(c.env, c.req.param("id")) });
 });
 
-/** POST /admin/managed-events/:id/sheets { occurrenceStart, intro?, closesAt?, published? } */
+/** POST /admin/managed-events/:id/sheets { occurrenceStart, intro?, runbookUrl?, closesAt?, published? } */
 managedCalendar.post("/managed-events/:id/sheets", async (c) => {
   const auth = requireAuth(c);
   if (!auth.isSystemAdmin) return c.json({ error: "forbidden" }, 403);
@@ -374,7 +374,7 @@ managedCalendar.get("/volunteer-sheets/:id/emails", async (c) => {
   return c.json(result);
 });
 
-/** PATCH /admin/volunteer-sheets/:id { intro?, closesAt?, published? }.
+/** PATCH /admin/volunteer-sheets/:id { intro?, runbookUrl?, closesAt?, published? }.
  *  Publishing is what puts the link on the public calendar; the date itself is
  *  create-only (see VolunteerSheetInput). */
 managedCalendar.patch("/volunteer-sheets/:id", async (c) => {

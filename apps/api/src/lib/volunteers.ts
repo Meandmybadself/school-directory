@@ -68,6 +68,7 @@ interface SheetRow {
   occurrence_start: string;
   slug: string;
   intro: string | null;
+  runbook_url: string | null;
   published_at: string | null;
   closes_at: string | null;
   created_at: string;
@@ -163,6 +164,34 @@ function optionalInstant(value: unknown, field: string): string | null {
   return d.toISOString();
 }
 
+/** Longest runbook link the editor accepts — a Google Docs URL runs well under
+ *  this; anything past it is a pasted mistake, not a document. */
+const MAX_RUNBOOK_URL = 2048;
+
+/** An external runbook link, or null for none — the volunteer-side twin of
+ *  managedCalendar.ts's `normalizeMeetingUrl`, closed the same way for the same
+ *  reason: the value is rendered as an anchor (on the event page, for signed-in
+ *  members), so only http(s) may pass — a `javascript:` or `data:` link is a
+ *  script, not a document. Parsed with `new URL()` so what is stored is a
+ *  canonical, well-formed address. */
+function normalizeRunbookUrl(raw: unknown): string | null {
+  const text = String(raw ?? "").trim();
+  if (!text) return null;
+  if (text.length > MAX_RUNBOOK_URL) {
+    throw new VolunteerError("Runbook link is too long.");
+  }
+  let url: URL;
+  try {
+    url = new URL(text);
+  } catch {
+    throw new VolunteerError("Runbook link must be a full web address, starting with https://.");
+  }
+  if (url.protocol !== "https:" && url.protocol !== "http:") {
+    throw new VolunteerError("Runbook link must start with https:// or http://.");
+  }
+  return url.href;
+}
+
 function coerceSlots(value: unknown): number {
   if (value === undefined || value === null) return 1;
   const n = Math.floor(Number(value));
@@ -190,7 +219,7 @@ export async function uniqueVolunteerSlug(env: Env, base: string): Promise<strin
 
 const SHEET_SELECT = `
   SELECT s.id, s.managed_event_id, s.occurrence_start, s.slug, s.intro,
-         s.published_at, s.closes_at, s.created_at,
+         s.runbook_url, s.published_at, s.closes_at, s.created_at,
          e.title, e.location, e.description,
          e.starts_at AS event_starts_at, e.ends_at AS event_ends_at, e.all_day
     FROM volunteer_sheet s
@@ -300,6 +329,7 @@ async function sheetDto(env: Env, row: SheetRow, viewer: Viewer | null): Promise
     id: row.id,
     slug: row.slug,
     intro: row.intro,
+    runbookUrl: row.runbook_url,
     closesAt: row.closes_at,
     closed: isClosed(row, now),
     published: !!row.published_at,
@@ -578,9 +608,9 @@ export async function createSheet(
 
   await env.DB.prepare(
     `INSERT INTO volunteer_sheet
-       (id, managed_event_id, occurrence_start, slug, intro, published_at, closes_at,
-        created_by, created_at, updated_at)
-     VALUES (?,?,?,?,?,?,?,?,?,?)`,
+       (id, managed_event_id, occurrence_start, slug, intro, runbook_url, published_at,
+        closes_at, created_by, created_at, updated_at)
+     VALUES (?,?,?,?,?,?,?,?,?,?,?)`,
   )
     .bind(
       id,
@@ -588,6 +618,7 @@ export async function createSheet(
       occurrenceStart,
       slug,
       optionalText(body.intro, MAX_TEXT),
+      normalizeRunbookUrl(body.runbookUrl),
       // Sheets start as drafts: positions have to exist before a link is worth
       // sharing, and publishing is what puts it on the public calendar.
       body.published ? now : null,
@@ -614,6 +645,10 @@ export async function updateSheet(
   if (body.intro !== undefined) {
     sets.push("intro = ?");
     binds.push(optionalText(body.intro, MAX_TEXT));
+  }
+  if (body.runbookUrl !== undefined) {
+    sets.push("runbook_url = ?");
+    binds.push(normalizeRunbookUrl(body.runbookUrl));
   }
   if (body.closesAt !== undefined) {
     sets.push("closes_at = ?");
@@ -1325,7 +1360,7 @@ export async function releaseSpot(env: Env, signupId: string): Promise<void> {
  *  field — never by spreading — so a field added to VolunteerSheetDTO stays out
  *  of the public response until someone edits this function on purpose.
  *
- *  Two things are withheld deliberately, not incidentally:
+ *  Three things are withheld deliberately, not incidentally:
  *
  *  - **Names.** `positions[].signups` is dropped entirely; a public reader gets
  *    `filled` and nothing else. Who volunteered is member-only (invariant 1),
@@ -1336,6 +1371,10 @@ export async function releaseSpot(env: Env, signupId: string): Promise<void> {
  *    PublicCalendarEventDTO withholds it (invariant 12). The occurrence's
  *    instant still goes out as `event.start` — the public agenda already
  *    publishes that — but the pair that identifies the row does not.
+ *  - **`runbookUrl`** (migration 0039). A link to the organizers' working
+ *    document — how the event is run, who holds the cash box — which routinely
+ *    names families and logistics. Members see it on the event page; an
+ *    enumerable anonymous page must not.
  *
  *  If you are here because you added a field to VolunteerSheetDTO: the default
  *  answer is to leave this function alone. */

@@ -128,6 +128,7 @@ const SHEET: VolunteerSheetDTO = {
   id: "01SHEET",
   slug: "fall-carnival-x1",
   intro: null,
+  runbookUrl: null,
   closesAt: null,
   closed: false,
   published: true,

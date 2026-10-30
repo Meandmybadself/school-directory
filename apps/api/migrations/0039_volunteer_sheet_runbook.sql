@@ -1,0 +1,12 @@
+-- 0039_volunteer_sheet_runbook.sql — optional runbook link on a volunteer sheet.
+--
+-- An admin-pasted URL (a Google Doc, typically) describing how the event is
+-- actually run — where the tables go, who holds the cash box. It is shown to
+-- SIGNED-IN members on the event page's volunteer block and deliberately never
+-- crosses `publicSheetOf`: a sheet's URL is enumerable by design (invariant 13),
+-- and a working document like this routinely names families and logistics that
+-- have no business on the open internet. Held to http(s) on write by
+-- `normalizeRunbookUrl` in lib/volunteers.ts — the volunteer-side twin of
+-- managedCalendar.ts's `normalizeMeetingUrl`, and closed for the same reason:
+-- a `javascript:` link stored here would be rendered as an anchor.
+ALTER TABLE volunteer_sheet ADD COLUMN runbook_url TEXT;
