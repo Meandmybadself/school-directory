@@ -33,7 +33,8 @@
 .lf-card:hover { border-color: var(--blue); }
 /* The card as a selection toggle (the staff dashboard's bulk mode). The check
    sits on the brand fill, so its colour is --on-brand, never a literal. */
-.lf-card-select { position: relative; padding: 0; margin: 0; font: inherit; text-align: inherit; cursor: pointer; }
+/* user-select: none so a shift-click (range selection) doesn't highlight text. */
+.lf-card-select { position: relative; padding: 0; margin: 0; font: inherit; text-align: inherit; cursor: pointer; user-select: none; }
 .lf-card-select[aria-pressed="true"] { border-color: var(--blue); box-shadow: 0 0 0 1px var(--blue); }
 .lf-card-pick {
   position: absolute; top: 8px; left: 8px; z-index: 1; width: 26px; height: 26px; border-radius: 13px;

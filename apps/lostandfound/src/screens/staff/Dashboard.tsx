@@ -6,7 +6,7 @@
 //
 // Claimants' names and contacts appear here and nowhere else. They came from a
 // public form, so they are shown as plain text and links, never as markup.
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import type { LfClaimDTO, LfStaffItemDTO } from "@sd/shared";
 import { Screen } from "../../components/Screen.js";
@@ -124,6 +124,7 @@ export function Dashboard() {
   useEffect(() => {
     // A selection means nothing on another tab: its actions differ.
     setSelected(new Set());
+    anchor.current = null;
     void loadItems(tab);
   }, [tab]);
 
@@ -137,12 +138,34 @@ export function Dashboard() {
     }
   };
 
-  const toggle = (id: string) =>
+  /** The last card clicked in selection mode — what a shift-click extends
+   *  from. A ref, not state: it changes nothing on screen by itself. */
+  const anchor = useRef<string | null>(null);
+
+  /** A plain click toggles one card. Shift-click sets every card between the
+   *  anchor and this one — in the grid's order — to the state the plain click
+   *  would have given this card, the way mail clients do it, so one shift-click
+   *  can also DEselect a run. An anchor that left the list (a reload, another
+   *  tab) falls back to a plain toggle. */
+  const toggle = (id: string, shiftKey: boolean) => {
     setSelected((prev) => {
       const next = new Set(prev);
-      if (!next.delete(id)) next.add(id);
+      const list = items ?? [];
+      const from = anchor.current ? list.findIndex((x) => x.id === anchor.current) : -1;
+      const to = list.findIndex((x) => x.id === id);
+      if (shiftKey && from !== -1 && to !== -1) {
+        const on = !prev.has(id);
+        for (let i = Math.min(from, to); i <= Math.max(from, to); i++) {
+          if (on) next.add(list[i]!.id);
+          else next.delete(list[i]!.id);
+        }
+      } else if (!next.delete(id)) {
+        next.add(id);
+      }
       return next;
     });
+    anchor.current = id;
+  };
 
   /** One action across the whole selection. The selection is kept on failure
    *  (part of it may have gone through — the reload shows what's left) and
@@ -357,7 +380,7 @@ export function Dashboard() {
                   item={{ ...item, untitled: !item.title }}
                   extra={<Badges item={item} />}
                   selected={selected.has(item.id)}
-                  onToggle={selecting ? () => toggle(item.id) : undefined}
+                  onToggle={selecting ? (e) => toggle(item.id, e.shiftKey) : undefined}
                 />
               ))}
             </div>

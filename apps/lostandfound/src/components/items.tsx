@@ -1,7 +1,7 @@
 // The pieces both halves of the app draw items with: a colour swatch and a
 // grid card. The public grid and the staff dashboard use the same card, so a
 // staff member sees an item the way a family will.
-import type { ReactNode } from "react";
+import type { MouseEvent as ReactMouseEvent, ReactNode } from "react";
 import { Link } from "react-router-dom";
 import { useI18n } from "../i18n/index.js";
 import { SWATCHES, colorLabel, foundAgo } from "../lib/lf.js";
@@ -41,9 +41,10 @@ export function ItemCard({
   to: string;
   extra?: ReactNode;
   /** With `onToggle` the card is a selection toggle (the staff dashboard's
-   *  bulk mode) instead of a link; `selected` is its state. */
+   *  bulk mode) instead of a link; `selected` is its state. The click event is
+   *  passed through so the caller can read shift for range selection. */
   selected?: boolean;
-  onToggle?: () => void;
+  onToggle?: (event: ReactMouseEvent<HTMLButtonElement>) => void;
 }) {
   const { t } = useI18n();
   const title = item.untitled ? t("lfDescribing") : item.title;
