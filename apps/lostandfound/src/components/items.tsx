@@ -30,11 +30,25 @@ export interface CardItem {
   untitled: boolean;
 }
 
-export function ItemCard({ item, to, extra }: { item: CardItem; to: string; extra?: ReactNode }) {
+export function ItemCard({
+  item,
+  to,
+  extra,
+  selected,
+  onToggle,
+}: {
+  item: CardItem;
+  to: string;
+  extra?: ReactNode;
+  /** With `onToggle` the card is a selection toggle (the staff dashboard's
+   *  bulk mode) instead of a link; `selected` is its state. */
+  selected?: boolean;
+  onToggle?: () => void;
+}) {
   const { t } = useI18n();
   const title = item.untitled ? t("lfDescribing") : item.title;
-  return (
-    <Link className="lf-card" to={to}>
+  const body = (
+    <>
       {/* Alt is the item's title: the photo IS the item, and the title is the
           best words there are for it. An undescribed one says so. */}
       <img src={item.thumbUrl} alt={title} loading="lazy" />
@@ -48,6 +62,19 @@ export function ItemCard({ item, to, extra }: { item: CardItem; to: string; extr
         </div>
         {extra}
       </div>
+    </>
+  );
+  if (onToggle) {
+    return (
+      <button type="button" className="lf-card lf-card-select" aria-pressed={selected} onClick={onToggle}>
+        {selected && <span className="lf-card-pick" aria-hidden="true">✓</span>}
+        {body}
+      </button>
+    );
+  }
+  return (
+    <Link className="lf-card" to={to}>
+      {body}
     </Link>
   );
 }

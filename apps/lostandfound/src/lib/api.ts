@@ -94,6 +94,13 @@ const jpeg = (method: string, body: Blob) =>
  *  clears the hold every new item starts under (invariant 33). */
 export type LfItemAction = "hide" | "unhide" | "return" | "restore" | "retag" | "publish";
 
+/** What the dashboard may do to a whole selection at once. The transitions
+ *  minus `retag` (re-running the model is a judgement about one photo), plus
+ *  delete. */
+export type LfBulkAction = Exclude<LfItemAction, "retag"> | "delete";
+/** Items per bulk call — the server's LF_IDS_MAX. `bulkItems` slices. */
+export const LF_BULK_MAX = 50;
+
 export interface LfBrowseQuery {
   q?: string;
   category?: string;
@@ -148,6 +155,20 @@ export const api = {
     request<LfStaffItemDTO>(`/lostfound/items/${encodeURIComponent(id)}/${act}`, action("POST")),
   deleteItem: (id: string) =>
     request<{ ok: true }>(`/lostfound/items/${encodeURIComponent(id)}`, action("DELETE")),
+  /** One action across a dashboard selection, sliced to the server's per-call
+   *  cap. Sequential on purpose: a failure mid-way stops rather than racing
+   *  on, and the caller reloads either way. Answers how many items changed. */
+  bulkItems: async (ids: string[], act: LfBulkAction) => {
+    let changed = 0;
+    for (let i = 0; i < ids.length; i += LF_BULK_MAX) {
+      const res = await request<{ ok: true; changed: number }>(
+        "/lostfound/items/bulk",
+        post({ ids: ids.slice(i, i + LF_BULK_MAX), action: act }),
+      );
+      changed += res.changed;
+    }
+    return { changed };
+  },
   retagFailed: () => request<{ retried: number }>("/lostfound/retag-failed", action("POST")),
 
   // ── Staff: claims ──

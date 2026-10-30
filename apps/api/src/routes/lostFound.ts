@@ -54,6 +54,7 @@ import {
 import { genericGroups, groupExists } from "../lib/rosterGate.js";
 import { DAYS, nowIso } from "../lib/time.js";
 import { LF_DONATE_AFTER_DAYS } from "@sd/shared";
+import type { AuditAction } from "@sd/shared";
 
 const JPEG = "image/jpeg";
 /** Most items one `?ids=` read returns. A batch bigger than this simply polls
@@ -359,69 +360,118 @@ lostFound.patch(
   }),
 );
 
-/** A one-way transition guarded in SQL: a repeat changes nothing and records
- *  nothing (an append-only log must not be paddable by a double tap). `sql`
- *  takes ?1 = now and ?2 = the item id. */
-function transition(
-  path: string,
-  action:
-    | "lostfound.item.published"
-    | "lostfound.item.hidden"
-    | "lostfound.item.unhidden"
-    | "lostfound.item.returned"
-    | "lostfound.item.restored",
-  sql: string,
-  after?: (c: Context<HonoEnv>, id: string) => D1PreparedStatement[],
-) {
+/** The one-way transitions, each guarded in SQL: a repeat changes nothing and
+ *  records nothing (an append-only log must not be paddable by a double tap).
+ *  `sql` takes ?1 = now and ?2 = the item id. ONE table for the single-item
+ *  routes and the bulk route below, so the two can't drift: whatever the bulk
+ *  route does to thirty items is exactly what the single route does to one. */
+const TRANSITIONS: Record<
+  string,
+  {
+    action: AuditAction;
+    sql: string;
+    after?: (c: Context<HonoEnv>, id: string) => D1PreparedStatement[];
+  }
+> = {
+  // Staff have looked at the photo and it shows no name (or they retook it).
+  publish: {
+    action: "lostfound.item.published",
+    sql: "UPDATE lf_item SET held_at = NULL, updated_at = ?1 WHERE id = ?2 AND held_at IS NOT NULL",
+  },
+  hide: {
+    action: "lostfound.item.hidden",
+    sql: "UPDATE lf_item SET hidden_at = ?1, updated_at = ?1 WHERE id = ?2 AND hidden_at IS NULL",
+  },
+  unhide: {
+    action: "lostfound.item.unhidden",
+    sql: "UPDATE lf_item SET hidden_at = NULL, updated_at = ?1 WHERE id = ?2 AND hidden_at IS NOT NULL",
+  },
+  return: {
+    action: "lostfound.item.returned",
+    sql: "UPDATE lf_item SET status = 'returned', returned_at = ?1, updated_at = ?1 WHERE id = ?2 AND status = 'found'",
+    // Its open claims are settled by the return — whoever it went home with.
+    after: (c, id) => [
+      c.env.DB.prepare(
+        "UPDATE lf_claim SET resolved_at = ?, resolution = 'returned' WHERE item_id = ? AND resolved_at IS NULL",
+      ).bind(nowIso(), id),
+    ],
+  },
+  restore: {
+    action: "lostfound.item.restored",
+    sql: "UPDATE lf_item SET status = 'found', returned_at = NULL, updated_at = ?1 WHERE id = ?2 AND status = 'returned'",
+  },
+};
+
+/** POST /lostfound/items/bulk { ids, action } — one transition, or delete,
+ *  applied to the items staff selected on the dashboard. Registered BEFORE the
+ *  per-item transition routes so "bulk" can never be read as an item id. Each
+ *  id rides the SAME guarded SQL as its single-item route, in one atomic
+ *  `batch()`, and only the rows that actually changed push audit drafts —
+ *  a repeat still records nothing, item by item (`retag` stays single-item:
+ *  re-running the model is a judgement about one photo). Delete reuses
+ *  `deleteItem` — row, claims, photos, vector — per item. Up to LF_IDS_MAX ids
+ *  per call (D1's bind ceiling again); more is a 400, never a silent slice,
+ *  so no caller can believe it acted on items it didn't touch. */
+lostFound.post(
+  "/items/bulk",
+  guarded(async (c) => {
+    await requireStaff(c);
+    const body = await c.req.json<{ ids?: unknown; action?: unknown }>().catch(() => null);
+    const action = typeof body?.action === "string" ? body.action : "";
+    const ids = Array.isArray(body?.ids)
+      ? [...new Set(body.ids.filter((x): x is string => typeof x === "string" && x.length > 0))]
+      : [];
+    if (!ids.length) return c.json({ error: "invalid", message: "No items given." }, 400);
+    if (ids.length > LF_IDS_MAX) {
+      return c.json({ error: "too_many", message: `At most ${LF_IDS_MAX} items per call.` }, 400);
+    }
+
+    if (action === "delete") {
+      const { results } = await c.env.DB.prepare(
+        `SELECT id, photo_key, thumb_key FROM lf_item WHERE id IN (${ids.map(() => "?").join(",")})`,
+      )
+        .bind(...ids)
+        .all<{ id: string; photo_key: string; thumb_key: string | null }>();
+      for (const item of results) {
+        await deleteItem(c.env, item);
+        c.var.audit.push({ action: "lostfound.item.deleted", entityKind: "lf_item", entityId: item.id });
+      }
+      return c.json({ ok: true, changed: results.length });
+    }
+
+    // `Object.hasOwn`, not a bare index: `action` is caller input, and a
+    // prototype name ("constructor") must read as unknown, not as a function.
+    const t = Object.hasOwn(TRANSITIONS, action) ? TRANSITIONS[action]! : null;
+    if (!t) return c.json({ error: "invalid", message: "Unknown action." }, 400);
+    const now = nowIso();
+    const results = await c.env.DB.batch(ids.map((id) => c.env.DB.prepare(t.sql).bind(now, id)));
+    const changed = ids.filter((_, i) => (results[i]?.meta?.changes ?? 0) > 0);
+    const after = t.after ? changed.flatMap((id) => t.after!(c, id)) : [];
+    if (after.length) await c.env.DB.batch(after);
+    for (const id of changed) c.var.audit.push({ action: t.action, entityKind: "lf_item", entityId: id });
+    if (changed.length) {
+      c.executionCtx.waitUntil(Promise.all(changed.map((id) => syncVector(c.env, id))).then(() => undefined));
+    }
+    return c.json({ ok: true, changed: changed.length });
+  }),
+);
+
+for (const [name, t] of Object.entries(TRANSITIONS)) {
   lostFound.post(
-    path,
+    `/items/:id/${name}`,
     guarded(async (c) => {
       await requireStaff(c);
       const id = param(c, "id");
-      const now = nowIso();
-      const res = await c.env.DB.prepare(sql).bind(now, id).run();
+      const res = await c.env.DB.prepare(t.sql).bind(nowIso(), id).run();
       if ((res.meta?.changes ?? 0) > 0) {
-        if (after) await c.env.DB.batch(after(c, id));
-        c.var.audit.push({ action, entityKind: "lf_item", entityId: id });
+        if (t.after) await c.env.DB.batch(t.after(c, id));
+        c.var.audit.push({ action: t.action, entityKind: "lf_item", entityId: id });
         c.executionCtx.waitUntil(syncVector(c.env, id));
       }
       return itemResponse(c, id);
     }),
   );
 }
-
-// Staff have looked at the photo and it shows no name (or they retook it).
-transition(
-  "/items/:id/publish",
-  "lostfound.item.published",
-  "UPDATE lf_item SET held_at = NULL, updated_at = ?1 WHERE id = ?2 AND held_at IS NOT NULL",
-);
-transition(
-  "/items/:id/hide",
-  "lostfound.item.hidden",
-  "UPDATE lf_item SET hidden_at = ?1, updated_at = ?1 WHERE id = ?2 AND hidden_at IS NULL",
-);
-transition(
-  "/items/:id/unhide",
-  "lostfound.item.unhidden",
-  "UPDATE lf_item SET hidden_at = NULL, updated_at = ?1 WHERE id = ?2 AND hidden_at IS NOT NULL",
-);
-transition(
-  "/items/:id/return",
-  "lostfound.item.returned",
-  "UPDATE lf_item SET status = 'returned', returned_at = ?1, updated_at = ?1 WHERE id = ?2 AND status = 'found'",
-  // Its open claims are settled by the return — whoever it went home with.
-  (c, id) => [
-    c.env.DB.prepare(
-      "UPDATE lf_claim SET resolved_at = ?, resolution = 'returned' WHERE item_id = ? AND resolved_at IS NULL",
-    ).bind(nowIso(), id),
-  ],
-);
-transition(
-  "/items/:id/restore",
-  "lostfound.item.restored",
-  "UPDATE lf_item SET status = 'found', returned_at = NULL, updated_at = ?1 WHERE id = ?2 AND status = 'returned'",
-);
 
 /** POST /lostfound/items/:id/retag — ask the model again (replaces the description). */
 lostFound.post(

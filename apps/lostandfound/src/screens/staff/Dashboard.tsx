@@ -13,7 +13,7 @@ import { Screen } from "../../components/Screen.js";
 import { ItemCard } from "../../components/items.js";
 import { Btn, Tag } from "../../components/atoms.js";
 import { useI18n } from "../../i18n/index.js";
-import { api, errorMessage } from "../../lib/api.js";
+import { api, errorMessage, type LfBulkAction } from "../../lib/api.js";
 import { formatDayTime } from "../../lib/lf.js";
 
 type Tab = "review" | "waiting" | "attention" | "hidden" | "returned";
@@ -28,6 +28,46 @@ const TABS: { key: Tab; label: string; filter: Parameters<typeof api.staffItems>
   { key: "hidden", label: "Hidden", filter: { view: "hidden" } },
   { key: "returned", label: "Returned", filter: { status: "returned" } },
 ];
+
+/** A bulk action the selection bar offers, per tab. `confirm` asks before
+ *  anything destructive or public-facing happens to a whole selection. */
+interface BulkChoice {
+  label: string;
+  action: LfBulkAction;
+  warn?: boolean;
+  confirm?: (n: number) => string;
+}
+
+const these = (n: number) => (n === 1 ? "this item" : `these ${n} items`);
+const BULK_DELETE: BulkChoice = {
+  label: "Delete",
+  action: "delete",
+  warn: true,
+  confirm: (n) => `Delete ${these(n)} and ${n === 1 ? "its photo" : "their photos"} for good?`,
+};
+
+/** What a selection on each tab can have done to it. The review tab is the
+ *  approval queue: publishing there is the act the hold exists for, so it
+ *  confirms with the same reminder the item page gives. */
+const BULK_CHOICES: Record<Tab, BulkChoice[]> = {
+  review: [
+    {
+      label: "Publish",
+      action: "publish",
+      confirm: (n) =>
+        `Publish ${these(n)} to the public site? Make sure none of the photos show a child's name.`,
+    },
+    BULK_DELETE,
+  ],
+  waiting: [
+    { label: "Mark returned", action: "return" },
+    { label: "Hide from public", action: "hide" },
+    BULK_DELETE,
+  ],
+  attention: [{ label: "Mark returned", action: "return" }, BULK_DELETE],
+  hidden: [{ label: "Show publicly", action: "unhide" }, BULK_DELETE],
+  returned: [{ label: "Put back in lost & found", action: "restore" }, BULK_DELETE],
+};
 
 /** A contact as a link when it plainly is one. Anything else stays text. */
 function ContactLink({ contact }: { contact: string }) {
@@ -48,6 +88,9 @@ export function Dashboard() {
   const [items, setItems] = useState<LfStaffItemDTO[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [retryNote, setRetryNote] = useState<string | null>(null);
+  const [selecting, setSelecting] = useState(false);
+  const [selected, setSelected] = useState<ReadonlySet<string>>(new Set());
+  const [bulkBusy, setBulkBusy] = useState(false);
 
   const loadClaims = () =>
     api
@@ -78,6 +121,8 @@ export function Dashboard() {
     void loadReviewCount();
   }, []);
   useEffect(() => {
+    // A selection means nothing on another tab: its actions differ.
+    setSelected(new Set());
     void loadItems(tab);
   }, [tab]);
 
@@ -88,6 +133,33 @@ export function Dashboard() {
       await Promise.all([loadClaims(), loadItems(tab), loadReviewCount()]);
     } catch (err) {
       setError(errorMessage(err, "That didn't work. Try again."));
+    }
+  };
+
+  const toggle = (id: string) =>
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (!next.delete(id)) next.add(id);
+      return next;
+    });
+
+  /** One action across the whole selection. The selection is kept on failure
+   *  (part of it may have gone through — the reload shows what's left) and
+   *  cleared on success. */
+  const bulk = async (choice: BulkChoice) => {
+    const ids = [...selected];
+    if (!ids.length || bulkBusy) return;
+    if (choice.confirm && !window.confirm(choice.confirm(ids.length))) return;
+    setBulkBusy(true);
+    setError(null);
+    try {
+      await api.bulkItems(ids, choice.action);
+      setSelected(new Set());
+    } catch (err) {
+      setError(errorMessage(err, "That didn't work on some items. The lists below are reloaded."));
+    } finally {
+      setBulkBusy(false);
+      await Promise.all([loadClaims(), loadItems(tab), loadReviewCount()]);
     }
   };
 
@@ -175,6 +247,56 @@ export function Dashboard() {
             {retryNote && <span className="sd-meta">{retryNote}</span>}
           </div>
 
+          {/* Bulk mode: cards become toggles, and the bar applies one action to
+              the whole selection. The actions on offer are the tab's. */}
+          <div className="lf-actions" role="toolbar" aria-label="Bulk actions">
+            {!selecting ? (
+              <Btn
+                sm
+                kind="ghost"
+                disabled={!items || items.length === 0}
+                onClick={() => setSelecting(true)}
+              >
+                Select items…
+              </Btn>
+            ) : (
+              <>
+                <span className="sd-meta" aria-live="polite">{selected.size} selected</span>
+                <Btn
+                  sm
+                  kind="ghost"
+                  disabled={bulkBusy || !items || items.length === 0}
+                  onClick={() => setSelected(new Set((items ?? []).map((x) => x.id)))}
+                >
+                  Select all
+                </Btn>
+                {BULK_CHOICES[tab].map((choice) => (
+                  <Btn
+                    key={choice.action}
+                    sm
+                    disabled={bulkBusy || selected.size === 0}
+                    kind={choice.warn ? "ghost" : "secondary"}
+                    style={choice.warn ? { color: "var(--warn)" } : undefined}
+                    onClick={() => void bulk(choice)}
+                  >
+                    {choice.label}
+                  </Btn>
+                ))}
+                <Btn
+                  sm
+                  kind="ghost"
+                  disabled={bulkBusy}
+                  onClick={() => {
+                    setSelecting(false);
+                    setSelected(new Set());
+                  }}
+                >
+                  Done
+                </Btn>
+              </>
+            )}
+          </div>
+
           {items === null ? (
             <div className="sd-meta">Loading…</div>
           ) : (
@@ -186,6 +308,8 @@ export function Dashboard() {
                   to={`/staff/item/${item.id}`}
                   item={{ ...item, untitled: !item.title }}
                   extra={<Badges item={item} />}
+                  selected={selected.has(item.id)}
+                  onToggle={selecting ? () => toggle(item.id) : undefined}
                 />
               ))}
             </div>

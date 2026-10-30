@@ -138,6 +138,7 @@ const STAFF_ROUTES: Array<[string, string, unknown?]> = [
   ["POST", "/lostfound/items/01ITEM/return", {}],
   ["POST", "/lostfound/items/01ITEM/restore", {}],
   ["POST", "/lostfound/items/01ITEM/retag", {}],
+  ["POST", "/lostfound/items/bulk", { ids: ["01ITEM"], action: "publish" }],
   ["DELETE", "/lostfound/items/01ITEM", {}],
   ["GET", "/lostfound/claims"],
   ["GET", "/lostfound/media/01ITEM.jpg"],
@@ -154,6 +155,10 @@ const MEMBER_ROUTES: Array<[string, string, unknown?]> = [
 
 const ALL_ROUTES = [...STAFF_ROUTES, ...MEMBER_ROUTES];
 
+/** A do-nothing ExecutionContext, for the routes that `waitUntil` a vector
+ *  sync — without one, reaching `c.executionCtx` throws. */
+const EXECUTION_CTX = { waitUntil() {}, passThroughOnException() {} } as unknown as ExecutionContext;
+
 function call(app: Hono<HonoEnv>, method: string, path: string, body: unknown, env: HonoEnv["Bindings"]) {
   const init: RequestInit = { method };
   if (body instanceof Uint8Array) {
@@ -163,7 +168,7 @@ function call(app: Hono<HonoEnv>, method: string, path: string, body: unknown, e
     init.body = JSON.stringify(body);
     init.headers = { "content-type": "application/json" };
   }
-  return app.request(path, init, env);
+  return app.request(path, init, env, EXECUTION_CTX);
 }
 
 describe("every /lostfound route refuses without a session", () => {
@@ -735,5 +740,135 @@ describe("itemIdOfKey (the public photo route's gate)", () => {
     expect(itemIdOfKey(`${id}-../x.jpg`)).toBeNull();
     expect(itemIdOfKey("../secret.jpg")).toBeNull();
     expect(itemIdOfKey(`${id}.png`)).toBeNull();
+  });
+});
+
+// ── Bulk actions (the dashboard's selection mode) ───────────────────────────
+// POST /lostfound/items/bulk must stay a thin fan-out of what the single-item
+// routes already do: the SAME guarded transition SQL per id, audit drafts only
+// for rows that actually changed, `deleteItem` for deletes. These tests are
+// behavioural — the fake D1 evaluates nothing, it records statements where they
+// execute and answers `meta.changes` per id, so a bulk route that stopped
+// asking the CAS guard or started auditing no-ops fails loudly.
+
+function bulkEnv(opts: {
+  unchanged?: string[];
+  deletable?: Array<{ id: string; photo_key: string; thumb_key: string | null }>;
+} = {}) {
+  const writes: { sql: string; args: unknown[] }[] = [];
+  const batches: number[] = [];
+  const media: string[] = [];
+  type Stmt = { run: () => Promise<{ meta: { changes: number } }> };
+  const env = {
+    DB: {
+      prepare(sql: string) {
+        return {
+          bind: (...args: unknown[]) => ({
+            async first() {
+              if (sql.includes("FROM setting")) return { value: GROUP };
+              if (sql.includes("FROM grp")) return { id: GROUP, name: "Front office" };
+              if (sql.includes("FROM membership m")) return { ok: 1 };
+              throw new Error(`bulkEnv: unhandled first: ${sql}`);
+            },
+            async all() {
+              if (sql.startsWith("SELECT id, photo_key, thumb_key FROM lf_item")) {
+                return { results: (opts.deletable ?? []).filter((r) => args.includes(r.id)) };
+              }
+              throw new Error(`bulkEnv: unhandled all: ${sql}`);
+            },
+            async run() {
+              writes.push({ sql, args });
+              return { meta: { changes: (opts.unchanged ?? []).some((id) => args.includes(id)) ? 0 : 1 } };
+            },
+          }),
+        };
+      },
+      async batch(stmts: Stmt[]) {
+        batches.push(stmts.length);
+        const out = [];
+        for (const s of stmts) out.push(await s.run());
+        return out;
+      },
+    },
+    LOSTFOUND_MEDIA: {
+      delete: async (keys: string | string[]) => void media.push(...(Array.isArray(keys) ? keys : [keys])),
+    },
+  } as unknown as HonoEnv["Bindings"];
+  return { env, writes, batches, media };
+}
+
+describe("POST /lostfound/items/bulk", () => {
+  async function bulkCall(body: unknown, opts: Parameters<typeof bulkEnv>[0] = {}) {
+    const audit: AuditDraft[] = [];
+    const fake = bulkEnv(opts);
+    const res = await call(appWith(auth("01U_STAFF"), audit), "POST", "/lostfound/items/bulk", body, fake.env);
+    return { res, audit, ...fake };
+  }
+
+  it("rides the single route's guarded SQL per id, in ONE batch, and audits only the rows that changed", async () => {
+    const { res, audit, writes, batches } = await bulkCall(
+      { ids: ["01AAA", "01BBB", "01CCC"], action: "publish" },
+      { unchanged: ["01BBB"] },
+    );
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ ok: true, changed: 2 });
+    expect(batches).toEqual([3]);
+    expect(writes).toHaveLength(3);
+    for (const w of writes) {
+      expect(w.sql).toContain("SET held_at = NULL");
+      expect(w.sql).toContain("AND held_at IS NOT NULL"); // the CAS guard — a repeat records nothing
+    }
+    expect(audit.map((d) => [d.action, d.entityId])).toEqual([
+      ["lostfound.item.published", "01AAA"],
+      ["lostfound.item.published", "01CCC"],
+    ]);
+  });
+
+  it("a bulk return settles open claims for the CHANGED items only, like the single route", async () => {
+    const { res, writes } = await bulkCall(
+      { ids: ["01AAA", "01BBB"], action: "return" },
+      { unchanged: ["01BBB"] },
+    );
+    expect(res.status).toBe(200);
+    const claims = writes.filter((w) => w.sql.includes("UPDATE lf_claim"));
+    expect(claims).toHaveLength(1);
+    expect(claims[0]!.args).toContain("01AAA");
+  });
+
+  it("a bulk delete runs deleteItem per found row — row, photos — and audits each", async () => {
+    const deletable = [
+      { id: "01AAA", photo_key: "01AAA.jpg", thumb_key: "01AAA-thumb.jpg" },
+      { id: "01BBB", photo_key: "01BBB.jpg", thumb_key: null },
+    ];
+    const { res, audit, writes, media } = await bulkCall(
+      { ids: ["01AAA", "01BBB", "01GONE"], action: "delete" },
+      { deletable },
+    );
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ ok: true, changed: 2 });
+    expect(writes.filter((w) => w.sql.includes("DELETE FROM lf_item"))).toHaveLength(2);
+    expect([...media].sort()).toEqual(["01AAA-thumb.jpg", "01AAA.jpg", "01BBB.jpg"]);
+    expect(audit.map((d) => [d.action, d.entityId])).toEqual([
+      ["lostfound.item.deleted", "01AAA"],
+      ["lostfound.item.deleted", "01BBB"],
+    ]);
+  });
+
+  it("refuses an empty list, an unknown action (a prototype name included), retag, and too many ids", async () => {
+    const bodies: unknown[] = [
+      { ids: [], action: "publish" },
+      { ids: ["01AAA"], action: "donate" },
+      // `constructor` exists on every object; the route must not find it.
+      { ids: ["01AAA"], action: "constructor" },
+      // Re-running the model is deliberately a one-item judgement.
+      { ids: ["01AAA"], action: "retag" },
+      { ids: Array.from({ length: 51 }, (_, i) => `01ID${String(i).padStart(3, "0")}`), action: "publish" },
+    ];
+    for (const body of bodies) {
+      const { res, writes, audit } = await bulkCall(body);
+      expect(res.status).toBe(400);
+      expect(writes).toEqual([]);
+      expect(audit).toEqual([]);
+    }
   });
 });
