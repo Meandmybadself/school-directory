@@ -14,7 +14,7 @@ import { ItemCard } from "../../components/items.js";
 import { Btn, Tag } from "../../components/atoms.js";
 import { useI18n } from "../../i18n/index.js";
 import { api, errorMessage, type LfBulkAction } from "../../lib/api.js";
-import { formatDayTime } from "../../lib/lf.js";
+import { formatDayTime, rotatePhoto, type Turn } from "../../lib/lf.js";
 
 type Tab = "review" | "waiting" | "attention" | "hidden" | "returned";
 
@@ -91,6 +91,7 @@ export function Dashboard() {
   const [selecting, setSelecting] = useState(false);
   const [selected, setSelected] = useState<ReadonlySet<string>>(new Set());
   const [bulkBusy, setBulkBusy] = useState(false);
+  const [bulkNote, setBulkNote] = useState<string | null>(null);
 
   const loadClaims = () =>
     api
@@ -160,6 +161,43 @@ export function Dashboard() {
     } finally {
       setBulkBusy(false);
       await Promise.all([loadClaims(), loadItems(tab), loadReviewCount()]);
+    }
+  };
+
+  /** Turn every selected photo, one at a time, the way the item page does:
+   *  fetched back, re-encoded in the browser (the Worker has no canvas), then
+   *  sent as a new photo and thumbnail under fresh keys. Sequential on
+   *  purpose — each item is a download plus two uploads, and a note keeps the
+   *  slow part honest. Each item leaves the selection as it finishes, so a
+   *  failure stops the loop with exactly the unturned items still selected —
+   *  pressing the button again finishes the job instead of double-turning
+   *  what's done. */
+  const rotateSelected = async (turn: Turn) => {
+    const chosen = (items ?? []).filter((x) => selected.has(x.id));
+    if (!chosen.length || bulkBusy) return;
+    setBulkBusy(true);
+    setError(null);
+    try {
+      for (let i = 0; i < chosen.length; i++) {
+        setBulkNote(`Rotating ${i + 1} of ${chosen.length}…`);
+        const item = chosen[i]!;
+        const res = await fetch(item.photoUrl, { credentials: "include", cache: "no-store" });
+        if (!res.ok) throw new Error(`photo ${res.status}`);
+        const { photo, thumb } = await rotatePhoto(await res.blob(), turn);
+        await api.replacePhoto(item.id, photo);
+        await api.uploadThumb(item.id, thumb);
+        setSelected((prev) => {
+          const next = new Set(prev);
+          next.delete(item.id);
+          return next;
+        });
+      }
+    } catch (err) {
+      setError(errorMessage(err, "Couldn't rotate every photo. The items still selected weren't turned."));
+    } finally {
+      setBulkNote(null);
+      setBulkBusy(false);
+      await loadItems(tab);
     }
   };
 
@@ -282,6 +320,16 @@ export function Dashboard() {
                     {choice.label}
                   </Btn>
                 ))}
+                <Btn sm kind="ghost" disabled={bulkBusy || selected.size === 0} onClick={() => void rotateSelected("ccw")}>
+                  ↺ Rotate left
+                </Btn>
+                <Btn sm kind="ghost" disabled={bulkBusy || selected.size === 0} onClick={() => void rotateSelected("cw")}>
+                  ↻ Rotate right
+                </Btn>
+                <Btn sm kind="ghost" disabled={bulkBusy || selected.size === 0} onClick={() => void rotateSelected("half")}>
+                  ↻↻ 180°
+                </Btn>
+                {bulkNote && <span className="sd-meta" role="status">{bulkNote}</span>}
                 <Btn
                   sm
                   kind="ghost"
