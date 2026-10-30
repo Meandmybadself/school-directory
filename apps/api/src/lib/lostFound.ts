@@ -118,10 +118,12 @@ export function versionedKey(id: string, thumb: boolean): string {
 export const MAX_PHOTO_BYTES = 6 * 1024 * 1024;
 export const MAX_THUMB_BYTES = 1024 * 1024;
 /** Items a non-staff member may create per rolling day, counted from their own
- *  `lf_item` rows. Generous — a parent clearing a playground bin fits — while
- *  bounding what one account can spend in R2 storage and model calls. Staff are
- *  exempt: the roster is the trust decision there. */
-export const MEMBER_ITEMS_PER_DAY = 25;
+ *  `lf_item` rows. The bound is against ABUSE (what one account can spend in R2
+ *  storage and model calls), not against enthusiasm: 25 looked generous until a
+ *  parent photographing the whole lost & found rack was cut off mid-pile
+ *  (2026-10), so the cap is sized to the biggest legitimate session seen, with
+ *  room. Staff are exempt: the roster is the trust decision there. */
+export const MEMBER_ITEMS_PER_DAY = 100;
 
 export function isJpegBytes(b: ArrayBuffer): boolean {
   if (b.byteLength < 3) return false;

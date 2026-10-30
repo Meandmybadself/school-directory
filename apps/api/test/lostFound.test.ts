@@ -295,7 +295,9 @@ describe("POST /lostfound/items as a signed-in member", () => {
   });
 
   it("refuses a member past the daily cap before anything is stored; staff are exempt", async () => {
-    const capped = await post({ onRoster: false, todayCount: 25 });
+    // The literal is deliberate: moving MEMBER_ITEMS_PER_DAY should land here
+    // (and in CLAUDE.md's invariant 33) as its own decision, not ride along.
+    const capped = await post({ onRoster: false, todayCount: 100 });
     expect(capped.res.status).toBe(429);
     expect(capped.writes).toEqual([]);
     expect(capped.media).toEqual([]);

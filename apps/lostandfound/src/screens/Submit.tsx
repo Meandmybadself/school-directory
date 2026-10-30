@@ -113,22 +113,28 @@ export function Submit() {
     }
   };
 
-  const uploadOne = async (item: Staged, where: string) => {
+  const uploadOne = async (item: Staged, where: string): Promise<"ok" | "failed" | "limited"> => {
     update(item.key, { phase: "uploading" });
     try {
       const created = await api.uploadPhoto(item.photo, where);
       // The thumbnail landing is what starts the vision model (routes/lostFound.ts).
       await api.uploadThumb(created.id, item.thumb);
       update(item.key, { phase: "done" });
+      return "ok";
     } catch (err) {
       // The daily cap is the one refusal worth its own words (it is about the
       // caller's own account, so the server says so plainly; we translate it).
-      const message = err instanceof ApiError && err.status === 429 ? t("lfSubmitLimit") : t("lfSubmitFailed");
-      update(item.key, { phase: "error", error: message });
+      const limited = err instanceof ApiError && err.status === 429;
+      update(item.key, { phase: "error", error: limited ? t("lfSubmitLimit") : t("lfSubmitFailed") });
+      return limited ? "limited" : "failed";
     }
   };
 
-  /** Every staged photo, UPLOAD_CONCURRENCY at a time. */
+  /** Every staged photo, UPLOAD_CONCURRENCY at a time — until the daily cap
+   *  answers. The cap refuses every further upload today, so sending the rest
+   *  of the batch would only repeat the same refusal down the queue; instead
+   *  the untried photos go back to the tray (nothing re-staged, re-rotated or
+   *  lost) and the limit is said once, up by the form. */
   const submit = async () => {
     const batch = staged;
     if (!batch.length) return;
@@ -139,10 +145,22 @@ export function Submit() {
       ...rs,
     ]);
     let next = 0;
+    let limited = false;
     const worker = async () => {
-      while (next < batch.length) await uploadOne(batch[next++]!, where);
+      while (!limited && next < batch.length) {
+        if ((await uploadOne(batch[next++]!, where)) === "limited") limited = true;
+      }
     };
     await Promise.all(Array.from({ length: Math.min(UPLOAD_CONCURRENCY, batch.length) }, worker));
+    if (limited) {
+      const untried = batch.slice(next);
+      if (untried.length) {
+        const keys = new Set(untried.map((s) => s.key));
+        setRows((rs) => rs.filter((r) => !keys.has(r.key)));
+        setStaged((s) => [...untried, ...s]);
+      }
+      setPrepError(t("lfSubmitLimit"));
+    }
   };
 
   const phaseText: Record<Phase, (r: Row) => string> = {
