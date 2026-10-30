@@ -1982,10 +1982,12 @@ export type LfColor = (typeof LF_COLORS)[number];
 /** A found item as ANYONE on the internet sees it — built field by field by
  *  `publicItemOf`, never by spreading a row (invariant 12's rule).
  *
- *  What is missing is the point. `visibleText` — whatever the model read off
- *  the item, which on a school jacket is usually a child's name — is staff-only
- *  (invariant 33). So are who uploaded it, its claims, and its tagging state
- *  beyond "still being described". */
+ *  What is missing is the point. `visibleText` (whatever the model read off
+ *  the item) and `nameText` (the person's name in that writing — on a school
+ *  jacket, usually a child's) are staff-only (invariant 33). So are who
+ *  uploaded it, its claims, and its tagging state beyond "still being
+ *  described". Non-name writing may surface in the description and tags, so a
+ *  brand stays searchable; a name never does. */
 export interface LfPublicItemDTO {
   id: string;
   title: string;
@@ -2033,8 +2035,12 @@ export interface LfStaffItemDTO extends Omit<LfPublicItemDTO, "pending"> {
   status: LfItemStatus;
   tagStatus: LfTagStatus;
   tagError: string | null;
-  /** Writing the model read off the item — often a child's name. Staff-only. */
+  /** All writing the model read off the item. Staff-only; any writing keeps
+   *  the item held until staff publish. */
   visibleText: string;
+  /** The person's name within that writing, if any (migration 0038). Staff-only,
+   *  and the only words scrubbed from the public title/description/tags. */
+  nameText: string;
   /** Hidden from the public listing by staff (a face in frame, a duplicate). */
   hiddenAt: string | null;
   /** Held back until staff publish it: every item starts held, and the model
@@ -2082,6 +2088,7 @@ export interface LfItemPatch {
   brand: string;
   material: string;
   visibleText: string;
+  nameText: string;
   tags: string[];
   location: string;
 }

@@ -62,7 +62,8 @@ function row(over: Partial<LfItemRow> = {}): LfItemRow {
     colors: '["blue"]',
     brand: "Hydro Flask",
     material: "metal",
-    visible_text: "MILO R.",
+    visible_text: "MILO R. NIKE",
+    name_text: "MILO R.",
     tags: '["bottle","flask"]',
     location: "Gym",
     search_text: "blue water bottle",
@@ -249,6 +250,7 @@ function submitEnv(opts: { onRoster: boolean }) {
                   ...row(),
                   id: ins.args[0],
                   visible_text: "",
+                  name_text: "",
                   held_at: ins.args[4],
                   member_submitted: ins.args[7],
                   open_claims: 0,
@@ -351,6 +353,7 @@ describe("PUT /lostfound/items/:id/thumb ownership", () => {
     held_at: "2026-10-01T15:00:00.000Z",
     tag_status: "pending",
     visible_text: "",
+    name_text: "",
   };
 
   it("lets the item's creator send the thumbnail while it is held and pending, and nobody else off the roster", async () => {
@@ -426,34 +429,55 @@ describe("publicItemOf", () => {
 describe("scrubNames", () => {
   const fields = (over: Partial<ReturnType<typeof cleanFields>>) => ({ ...cleanFields({ title: "x" }), ...over });
 
-  it("cuts words read off the item from the title, description and tags", () => {
+  it("cuts the NAME read off the item from the title, description and tags", () => {
     const out = scrubNames(
       fields({
         title: "Milo's blue jacket",
         description: "Blue jacket; the tag says Milo Rivera.",
         tags: ["jacket", "milo", "rivera"],
-        visibleText: "Milo Rivera",
+        visibleText: "Milo Rivera NIKE",
+        nameText: "Milo Rivera",
       }),
     );
     expect(JSON.stringify([out.title, out.description, out.tags])).not.toMatch(/milo|rivera/i);
-    expect(out.visibleText).toBe("Milo Rivera");
+    expect(out.visibleText).toBe("Milo Rivera NIKE");
+    expect(out.nameText).toBe("Milo Rivera");
   });
 
-  it("keeps the brand even when the brand is written on the item", () => {
-    const out = scrubNames(fields({ title: "Hydro Flask bottle", brand: "Hydro Flask", visibleText: "HYDRO FLASK" }));
+  it("keeps non-name writing — a brand on the item has to stay searchable (migration 0038)", () => {
+    // The first scrub cut EVERY word read off the item, and parents searching
+    // "Nike" couldn't find their children's clothing. Only `nameText` is cut;
+    // the hold (any writing keeps the item held for staff) is the backstop.
+    const out = scrubNames(
+      fields({
+        title: "Nike hoodie",
+        description: "Gray Nike hoodie, Minnesota Twins patch.",
+        tags: ["nike", "hoodie", "twins"],
+        visibleText: "NIKE Minnesota Twins",
+        nameText: "",
+      }),
+    );
+    expect(out.title).toBe("Nike hoodie");
+    expect(out.description).toContain("Nike");
+    expect(out.tags).toEqual(["nike", "hoodie", "twins"]);
+  });
+
+  it("keeps the brand even when the brand is also the name read", () => {
+    const out = scrubNames(fields({ title: "Hydro Flask bottle", brand: "Hydro Flask", nameText: "HYDRO FLASK" }));
     expect(out.title).toBe("Hydro Flask bottle");
   });
 
   it("handles names with accents", () => {
-    const out = scrubNames(fields({ title: "Chaqueta de Zoë", visibleText: "Zoë" }));
+    const out = scrubNames(fields({ title: "Chaqueta de Zoë", nameText: "Zoë" }));
     expect(out.title).not.toContain("Zoë");
   });
 });
 
 describe("searchTextOf", () => {
-  it("is built without visible_text, so the public search can't confirm a name", () => {
-    const f = cleanFields({ title: "Red lunch box", visibleText: "AVA K" });
+  it("is built without visible_text or name_text, so the public search can't confirm a name", () => {
+    const f = cleanFields({ title: "Red lunch box", visibleText: "AVA K wrote this", nameText: "AVA K" });
     expect(searchTextOf(f, "Cafeteria")).not.toContain("ava");
+    expect(searchTextOf(f, "Cafeteria")).not.toContain("wrote");
   });
 });
 
@@ -647,6 +671,14 @@ describe("the hold (a name can be in the PHOTO)", () => {
 
   it("is kept when the model read writing", async () => {
     expect(await aiWrite({ title: "Red mitten", visible_text: "AVA" })).toContain("held_at = COALESCE(held_at, ?)");
+  });
+
+  it("is kept for NON-NAME writing too — the narrower scrub (migration 0038) leans on this", async () => {
+    // Only `name_text` is scrubbed from public fields now, so the hold is the
+    // one guarantee left when the model misfiles a name as a brand: staff see
+    // the photo before anything goes public.
+    const sql = await aiWrite({ title: "Gray hoodie", visible_text: "NIKE", name_text: "" });
+    expect(sql).toContain("held_at = COALESCE(held_at, ?)");
   });
 
   it("is never touched by a staff save — publishing is its own act", async () => {

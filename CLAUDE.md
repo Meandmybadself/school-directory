@@ -1030,20 +1030,28 @@ Worker, sharing one session:
    `seed/dev-seed.sql` approves its users directly (the seed runs AFTER
    migrations).
 
-33. **Lost & found: the item is public; what is WRITTEN on it is not — and
+33. **Lost & found: the item is public; a NAME written on it is not — and
    neither is the photo until somebody has looked.**
    `lostandfound.eisenhower.school` (apps/lostandfound, routes/lostFound*.ts,
    lib/lostFound.ts, migration 0033): staff — and any signed-in member —
    photograph found items, a Workers AI vision model describes them, anyone may
    browse and claim. Four rules square that with `/privacy`:
-   - **`visible_text` is staff-only** (on a school water bottle it's a child's
-     name). `publicItemOf` is the only builder of the public shape and never
-     reads it; `scrubNames` cuts those words from title/description/tags (the
-     prompt asks for names only in `visible_text`; asking a model is not a
-     guarantee). `test/lostFound.test.ts` pins the key set.
+   - **`visible_text` (ALL writing read off the item) and `name_text` (the
+     person's name in it, migration 0038) are staff-only** (on a school water
+     bottle the writing is a child's name). `publicItemOf` is the only builder
+     of the public shape and reads neither; `scrubNames` cuts `name_text`'s
+     words — and ONLY those — from title/description/tags (the prompt asks for
+     names only in those two fields; asking a model is not a guarantee).
+     Non-name writing stays on purpose: the first scrub cut every word read,
+     and a brand on a hoodie ("NIKE") vanished from its description and
+     search, so parents couldn't find their children's clothing (2026-10).
+     What makes the narrower scrub safe is the HOLD below, not the model's
+     judgement — any writing at all still parks the item in front of staff
+     before it is published. `test/lostFound.test.ts` pins the key set.
    - **The public search can't confirm a name**: `search_text` and the
-     Vectorize embedding are built WITHOUT `visible_text` (invariant 18 —
-     "does any item say Milo?" is the oracle invariant 24 forbids).
+     Vectorize embedding are built WITHOUT `visible_text` and `name_text`
+     (invariant 18 — "does any item say Milo?" is the oracle invariant 24
+     forbids).
    - **Every item starts HELD** (`held_at` on insert). The model releases only
      when it read NO writing; writing, a failure, or no AI binding leaves it
      held until staff Publish (`lostfound.item.published`) — the PHOTO can

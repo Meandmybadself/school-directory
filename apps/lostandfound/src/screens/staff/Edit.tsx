@@ -28,6 +28,7 @@ function patchOf(item: LfStaffItemDetailDTO): LfItemPatch {
     brand: item.brand,
     material: item.material,
     visibleText: item.visibleText,
+    nameText: item.nameText,
     tags: item.tags,
     location: item.location,
   };
@@ -233,9 +234,11 @@ export function Edit() {
                     </span>
                   )}
                   <span>
-                    {item.visibleText
-                      ? `The AI read writing on this item: “${item.visibleText}”. If the photo shows a child's name, retake it with the label turned away (delete this item and upload again), then publish.`
-                      : item.tagStatus === "pending"
+                    {item.nameText
+                      ? `The AI read a name on this item: “${item.nameText}”. If the photo shows it, retake it with the label turned away (delete this item and upload again), then publish.`
+                      : item.visibleText
+                        ? `The AI read writing on this item: “${item.visibleText}” — it doesn't look like a name, so it stays in the description and search. Check the photo for any names before publishing.`
+                        : item.tagStatus === "pending"
                         ? "Waiting for the AI to check the photo…"
                         : item.tagStatus === "failed"
                           ? "The AI couldn't check this photo. Look for any names before publishing."
@@ -305,6 +308,13 @@ export function Edit() {
                   value={form.visibleText}
                   max={300}
                   onChange={(v) => set("visibleText", v)}
+                />
+                <TextField
+                  id="name-text"
+                  label="Name on it (staff only — these words are cut from the public description)"
+                  value={form.nameText}
+                  max={300}
+                  onChange={(v) => set("nameText", v)}
                 />
                 <TextField
                   id="tags"

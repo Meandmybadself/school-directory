@@ -5,24 +5,32 @@
 // THREE SEAMS, and the file is arranged around them.
 //
 //  1. `publicItemOf` — the ONLY builder of what an anonymous visitor sees,
-//     field by field (invariant 12's rule). `visible_text` never passes through
-//     it: that column is whatever the model read off the item, which on a
-//     school jacket is usually a child's name, and this project's privacy page
-//     promises nothing about a child is public.
+//     field by field (invariant 12's rule). `visible_text` (everything the
+//     model read off the item) and `name_text` (the person's name in that
+//     writing, migration 0038) never pass through it: on a school jacket the
+//     writing is usually a child's name, and this project's privacy page
+//     promises nothing about a child is public. Non-name writing — a brand, a
+//     team — is allowed to surface in the description and tags, because that
+//     is how parents search ("Nike hoodie"), and the first design scrubbed it
+//     all and made children's clothing unfindable.
 //
 //  2. `searchTextOf` / `embeddingTextOf` — what the PUBLIC search matches on.
-//     Both are built without `visible_text`, because a search may not match on
-//     more than it renders (invariant 18), and a public "does any item say
-//     Milo?" would confirm a child's presence at the school — the name oracle
-//     invariant 24 forbids.
+//     Both are built without `visible_text` and `name_text`, because a search
+//     may not match on more than it renders (invariant 18), and a public "does
+//     any item say Milo?" would confirm a child's presence at the school — the
+//     name oracle invariant 24 forbids.
 //
 //  3. `tagItem` — the model's write. Guarded on `tag_status = 'pending'`, so a
 //     staff member who saves their own edits while the model is still thinking
 //     wins: the item is no longer pending and the model's answer is dropped
 //     rather than written over theirs.
 //
-// The model is told to keep names out of everything but `visible_text`, and
-// `scrubNames` enforces it afterwards: telling a model is not a guarantee.
+// The model is told to keep names out of everything but `visible_text` and
+// `name_text`, and `scrubNames` enforces it afterwards (cutting `name_text`'s
+// words from the public fields): telling a model is not a guarantee. The
+// guarantee behind BOTH is the hold — an item with ANY writing waits for staff
+// eyes before publishing, so a name the model misfiled as not-a-name still
+// passes a person on its way to the public page.
 
 import { LF_CATEGORIES, LF_COLORS, LF_DONATE_AFTER_DAYS, LF_ROTATIONS } from "@sd/shared";
 import type { LfClaimDTO, LfPublicItemDTO, LfRotation, LfStaffItemDTO } from "@sd/shared";
@@ -59,6 +67,9 @@ export interface LfItemRow {
   brand: string;
   material: string;
   visible_text: string;
+  /** The person's name within that writing, if any (migration 0038). Staff-only
+   *  like `visible_text`; the ONLY source `scrubNames` cuts from public text. */
+  name_text: string;
   tags: string;
   location: string;
   search_text: string;
@@ -188,6 +199,7 @@ export function staffItemOf(row: LfStaffRow, origin: string): LfStaffItemDTO {
     tagStatus: row.tag_status,
     tagError: row.tag_error,
     visibleText: row.visible_text,
+    nameText: row.name_text,
     hiddenAt: row.hidden_at,
     heldAt: row.held_at,
     returnedAt: row.returned_at,
@@ -241,6 +253,7 @@ export interface LfFields {
   brand: string;
   material: string;
   visibleText: string;
+  nameText: string;
   tags: string[];
 }
 
@@ -272,6 +285,7 @@ export function cleanFields(o: Record<string, unknown>): LfFields {
     brand: cleanText(o.brand, 80),
     material: cleanText(o.material, 80),
     visibleText: cleanText(o.visibleText ?? o.visible_text, 300),
+    nameText: cleanText(o.nameText ?? o.name_text, 300),
     tags: cleanList(o.tags).slice(0, 20),
   };
 }
@@ -286,16 +300,23 @@ export function cleanRotation(v: unknown): LfRotation {
 /**
  * Remove the words the model read off the item from everything public.
  *
- * The prompt already asks for names only in `visible_text`; this is the part
- * that doesn't rely on being obeyed. Any word of three or more letters from
- * `visible_text` that isn't part of the brand is cut from the title,
- * description and tags. Over-eager by design — losing "Blue" from a
- * description because the bottle also says "BLUE" is a cheap price for a
- * child's name never reaching the public page.
+ * The prompt already asks for names only in `visible_text` and `name_text`;
+ * this is the part that doesn't rely on being obeyed. Any word of three or
+ * more letters from `name_text` that isn't part of the brand is cut from the
+ * title, description and tags.
+ *
+ * `name_text`, NOT `visible_text` (migration 0038): the first version cut
+ * every word read off the item, and that made brands unsearchable — "NIKE"
+ * on a hoodie vanished from its description and tags, and parents searching
+ * by brand couldn't find their children's clothing. Non-name writing now
+ * stays. What makes the narrower scrub safe is the HOLD, not the model's
+ * judgement: an item with ANY writing (`visible_text`), name or not, waits
+ * for staff eyes before it is published, so a name the model misfiled is a
+ * held photo in front of a person, not a public page.
  */
 export function scrubNames(f: LfFields): LfFields {
   const brandWords = new Set(f.brand.toLowerCase().match(/\p{L}+/gu) ?? []);
-  const words = [...new Set(f.visibleText.toLowerCase().match(/\p{L}{3,}/gu) ?? [])].filter(
+  const words = [...new Set(f.nameText.toLowerCase().match(/\p{L}{3,}/gu) ?? [])].filter(
     (w) => !brandWords.has(w),
   );
   if (!words.length) return f;
@@ -310,8 +331,8 @@ export function scrubNames(f: LfFields): LfFields {
   };
 }
 
-/** The public keyword haystack. NOT visible_text — see the header. */
-export function searchTextOf(f: Omit<LfFields, "visibleText">, location: string): string {
+/** The public keyword haystack. NOT visible_text or name_text — see the header. */
+export function searchTextOf(f: Omit<LfFields, "visibleText" | "nameText">, location: string): string {
   return [f.title, f.description, f.category, f.colors.join(" "), f.brand, f.material, f.tags.join(" "), location]
     .join(" ")
     .toLowerCase();
@@ -362,7 +383,7 @@ export async function saveFields(
   const { meta } = await env.DB.prepare(
     `UPDATE lf_item
         SET tag_status = 'tagged', tag_error = NULL, title = ?, description = ?, category = ?, colors = ?,
-            brand = ?, material = ?, visible_text = ?, tags = ?, location = ?, search_text = ?, updated_at = ?${hold}${turn}
+            brand = ?, material = ?, visible_text = ?, name_text = ?, tags = ?, location = ?, search_text = ?, updated_at = ?${hold}${turn}
       WHERE id = ?${onlyIfPending ? " AND tag_status = 'pending'" : ""}`,
   )
     .bind(
@@ -373,6 +394,7 @@ export async function saveFields(
       f.brand,
       f.material,
       f.visibleText,
+      f.nameText,
       JSON.stringify(f.tags),
       current,
       searchTextOf(f, current),
@@ -402,11 +424,12 @@ Reply with only a JSON object with exactly these keys:
 - "colors": array of 1-4 main colors, most prominent first, each one of: ${LF_COLORS.join(", ")}
 - "brand": brand name if you can read it or clearly recognize the logo, otherwise ""
 - "material": main material (e.g. metal, plastic, fleece, cotton, leather), or ""
-- "visible_text": any readable writing on the item, especially names, exactly as written, otherwise ""
+- "visible_text": any readable writing on the item, exactly as written, otherwise ""
+- "name_text": the part of that writing that is a person's name (a child's first or last name, initials, a family name on a label), exactly as written, otherwise "". A brand, team, character, school or slogan is NOT a person's name
 - "tags": array of 5-12 lowercase search keywords a parent might type, including synonyms (e.g. "bottle", "flask", "tumbler") and notable features
 - "rotation": how many degrees the photo must be turned CLOCKWISE so the item stands the way it is normally used or worn (a bottle cap up, a jacket collar up, text reading left to right): exactly one of 0, 90, 180, 270. Use 0 if it is already upright or if you can't tell
 
-Names of people must appear ONLY in "visible_text" — never in the title, description, or tags.
+Names of people must appear ONLY in "visible_text" and "name_text" — never in the title, description, or tags.
 Never guess a brand or name you can't actually read.`;
 
 /** Ask the model once. Plain JSON mode: strict `json_schema` decoding with
