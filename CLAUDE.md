@@ -11,7 +11,8 @@ file and the tests are the current contract.
 
 Single-tenant **school directory**, live in production, plus the services that
 grew on its identity: a calendar with volunteer sign-ups, a newsletter, a merch
-store, the PTO's site and planning boards, and a lost & found.
+store, the PTO's site and planning boards, a lost & found, and the game-night
+bingo board.
 Cloudflare-native: React/Vite (Pages) + Hono (Workers) + D1 + R2, with
 Cloudflare email (Email Sending + Routing on `sitemail.eisenhower.school`;
 Resend as the dormant fallback channel), Nominatim geocoding, Stripe +
@@ -21,11 +22,12 @@ Slack webhook.
 The directory is **members-only; there is no public visibility level.** The
 deliberately-open surfaces are: the front door, the calendar agenda and event
 pages, volunteer COUNTS, the sent-newsletter archive, published ICS feeds, the
-storefront, an order's status page, the PTO's explanatory pages, and lost &
-found browse/claim. Each is served through a hand-written projection
-(invariants 12, 13, 15, 26, 33) or, for the PTO landing page, no read at all
-(invariant 28). Everything else — every volunteer NAME included — needs a
-session.
+storefront, an order's status page, the PTO's explanatory pages, lost & found
+browse/claim, and the live bingo board (numbers only — `readBingoState`,
+lib/bingo.ts; writes need a session). Each is served through a hand-written
+projection (invariants 12, 13, 15, 26, 33) or, for the PTO landing page, no
+read at all (invariant 28). Everything else — every volunteer NAME included —
+needs a session.
 
 ## Repository layout
 
@@ -38,6 +40,7 @@ apps/store          Store SPA → store.eisenhower.school. Cart + admin in the b
 apps/api            Hono Worker → api-directory.eisenhower.school. Serves ALL the SPAs. Routes in src/routes, logic in src/lib, middleware in src/middleware.
 apps/pto            PTO SPA → pto.eisenhower.school. Planning boards (members AND PTO-board only) in the bundle, PLUS Pages Functions serving the PUBLIC, INDEXED explanatory pages (/, /resource-center; /how-to-help 301s to /). Design system COPIED. Routing: ROUTING.md.
 apps/lostandfound   Lost & found SPA → lostandfound.eisenhower.school. Public browse/search/item/claim (open, NOT indexed) + member submit (any session; items held for review) + staff screens (roster-gated) in one bundle; no Pages Functions. Design system COPIED. Invariant 33.
+apps/bingo          Game-night bingo board (Lit, not React) → bingo.eisenhower.school. Public to WATCH (open, NOT indexed; polls /bingo-public/state); operating needs any session (PUT /bingo/state). Keeps the game's own fullscreen look — deliberately NO design-system copy, no AppShell, not in PLATFORM_APPS. Based on github.com/Meandmybadself/bingo-board; state in D1 (migration 0040).
 apps/redirect       One-file Worker for hostnames that only 301 (retired directory.meandmybadself.com, ptomeet.eisenhower.school). Host map in src/index.ts; each host also a custom_domain route in wrangler.toml.
 apps/api/migrations Ordered D1 SQL migrations (NNNN_name.sql). Never edit an applied migration — add a new one.
 packages/shared     Domain types (types.ts) + i18n dictionaries (i18n.ts). Imported as `@sd/shared`.
@@ -89,9 +92,9 @@ footer, `?lang=` helpers) lives in `shell.ts`, imported by all three.
   rules run BEFORE Workers, so if the apex ever 301s again, look for a
   resurrected rule in the zone before debugging the Worker.
 
-## Six front ends, one API
+## Seven front ends, one API
 
-All six SPAs are separate Pages projects talking to the single `apps/api`
+All seven SPAs are separate Pages projects talking to the single `apps/api`
 Worker, sharing one session:
 
 - **`sd_session` has no `Domain`** — host-only to the API hostname. All SPAs
@@ -101,10 +104,11 @@ Worker, sharing one session:
   `apps/api/wrangler.toml` (both `[vars]` and `[env.production.vars]`). That
   list is also the allowlist of magic-link `returnTo` targets — same trust
   boundary, deliberately one variable.
-- The five non-web apps **copy** `tokens.css`, `Icon.tsx`, `atoms.tsx` and the
-  generic half of `parts.tsx` from `apps/web`. They're expected to drift. A
+- Five of the non-web apps **copy** `tokens.css`, `Icon.tsx`, `atoms.tsx` and
+  the generic half of `parts.tsx` from `apps/web`. They're expected to drift. A
   change to a shared-looking component is a decision about which of the six
-  copies need it.
+  copies need it. `apps/bingo` is the deliberate exception: a fullscreen game
+  board with its own look, no design-system copy, no `AppShell`.
 - **Navigation has two tiers.** An app's OWN screens are its `navItems()` in
   `AppShell.tsx` (labels are dictionary keys; admin entry is `shield` +
   `navAdmin`). The platform switcher is `PLATFORM_APPS` in
@@ -1206,7 +1210,8 @@ cp apps/api/.dev.vars.example apps/api/.dev.vars
 pnpm db:migrate:local && pnpm db:seed:local
 pnpm dev          # every app in apps/* with a dev script, in parallel:
                   # web :5173, calendar :5174, newsletter :5175, home :5176,
-                  # store :5177, pto :5178, lostandfound :5179, api :8787
+                  # store :5177, pto :5178, lostandfound :5179, bingo :5180,
+                  # api :8787
 pnpm dev:home     # just the apex landing page (wrangler dev) on :5176
 ```
 
@@ -1250,9 +1255,9 @@ Create `apps/api/migrations/NNNN_description.sql` (next number). Update
   (typecheck + test + build) — but a migration that typechecks and still ruins
   data is not something that gate catches. A migration is the one change worth
   re-reading before merge.
-- The Worker deploys (`api`, `redirect`, `home`) and the six Pages projects
+- The Worker deploys (`api`, `redirect`, `home`) and the seven Pages projects
   (`school-directory`, `school-calendar`, `school-newsletter`, `school-store`,
-  `school-pto`, `school-lostandfound`) ship from one workflow. A new front end
+  `school-pto`, `school-lostandfound`, `school-bingo`) ship from one workflow. A new front end
   means: a step there, an origin in `ALLOWED_ORIGINS`, a line in the root
   `build` script (CI runs it, so an app missing from it never builds before it
   ships), and a Pages project + custom domain attached BY HAND — CI deploys to

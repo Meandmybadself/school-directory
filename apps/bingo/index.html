@@ -1,0 +1,136 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <!-- Public, but deliberately NOT indexed: the board is a game-night tool,
+         not one of the four indexed surfaces (CLAUDE.md, "The front door"). -->
+    <meta name="robots" content="noindex,nofollow" />
+    <meta name="theme-color" content="#222222" />
+    <!-- No external fonts on purpose, unlike the app this is based on: a font
+         CDN is a third party /privacy would have to name. System fonts only. -->
+    <link rel="icon" href="data:," />
+    <title>Bingo</title>
+    <style>
+      body,
+      html {
+        height: 100%;
+        width: 100%;
+        margin: 0;
+        padding: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: white;
+        font-family:
+          -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+      }
+
+      @media (prefers-color-scheme: dark) {
+        body,
+        html {
+          background: #111;
+        }
+      }
+
+      .container {
+        width: 100%;
+      }
+      bingo-board {
+        display: block;
+        margin: 5vh 0;
+        height: 90vh;
+      }
+      .container:fullscreen {
+        background: #222;
+      }
+      .container:fullscreen bingo-board {
+        margin: 0;
+        height: 100vh;
+      }
+
+      /* The sign-in sheet (src/signin.ts). Plain DOM over the board. */
+      .signin-overlay {
+        position: fixed;
+        inset: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: rgba(0, 0, 0, 0.65);
+        z-index: 10;
+      }
+      .signin-overlay[hidden] {
+        display: none;
+      }
+      .signin-card {
+        background: white;
+        color: #222;
+        border-radius: 1em;
+        padding: 2em;
+        width: min(26em, calc(100vw - 2em));
+        box-sizing: border-box;
+        box-shadow: 0 1em 3em rgba(0, 0, 0, 0.4);
+      }
+      .signin-card h2 {
+        margin: 0 0 0.5em;
+        font-size: 1.4em;
+      }
+      .signin-card p {
+        margin: 0 0 1.25em;
+        line-height: 1.45;
+        color: #444;
+      }
+      .signin-card label {
+        display: block;
+        font-weight: 700;
+        font-size: 0.85em;
+        margin-bottom: 0.35em;
+      }
+      .signin-card input[type="email"] {
+        width: 100%;
+        box-sizing: border-box;
+        font-size: 1.1em;
+        padding: 0.6em 0.75em;
+        border: 2px solid #ccc;
+        border-radius: 0.5em;
+        margin-bottom: 1.25em;
+      }
+      .signin-card input[type="email"]:focus {
+        outline: none;
+        border-color: #c00;
+      }
+      .signin-actions {
+        display: flex;
+        gap: 0.75em;
+        justify-content: flex-end;
+      }
+      .signin-actions button {
+        font: inherit;
+        font-weight: 700;
+        padding: 0.6em 1.2em;
+        border-radius: 0.5em;
+        border: none;
+        cursor: pointer;
+      }
+      .signin-actions button[type="submit"] {
+        background: #c00;
+        color: white;
+      }
+      .signin-actions button[type="submit"]:disabled {
+        opacity: 0.5;
+        cursor: default;
+      }
+      .signin-actions button.cancel {
+        background: #eee;
+        color: #222;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <bingo-board></bingo-board>
+    </div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

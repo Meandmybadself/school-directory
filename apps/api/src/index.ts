@@ -41,6 +41,8 @@ import { storeWebhooks } from "./routes/storeWebhooks.js";
 import { pto } from "./routes/pto.js";
 import { lostFound } from "./routes/lostFound.js";
 import { lostFoundPublic } from "./routes/lostFoundPublic.js";
+import { bingo } from "./routes/bingo.js";
+import { bingoPublic } from "./routes/bingoPublic.js";
 import { getItem as getLfItem, isListed, itemIdOfKey, retagStuck, sweepLostFound } from "./lib/lostFound.js";
 import { emailHandler } from "./email.js";
 
@@ -95,6 +97,8 @@ app.route("/store-webhooks", storeWebhooks);
 app.route("/pto", pto);
 app.route("/lostfound", lostFound); // staff — system admins + the staff group (invariant 33)
 app.route("/lostfound-public", lostFoundPublic); // browse, search, "that's mine" — no auth by design
+app.route("/bingo", bingo); // operating the game-night board — any session
+app.route("/bingo-public", bingoPublic); // the live board, numbers only — no auth by design
 // share-targets is exposed under /shares/targets via the shares router.
 app.route("/", contacts); // /persons/:id/contacts + /contacts/:id
 app.route("/", controllers); // /persons/:id/controllers + /control-invites

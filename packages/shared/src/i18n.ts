@@ -940,6 +940,13 @@ export interface Strings {
   lfColorBrown: string;
   lfColorTan: string;
   lfColorMulticolor: string;
+
+  // bingo (apps/bingo) — the game-night board. The letters and numbers are the
+  // game itself, not copy; these are the chrome around them. The sign-in form
+  // reuses signInLead / emailLabel / emailLink / checkEmailTitle / checkEmailLead.
+  bingoViewOnly: string;
+  bingoSignInTitle: string;
+  bingoSyncError: string;
 }
 
 const en: Strings = {
@@ -1819,6 +1826,10 @@ const en: Strings = {
   lfColorBrown: "brown",
   lfColorTan: "tan",
   lfColorMulticolor: "multicolor",
+
+  bingoViewOnly: "Watching — sign in to run the board",
+  bingoSignInTitle: "Sign in to run the board",
+  bingoSyncError: "Offline — the board will catch up when the connection returns.",
 };
 
 const es: Strings = {
@@ -2642,6 +2653,10 @@ const es: Strings = {
   lfColorBrown: "café",
   lfColorTan: "beige",
   lfColorMulticolor: "multicolor",
+
+  bingoViewOnly: "Solo espectador — inicia sesión para manejar el tablero",
+  bingoSignInTitle: "Inicia sesión para manejar el tablero",
+  bingoSyncError: "Sin conexión — el tablero se pondrá al día cuando vuelva la conexión.",
 };
 
 const zh: Strings = {
@@ -3428,6 +3443,10 @@ const zh: Strings = {
   lfColorBrown: "棕色",
   lfColorTan: "米色",
   lfColorMulticolor: "多色",
+
+  bingoViewOnly: "观看模式 — 登录后可操作游戏板",
+  bingoSignInTitle: "登录以操作游戏板",
+  bingoSyncError: "已离线 — 网络恢复后游戏板会自动同步。",
 };
 
 const so: Strings = {
@@ -4309,6 +4328,10 @@ const so: Strings = {
   lfColorBrown: "bunni",
   lfColorTan: "bunni khafiif ah",
   lfColorMulticolor: "midabbo badan",
+
+  bingoViewOnly: "Daawasho kaliya — gal si aad looxa u maamusho",
+  bingoSignInTitle: "Gal si aad looxa bingo u maamusho",
+  bingoSyncError: "Khadku wuu maqan yahay — looxu wuu is cusboonaysiin doonaa marka xiriirku soo noqdo.",
 };
 
 export const dictionaries: Record<Locale, Strings> = { en, es, zh, so };

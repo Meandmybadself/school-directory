@@ -14,8 +14,9 @@ APP_URL = "http://localhost:5173"
 # the allowlist of valid magic-link return targets — same trust boundary.
 # 5173 = directory (apps/web), 5174 = calendar (apps/calendar),
 # 5175 = newsletter (apps/newsletter), 5177 = store (apps/store),
-# 5178 = pto (apps/pto), 5179 = lost & found (apps/lostandfound).
-ALLOWED_ORIGINS = "http://localhost:5173,http://localhost:5174,http://localhost:5175,http://localhost:5177,http://localhost:5178,http://localhost:5179"
+# 5178 = pto (apps/pto), 5179 = lost & found (apps/lostandfound),
+# 5180 = bingo (apps/bingo).
+ALLOWED_ORIGINS = "http://localhost:5173,http://localhost:5174,http://localhost:5175,http://localhost:5177,http://localhost:5178,http://localhost:5179,http://localhost:5180"
 # Public origin of the newsletter app. Sent emails link here for "view in
 # browser" and unsubscribe, so it must be the reader-facing host, not the API.
 # Public calendar site. Newsletter events blocks link out to it ("See all
@@ -202,7 +203,7 @@ simple = { limit = 60, period = 60 }
 [env.production.vars]
 SCHOOL_NAME = "Eisenhower PTO"
 APP_URL = "https://directory.eisenhower.school"
-ALLOWED_ORIGINS = "https://directory.eisenhower.school,https://calendar.eisenhower.school,https://newsletter.eisenhower.school,https://store.eisenhower.school,https://pto.eisenhower.school,https://lostandfound.eisenhower.school"
+ALLOWED_ORIGINS = "https://directory.eisenhower.school,https://calendar.eisenhower.school,https://newsletter.eisenhower.school,https://store.eisenhower.school,https://pto.eisenhower.school,https://lostandfound.eisenhower.school,https://bingo.eisenhower.school"
 CALENDAR_URL = "https://calendar.eisenhower.school"
 NEWSLETTER_URL = "https://newsletter.eisenhower.school"
 STORE_URL = "https://store.eisenhower.school"

@@ -1,0 +1,19 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "noEmit": true,
+    "types": ["vite/client"],
+    // Lit's @customElement/@state decorators — the TypeScript config Lit
+    // documents: legacy decorators, fields assigned in the constructor.
+    "experimentalDecorators": true,
+    "useDefineForClassFields": false,
+    "paths": {
+      "@sd/shared": ["../../packages/shared/src/index.ts"],
+      "@sd/shared/*": ["../../packages/shared/src/*"]
+    }
+  },
+  "include": ["src"]
+}

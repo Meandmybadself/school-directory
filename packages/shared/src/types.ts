@@ -2117,6 +2117,31 @@ export interface LfAccessDTO {
 /** Days after which an unclaimed item is flagged for donation. */
 export const LF_DONATE_AFTER_DAYS = 120;
 
+// ── Bingo (apps/bingo, migration 0040) ────────────────────────────────────
+
+/** The live board — the whole of it. Served to ANYONE by
+ *  GET /bingo-public/state: the game is 75 numbers and which have been called,
+ *  so unlike every sibling public DTO there is nothing to withhold — but the
+ *  projection in lib/bingo.ts is still hand-built, field by field, so a column
+ *  added to `bingo_state` later does not reach the public response until
+ *  someone decides it should. */
+export interface BingoStateDTO {
+  /** Numbers called so far, 1–75, in call order. */
+  markedNumbers: number[];
+  /** The ball on display. Always one of `markedNumbers`, or null. */
+  currentNumber: number | null;
+  /** Null only before the first game is ever played. */
+  updatedAt: string | null;
+}
+
+/** PUT /bingo/state — the whole board, replaced. Full state rather than a
+ *  toggle delta so a retry after a dropped write is trivially safe
+ *  (last-write-wins, invariant 28's `position` reasoning). */
+export interface BingoStateInput {
+  markedNumbers: number[];
+  currentNumber: number | null;
+}
+
 // ── Audit ─────────────────────────────────────────────────────────────────
 
 /** Actions captured in the append-only audit log (FR-31). */
@@ -2345,4 +2370,13 @@ export type AuditAction =
   | "lostfound.claim.dismissed"
   /** A system admin named the group whose roster runs the lost & found. */
   | "lostfound.staff.configured"
+  /** The bingo board changed (migration 0040) — a number toggled, or the game
+   *  reset. One action for both: `detail` carries the counts, and a reset is
+   *  legible as `marked` dropping to 0. One row per PUT, which is one tap
+   *  during a game — human-paced like a PTO card move, so it is recorded
+   *  per-act rather than coalesced per sitting (invariant 5), and like
+   *  `pto.card.moved` it is not Slack-curated: a game night would be seventy
+   *  lines nobody reads. A no-op PUT (the state unchanged) writes nothing and
+   *  pushes no draft — the log must not be paddable by a double tap. */
+  | "bingo.updated"
   | "admin.action";

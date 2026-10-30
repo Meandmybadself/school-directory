@@ -193,3 +193,18 @@ jobs:
         run: |
           pnpm build
           pnpm exec wrangler pages deploy dist --project-name school-lostandfound --branch main
+
+      # The seventh front end: the game-night bingo board. Pure static and
+      # noindex like the lost & found — the live state is a public API GET
+      # (/bingo-public/state), not a server-rendered page, so there is nothing
+      # for a Function to do. The Pages project (`school-bingo`) and the
+      # bingo.eisenhower.school custom domain are created by hand once — CI
+      # deploys to them, it does not provision them.
+      - name: Build & deploy bingo (Pages)
+        if: steps.guard.outputs.enabled == 'true'
+        working-directory: apps/bingo
+        env:
+          VITE_API_URL: https://api-directory.eisenhower.school
+        run: |
+          pnpm build
+          pnpm exec wrangler pages deploy dist --project-name school-bingo --branch main
